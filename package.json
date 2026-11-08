@@ -1,0 +1,23 @@
+{
+  "name": "declassification-oversight",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Declassification escrow: AI redaction oracle, IPFS pinning and on-chain enforcement broker",
+  "license": "MIT",
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "upload": "node upload.js",
+    "broker": "node interact.js",
+    "compile": "node scripts/compile.js"
+  },
+  "dependencies": {
+    "axios": "^1.7.9",
+    "dotenv": "^16.4.7",
+    "ethers": "^6.13.4",
+    "form-data": "^4.0.1"
+  },
+  "devDependencies": {
+    "@openzeppelin/contracts": "^5.1.0",
+    "solc": "0.8.24"
+  }
+}

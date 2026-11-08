@@ -1,0 +1,432 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Oversight Dashboard</title>
+  <meta name="description" content="Declassification escrow oversight: fiscal-freeze countdown, AI redaction oracle feed, and public clawback trigger." />
+  <script src="https://cdn.tailwindcss.com/3.4.16"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;800&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { mono: ['"JetBrains Mono"', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'] },
+          colors: { term: { bg: '#05080a', panel: '#0a1014', line: '#16232b', green: '#3dff8b', dim: '#5f7a6c', amber: '#ffb547', red: '#ff4d5e', cyan: '#4dd6ff' } },
+        },
+      },
+    };
+  </script>
+  <style>
+    :root { color-scheme: dark; }
+    body { background: #05080a; }
+    .scanlines::after {
+      content: ''; pointer-events: none; position: fixed; inset: 0;
+      background: repeating-linear-gradient(to bottom, rgba(255,255,255,0.025) 0 1px, transparent 1px 3px);
+    }
+    .glow { text-shadow: 0 0 12px rgba(61,255,139,0.45); }
+    .glow-red { text-shadow: 0 0 14px rgba(255,77,94,0.55); }
+    .cursor::after { content: '\2588'; animation: blink 1s steps(1) infinite; margin-left: 2px; }
+    @keyframes blink { 50% { opacity: 0; } }
+    #log::-webkit-scrollbar { width: 6px; }
+    #log::-webkit-scrollbar-thumb { background: #16232b; }
+    @media (prefers-reduced-motion: reduce) { .cursor::after { animation: none; } }
+  </style>
+</head>
+<body class="scanlines min-h-screen bg-term-bg font-mono text-term-green antialiased">
+  <main class="mx-auto max-w-6xl px-4 py-6 sm:py-10">
+
+    <!-- Header -->
+    <header class="mb-6 flex flex-col gap-3 border-b border-term-line pb-4 sm:flex-row sm:items-end sm:justify-between">
+      <div>
+        <p class="text-xs uppercase tracking-[0.3em] text-term-dim">declassification oversight network</p>
+        <h1 class="glow mt-1 text-2xl font-extrabold sm:text-3xl">DECLASSIFICATION_ESCROW<span class="cursor"></span></h1>
+      </div>
+      <div class="flex flex-wrap items-center gap-2 text-xs">
+        <span id="modeBadge" class="rounded border border-term-amber px-2 py-1 text-term-amber">SIMULATION</span>
+        <span id="statusBadge" class="rounded border border-term-cyan px-2 py-1 text-term-cyan">AWAITING RELEASE</span>
+        <span class="break-all text-term-dim" id="escrowAddr">escrow: not connected</span>
+      </div>
+    </header>
+
+    <!-- Top stats -->
+    <section class="grid gap-4 md:grid-cols-3">
+      <div class="rounded border border-term-line bg-term-panel p-4 md:col-span-2">
+        <p class="text-xs uppercase tracking-widest text-term-dim">time remaining before fiscal freeze</p>
+        <div id="countdown" class="glow mt-2 grid grid-cols-4 gap-2 text-center" aria-live="polite">
+          <div><div id="cd-d" class="text-3xl font-extrabold sm:text-5xl">--</div><div class="text-[10px] text-term-dim">DAYS</div></div>
+          <div><div id="cd-h" class="text-3xl font-extrabold sm:text-5xl">--</div><div class="text-[10px] text-term-dim">HRS</div></div>
+          <div><div id="cd-m" class="text-3xl font-extrabold sm:text-5xl">--</div><div class="text-[10px] text-term-dim">MIN</div></div>
+          <div><div id="cd-s" class="text-3xl font-extrabold sm:text-5xl">--</div><div class="text-[10px] text-term-dim">SEC</div></div>
+        </div>
+        <p id="deadlineLabel" class="mt-3 text-xs text-term-dim">deadline: --</p>
+      </div>
+
+      <div class="rounded border border-term-line bg-term-panel p-4">
+        <p class="text-xs uppercase tracking-widest text-term-dim">locked operational budget</p>
+        <p id="budget" class="glow mt-2 break-all text-2xl font-extrabold sm:text-3xl">$1,450,000,000</p>
+        <dl class="mt-3 space-y-1 text-xs">
+          <div class="flex justify-between gap-2"><dt class="text-term-dim">clawed back</dt><dd id="clawed" class="text-term-amber">$0</dd></div>
+          <div class="flex justify-between gap-2"><dt class="text-term-dim">decay rate</dt><dd>5% / 24h</dd></div>
+          <div class="flex justify-between gap-2"><dt class="text-term-dim">next decay</dt><dd id="nextDecay">after deadline</dd></div>
+        </dl>
+      </div>
+    </section>
+
+    <!-- Ingestion progress -->
+    <section class="mt-4 rounded border border-term-line bg-term-panel p-4">
+      <div class="flex flex-wrap items-baseline justify-between gap-2 text-xs">
+        <p class="uppercase tracking-widest text-term-dim">batch ingestion</p>
+        <p><span id="batchLabel">BATCH 07 / JFK-ARCHIVE</span> · <span id="docCount">0 / 1,284</span> docs · <span id="pct" class="text-term-cyan">0.0%</span></p>
+      </div>
+      <div class="mt-3 h-4 w-full overflow-hidden rounded-sm border border-term-line bg-term-bg" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="progressWrap">
+        <div id="progress" class="h-full bg-term-green transition-[width] duration-500" style="width:0%; box-shadow: 0 0 12px rgba(61,255,139,.6)"></div>
+      </div>
+      <div class="mt-2 grid grid-cols-2 gap-2 text-[11px] text-term-dim sm:grid-cols-4">
+        <p>redactions: <span id="statRedactions" class="text-term-green">0</span></p>
+        <p>layout pass: <span id="statPass" class="text-term-green">0</span></p>
+        <p>flagged: <span id="statFlag" class="text-term-amber">0</span></p>
+        <p>pinned CIDs: <span id="statPinned" class="text-term-cyan">0</span></p>
+      </div>
+    </section>
+
+    <!-- Terminal + controls -->
+    <section class="mt-4 grid gap-4 lg:grid-cols-3">
+      <div class="rounded border border-term-line bg-black lg:col-span-2">
+        <div class="flex items-center justify-between border-b border-term-line px-3 py-2 text-[11px] text-term-dim">
+          <span>oracle@redaction-loop:~$ tail -f /var/log/oracle.log</span>
+          <button id="pauseBtn" class="rounded border border-term-line px-2 py-0.5 hover:border-term-green hover:text-term-green">pause</button>
+        </div>
+        <pre id="log" class="h-80 overflow-y-auto whitespace-pre-wrap break-words p-3 text-[11px] leading-relaxed sm:h-96 sm:text-xs" aria-live="off"></pre>
+      </div>
+
+      <div class="flex flex-col gap-4">
+        <div class="rounded border border-term-red/60 bg-term-panel p-4">
+          <p class="text-xs uppercase tracking-widest text-term-dim">public enforcement</p>
+          <p class="mt-2 text-xs leading-relaxed text-term-dim">Once the deadline passes without verified compliance, any citizen may claw back 5% of the remaining budget to the treasury, once every 24 hours.</p>
+          <button id="clawbackBtn" class="glow-red mt-4 w-full rounded border-2 border-term-red bg-term-red/10 px-4 py-3 text-sm font-extrabold uppercase tracking-widest text-term-red transition hover:bg-term-red/25 focus:outline-none focus:ring-2 focus:ring-term-red disabled:cursor-not-allowed disabled:opacity-40">
+            &#9888; Force Clawback
+          </button>
+          <p id="clawbackMsg" class="mt-2 min-h-[1.25rem] text-[11px] text-term-dim" aria-live="polite"></p>
+        </div>
+
+        <div class="rounded border border-term-line bg-term-panel p-4 text-xs">
+          <p class="uppercase tracking-widest text-term-dim">connection</p>
+          <p class="mt-2 leading-relaxed text-term-dim">Simulation runs entirely in this page. For live mode open with <code class="text-term-cyan">?escrow=0x…</code> and a browser wallet.</p>
+          <div class="mt-3 flex flex-wrap gap-2">
+            <button id="connectBtn" class="rounded border border-term-cyan px-3 py-1 text-term-cyan hover:bg-term-cyan/10">connect wallet</button>
+            <button id="expireBtn" class="rounded border border-term-amber px-3 py-1 text-term-amber hover:bg-term-amber/10">demo: expire deadline</button>
+            <button id="resetBtn" class="rounded border border-term-line px-3 py-1 text-term-dim hover:text-term-green">reset demo</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <footer class="mt-8 border-t border-term-line pt-4 text-[10px] text-term-dim">
+      Log feed and ingestion figures are simulated. Contract actions in live mode are real transactions.
+    </footer>
+  </main>
+
+  <script>
+  (() => {
+    'use strict';
+
+    // ------------------------------------------------------------------ state
+    const INITIAL_BUDGET = 1_450_000_000;
+    const DECAY_BPS = 500n;
+    const DAY_MS = 86_400_000;
+    const STORE_KEY = 'oversight-demo-v1';
+    const params = new URLSearchParams(location.search);
+    const ESCROW = params.get('escrow');
+    const $ = (id) => document.getElementById(id);
+
+    const store = {
+      load() { try { return JSON.parse(localStorage.getItem(STORE_KEY)) || null; } catch { return null; } },
+      save(s) { try { localStorage.setItem(STORE_KEY, JSON.stringify(s)); } catch { /* storage unavailable */ } },
+      clear() { try { localStorage.removeItem(STORE_KEY); } catch { /* ignore */ } },
+    };
+
+    function freshSim() {
+      const qd = Number(params.get('deadline'));
+      return {
+        deadline: Number.isFinite(qd) && qd > 0 ? qd * 1000 : Date.now() + 3 * DAY_MS + 7 * 3_600_000,
+        budget: INITIAL_BUDGET,
+        clawed: 0,
+        lastDecayAt: 0,
+        complies: false,
+      };
+    }
+    let sim = store.load() || freshSim();
+    const live = { enabled: false, contract: null, signer: null, decimals: 18, isEth: true };
+
+    // -------------------------------------------------------------- formatting
+    const usd = (n) => '$' + Math.round(n).toLocaleString('en-US');
+    const pad = (n) => String(n).padStart(2, '0');
+    const fmtDate = (ms) => new Date(ms).toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
+
+    // ---------------------------------------------------------------- terminal
+    const logEl = $('log');
+    const MAX_LINES = 400;
+    let paused = false;
+    const COLORS = { info: 'text-term-green', dim: 'text-term-dim', warn: 'text-term-amber', err: 'text-term-red', ok: 'text-term-cyan' };
+
+    function log(msg, level = 'info') {
+      const line = document.createElement('div');
+      line.className = COLORS[level] || COLORS.info;
+      const t = new Date().toISOString().slice(11, 23);
+      line.textContent = `[${t}] ${msg}`;
+      logEl.appendChild(line);
+      while (logEl.childElementCount > MAX_LINES) logEl.firstChild.remove();
+      const nearBottom = logEl.scrollHeight - logEl.scrollTop - logEl.clientHeight < 80;
+      if (nearBottom) logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    $('pauseBtn').addEventListener('click', (e) => {
+      paused = !paused;
+      e.target.textContent = paused ? 'resume' : 'pause';
+      log(paused ? 'feed paused by operator' : 'feed resumed', 'dim');
+    });
+
+    // ------------------------------------------------------------ mock oracle
+    const TOTAL_DOCS = 1284;
+    const stats = { done: 0, redactions: 0, pass: 0, flag: 0, pinned: 0 };
+    const hex = (n) => Array.from(crypto.getRandomValues(new Uint8Array(n)), (b) => b.toString(16).padStart(2, '0')).join('');
+    const b32 = (n) => { const a = 'abcdefghijklmnopqrstuvwxyz234567'; return Array.from(crypto.getRandomValues(new Uint8Array(n)), (b) => a[b % 32]).join(''); };
+    const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+    const SERIES = ['NARA-104-10', 'RIF-124-10', 'DOD-UAP-LOG', 'CIA-CREST', 'HSCA-180-10', 'AARO-INC'];
+
+    function mockStep() {
+      if (paused || stats.done >= TOTAL_DOCS) return;
+      const id = `${pick(SERIES)}-${String(Math.floor(Math.random() * 99999)).padStart(5, '0')}`;
+      const pages = 2 + Math.floor(Math.random() * 40);
+      const r = Math.floor(Math.random() * 7);
+      log(`ingest   ${id}  pages=${pages}  sha256=${hex(8)}…`, 'dim');
+      setTimeout(() => {
+        if (r > 0) log(`redact   ${id}  [REDACTED_BY_AI] x${r}  (living-operator: ${Math.ceil(r * 0.7)}, crypto-method: ${Math.floor(r * 0.3)})`);
+        else log(`redact   ${id}  no sensitive spans detected`);
+        stats.redactions += r;
+      }, 250);
+      setTimeout(() => {
+        const ok = Math.random() > 0.06;
+        if (ok) {
+          stats.pass++;
+          log(`verify   ${id}  layout_preserved=true line_ratio=${(0.99 + Math.random() * 0.01).toFixed(3)} idempotent=true`, 'ok');
+          stats.pinned++;
+          log(`pin      ${id}  cid=bafkrei${b32(52)}`, 'ok');
+        } else {
+          stats.flag++;
+          log(`verify   ${id}  FLAGGED unexplained_edit_ratio=${(0.03 + Math.random() * 0.05).toFixed(3)} -> requeued for agency review`, 'warn');
+        }
+        stats.done++;
+        renderProgress();
+        if (stats.done === TOTAL_DOCS) log('batch complete; awaiting agency submitDataHash() for aggregate CID', 'ok');
+      }, 650);
+    }
+
+    function renderProgress() {
+      const pct = (stats.done / TOTAL_DOCS) * 100;
+      $('progress').style.width = pct.toFixed(2) + '%';
+      $('progressWrap').setAttribute('aria-valuenow', pct.toFixed(1));
+      $('pct').textContent = pct.toFixed(1) + '%';
+      $('docCount').textContent = `${stats.done.toLocaleString()} / ${TOTAL_DOCS.toLocaleString()}`;
+      $('statRedactions').textContent = stats.redactions.toLocaleString();
+      $('statPass').textContent = stats.pass.toLocaleString();
+      $('statFlag').textContent = stats.flag.toLocaleString();
+      $('statPinned').textContent = stats.pinned.toLocaleString();
+    }
+
+    // -------------------------------------------------------------- countdown
+    let liveSnapshot = null; // { deadline, locked, clawed, lastDecayAt, complies }
+
+    function view() {
+      return live.enabled && liveSnapshot ? liveSnapshot : sim;
+    }
+
+    function renderClock() {
+      const v = view();
+      const left = Math.max(0, v.deadline - Date.now());
+      const d = Math.floor(left / DAY_MS);
+      const h = Math.floor((left % DAY_MS) / 3_600_000);
+      const m = Math.floor((left % 3_600_000) / 60_000);
+      const s = Math.floor((left % 60_000) / 1000);
+      $('cd-d').textContent = pad(d); $('cd-h').textContent = pad(h);
+      $('cd-m').textContent = pad(m); $('cd-s').textContent = pad(s);
+      $('deadlineLabel').textContent = `deadline: ${fmtDate(v.deadline)}`;
+
+      const expired = left === 0;
+      const cd = $('countdown');
+      cd.classList.toggle('text-term-red', expired && !v.complies);
+      cd.classList.toggle('glow-red', expired && !v.complies);
+
+      const badge = $('statusBadge');
+      if (v.complies) { badge.textContent = 'COMPLIANT · BUDGET RELEASED'; badge.className = 'rounded border border-term-green px-2 py-1 text-term-green'; }
+      else if (expired) { badge.textContent = 'FISCAL FREEZE ACTIVE'; badge.className = 'rounded border border-term-red px-2 py-1 text-term-red'; }
+      else { badge.textContent = 'AWAITING RELEASE'; badge.className = 'rounded border border-term-cyan px-2 py-1 text-term-cyan'; }
+
+      const next = nextDecayAt(v);
+      $('nextDecay').textContent = v.complies ? 'n/a (compliant)' : !expired ? 'after deadline' : next <= Date.now() ? 'AVAILABLE NOW' : fmtDate(next);
+      $('clawbackBtn').disabled = v.complies;
+    }
+
+    function nextDecayAt(v) {
+      const afterDeadline = v.deadline + 1000;
+      return v.lastDecayAt ? Math.max(v.lastDecayAt + DAY_MS, afterDeadline) : afterDeadline;
+    }
+
+    function renderBudget() {
+      const v = view();
+      if (live.enabled && liveSnapshot) {
+        const fmt = (x) => ethers.formatUnits(x, live.decimals) + (live.isEth ? ' ETH' : ' units');
+        $('budget').textContent = fmt(liveSnapshot.locked);
+        $('clawed').textContent = fmt(liveSnapshot.clawed);
+      } else {
+        $('budget').textContent = usd(v.budget);
+        $('clawed').textContent = usd(v.clawed);
+      }
+    }
+
+    // --------------------------------------------------------------- clawback
+    const msg = (text, level = 'dim') => { const el = $('clawbackMsg'); el.textContent = text; el.className = `mt-2 min-h-[1.25rem] text-[11px] ${COLORS[level]}`; };
+
+    async function forceClawback() {
+      log('citizen invoked progressiveDecay()', 'warn');
+      if (live.enabled) return liveClawback();
+
+      const now = Date.now();
+      if (sim.complies) return deny('AlreadyCompliant: budget already released');
+      if (now <= sim.deadline) return deny(`DeadlineNotReached: freeze begins ${fmtDate(sim.deadline)}`);
+      const next = nextDecayAt(sim);
+      if (now < next) return deny(`DecayCooldown: next eligible ${fmtDate(next)}`);
+
+      const amount = Math.floor(sim.budget * Number(DECAY_BPS) / 10_000);
+      if (amount <= 0) return deny('NothingToDecay');
+      sim.budget -= amount; sim.clawed += amount; sim.lastDecayAt = now;
+      store.save(sim);
+      log(`tx 0x${hex(32)} :: ProgressiveDecay(amount=${usd(amount)}, remaining=${usd(sim.budget)})`, 'err');
+      log(`treasury credited ${usd(amount)}; next decay window opens in 24h`, 'warn');
+      msg(`clawed back ${usd(amount)} to treasury`, 'warn');
+      flashBudget();
+      renderBudget(); renderClock();
+    }
+
+    function deny(reason) { log(`revert ${reason}`, 'err'); msg(reason, 'err'); }
+
+    function flashBudget() {
+      const el = $('budget');
+      el.classList.add('text-term-red', 'glow-red');
+      setTimeout(() => el.classList.remove('text-term-red', 'glow-red'), 900);
+    }
+
+    $('clawbackBtn').addEventListener('click', () => { forceClawback().catch((e) => deny(e.message || String(e))); });
+
+    $('expireBtn').addEventListener('click', () => {
+      if (live.enabled) return msg('demo controls are disabled in live mode', 'warn');
+      sim.deadline = Date.now() - 1000; store.save(sim);
+      log('DEMO: deadline forced to now; fiscal freeze engaged', 'warn');
+      renderClock();
+    });
+    $('resetBtn').addEventListener('click', () => {
+      if (live.enabled) return msg('demo controls are disabled in live mode', 'warn');
+      store.clear(); sim = freshSim();
+      log('DEMO: escrow state reset', 'dim');
+      msg('');
+      renderBudget(); renderClock();
+    });
+
+    // ------------------------------------------------------------- live mode
+    const ABI = [
+      'function deadline() view returns (uint256)',
+      'function lockedBalance() view returns (uint256)',
+      'function totalClawedBack() view returns (uint256)',
+      'function lastDecayAt() view returns (uint256)',
+      'function complies() view returns (bool)',
+      'function asset() view returns (address)',
+      'function progressiveDecay() returns (uint256)',
+      'error DeadlineNotReached(uint256 deadline, uint256 nowTs)',
+      'error DecayCooldown(uint256 nextEligibleAt)',
+      'error AlreadyCompliant()',
+      'error NothingToDecay()',
+    ];
+
+    function loadEthers() {
+      if (window.ethers) return Promise.resolve();
+      return new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = 'https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js';
+        s.onload = resolve; s.onerror = () => reject(new Error('failed to load ethers.js'));
+        document.head.appendChild(s);
+      });
+    }
+
+    async function connect() {
+      if (!ESCROW) return msg('add ?escrow=0x… to the URL to enable live mode', 'warn');
+      if (!window.ethereum) return msg('no browser wallet detected', 'err');
+      try {
+        await loadEthers();
+        if (!ethers.isAddress(ESCROW)) return msg('invalid ?escrow address', 'err');
+        const provider = new ethers.BrowserProvider(window.ethereum);
+        await provider.send('eth_requestAccounts', []);
+        live.signer = await provider.getSigner();
+        live.contract = new ethers.Contract(ESCROW, ABI, live.signer);
+        const asset = await live.contract.asset();
+        live.isEth = asset === ethers.ZeroAddress;
+        if (!live.isEth) {
+          try {
+            const t = new ethers.Contract(asset, ['function decimals() view returns (uint8)'], provider);
+            live.decimals = Number(await t.decimals());
+          } catch { live.decimals = 18; }
+        }
+        live.enabled = true;
+        $('modeBadge').textContent = 'LIVE'; $('modeBadge').className = 'rounded border border-term-green px-2 py-1 text-term-green';
+        $('escrowAddr').textContent = `escrow: ${ESCROW}`;
+        $('connectBtn').textContent = (await live.signer.getAddress()).slice(0, 10) + '…';
+        log(`wallet connected; reading escrow ${ESCROW}`, 'ok');
+        await refreshLive();
+        setInterval(() => refreshLive().catch(() => {}), 15_000);
+      } catch (e) {
+        msg(e.shortMessage || e.message || 'connection failed', 'err');
+      }
+    }
+
+    async function refreshLive() {
+      const c = live.contract;
+      const [deadline, locked, clawed, lastDecayAt, complies] = await Promise.all([
+        c.deadline(), c.lockedBalance(), c.totalClawedBack(), c.lastDecayAt(), c.complies(),
+      ]);
+      liveSnapshot = { deadline: Number(deadline) * 1000, locked, clawed, lastDecayAt: Number(lastDecayAt) * 1000, complies };
+      renderBudget(); renderClock();
+    }
+
+    async function liveClawback() {
+      const btn = $('clawbackBtn');
+      btn.disabled = true;
+      try {
+        await live.contract.progressiveDecay.staticCall();
+        msg('confirm the transaction in your wallet…', 'warn');
+        const tx = await live.contract.progressiveDecay();
+        log(`tx submitted ${tx.hash}`, 'warn');
+        const rcpt = await tx.wait();
+        log(`ProgressiveDecay confirmed in block ${rcpt.blockNumber}`, 'err');
+        msg('clawback confirmed on-chain', 'warn');
+        flashBudget();
+        await refreshLive();
+      } catch (e) {
+        deny(e.revert?.name ? `${e.revert.name}${e.revert.args?.length ? ' ' + e.revert.args.join(', ') : ''}` : (e.shortMessage || e.message));
+      } finally {
+        btn.disabled = view().complies;
+      }
+    }
+
+    $('connectBtn').addEventListener('click', connect);
+
+    // ------------------------------------------------------------------ boot
+    log('oracle node online :: model=claude-sonnet-5-5 mode=verify', 'ok');
+    log('subscribed to DocumentSubmitted on DeclassificationEscrow', 'dim');
+    renderBudget(); renderClock(); renderProgress();
+    setInterval(renderClock, 1000);
+    setInterval(mockStep, 900);
+  })();
+  </script>
+</body>
+</html>
