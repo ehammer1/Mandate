@@ -48,6 +48,7 @@ Design rules:
 | `contracts/IdentityRegistry.sol` | Approved identity sources, BASIC / VERIFIED / SEASONED anonymous groups, one document per person, seasoning, revocation |
 | `contracts/MandateVote.sol` | Private one-person-one-vote with zero-knowledge ballots, frozen voter lists, refundable proposal bonds, binding actions |
 | `client/ballot.js` | Builds an anonymous ballot proof on a phone, browser or kiosk |
+| `app/` | Voter web app for phones and computers: passkey sign-in, voter code, anonymous voting, optional account |
 | `broker/relayer.js` | Submits ballots and pays gas, so voters need no wallet |
 | `docs/us-city-pilot.md` | US city pilot plan: identity sources, anti-gaming, voice, capital, wallet-free participation |
 | `docs/scaling-plan.md` | Plan for scaling from one city to any government or institution |
@@ -98,6 +99,22 @@ node broker/attestor.js            # verifier node (DRY_RUN=1 to rehearse)
 ```
 
 Open `dashboard/index.html` in a browser to try the simulation.
+
+Voter web app (phone or computer):
+
+```bash
+npm run compile && npm run build:app
+RPC_URL=... DEPLOYER_PRIVATE_KEY=... RELAYERS=https://your-relayer npm run deploy   # writes app/config.json
+npm run serve:app                                                                     # http://localhost:8080
+```
+
+How sign-in works: one passkey (Face ID, fingerprint, Windows Hello or a device PIN)
+derives two separate keys, a voting key and an optional account key, through the
+passkey PRF extension. Nothing secret is stored, and synced passkeys give the same
+voter on every device. Browsers without PRF fall back to a key saved in the browser,
+with a backup code. Voting needs no wallet: ballots go through relayers, which pay the
+fees. The account is only for play credits and backing, and can be swapped for the
+person's own wallet.
 
 ## Deployment wiring (testnet)
 

@@ -1,0 +1,10 @@
+{
+  "chainId": 84532,
+  "rpcUrl": "https://sepolia.base.org",
+  "voteAddress": "0x0000000000000000000000000000000000000000",
+  "identityAddress": "0x0000000000000000000000000000000000000000",
+  "creditsAddress": "0x0000000000000000000000000000000000000000",
+  "relayers": ["https://relayer-1.example.org", "https://relayer-2.example.org"],
+  "ipfsGateway": "https://gateway.pinata.cloud",
+  "artifactsBase": ""
+}

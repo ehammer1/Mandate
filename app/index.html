@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Mandate Voter</title>
+  <meta name="description" content="Vote privately on public decisions from your phone or computer. No wallet needed." />
+  <meta name="theme-color" content="#0f5132" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <style>
+    :root {
+      --bg: #f6f7f5; --panel: #ffffff; --ink: #14201a; --muted: #56645c; --line: #d6ddd8;
+      --accent: #0f6b45; --accent-ink: #ffffff; --accent-soft: #e3f1ea;
+      --ok: #0f6b45; --warn: #8a5a00; --error: #b3261e;
+      --radius: 12px; --pad: 16px;
+      color-scheme: light dark;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        --bg: #0e1411; --panel: #161e1a; --ink: #e6efe9; --muted: #9db0a5; --line: #2a3630;
+        --accent: #4fc48c; --accent-ink: #06130c; --accent-soft: #173226;
+        --ok: #4fc48c; --warn: #e8b04a; --error: #ff8a80;
+      }
+    }
+    :root[data-theme="dark"] {
+      --bg: #0e1411; --panel: #161e1a; --ink: #e6efe9; --muted: #9db0a5; --line: #2a3630;
+      --accent: #4fc48c; --accent-ink: #06130c; --accent-soft: #173226;
+      --ok: #4fc48c; --warn: #e8b04a; --error: #ff8a80;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--ink); font: 17px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+    header { background: var(--panel); border-bottom: 1px solid var(--line); }
+    .bar { max-width: 760px; margin: 0 auto; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+    .brand { font-weight: 700; font-size: 19px; letter-spacing: .2px; }
+    .brand small { display: block; font-weight: 400; font-size: 13px; color: var(--muted); }
+    nav { display: flex; gap: 8px; flex-wrap: wrap; }
+    main { max-width: 760px; margin: 0 auto; padding: 20px 16px 48px; }
+    h1 { font-size: 26px; line-height: 1.25; margin: 4px 0 8px; }
+    h2 { font-size: 20px; margin: 28px 0 10px; }
+    h3 { font-size: 18px; margin: 4px 0 6px; }
+    p { margin: 6px 0; }
+    .muted, .eyebrow { color: var(--muted); }
+    .eyebrow { font-size: 13px; text-transform: uppercase; letter-spacing: .6px; }
+    .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: var(--pad); margin: 12px 0; }
+    .big { font-size: 20px; font-weight: 700; }
+    button { font: inherit; min-height: 48px; padding: 10px 18px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); cursor: pointer; }
+    button:hover { border-color: var(--accent); }
+    button:focus-visible, input:focus-visible, summary:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+    button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+    button:disabled { opacity: .55; cursor: not-allowed; }
+    nav button { min-height: 40px; padding: 6px 12px; font-size: 15px; }
+    .stack { display: grid; gap: 10px; }
+    .choices { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin: 12px 0 4px; }
+    .choice { font-weight: 600; }
+    .choice.picked { background: var(--accent-soft); border-color: var(--accent); }
+    input[type=text] { font: inherit; width: 100%; min-height: 48px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); }
+    .code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 15px; word-break: break-all; background: var(--bg); border: 1px dashed var(--line); border-radius: 10px; padding: 12px; margin: 8px 0; }
+    .status { min-height: 1.5em; margin: 8px 0 0; }
+    .ok { color: var(--ok); } .warn { color: var(--warn); } .error { color: var(--error); }
+    details { margin-top: 10px; } summary { cursor: pointer; color: var(--muted); }
+    ul.tally { list-style: none; padding: 0; margin: 8px 0 0; }
+    ul.tally li { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--line); }
+    .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    .note { font-size: 14px; color: var(--muted); }
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="bar">
+      <div class="brand">Mandate<small>Your say, privately</small></div>
+      <nav id="nav" hidden aria-label="Main">
+        <button id="nav-polls">Polls</button>
+        <button data-go="screen-code">My voter code</button>
+        <button id="nav-account">Account</button>
+        <button id="btn-signout">Sign out</button>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <!-- Sign in -->
+    <section id="screen-signin" data-screen hidden>
+      <h1>Vote on public decisions, privately</h1>
+      <p>No app store, no wallet, no crypto. Your phone or computer unlocks a private voter key with Face ID, your fingerprint, or your device PIN.</p>
+      <div class="card stack" id="passkey-buttons">
+        <button class="primary" id="btn-create">Create my voter key</button>
+        <button id="btn-unlock">I already have one: unlock it</button>
+        <p class="note">Your key syncs through your Apple, Google or Microsoft account, so your phone and computer vote as the same person. It is never sent to us.</p>
+      </div>
+      <details class="card" id="device-option">
+        <summary>Other ways to sign in</summary>
+        <div class="stack" style="margin-top:12px">
+          <button id="btn-device">Use a key saved in this browser</button>
+          <p class="note">For browsers without passkeys. You will get a backup code; write it down to use another device.</p>
+          <label for="restore-code">Restore from a backup code</label>
+          <input type="text" id="restore-code" autocomplete="off" spellcheck="false" placeholder="MV1-…" />
+          <button id="btn-restore">Restore</button>
+        </div>
+      </details>
+      <p class="status" id="signin-status" role="status"></p>
+    </section>
+
+    <!-- Home: status + polls -->
+    <section id="screen-home" data-screen hidden>
+      <div class="card" id="backup-panel" hidden>
+        <p class="big warn">Save your backup code</p>
+        <p>This key lives only in this browser. Write this down; it is the only way to vote from another device or recover.</p>
+        <p class="code" id="backup-code"></p>
+      </div>
+      <p class="eyebrow" id="signin-method"></p>
+      <div class="card" id="membership" aria-live="polite"><p class="muted">Checking your enrolment…</p></div>
+      <div class="row"><h2 style="flex:1">Polls</h2><button id="btn-refresh">Refresh</button></div>
+      <div id="poll-list"></div>
+    </section>
+
+    <!-- Voter code -->
+    <section id="screen-code" data-screen hidden>
+      <h1>Your voter code</h1>
+      <p>Show this to the city clerk, a library desk, or an approved online check to enrol. It lets you join the voter list without revealing how you vote.</p>
+      <p class="code" id="voter-code" aria-label="Voter code"></p>
+      <div class="row"><button id="btn-copy">Copy code</button><span class="status" id="copy-status" role="status"></span></div>
+      <p class="note">Enrolment checks your ID once. The clerk records only this code and a scrambled fingerprint of your ID number, never your name.</p>
+    </section>
+
+    <!-- Account (optional) -->
+    <section id="screen-account" data-screen hidden>
+      <h1>Account (optional)</h1>
+      <p>You don't need an account to vote. It's only for play credits, backing a mandate, or market winnings.</p>
+      <div class="card">
+        <p class="eyebrow">Address</p>
+        <p class="code" id="account-address"></p>
+        <p id="account-kind" class="note"></p>
+        <p id="account-credits"></p>
+      </div>
+      <div class="row">
+        <button id="btn-own-wallet">Use my own wallet instead</button>
+        <button id="btn-auto-wallet">Use the automatic account</button>
+      </div>
+      <p class="status" id="account-status" role="status"></p>
+      <p class="note">This account uses a different key from your voter key, so nothing links your money to your votes.</p>
+    </section>
+  </main>
+
+  <script src="dist/app.js"></script>
+</body>
+</html>

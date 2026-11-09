@@ -17,7 +17,6 @@
 
 'use strict';
 
-const path = require('path');
 const { ethers } = require('ethers');
 const { Group } = require('@semaphore-protocol/group');
 const { generateProof } = require('@semaphore-protocol/proof');
@@ -57,11 +56,13 @@ async function groupAtSnapshot({ provider, semaphoreAddress, groupId, snapshotRo
   return match;
 }
 
-function localArtifacts(depth) {
-  const dir = process.env.SEMAPHORE_ARTIFACTS_DIR;
-  if (!dir) return undefined;
-  return { wasm: path.join(dir, `semaphore-${depth}.wasm`), zkey: path.join(dir, `semaphore-${depth}.zkey`) };
+/** Local proving files: a directory (Node) or a URL prefix (browser), else undefined = download on demand. */
+function artifactsAt(base, depth) {
+  if (!base) return undefined;
+  const root = String(base).replace(/\/+$/, '');
+  return { wasm: `${root}/semaphore-${depth}.wasm`, zkey: `${root}/semaphore-${depth}.zkey` };
 }
+const envArtifacts = () => (typeof process !== 'undefined' && process.env ? process.env.SEMAPHORE_ARTIFACTS_DIR : undefined);
 
 /**
  * @param {object} p
@@ -70,9 +71,10 @@ function localArtifacts(depth) {
  * @param {bigint|number} p.pollId
  * @param {import('@semaphore-protocol/identity').Identity} p.identity
  * @param {number} p.option            0 = YES, 1 = NO, or a choice index
+ * @param {string} [p.artifactsBase]    directory or URL holding semaphore-<depth>.wasm/.zkey
  * @returns {Promise<object>} Ballot struct ready for castBallot / the relayer
  */
-async function buildBallot({ provider, vote, pollId, identity, option }) {
+async function buildBallot({ provider, vote, pollId, identity, option, artifactsBase }) {
   const poll = await vote.getPoll(pollId);
   const [identityAddr, scope] = await Promise.all([vote.identity(), vote.scopeOf(pollId)]);
   const registry = new ethers.Contract(identityAddr, ['function semaphore() view returns (address)'], provider);
@@ -89,7 +91,7 @@ async function buildBallot({ provider, vote, pollId, identity, option }) {
   if (group.indexOf(identity.commitment) === -1) throw new Error('this identity was not eligible when the poll opened');
 
   const depth = Math.max(group.depth, 1);
-  const proof = await generateProof(identity, group, option, scope, depth, localArtifacts(depth));
+  const proof = await generateProof(identity, group, option, scope, depth, artifactsAt(artifactsBase || envArtifacts(), depth));
   return {
     merkleTreeDepth: proof.merkleTreeDepth,
     merkleTreeRoot: proof.merkleTreeRoot,

@@ -1,0 +1,9 @@
+{
+  "name": "Mandate Voter",
+  "short_name": "Mandate",
+  "description": "Vote privately on public decisions. No wallet needed.",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f6f7f5",
+  "theme_color": "#0f5132"
+}
