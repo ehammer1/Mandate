@@ -19,6 +19,8 @@
  * to use another device or recover.
  */
 
+import { encodeBackupCode, decodeBackupCode } from './backup-code.mjs';
+
 const PRF_SALT = new TextEncoder().encode('mandate/passkey-prf/v1');
 const STORE = 'mandate.keys.v1';
 
@@ -79,10 +81,13 @@ export function hasSavedPasskey() {
  * unlock the existing one instead. (Reusing the same user id would *replace* the
  * passkey and change the voter key, so that is deliberately not done.)
  */
-export async function createPasskey(displayName) {
-  const known = load().credentialId;
+export async function createPasskey({ remember = true, onPhone = false, displayName } = {}) {
+  const known = remember ? load().credentialId : null;
   if (known) return unlockWithPasskey();
   const label = displayName || `Mandate voter · ${new Date().toISOString().slice(0, 10)}`;
+  // onPhone (shared computers): ask the browser to create the passkey on the person's phone
+  // via a QR code, not on this computer.
+  const selection = { residentKey: 'required', userVerification: 'required', ...(onPhone ? { authenticatorAttachment: 'cross-platform' } : {}) };
   let cred;
   try {
     cred = await navigator.credentials.create({
@@ -94,8 +99,10 @@ export async function createPasskey(displayName) {
         { type: 'public-key', alg: -7 },
         { type: 'public-key', alg: -257 },
       ],
-      authenticatorSelection: { residentKey: 'required', userVerification: 'required' },
-      extensions: { prf: {} },
+      authenticatorSelection: selection,
+      ...(onPhone ? { hints: ['hybrid'] } : {}),
+      // Ask for the key at creation too; browsers that support it save a second Face ID prompt.
+      extensions: { prf: { eval: { first: PRF_SALT } } },
     },
   });
   } catch (e) {
@@ -104,11 +111,12 @@ export async function createPasskey(displayName) {
     throw e;
   }
   const ext = cred.getClientExtensionResults?.() || {};
-  if (!ext.prf?.enabled) {
+  if (!ext.prf?.enabled && !ext.prf?.results?.first) {
     throw Object.assign(new Error('This passkey cannot derive keys (no PRF support). Use a device key instead.'), { code: 'NO_PRF' });
   }
-  save({ method: 'passkey', credentialId: b64url(cred.rawId) });
-  return unlockWithPasskey();
+  if (remember) save({ ...load(), method: 'passkey', credentialId: b64url(cred.rawId) });
+  if (ext.prf?.results?.first) return deriveKeys(new Uint8Array(ext.prf.results.first), remember ? 'passkey' : 'public');
+  return unlockWithPasskey({ remember });
 }
 
 /**
@@ -134,10 +142,15 @@ export async function unlockWithPasskey({ remember = true } = {}) {
 }
 
 /** Fallback: a random secret kept in this browser. Returns keys plus the backup code to show once. */
-export async function createDeviceKey() {
+/**
+ * A key kept in this browser, with a backup code. remember=false (shared computers, people
+ * without a smartphone): nothing is saved; the backup code is the only copy, to write down
+ * or print, and typing it in later restores the same voter.
+ */
+export async function createDeviceKey({ remember = true } = {}) {
   const secret = random(32);
-  save({ ...load(), method: 'device', deviceSecret: b64url(secret) }); // keep any known passkey
-  return { ...(await deriveKeys(secret, 'device')), backupCode: backupCodeFor(secret) };
+  if (remember) save({ ...load(), method: 'device', deviceSecret: b64url(secret) }); // keep any known passkey
+  return { ...(await deriveKeys(secret, remember ? 'device' : 'public')), backupCode: backupCodeFor(secret) };
 }
 
 export async function unlockDeviceKey() {
@@ -146,20 +159,14 @@ export async function unlockDeviceKey() {
   return deriveKeys(fromB64url(s), 'device');
 }
 
-/** Backup codes: "MV1-" + base64url secret, grouped for reading aloud or writing down. */
+/** Written backup code for a secret (see backup-code.mjs). */
 export function backupCodeFor(secret) {
-  return 'MV1-' + b64url(secret).match(/.{1,6}/g).join('-');
+  return encodeBackupCode(secret);
 }
 
-export async function restoreFromBackup(code) {
-  const raw = String(code).trim().replace(/^MV1-/i, '').replace(/[-\s]/g, '');
-  let secret;
-  try {
-    secret = fromB64url(raw);
-  } catch {
-    throw new Error('That backup code is not valid.');
-  }
-  if (secret.length !== 32) throw new Error('That backup code is not valid.');
+export async function restoreFromBackup(code, { remember = true } = {}) {
+  const secret = decodeBackupCode(code);
+  if (!remember) return deriveKeys(secret, 'public');
   save({ ...load(), method: 'device', deviceSecret: b64url(secret) }); // keep any known passkey
   return deriveKeys(secret, 'device');
 }

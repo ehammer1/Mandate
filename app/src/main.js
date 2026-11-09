@@ -72,9 +72,15 @@ async function signedIn(k, backupCode) {
   $('signin-method').textContent =
     k.method === 'passkey' ? 'Unlocked with your passkey' : k.method === 'public' ? 'Shared computer: nothing is saved here. You will be signed out after 5 minutes without activity.' : 'Using a key saved in this browser';
   state.publicMode = k.method === 'public';
+  $('signin-method').textContent = state.publicMode ? 'Shared computer: nothing is saved here. You will be signed out after 5 minutes without activity.' : $('signin-method').textContent;
   armIdleSignOut();
   if (backupCode) {
     $('backup-code').textContent = backupCode;
+    $('backup-intro').textContent =
+      k.method === 'public'
+        ? 'This code is your voter key, and the only copy: nothing is saved on this computer. Write it down or print it now, and keep it private. Next time, choose "Shared or public computer" and type it in.'
+        : 'This key lives only in this browser. Write this down; it is the only way to vote from another device or recover.';
+    $('btn-print-code').hidden = k.method !== 'public';
     $('backup-panel').hidden = false;
   } else {
     $('backup-panel').hidden = true;
@@ -140,6 +146,16 @@ function wireSignIn() {
   };
   $('btn-unlock').onclick = () => trySignIn(() => keys.unlockWithPasskey(), s);
   $('btn-public').onclick = () => trySignIn(() => keys.unlockWithPasskey({ remember: false }), s);
+  // Shared computers: create the passkey on the person's phone, or a session-only written code.
+  $('btn-public-new').onclick = () => {
+    state.wantEmailJoin = true;
+    return trySignIn(() => keys.createPasskey({ remember: false, onPhone: true }), s);
+  };
+  $('btn-public-code').onclick = () => {
+    state.wantEmailJoin = true;
+    return trySignIn(() => keys.createDeviceKey({ remember: false }), s);
+  };
+  $('btn-public-restore').onclick = () => trySignIn(() => keys.restoreFromBackup($('public-code').value, { remember: false }), s);
   $('btn-device').onclick = () => trySignIn(() => (keys.savedMethod() === 'device' ? keys.unlockDeviceKey() : keys.createDeviceKey()), s);
   $('btn-restore').onclick = () => trySignIn(() => keys.restoreFromBackup($('restore-code').value), s);
   $('btn-signout').onclick = () => signOut();
@@ -153,6 +169,7 @@ function wireSignIn() {
     show('screen-signin');
   }
   state.signOut = signOut;
+  $('btn-print-code').onclick = () => window.print();
   $('btn-copy').onclick = async () => {
     try {
       await navigator.clipboard.writeText($('voter-code').textContent);

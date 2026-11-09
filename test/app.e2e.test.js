@@ -269,6 +269,7 @@ test('join online: sign in with a provider, come back enrolled', async () => {
 test('shared computer: sign in with the passkey without saving anything here', async () => {
   await page.click('#btn-signout');
   const before = await page.evaluate(() => JSON.stringify(localStorage));
+  await page.click('#public-option summary');
   await page.click('#btn-public');
   await page.waitForSelector('#screen-home:not([hidden])');
   assert.match(await page.textContent('#signin-method'), /nothing is saved here/);
@@ -346,4 +347,54 @@ test('a device that already has a voter key leads with "Welcome back", not "Join
   assert.equal(await page.isVisible('#new-here'), false);
   await page.click('#btn-welcome-unlock');
   await page.waitForSelector('#screen-home:not([hidden])');
+});
+
+test('shared computer, no smartphone: a written code works now and later, and nothing is saved', async () => {
+  await page.click('#btn-signout');
+  await page.reload();
+  const before = await page.evaluate(() => JSON.stringify(localStorage));
+  await page.click('#public-option summary');
+  await page.click('#btn-public-code');
+  await page.waitForSelector('#screen-home:not([hidden])');
+  assert.match(await page.textContent('#backup-intro'), /only copy: nothing is saved on this computer/);
+  assert.equal(await page.isVisible('#btn-print-code'), true);
+  const code = (await page.textContent('#backup-code')).trim();
+  assert.match(code, /^MV2-/);
+  await page.click('[data-go="screen-code"]');
+  const voter = (await page.textContent('#voter-code')).trim();
+  assert.equal(await page.evaluate(() => JSON.stringify(localStorage)), before); // nothing stored
+
+  // Coming back another day: type the written code in, same voter, still nothing stored.
+  await page.click('#btn-signout');
+  await page.reload();
+  await page.click('#public-option summary');
+  await page.fill('#public-code', code);
+  await page.click('#btn-public-restore');
+  await page.waitForSelector('#screen-home:not([hidden])');
+  await page.click('[data-go="screen-code"]');
+  assert.equal((await page.textContent('#voter-code')).trim(), voter);
+  assert.equal(await page.evaluate(() => JSON.stringify(localStorage)), before);
+  assert.match(await page.textContent('#signin-method'), /nothing is saved here/);
+  await page.click('#btn-signout');
+});
+
+test('shared computer, new person with a phone: the passkey is made without being remembered here', async () => {
+  await page.reload();
+  const before = await page.evaluate(() => JSON.stringify(localStorage));
+  // A roaming (external) authenticator stands in for the person's phone.
+  const { authenticatorId: phone } = await cdpMain.send('WebAuthn.addVirtualAuthenticator', {
+    options: { protocol: 'ctap2', ctap2Version: 'ctap2_1', transport: 'usb', hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true, hasPrf: true },
+  });
+  try {
+    await page.click('#public-option summary');
+    await page.click('#btn-public-new');
+    await page.waitForSelector('#screen-home:not([hidden])');
+    assert.match(await page.textContent('#signin-method'), /nothing is saved here/);
+    assert.equal(await page.evaluate(() => JSON.stringify(localStorage)), before);
+    const onPhone = (await cdpMain.send('WebAuthn.getCredentials', { authenticatorId: phone })).credentials.length;
+    assert.equal(onPhone, 1); // created on the "phone", not on this computer
+    await page.click('#btn-signout');
+  } finally {
+    await cdpMain.send('WebAuthn.removeVirtualAuthenticator', { authenticatorId: phone });
+  }
 });

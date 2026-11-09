@@ -98,17 +98,30 @@
       <div class="card stack" id="passkey-buttons">
         <button id="btn-unlock">I already have a voter key: unlock it</button>
         <button id="btn-create">Create a voter key (join another way next)</button>
-        <button id="btn-public">Shared or public computer: sign in with my phone</button>
-        <p class="note">On a library or borrowed computer, use the last option: you scan a code with your phone, nothing is saved on the computer, and you're signed out when you leave.</p>
         <p class="note">Your key syncs through your Apple, Google or Microsoft account, so your phone and computer vote as the same person. It is never sent to us.</p>
       </div>
+      <details class="card" id="public-option">
+        <summary><strong>Shared or public computer</strong> (library, borrowed, work)</summary>
+        <div class="stack" style="margin-top:12px">
+          <p class="note">Nothing is saved on this computer, and you're signed out when you leave or after 5 minutes without activity.</p>
+          <button id="btn-public">I have a voter key: sign in with my phone</button>
+          <button id="btn-public-new">New here: create my voter key on my phone</button>
+          <p class="note">For both, this computer shows a QR code; scan it with your phone and approve with Face ID or your fingerprint.</p>
+          <hr style="border:none;border-top:1px solid var(--line);width:100%" />
+          <p><strong>No smartphone?</strong> Use a written code instead.</p>
+          <button id="btn-public-code">New here: give me a written code</button>
+          <label for="public-code">Already have a written code? Type it here</label>
+          <input type="text" id="public-code" autocomplete="off" spellcheck="false" placeholder="MV2-…" />
+          <button id="btn-public-restore">Sign in with my written code</button>
+        </div>
+      </details>
       <details class="card" id="device-option">
         <summary>Other ways to sign in</summary>
         <div class="stack" style="margin-top:12px">
           <button id="btn-device">Use a key saved in this browser (your own device only)</button>
           <p class="note">For browsers without passkeys. You will get a backup code; write it down to use another device.</p>
           <label for="restore-code">Restore from a backup code</label>
-          <input type="text" id="restore-code" autocomplete="off" spellcheck="false" placeholder="MV1-…" />
+          <input type="text" id="restore-code" autocomplete="off" spellcheck="false" placeholder="MV2-…" />
           <button id="btn-restore">Restore</button>
         </div>
       </details>
@@ -119,8 +132,9 @@
     <section id="screen-home" data-screen hidden>
       <div class="card" id="backup-panel" hidden>
         <p class="big warn">Save your backup code</p>
-        <p>This key lives only in this browser. Write this down; it is the only way to vote from another device or recover.</p>
+        <p id="backup-intro">This key lives only in this browser. Write this down; it is the only way to vote from another device or recover.</p>
         <p class="code" id="backup-code"></p>
+        <button id="btn-print-code" hidden>Print this code</button>
       </div>
       <p class="status" id="home-notice" role="status"></p>
       <p class="eyebrow" id="signin-method"></p>
