@@ -5,7 +5,8 @@ services:
     name: mandate-relayer
     runtime: node
     plan: free
-    buildCommand: npm ci --omit=dev --ignore-scripts
+    # --force: a test-only dependency bundles a macOS-only package that fails npm's Linux platform check
+    buildCommand: npm ci --omit=dev --ignore-scripts --force
     startCommand: node broker/relayer.js
     healthCheckPath: /health
     envVars:
