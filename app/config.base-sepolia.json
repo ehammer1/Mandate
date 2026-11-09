@@ -4,7 +4,9 @@
   "voteAddress": "0x4ce35710eAc8086ab40DC03A76908b9c9f32f9C8",
   "identityAddress": "0xb1a740cc2F928191bC9aa068f90c69FbEcB9143A",
   "creditsAddress": "0xf0Cb2E582920C351903af2C031B65F3A4459409d",
-  "relayers": [],
+  "relayers": [
+    "https://mandate-relayer.onrender.com"
+  ],
   "ipfsGateway": "https://ehammer1.github.io/Mandate",
   "artifactsBase": "",
   "explorer": "https://sepolia.basescan.org"
