@@ -1,30 +1,34 @@
 #!/usr/bin/env node
 /**
- * interact.js - Web3 gateway broker (oracle runtime).
+ * broker/attestor.js - AI verifier node for the MandateRegistry.
  *
- * Watches a DeclassificationEscrow for DocumentSubmitted events and, for each one:
- *   1. checks the CID is still the contract's pendingHash (skips stale/replayed events),
- *   2. fetches the document from an IPFS gateway,
- *   3. runs it through `app.py --mode verify` (layout + safety re-check),
- *   4. calls verifyCompliance() if it passes, or rejectSubmission(reason) if it fails.
+ * Watches for EvidenceSubmitted events and, for each one:
+ *   1. checks the mandate is still under review in that round and this verifier
+ *      has not attested yet (skips stale or replayed events),
+ *   2. fetches the mandate spec (JSON) and the evidence (text) from IPFS,
+ *   3. runs oracle/review.py against the spec's success criteria, plus any extra
+ *      checks the spec asks for (e.g. "redaction" -> oracle/redact.py --mode verify),
+ *   4. pins a report of its reasoning to IPFS (if Pinata is configured), and
+ *   5. calls attest(id, approve, reportCID).
  *
- * Events are read with block-range queries from a persisted cursor rather than an
- * RPC filter subscription, so the broker survives restarts, RPC failovers and dropped
- * filters without missing or double-processing an event.
+ * This node is ONE verifier. The registry only settles a review once
+ * `threshold` independent verifiers agree, so run it alongside human auditors
+ * or other verifier implementations, never as the sole verifier.
+ *
+ * Events are read by block range from a persisted cursor, so the node survives
+ * restarts and RPC hiccups without missing or double-processing events.
  *
  * Environment:
- *   RPC_URL               JSON-RPC endpoint (required)
- *   ORACLE_PRIVATE_KEY    key of the address set via setOracle() (required)
- *   ESCROW_ADDRESS        DeclassificationEscrow address (required)
- *   START_BLOCK           first block to scan on a fresh cursor (default: deployment-ish = latest - 5000)
- *   CONFIRMATIONS         blocks to wait before acting on an event (default 3)
- *   POLL_INTERVAL_MS      default 15000
- *   IPFS_GATEWAY          default https://gateway.pinata.cloud
- *   IPFS_MAX_BYTES        default 52428800 (50 MiB)
- *   PYTHON_BIN            default python3
- *   ORACLE_TIMEOUT_MS     timeout for one app.py run (default 1800000)
- *   STATE_FILE            cursor file (default ./.broker-state.json)
- *   DRY_RUN=1             evaluate but never send transactions
+ *   RPC_URL, VERIFIER_PRIVATE_KEY, REGISTRY_ADDRESS     (required)
+ *   START_BLOCK            first block on a fresh cursor (default latest - 5000)
+ *   CONFIRMATIONS          default 3
+ *   POLL_INTERVAL_MS       default 15000
+ *   IPFS_GATEWAY           default https://gateway.pinata.cloud
+ *   IPFS_MAX_BYTES         default 52428800
+ *   PYTHON_BIN             default python3
+ *   ORACLE_TIMEOUT_MS      per check, default 1800000
+ *   STATE_FILE             default ./.attestor-state.json
+ *   DRY_RUN=1              evaluate but never send transactions
  */
 
 'use strict';
@@ -32,28 +36,30 @@
 require('dotenv').config();
 
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const { spawn } = require('child_process');
 const axios = require('axios');
 const { ethers } = require('ethers');
+const { pinJSON, hasPinataCredentials } = require('./upload');
 
 // ---------------------------------------------------------------------------
 // Config
 // ---------------------------------------------------------------------------
 
-function required(name) {
-  const v = process.env[name];
-  if (!v || !v.trim()) {
-    console.error(`[broker] missing required env var ${name}`);
-    process.exit(2);
+function required(name, ...fallbacks) {
+  for (const n of [name, ...fallbacks]) {
+    const v = process.env[n];
+    if (v && v.trim()) return v.trim();
   }
-  return v.trim();
+  console.error(`[attestor] missing required env var ${name}`);
+  process.exit(2);
 }
 
 const CFG = {
   rpcUrl: required('RPC_URL'),
-  privateKey: required('ORACLE_PRIVATE_KEY'),
-  escrow: required('ESCROW_ADDRESS'),
+  privateKey: required('VERIFIER_PRIVATE_KEY', 'ORACLE_PRIVATE_KEY'),
+  registry: required('REGISTRY_ADDRESS'),
   startBlock: process.env.START_BLOCK ? Number(process.env.START_BLOCK) : null,
   confirmations: Number(process.env.CONFIRMATIONS || 3),
   pollMs: Number(process.env.POLL_INTERVAL_MS || 15_000),
@@ -61,30 +67,26 @@ const CFG = {
   ipfsMaxBytes: Number(process.env.IPFS_MAX_BYTES || 50 * 1024 * 1024),
   python: process.env.PYTHON_BIN || 'python3',
   oracleTimeoutMs: Number(process.env.ORACLE_TIMEOUT_MS || 30 * 60 * 1000),
-  stateFile: path.resolve(process.env.STATE_FILE || path.join(__dirname, '.broker-state.json')),
+  stateFile: path.resolve(process.env.STATE_FILE || '.attestor-state.json'),
   dryRun: process.env.DRY_RUN === '1',
   maxBlockSpan: 2_000,
 };
 
-const APP_PY = path.join(__dirname, 'app.py');
+const ORACLE_DIR = path.join(__dirname, '..', 'oracle');
+const STATUS_UNDER_REVIEW = 2n;
 
-const ESCROW_ABI = [
-  'event DocumentSubmitted(string _ipfsHash)',
-  'event ComplianceVerified(string ipfsHash, uint256 releasedAmount)',
-  'event SubmissionRejected(string ipfsHash, string reason)',
-  'function oracle() view returns (address)',
-  'function complies() view returns (bool)',
-  'function pendingHash() view returns (string)',
-  'function deadline() view returns (uint256)',
-  'function lockedBalance() view returns (uint256)',
-  'function verifyCompliance()',
-  'function rejectSubmission(string reason)',
-  'error NotOracle()',
-  'error AlreadyCompliant()',
-  'error NoPendingSubmission()',
+const REGISTRY_ABI = [
+  'event EvidenceSubmitted(uint256 indexed id, uint32 indexed round, string evidenceCID)',
+  'function VERIFIER_ROLE() view returns (bytes32)',
+  'function hasRole(bytes32 role, address account) view returns (bool)',
+  'function hasAttested(uint256 id, uint32 round, address verifier) view returns (bool)',
+  'function getMandate(uint256 id) view returns (tuple(address responsible, uint64 createdAt, uint64 deadline, uint64 settledAt, uint16 threshold, uint8 status, uint32 round, uint32 approvals, uint32 rejections, bytes32 category, string specCID, string evidenceCID))',
+  'function attest(uint256 id, bool approve, string reasonCID)',
+  'error WrongStatus(uint256 id, uint8 status)',
+  'error AlreadyAttested()',
+  'error ResponsibleCannotVerify()',
 ];
 
-// CIDv0 (base58btc "Qm...") or CIDv1 base32 ("b...").
 const CID_RE = /^(Qm[1-9A-HJ-NP-Za-km-z]{44}|b[a-z2-7]{50,})$/;
 
 // ---------------------------------------------------------------------------
@@ -93,10 +95,10 @@ const CID_RE = /^(Qm[1-9A-HJ-NP-Za-km-z]{44}|b[a-z2-7]{50,})$/;
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const ts = () => new Date().toISOString();
-const log = (...a) => console.log(`${ts()} [broker]`, ...a);
-const warn = (...a) => console.warn(`${ts()} [broker] WARN`, ...a);
+const log = (...a) => console.log(`${ts()} [attestor]`, ...a);
+const warn = (...a) => console.warn(`${ts()} [attestor] WARN`, ...a);
 
-/** Error that should be retried on the next poll rather than turned into a rejection. */
+/** Retry on the next poll; never turned into a verdict against the submitter. */
 class TransientError extends Error {}
 
 function loadState() {
@@ -110,17 +112,15 @@ function loadState() {
 function saveState(state) {
   const tmp = `${CFG.stateFile}.tmp`;
   fs.writeFileSync(tmp, JSON.stringify(state, null, 2));
-  fs.renameSync(tmp, CFG.stateFile); // atomic replace
+  fs.renameSync(tmp, CFG.stateFile);
 }
 
 function describeError(contract, err) {
   if (err?.revert?.name) return `revert ${err.revert.name}`;
   try {
     const data = err?.data || err?.info?.error?.data;
-    if (data) {
-      const parsed = contract.interface.parseError(data);
-      if (parsed) return `revert ${parsed.name}`;
-    }
+    const parsed = data && contract.interface.parseError(data);
+    if (parsed) return `revert ${parsed.name}`;
   } catch {
     /* fall through */
   }
@@ -131,53 +131,47 @@ function describeError(contract, err) {
 // IPFS
 // ---------------------------------------------------------------------------
 
-async function fetchFromIpfs(cid) {
-  const url = `${CFG.gateway}/ipfs/${cid}`;
+/** @returns {Promise<{ok: true, text: string} | {ok: false, reason: string}>} */
+async function fetchText(cid) {
+  if (!CID_RE.test(cid)) return { ok: false, reason: `malformed CID ${cid}` };
   let res;
   try {
-    res = await axios.get(url, {
+    res = await axios.get(`${CFG.gateway}/ipfs/${cid}`, {
       responseType: 'arraybuffer',
       timeout: 120_000,
       maxContentLength: CFG.ipfsMaxBytes,
-      validateStatus: (s) => s >= 200 && s < 300,
     });
   } catch (e) {
     const status = e.response?.status;
-    // 4xx other than 408/429 means the content is not retrievable as a file: permanent.
-    if (status && status < 500 && status !== 408 && status !== 429) {
-      return { ok: false, reason: `IPFS gateway returned HTTP ${status}` };
-    }
-    if (e.message?.includes('maxContentLength')) {
-      return { ok: false, reason: `document exceeds ${CFG.ipfsMaxBytes} bytes` };
-    }
-    throw new TransientError(`IPFS fetch failed: ${status || e.code || e.message}`);
+    if (status && status < 500 && status !== 408 && status !== 429) return { ok: false, reason: `IPFS HTTP ${status}` };
+    if (String(e.message).includes('maxContentLength')) return { ok: false, reason: `exceeds ${CFG.ipfsMaxBytes} bytes` };
+    throw new TransientError(`IPFS fetch ${cid} failed: ${status || e.code || e.message}`);
   }
   try {
     const text = new TextDecoder('utf-8', { fatal: true }).decode(res.data);
-    if (!text.trim()) return { ok: false, reason: 'document is empty' };
-    return { ok: true, text };
+    return text.trim() ? { ok: true, text } : { ok: false, reason: 'empty document' };
   } catch {
-    return { ok: false, reason: 'document is not valid UTF-8 text' };
+    return { ok: false, reason: 'not valid UTF-8 text' };
   }
 }
 
 // ---------------------------------------------------------------------------
-// Python oracle
+// Python checks
 // ---------------------------------------------------------------------------
 
-function runOracle(text) {
+/**
+ * Run an oracle script. Exit 0/1 = verdict with JSON on stdout, 2 = bad input,
+ * 3 = model/API failure (transient).
+ */
+function runPython(script, args, stdinText) {
   return new Promise((resolve, reject) => {
-    const child = spawn(CFG.python, [APP_PY, '--mode', 'verify', '--json'], {
-      stdio: ['pipe', 'pipe', 'pipe'],
-      env: process.env,
-    });
+    const child = spawn(CFG.python, [path.join(ORACLE_DIR, script), ...args, '--json'], { env: process.env });
     let stdout = '';
     let stderr = '';
     const timer = setTimeout(() => {
       child.kill('SIGKILL');
-      reject(new TransientError(`app.py timed out after ${CFG.oracleTimeoutMs}ms`));
+      reject(new TransientError(`${script} timed out`));
     }, CFG.oracleTimeoutMs);
-
     child.stdout.on('data', (d) => (stdout += d));
     child.stderr.on('data', (d) => (stderr += d));
     child.on('error', (e) => {
@@ -186,82 +180,112 @@ function runOracle(text) {
     });
     child.on('close', (code) => {
       clearTimeout(timer);
-      if (stderr.trim()) stderr.trim().split('\n').forEach((l) => log(`  app.py: ${l}`));
-      // 0 = verified, 1 = failed verification (both print JSON); 2/3 = input/API errors.
+      stderr.trim() && stderr.trim().split('\n').forEach((l) => log(`  ${script}: ${l}`));
       if (code === 0 || code === 1) {
         try {
-          const parsed = JSON.parse(stdout);
-          return resolve(parsed.verification);
+          return resolve({ code, result: JSON.parse(stdout) });
         } catch {
-          return reject(new TransientError('app.py produced unparseable JSON'));
+          return reject(new TransientError(`${script} produced unparseable JSON`));
         }
       }
-      if (code === 2) return resolve({ verified: false, failures: ['document rejected as invalid input'] });
-      reject(new TransientError(`app.py exited with code ${code}`));
+      if (code === 2) return resolve({ code, result: null });
+      reject(new TransientError(`${script} exited with code ${code}`));
     });
-
-    child.stdin.on('error', () => {}); // child may exit early; close handler reports it
-    child.stdin.end(text);
+    child.stdin.on('error', () => {});
+    child.stdin.end(stdinText);
   });
+}
+
+async function reviewEvidence(spec, evidenceText) {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'mandate-'));
+  const specPath = path.join(tmp, 'spec.json');
+  fs.writeFileSync(specPath, JSON.stringify(spec));
+  try {
+    const review = await runPython('review.py', ['--spec', specPath], evidenceText);
+    const checks = {};
+    if (review.code === 2) {
+      return { approve: false, failures: ['evidence or spec rejected as invalid input'], review: null, checks };
+    }
+    const failures = [...(review.result.failures || [])];
+
+    if ((spec.checks || []).includes('redaction')) {
+      const r = await runPython('redact.py', ['--mode', 'verify'], evidenceText);
+      checks.redaction = r.result?.verification ?? null;
+      if (r.code !== 0) failures.push(...(checks.redaction?.failures || ['redaction check rejected the evidence']));
+    }
+    return { approve: review.result.approve && failures.length === 0, failures, review: review.result, checks };
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
 }
 
 // ---------------------------------------------------------------------------
 // Event handling
 // ---------------------------------------------------------------------------
 
-async function sendTx(contract, method, args) {
+async function attest(contract, id, approve, reasonCID) {
   if (CFG.dryRun) {
-    log(`DRY_RUN: would call ${method}(${args.map((a) => JSON.stringify(a)).join(', ')})`);
+    log(`DRY_RUN: would attest(${id}, ${approve}, "${reasonCID}")`);
     return;
   }
+  let gas;
   try {
-    await contract[method].staticCall(...args); // preflight: surface reverts before paying gas
+    gas = await contract.attest.estimateGas(id, approve, reasonCID);
   } catch (e) {
     const reason = describeError(contract, e);
-    if (/AlreadyCompliant|NoPendingSubmission/.test(reason)) {
-      log(`${method} no longer applicable (${reason}); skipping`);
+    if (/WrongStatus|AlreadyAttested|ResponsibleCannotVerify/.test(reason)) {
+      log(`attest(${id}) no longer applicable (${reason}); skipping`);
       return;
     }
-    throw new TransientError(`${method} preflight failed: ${reason}`);
+    throw new TransientError(`attest preflight failed: ${reason}`);
   }
-  const tx = await contract[method](...args);
-  log(`${method} sent: ${tx.hash}`);
+  // Estimation runs a block early; the settling attestation writes more state. Add headroom.
+  const tx = await contract.attest(id, approve, reasonCID, { gasLimit: (gas * 13n) / 10n });
+  log(`attest(${id}, ${approve}) sent: ${tx.hash}`);
   const receipt = await tx.wait(CFG.confirmations);
-  if (!receipt || receipt.status !== 1) throw new TransientError(`${method} tx ${tx.hash} failed`);
-  log(`${method} confirmed in block ${receipt.blockNumber}`);
+  if (!receipt || receipt.status !== 1) throw new TransientError(`attest tx ${tx.hash} failed`);
+  log(`attest(${id}) confirmed in block ${receipt.blockNumber}`);
 }
 
-async function handleSubmission(contract, cid) {
-  const [complies, pending] = await Promise.all([contract.complies(), contract.pendingHash()]);
-  if (complies) {
-    log(`escrow already compliant; ignoring ${cid}`);
+async function handleEvidence(contract, me, id, round, evidenceCID) {
+  const [m, already] = await Promise.all([contract.getMandate(id), contract.hasAttested(id, round, me)]);
+  if (m.status !== STATUS_UNDER_REVIEW || m.round !== round || m.evidenceCID !== evidenceCID) {
+    log(`mandate ${id} round ${round} no longer under review; skipping`);
     return;
   }
-  if (pending !== cid) {
-    log(`${cid} is no longer pending (pending="${pending}"); ignoring stale event`);
+  if (already) return log(`already attested mandate ${id} round ${round}; skipping`);
+
+  const specDoc = await fetchText(m.specCID);
+  let spec;
+  try {
+    if (!specDoc.ok) throw new Error(specDoc.reason);
+    spec = JSON.parse(specDoc.text);
+  } catch (e) {
+    // A broken spec is a governance error, not the responsible party's fault: do not reject.
+    warn(`mandate ${id}: cannot read spec ${m.specCID} (${e.message}); not attesting, needs operator attention`);
     return;
   }
 
-  if (!CID_RE.test(cid)) {
-    return sendTx(contract, 'rejectSubmission', ['malformed CID']);
+  const evidence = await fetchText(evidenceCID);
+  let outcome;
+  if (!evidence.ok) {
+    outcome = { approve: false, failures: [`evidence unavailable: ${evidence.reason}`], review: null, checks: {} };
+  } else {
+    log(`mandate ${id} round ${round}: reviewing ${evidence.text.length} chars against "${spec.title}"`);
+    outcome = await reviewEvidence(spec, evidence.text);
   }
+  log(`mandate ${id} round ${round}: ${outcome.approve ? 'APPROVE' : 'REJECT'}${outcome.failures.length ? ' - ' + outcome.failures.join('; ') : ''}`);
 
-  log(`fetching ${cid} from ${CFG.gateway}`);
-  const doc = await fetchFromIpfs(cid);
-  if (!doc.ok) {
-    log(`rejecting ${cid}: ${doc.reason}`);
-    return sendTx(contract, 'rejectSubmission', [doc.reason]);
+  let reasonCID = '';
+  if (hasPinataCredentials()) {
+    try {
+      const report = { mandateId: id.toString(), round: Number(round), evidenceCID, specCID: m.specCID, verifier: me, ...outcome };
+      reasonCID = (await pinJSON(report, { name: `review-${id}-r${round}` })).cid;
+    } catch (e) {
+      warn(`could not pin review report (${e.message}); attesting without it`);
+    }
   }
-
-  log(`running AI verification on ${doc.text.length} chars`);
-  const v = await runOracle(doc.text);
-  if (v.verified) {
-    log(`${cid} VERIFIED (sha256=${v.input_sha256}); releasing budget`);
-    return sendTx(contract, 'verifyCompliance', []);
-  }
-  const reason = (v.failures || ['verification failed']).join('; ').slice(0, 280);
-  log(`${cid} FAILED: ${reason}`);
-  return sendTx(contract, 'rejectSubmission', [reason]);
+  await attest(contract, id, outcome.approve, reasonCID);
 }
 
 // ---------------------------------------------------------------------------
@@ -271,12 +295,12 @@ async function handleSubmission(contract, cid) {
 async function main() {
   const provider = new ethers.JsonRpcProvider(CFG.rpcUrl);
   const wallet = new ethers.Wallet(CFG.privateKey, provider);
-  const contract = new ethers.Contract(CFG.escrow, ESCROW_ABI, wallet);
+  const contract = new ethers.Contract(CFG.registry, REGISTRY_ABI, wallet);
 
-  const [network, onchainOracle] = await Promise.all([provider.getNetwork(), contract.oracle()]);
-  log(`chain ${network.chainId}, escrow ${CFG.escrow}, oracle signer ${wallet.address}${CFG.dryRun ? ' (DRY_RUN)' : ''}`);
-  if (onchainOracle.toLowerCase() !== wallet.address.toLowerCase()) {
-    const msg = `signer is not the escrow oracle (on-chain oracle: ${onchainOracle})`;
+  const [network, role] = await Promise.all([provider.getNetwork(), contract.VERIFIER_ROLE()]);
+  log(`chain ${network.chainId}, registry ${CFG.registry}, verifier ${wallet.address}${CFG.dryRun ? ' (DRY_RUN)' : ''}`);
+  if (!(await contract.hasRole(role, wallet.address))) {
+    const msg = 'signer does not hold VERIFIER_ROLE';
     if (!CFG.dryRun) throw new Error(msg);
     warn(msg);
   }
@@ -297,27 +321,24 @@ async function main() {
   process.on('SIGINT', stop);
   process.on('SIGTERM', stop);
 
-  const filter = contract.filters.DocumentSubmitted();
+  const filter = contract.filters.EvidenceSubmitted();
   let backoff = CFG.pollMs;
-
   while (!stopping) {
     try {
-      const head = await provider.getBlockNumber();
-      const safeHead = head - CFG.confirmations;
+      const safeHead = (await provider.getBlockNumber()) - CFG.confirmations;
       while (!stopping && state.nextBlock <= safeHead) {
         const to = Math.min(state.nextBlock + CFG.maxBlockSpan - 1, safeHead);
-        const events = await contract.queryFilter(filter, state.nextBlock, to);
-        for (const ev of events) {
+        for (const ev of await contract.queryFilter(filter, state.nextBlock, to)) {
           const key = `${ev.transactionHash}:${ev.index}`;
           if (state.processed[key]) continue;
-          const cid = ev.args?._ipfsHash ?? ev.args?.[0];
-          log(`DocumentSubmitted ${cid} (block ${ev.blockNumber}, tx ${ev.transactionHash})`);
-          await handleSubmission(contract, cid); // TransientError aborts; cursor not advanced
+          const { id, round, evidenceCID } = ev.args;
+          log(`EvidenceSubmitted mandate ${id} round ${round} cid ${evidenceCID} (block ${ev.blockNumber})`);
+          await handleEvidence(contract, wallet.address, id, round, evidenceCID); // TransientError aborts the range
           state.processed[key] = ts();
           saveState(state);
         }
         state.nextBlock = to + 1;
-        state.processed = {}; // keys are only needed within the current range
+        state.processed = {};
         saveState(state);
       }
       backoff = CFG.pollMs;
@@ -330,9 +351,7 @@ async function main() {
   log('stopped');
 }
 
-if (require.main === module) {
-  main().catch((e) => {
-    console.error(`${ts()} [broker] FATAL ${e.message}`);
-    process.exit(1);
-  });
-}
+main().catch((e) => {
+  console.error(`${ts()} [attestor] FATAL ${e.message}`);
+  process.exit(1);
+});

@@ -9,7 +9,7 @@
   },
   "scripts": {
     "compile": "node scripts/compile.js",
-    "test": "node scripts/compile.js && node --test test/contracts.test.js && python3 -m unittest discover -s test -p 'test_*.py'",
+    "test": "node scripts/compile.js && node --test test/contracts.test.js test/attestor.e2e.test.js && python3 -m unittest discover -s test -p 'test_*.py'",
     "upload": "node broker/upload.js",
     "attestor": "node broker/attestor.js"
   },

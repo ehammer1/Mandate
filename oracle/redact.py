@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 """
-app.py - Autonomous Declassification Oracle: AI redaction + layout verification.
+oracle/redact.py - optional check for records-release mandates: AI redaction + layout verification.
 
 Two roles share this module:
 
 * Agency side ("redact"): run a raw document through Claude, which replaces names of
   living operators and sensitive cryptographic methods with ``[REDACTED_BY_AI]`` while
   keeping structure, timelines and historical context intact. The output is then pinned
-  with ``upload.js`` and its CID submitted on-chain.
+  with ``broker/upload.js`` and its CID submitted on-chain.
 
-* Oracle side ("verify"): ``interact.js`` pulls the submitted CID from IPFS and re-runs
+* Oracle side ("verify"): ``broker/attestor.js`` pulls the submitted CID from IPFS and re-runs
   it through the same pass. A compliant release must (a) keep its layout and (b) need no
   further redactions - i.e. the redaction pass is idempotent on it.
 
@@ -18,15 +18,16 @@ flag the broker uses to call ``verifyCompliance()`` or ``rejectSubmission()``.
 
 CLI
 ---
-    python app.py --input raw.txt --output redacted.txt          # redact
-    python app.py --mode verify --input fetched.txt --json       # verify (JSON on stdout)
-    cat doc.txt | python app.py --mode verify --json             # stdin
+    python oracle/redact.py --input raw.txt --output redacted.txt          # redact
+    python oracle/redact.py --mode verify --input fetched.txt --json       # verify (JSON on stdout)
+    cat doc.txt | python oracle/redact.py --mode verify --json             # stdin
 
 Exit codes: 0 = verified, 1 = processed but failed verification, 2 = usage/input
 error, 3 = API/model error (the broker treats 3 as "retry later", never as a rejection).
 
 Environment: ANTHROPIC_API_KEY (or another credential source the SDK resolves),
-REDACTION_MODEL (default claude-sonnet-5-5), REDACTION_MAX_CONCURRENCY (default 4).
+ORACLE_MODEL (default claude-sonnet-5-5), ORACLE_EFFORT (default medium),
+REDACTION_MAX_CONCURRENCY (default 4).
 """
 
 from __future__ import annotations
@@ -47,6 +48,11 @@ from typing import Any
 
 import anthropic
 
+try:  # package import (tests) or script run from oracle/
+    from .claude_call import MODEL, OracleError, complete
+except ImportError:  # pragma: no cover
+    from claude_call import MODEL, OracleError, complete
+
 log = logging.getLogger("declassification-oracle")
 
 # ---------------------------------------------------------------------------
@@ -55,8 +61,6 @@ log = logging.getLogger("declassification-oracle")
 
 REDACTION_MARKER = "[REDACTED_BY_AI]"
 
-# claude-3-5-sonnet-latest has been retired; claude-sonnet-5-5 is the current Sonnet.
-MODEL = os.environ.get("REDACTION_MODEL", "claude-sonnet-5-5")
 MAX_CONCURRENCY = int(os.environ.get("REDACTION_MAX_CONCURRENCY", "4"))
 
 # Each chunk is echoed back in full, so chunk size bounds output length. ~150k chars is
@@ -104,8 +108,7 @@ nothing needs redacting, output the segment unchanged."""
 # ---------------------------------------------------------------------------
 
 
-class RedactionError(RuntimeError):
-    """Raised when the model call fails or returns an unusable result."""
+RedactionError = OracleError  # backwards-compatible name
 
 
 @dataclass
@@ -277,41 +280,13 @@ async def _redact_chunk(
         f"<document>\n{chunk}\n</document>"
     )
     async with sem:
-        try:
-            # Streaming keeps long echo-back responses clear of HTTP timeouts. The
-            # server-side fallback re-runs the request on another model if a safety
-            # classifier declines, instead of failing the whole release.
-            async with client.beta.messages.stream(
-                model=MODEL,
-                max_tokens=MAX_OUTPUT_TOKENS,
-                system=SYSTEM_PROMPT,
-                messages=[{"role": "user", "content": user}],
-                output_config={"effort": "medium"},
-                betas=["server-side-fallback-2026-07-01"],
-                fallbacks="default",
-            ) as stream:
-                message = await stream.get_final_message()
-        except anthropic.AuthenticationError as e:
-            raise RedactionError("Anthropic authentication failed; check ANTHROPIC_API_KEY") from e
-        except anthropic.BadRequestError as e:
-            raise RedactionError(f"Bad request to model: {e.message}") from e
-        except anthropic.RateLimitError as e:
-            raise RedactionError("Rate limited by the Anthropic API after SDK retries") from e
-        except anthropic.APIStatusError as e:
-            raise RedactionError(f"Anthropic API error {e.status_code}: {e.message}") from e
-        except anthropic.APIConnectionError as e:
-            raise RedactionError("Could not reach the Anthropic API") from e
-
-    if message.stop_reason == "refusal":
-        category = getattr(message.stop_details, "category", None) if message.stop_details else None
-        raise RedactionError(f"Model declined segment {index + 1} (category={category})")
-    if message.stop_reason == "max_tokens":
-        raise RedactionError(f"Segment {index + 1} output truncated at max_tokens")
-
-    text = "".join(block.text for block in message.content if block.type == "text")
-    if not text.strip():
-        raise RedactionError(f"Model returned empty output for segment {index + 1}")
-    log.info("segment %d/%d processed (request_id=%s)", index + 1, total, message._request_id)
+        text = await complete(
+            client,
+            system=SYSTEM_PROMPT,
+            user=user,
+            max_tokens=MAX_OUTPUT_TOKENS,
+            label=f"segment {index + 1}/{total}",
+        )
     return _restore_edges(chunk, text)
 
 

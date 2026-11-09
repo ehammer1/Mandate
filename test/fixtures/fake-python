@@ -1,0 +1,13 @@
+#!/usr/bin/env node
+// Stand-in for python3 in the attestor e2e test: emulates oracle/review.py output.
+// FAKE_VERDICT=approve|reject|error controls the result.
+'use strict';
+let input = '';
+process.stdin.on('data', (d) => (input += d));
+process.stdin.on('end', () => {
+  const v = process.env.FAKE_VERDICT || 'approve';
+  if (v === 'error') process.exit(3);
+  const approve = v === 'approve' && input.includes('budget.csv');
+  process.stdout.write(JSON.stringify({ approve, failures: approve ? [] : ['c1: no'], criteria: [] }) + '\n');
+  process.exit(approve ? 0 : 1);
+});

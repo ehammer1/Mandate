@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 /**
- * upload.js - IPFS pinning engine (Pinata).
+ * broker/upload.js - IPFS pinning (Pinata).
  *
- * Pins a redacted text file to IPFS through Pinata's pinFileToIPFS endpoint and
- * prints the immutable Content Identifier (CID) to the terminal.
+ * Pins mandate specs, evidence, and verifier reports to IPFS and prints the
+ * immutable Content Identifier (CID). Files go through pinFileToIPFS; JSON
+ * objects (specs, review reports) through pinJSONToIPFS.
  *
  * Usage:
- *   node upload.js <path/to/redacted.txt> [--name "JFK batch 07"] [--json]
+ *   node broker/upload.js <file> [--name "budget-2027"] [--json]
  *
  * Auth (environment, first match wins):
  *   PINATA_JWT                                  - scoped JWT (recommended)
@@ -18,7 +19,7 @@
  *
  * Exit codes: 0 pinned, 1 pin failed, 2 usage / config / input error.
  *
- * Also importable: const { pinFile } = require('./upload');
+ * Also importable: const { pinFile, pinJSON } = require('./upload');
  */
 
 'use strict';
@@ -110,7 +111,7 @@ async function pinFile(filePath, opts = {}) {
       'pinataMetadata',
       JSON.stringify({
         name: opts.name || path.basename(resolved),
-        keyvalues: { sha256, pipeline: 'declassification-oracle', ...(opts.keyvalues || {}) },
+        keyvalues: { sha256, pipeline: 'mandate', ...(opts.keyvalues || {}) },
       }),
     );
     form.append('pinataOptions', JSON.stringify({ cidVersion: 1 }));
@@ -146,6 +147,43 @@ async function pinFile(filePath, opts = {}) {
   throw lastErr;
 }
 
+/**
+ * Pin a JSON object (mandate spec, verifier report).
+ * @param {object} obj
+ * @param {{ name?: string }} [opts]
+ * @returns {Promise<{ cid: string, gatewayUrl: string }>}
+ */
+async function pinJSON(obj, opts = {}) {
+  const headers = authHeaders();
+  const body = {
+    pinataContent: obj,
+    pinataMetadata: { name: opts.name || 'mandate-json', keyvalues: { pipeline: 'mandate' } },
+    pinataOptions: { cidVersion: 1 },
+  };
+  let lastErr;
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      const res = await axios.post(`${API_URL}/pinning/pinJSONToIPFS`, body, {
+        headers: { 'Content-Type': 'application/json', ...headers },
+        timeout: 60_000,
+      });
+      const cid = res.data?.IpfsHash;
+      if (!cid) throw new UploadError(`Unexpected Pinata response: ${JSON.stringify(res.data).slice(0, 300)}`);
+      return { cid, gatewayUrl: `${GATEWAY}/ipfs/${cid}` };
+    } catch (raw) {
+      lastErr = classify(raw);
+      if (!lastErr.retryable || attempt === MAX_ATTEMPTS) break;
+      await sleep(2 ** attempt * 1000);
+    }
+  }
+  throw lastErr;
+}
+
+/** True when Pinata credentials are configured. */
+function hasPinataCredentials() {
+  return Boolean(process.env.PINATA_JWT || (process.env.PINATA_API_KEY && process.env.PINATA_SECRET_API_KEY));
+}
+
 function parseArgs(argv) {
   const args = { file: null, name: undefined, json: false };
   for (let i = 0; i < argv.length; i++) {
@@ -168,7 +206,7 @@ async function main() {
     return 2;
   }
   if (args.help || !args.file) {
-    console.error('usage: node upload.js <file> [--name <label>] [--json]');
+    console.error('usage: node broker/upload.js <file> [--name <label>] [--json]');
     return args.help ? 0 : 2;
   }
 
@@ -182,7 +220,7 @@ async function main() {
       console.log(`  SHA-256   : ${result.sha256}`);
       console.log(`  Size      : ${result.size} bytes${result.duplicate ? ' (already pinned)' : ''}`);
       console.log(`  Gateway   : ${result.gatewayUrl}`);
-      console.log(`\nSubmit on-chain with: submitDataHash("${result.cid}")`);
+
     }
     return 0;
   } catch (e) {
@@ -195,4 +233,4 @@ if (require.main === module) {
   main().then((code) => process.exit(code));
 }
 
-module.exports = { pinFile, UploadError };
+module.exports = { pinFile, pinJSON, hasPinataCredentials, UploadError };
