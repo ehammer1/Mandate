@@ -85,10 +85,44 @@ The blueprint in `render.yaml` includes `mandate-identity`. Render generates
 4. Copy the **Client ID** and **Client secret** into the Render service's environment as
    `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`.
 
+## Microsoft sign-in setup (free)
+
+For personal Microsoft accounts: Outlook.com, Hotmail, Live, Xbox and Skype.
+
+1. Go to https://entra.microsoft.com (or portal.azure.com) and sign in with any Microsoft
+   account.
+2. **App registrations → New registration**.
+   - Name: Mandate
+   - Supported account types: **Personal Microsoft accounts only**
+   - Redirect URI: platform **Web**, `https://mandate-identity.onrender.com/callback`
+   - Click **Register**.
+3. On the app's **Overview** page, copy the **Application (client) ID**.
+4. **Certificates & secrets → Client secrets → New client secret**: add a description
+   and pick an expiry (the maximum is 24 months; set a reminder to renew it). Copy the
+   **Value** column right away; it's shown only once.
+5. In Render, set `MICROSOFT_CLIENT_ID` and `MICROSOFT_CLIENT_SECRET` on the
+   `mandate-identity` service (see "Setting values in Render" below).
+
+Microsoft verifies a personal account's email when the account is created, so the
+service treats it as verified. The same email rules apply as for Google, and an Outlook
+address counts once across Microsoft sign-in and email sign-up.
+
+## Setting values in Render
+
+1. dashboard.render.com, then open the **mandate-identity** service.
+2. In the service's left menu (on a phone: the menu button at the top of the service
+   page), choose **Environment**.
+3. Click **Edit**, or **+ Add Environment Variable** if a name isn't listed yet. Put the
+   name (for example `EMAIL_PROVIDER`) in the **Key** box and its value in the **Value**
+   box.
+4. Click **Save changes** (it may say **Save, rebuild, and deploy**). Render restarts
+   the service with the new values within a minute or two.
+5. Check **Logs**: the last line lists the sign-in options now active, for example
+   `providers: Google(basic), Microsoft(basic), Email via resend(basic)`.
+
 ## Other providers
 
-- **Microsoft** (personal accounts): register an app in Microsoft Entra, with redirect
-  URI `…/callback`; set `MICROSOFT_CLIENT_ID` and `MICROSOFT_CLIENT_SECRET`.
+- **Microsoft**: see "Microsoft sign-in setup" below.
 - **Apple**: needs an Apple Developer account. Create a Services ID and a Sign in with
   Apple key; set `APPLE_CLIENT_ID` (the Services ID), `APPLE_TEAM_ID`, `APPLE_KEY_ID`
   and `APPLE_PRIVATE_KEY` (the .p8 contents).

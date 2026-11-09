@@ -70,8 +70,10 @@ function providersFromEnv(env = process.env) {
     list.push({ id: 'google', name: 'Google', issuer: 'https://accounts.google.com', clientId: env.GOOGLE_CLIENT_ID, clientSecret: env.GOOGLE_CLIENT_SECRET, tier: 0, scope: 'openid email', requireEmailVerified: true, checkEmailDomain: true });
   }
   if (env.MICROSOFT_CLIENT_ID) {
-    // Personal Microsoft accounts (the "consumers" tenant has a fixed id, so the issuer validates).
-    list.push({ id: 'microsoft', name: 'Microsoft', issuer: 'https://login.microsoftonline.com/9188040d-6c67-4c5b-b112-36a304b66dad/v2.0', clientId: env.MICROSOFT_CLIENT_ID, clientSecret: env.MICROSOFT_CLIENT_SECRET, tier: 0, scope: 'openid' });
+    // Personal Microsoft accounts (Outlook, Hotmail, Live, Xbox, Skype). The "consumers" tenant has a
+    // fixed id, so the issuer validates. Microsoft verifies a personal account's email when the account
+    // is created but sends no email_verified claim, hence emailTrusted (personal accounts only).
+    list.push({ id: 'microsoft', name: 'Microsoft', issuer: 'https://login.microsoftonline.com/9188040d-6c67-4c5b-b112-36a304b66dad/v2.0', clientId: env.MICROSOFT_CLIENT_ID, clientSecret: env.MICROSOFT_CLIENT_SECRET, tier: 0, scope: 'openid email profile', checkEmailDomain: true, emailTrusted: true });
   }
   if (env.APPLE_CLIENT_ID) {
     // Apple's client secret is a short-lived ES256 JWT signed with your .p8 key (built per request).
@@ -154,9 +156,14 @@ function createIdentityService(o) {
     return hmac(`email|${normalizeEmail(email)}`);
   }
 
+  /** The account's email if the provider vouches for it (email_verified, or a provider we trust to verify). */
+  function verifiedEmailOf(p, claims) {
+    const flagged = claims.email_verified === true || claims.email_verified === 'true';
+    return (flagged || (p.emailTrusted && claims.email)) && normalizeEmail(claims.email) ? claims.email : null;
+  }
+
   function fingerprint(p, claims) {
-    const verifiedEmail = (claims.email_verified === true || claims.email_verified === 'true') && normalizeEmail(claims.email);
-    if (p.checkEmailDomain && verifiedEmail) return emailFingerprint(claims.email);
+    if (p.checkEmailDomain && verifiedEmailOf(p, claims)) return emailFingerprint(claims.email);
     // Otherwise bound to provider id + issuer + subject: stable for the account, meaningless without the pepper.
     return hmac(`${p.id}|${claims.iss}|${claims.sub}`);
   }
@@ -304,8 +311,8 @@ function createIdentityService(o) {
     }
 
     if (p.checkEmailDomain && o.emailPolicy) {
-      const verified = claims.email_verified === true || claims.email_verified === 'true';
-      const verdict = verified ? o.emailPolicy.check(claims.email) : { ok: false, reason: 'the email address is not verified' };
+      const email = verifiedEmailOf(p, claims);
+      const verdict = email ? o.emailPolicy.check(email) : { ok: false, reason: claims.email ? 'the email address is not verified' : 'the account did not share an email address' };
       if (!verdict.ok) {
         log(`sign-in refused by email policy: ${verdict.reason}`);
         return backTo(res, s.returnUrl, {

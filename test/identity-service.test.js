@@ -18,7 +18,7 @@ const { enrolStartUrl } = require('../client/enrol');
 const { createMockOidc } = require('./helpers/mock-oidc');
 
 const APP = 'http://localhost:9999/app/';
-let provider, c, idp, gov, service, serviceUrl, issuerKey;
+let provider, c, idp, gov, msft, service, serviceUrl, issuerKey;
 const closers = [];
 
 const freePort = () => new Promise((r) => { const s = net.createServer().listen(0, '127.0.0.1', () => { const p = s.address().port; s.close(() => r(p)); }); });
@@ -33,7 +33,8 @@ before(async () => {
 
   idp = await createMockOidc({ clientId: 'mandate-test', clientSecret: 's3cret' });
   gov = await createMockOidc({ clientId: 'mandate-gov', clientSecret: 'g0v' });
-  closers.push(idp.server, gov.server);
+  msft = await createMockOidc({ clientId: 'mandate-ms', clientSecret: 'm5' });
+  closers.push(idp.server, gov.server, msft.server);
 
   const port = await freePort();
   serviceUrl = `http://127.0.0.1:${port}`;
@@ -41,6 +42,8 @@ before(async () => {
     providers: [
       { id: 'testlogin', name: 'Test Login', issuer: idp.issuer(), clientId: 'mandate-test', clientSecret: 's3cret', tier: 0, scope: 'openid email', requireEmailVerified: true, checkEmailDomain: true },
       { id: 'govid', name: 'Gov ID', issuer: gov.issuer(), clientId: 'mandate-gov', clientSecret: 'g0v', tier: 1, scope: 'openid', requiredAcr: 'ial2' },
+      // Configured like the real Microsoft provider: no email_verified claim, email trusted.
+      { id: 'microsoft', name: 'Microsoft', issuer: msft.issuer(), clientId: 'mandate-ms', clientSecret: 'm5', tier: 0, scope: 'openid email profile', checkEmailDomain: true, emailTrusted: true },
     ],
     publicUrl: serviceUrl,
     pepper: 'x'.repeat(64),
@@ -122,7 +125,7 @@ test('identity-proofed provider enrols at the verified tier only with the requir
   assert.notEqual(m.docHash, ethers.ZeroHash);
 
   const providers = await (await fetch(`${serviceUrl}/providers`)).json();
-  assert.deepEqual(providers.map((p) => [p.id, p.tier]), [['testlogin', 0], ['govid', 1], ['email', 0]]);
+  assert.deepEqual(providers.map((p) => [p.id, p.tier]), [['testlogin', 0], ['govid', 1], ['microsoft', 0], ['email', 0]]);
 });
 
 test('email policy: reputable providers, .gov/.edu and listed domains in; throwaway and unknown domains out', async () => {
@@ -227,4 +230,25 @@ test('email sign-up: lockout, policy, ownership, origin and rate limits', async 
   const statuses = [];
   for (let i = 0; i < 4; i++) statuses.push((await post('/email/start', { ...ownership(new Identity(`kim-${i}`)), email: 'kim@yahoo.com' })).status);
   assert.deepEqual(statuses, [200, 200, 200, 429]);
+});
+
+test('Microsoft sign-in: Outlook accounts join; same mailbox as email sign-up counts once', async () => {
+  msft.setUser({ sub: 'ms-olivia', email: 'olivia.park@outlook.com', name: 'Olivia' }); // no email_verified, like Microsoft
+  const olivia = new Identity('olivia-ms');
+  const r = await signIn(olivia, 'microsoft');
+  assert.equal(r.enrolled, 'basic', JSON.stringify(r));
+  assert.equal(r.provider, 'Microsoft');
+
+  // Same Outlook mailbox through email sign-up: refused after the code proves it.
+  const again = new Identity('olivia-email');
+  const s = await post('/email/start', { ...ownership(again), email: 'Olivia.Park+x@outlook.com' });
+  assert.equal(s.status, 200);
+  const v = await post('/email/verify', { session: s.json.session, code: mail.lastCodeFor('Olivia.Park+x@outlook.com') });
+  assert.equal(v.status, 409);
+
+  // A Microsoft account that shares no email, or uses a throwaway address, is refused.
+  msft.setUser({ sub: 'ms-noemail' });
+  assert.match((await signIn(new Identity('ms-noemail'), 'microsoft')).enroll_error, /did not share an email address/);
+  msft.setUser({ sub: 'ms-temp', email: 'z@yopmail.com' });
+  assert.match((await signIn(new Identity('ms-temp'), 'microsoft')).enroll_error, /temporary-email/);
 });
