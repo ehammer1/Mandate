@@ -50,6 +50,7 @@ Design rules:
 | `client/ballot.js` | Builds an anonymous ballot proof on a phone, browser or kiosk |
 | `broker/relayer.js` | Submits ballots and pays gas, so voters need no wallet |
 | `docs/us-city-pilot.md` | US city pilot plan: identity sources, anti-gaming, voice, capital, wallet-free participation |
+| `docs/scaling-plan.md` | Plan for scaling from one city to any government or institution |
 | `oracle/review.py` | AI verifier: judges evidence against the mandate's criteria, with quotes checked against the source |
 | `oracle/redact.py` | Optional check for records-release mandates: AI redaction plus layout verification |
 | `oracle/claude_call.py` | Shared Claude call: streaming, refusal fallback, error handling |
