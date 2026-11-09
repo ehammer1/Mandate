@@ -1,4 +1,15 @@
-# Declassification Oversight Network
+# Mandate
+
+> **The people decide. The protocol makes sure it happens.**
+>
+> Mandate is a governance protocol: one-person-one-vote sets goals, prediction markets
+> advise on how to reach them, and smart contracts plus independent verifiers track
+> and enforce what was decided. This first version is the starting prototype, built
+> around one kind of mandate (releasing public records). It will be generalized into
+> the mandate registry, decision markets, and attestation layers described in the
+> roadmap.
+
+## Prototype: records-release mandate
 
 A pipeline that holds an agency's budget in escrow until it publishes records a public
 vote ordered released. If it misses the deadline, anyone can claw the budget back to the
