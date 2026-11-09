@@ -1,0 +1,5 @@
+{
+  "title": "Should the city publish its full line-item budget online?",
+  "body": "Test poll on Base's test network. Every line item above $10,000, as a downloadable spreadsheet, within 30 days of the budget's adoption.",
+  "options": ["Yes", "No"]
+}

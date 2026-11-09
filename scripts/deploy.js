@@ -2,9 +2,15 @@
 /**
  * scripts/deploy.js - deploy the whole Mandate stack and write the web app's config.
  *
- *   RPC_URL=... DEPLOYER_PRIVATE_KEY=... node scripts/deploy.js
+ *   NETWORK=base-sepolia DEPLOYER_PRIVATE_KEY=... node scripts/deploy.js
+ *   RPC_URL=... DEPLOYER_PRIVATE_KEY=... node scripts/deploy.js          (any EVM chain)
  *
  * Optional env:
+ *   NETWORK            a preset from scripts/networks.js (sets RPC_URL)
+ *   ADMIN_ADDRESS      also grant every admin role to this address (e.g. your own wallet),
+ *                      so control survives the deployer key
+ *   DEMO_ISSUER        1 = register the deployer as a "testnet demo clerk" issuer
+ *   RELAYER_PRIVATE_KEY + RELAYER_FUND  send RELAYER_FUND ETH to the relayer's address
  *   SEASONING_DAYS     default 30
  *   MIN_BOND           proposal bond in play credits, default 100
  *   TREASURY           address receiving forfeited bonds and clawbacks (default: deployer)
@@ -51,6 +57,8 @@ async function deploy(signer, name, libs, ...args) {
  * @param {{ seasoningDays?: number, minBond?: bigint, treasury?: string, log?: (m: string) => void }} [opts]
  */
 async function deployAll(signer, opts = {}) {
+  // Sequential nonces from the start: public RPCs can lag behind on pending counts.
+  if (opts.nonceManager) signer = new ethers.NonceManager(signer);
   const log = opts.log || (() => {});
   const me = await signer.getAddress();
   const treasury = opts.treasury || me;
@@ -76,6 +84,17 @@ async function deployAll(signer, opts = {}) {
   await send(vote.grantRole(await vote.PROPOSER_ROLE(), me));
   log('roles granted');
 
+  if (opts.admin) {
+    for (const c of [identity, registry, vote, market]) await send(c.grantRole(ethers.ZeroHash, opts.admin)); // DEFAULT_ADMIN_ROLE
+    await send(vote.grantRole(await vote.PROPOSER_ROLE(), opts.admin));
+    await send(credits.transferOwnership(opts.admin));
+    log(`admin roles also granted to ${opts.admin}`);
+  }
+  if (opts.demoIssuer) {
+    await send(identity.setIssuer(me, 1, true, 'Testnet demo clerk'));
+    log('deployer registered as the testnet demo clerk');
+  }
+
   const contracts = { semaphore, verifier, identity, credits, registry, vote, market };
   const addresses = {};
   for (const [k, c] of Object.entries(contracts)) addresses[k] = await c.getAddress();
@@ -87,33 +106,52 @@ module.exports = { deployAll, link };
 if (require.main === module) {
   require('dotenv').config();
   (async () => {
-    const need = (n) => process.env[n] || (console.error(`missing env ${n}`), process.exit(2));
-    const provider = new ethers.JsonRpcProvider(need('RPC_URL'));
-    const signer = new ethers.Wallet(need('DEPLOYER_PRIVATE_KEY'), provider);
+    const networks = require('./networks');
+    const preset = process.env.NETWORK ? networks[process.env.NETWORK] : null;
+    if (process.env.NETWORK && !preset) throw new Error(`unknown NETWORK ${process.env.NETWORK}; see scripts/networks.js`);
+    const rpcUrl = preset ? preset.rpcUrl : process.env.RPC_URL;
+    if (!rpcUrl || !process.env.DEPLOYER_PRIVATE_KEY) throw new Error('set NETWORK (or RPC_URL) and DEPLOYER_PRIVATE_KEY');
+    const provider = new ethers.JsonRpcProvider(rpcUrl, preset?.chainId, preset ? { staticNetwork: true } : undefined);
+    const signer = new ethers.Wallet(process.env.DEPLOYER_PRIVATE_KEY, provider);
     const { chainId } = await provider.getNetwork();
+    if (preset && !preset.testnet && process.env.CONFIRM_MAINNET !== 'yes') throw new Error('refusing a mainnet deploy without CONFIRM_MAINNET=yes');
+    console.log(`[deploy] chain ${chainId} from ${signer.address}, balance ${ethers.formatEther(await provider.getBalance(signer.address))} ETH`);
+
     const { addresses } = await deployAll(signer, {
       seasoningDays: Number(process.env.SEASONING_DAYS || 30),
       minBond: ethers.parseEther(process.env.MIN_BOND || '100'),
       treasury: process.env.TREASURY,
+      admin: process.env.ADMIN_ADDRESS ? ethers.getAddress(process.env.ADMIN_ADDRESS) : undefined,
+      demoIssuer: process.env.DEMO_ISSUER === '1',
+      nonceManager: true,
       log: (m) => console.log(`[deploy] ${m}`),
     });
+
+    if (process.env.RELAYER_PRIVATE_KEY && process.env.RELAYER_FUND) {
+      const relayer = new ethers.Wallet(process.env.RELAYER_PRIVATE_KEY).address;
+      await (await signer.sendTransaction({ to: relayer, value: ethers.parseEther(process.env.RELAYER_FUND) })).wait();
+      console.log(`[deploy] sent ${process.env.RELAYER_FUND} ETH to relayer ${relayer}`);
+    }
+
+    const name = process.env.NETWORK || String(chainId);
     fs.mkdirSync(path.join(ROOT, 'deployments'), { recursive: true });
-    const record = { chainId: Number(chainId), deployedAt: new Date().toISOString(), addresses };
-    fs.writeFileSync(path.join(ROOT, 'deployments', `${chainId}.json`), JSON.stringify(record, null, 2));
+    const record = { network: name, chainId: Number(chainId), deployedAt: new Date().toISOString(), deployer: signer.address, admin: process.env.ADMIN_ADDRESS || null, addresses };
+    fs.writeFileSync(path.join(ROOT, 'deployments', `${name}.json`), JSON.stringify(record, null, 2) + '\n');
     const appConfig = {
       chainId: Number(chainId),
-      rpcUrl: process.env.RPC_URL,
+      rpcUrl,
       voteAddress: addresses.vote,
       identityAddress: addresses.identity,
       creditsAddress: addresses.credits,
       relayers: (process.env.RELAYERS || '').split(',').map((s) => s.trim()).filter(Boolean),
       ipfsGateway: process.env.IPFS_GATEWAY || 'https://gateway.pinata.cloud',
       artifactsBase: process.env.ARTIFACTS_BASE || '',
+      explorer: preset?.explorer || '',
     };
-    fs.writeFileSync(path.join(ROOT, 'app', 'config.json'), JSON.stringify(appConfig, null, 2));
+    fs.writeFileSync(path.join(ROOT, 'app', `config.${name}.json`), JSON.stringify(appConfig, null, 2) + '\n');
     console.log(JSON.stringify(record, null, 2));
   })().catch((e) => {
-    console.error(e);
+    console.error(e.shortMessage || e.message);
     process.exit(1);
   });
 }

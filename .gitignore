@@ -7,4 +7,3 @@ __pycache__/
 *.pyc
 app/dist/
 app/config.json
-deployments/

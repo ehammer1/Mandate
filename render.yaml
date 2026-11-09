@@ -1,0 +1,19 @@
+# One-click relayer hosting on Render (render.com -> New -> Blueprint -> this repo).
+# The relayer submits anonymous ballots and pays their fees, so voters need no wallet.
+services:
+  - type: web
+    name: mandate-relayer
+    runtime: node
+    plan: free
+    buildCommand: npm ci --omit=dev --ignore-scripts
+    startCommand: node broker/relayer.js
+    healthCheckPath: /health
+    envVars:
+      - key: RPC_URL
+        value: https://sepolia.base.org
+      - key: VOTE_ADDRESS
+        sync: false          # from deployments/base-sepolia.json -> addresses.vote
+      - key: RELAYER_PRIVATE_KEY
+        sync: false          # a funded key used only to pay ballot fees
+      - key: RATE_LIMIT_PER_MIN
+        value: "30"

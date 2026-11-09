@@ -14,6 +14,7 @@ import { poseidon2 } from 'poseidon-lite/poseidon2';
 import { buildBallot } from '../../client/ballot.js';
 
 const VOTE_ABI = [
+  'function castBallot(uint256 id, tuple(uint256 merkleTreeDepth, uint256 merkleTreeRoot, uint256 nullifier, uint256 message, uint256 scope, uint256[8] points) b)',
   'event PollCreated(uint256 indexed id, uint256 indexed groupId, uint256 snapshotRoot, uint8 action, uint64 end, string questionCID)',
   'function pollCount() view returns (uint256)',
   'function identity() view returns (address)',
@@ -257,9 +258,37 @@ async function castVote(pollId, option, button) {
       lastError = 'A relayer could not be reached; trying the next one.';
     }
   }
+  if (window.ethereum && !/rejected/.test(lastError)) return offerDirectSubmit(el, card, button, pollId, ballot, lastError);
   status(el, lastError, 'error');
   for (const b of card.querySelectorAll('button.choice')) b.disabled = false;
   button.classList.remove('picked');
+}
+
+// Last resort when no relayer answers: the voter sends the ballot from their own
+// wallet. It still hides who they are among the voter list, but it publicly links
+// this wallet to this ballot (and so to its choice), so it is opt-in and explained.
+function offerDirectSubmit(el, card, button, pollId, ballot, why) {
+  el.innerHTML = `<span class="warn">${esc(why)} No relayer is available right now.</span>
+    <br/><button id="direct-${pollId}" class="primary" style="margin-top:8px">Send it from my own wallet</button>
+    <br/><span class="note">This shows publicly that your wallet cast this ballot and which choice it made. Your voter identity stays hidden.</span>`;
+  $(`direct-${pollId}`).onclick = async () => {
+    try {
+      const chainHex = '0x' + Number(state.config.chainId).toString(16);
+      await window.ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: chainHex }] });
+      const signer = await new ethers.BrowserProvider(window.ethereum).getSigner();
+      const vote = state.vote.connect(signer);
+      status(el, 'Confirm the transaction in your wallet…');
+      const tx = await vote.castBallot(pollId, ballot);
+      status(el, 'Waiting for the network…');
+      await tx.wait();
+      status(el, 'Your vote is recorded.', 'ok');
+      setTimeout(refreshPolls, 1500);
+    } catch (e) {
+      status(el, `Not sent: ${e.shortMessage || e.message}`, 'error');
+      for (const b of card.querySelectorAll('button.choice')) b.disabled = false;
+      button.classList.remove('picked');
+    }
+  };
 }
 
 // ------------------------------------------------------------------ account
