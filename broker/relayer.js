@@ -201,25 +201,40 @@ function createRelayer({ provider, signer, voteAddress, rateLimitPerMin = 30, co
 module.exports = { createRelayer };
 
 if (require.main === module) {
+  // Values pasted into hosting dashboards often carry spaces, quotes or their own
+  // "NAME=" label; clean those up, then fail loudly instead of crashing later.
   const need = (n) => {
-    const v = process.env[n];
+    const v = String(process.env[n] || '').trim().replace(/^['"]|['"]$/g, '').replace(new RegExp(`^${n}\\s*=\\s*`), '').trim();
     if (!v) {
       console.error(`[relayer] missing env ${n}`);
       process.exit(2);
     }
     return v;
   };
-  const provider = new ethers.JsonRpcProvider(need('RPC_URL'));
-  const signer = new ethers.Wallet(need('RELAYER_PRIVATE_KEY'), provider);
+  const voteAddress = need('VOTE_ADDRESS');
+  if (!ethers.isAddress(voteAddress)) {
+    console.error(`[relayer] VOTE_ADDRESS is not a valid address (got ${JSON.stringify(voteAddress.slice(0, 60))}). Expected 0x followed by 40 hex characters.`);
+    process.exit(2);
+  }
+  let signer;
+  const rpcUrl = need('RPC_URL');
+  const provider = new ethers.JsonRpcProvider(rpcUrl);
+  try {
+    signer = new ethers.Wallet(need('RELAYER_PRIVATE_KEY'), provider);
+  } catch {
+    console.error('[relayer] RELAYER_PRIVATE_KEY is not a valid private key (expected 0x followed by 64 hex characters).');
+    process.exit(2);
+  }
+  console.log(`[relayer] paying fees from ${signer.address}`);
   const server = createRelayer({
     provider,
     signer,
-    voteAddress: need('VOTE_ADDRESS'),
+    voteAddress: ethers.getAddress(voteAddress),
     rateLimitPerMin: Number(process.env.RATE_LIMIT_PER_MIN || 30),
     corsOrigin: process.env.CORS_ORIGIN || '*',
     confirmations: Number(process.env.CONFIRMATIONS || 1),
     log: (m) => console.log(`${new Date().toISOString()} [relayer] ${m}`),
   });
   const port = Number(process.env.PORT || 8787);
-  server.listen(port, () => console.log(`[relayer] listening on :${port} for ${process.env.VOTE_ADDRESS}`));
+  server.listen(port, () => console.log(`[relayer] listening on :${port} for ${ethers.getAddress(voteAddress)}`));
 }
