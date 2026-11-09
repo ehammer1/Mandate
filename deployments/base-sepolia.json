@@ -3,7 +3,7 @@
   "chainId": 84532,
   "deployedAt": "2026-11-09T05:06:09.438Z",
   "deployer": "0xC782e1690D4B6c4C2Aba21283a6271477690f834",
-  "admin": null,
+  "admin": "0xb8e5DA10ce9BE2A0dc3D86cB180c0E605491Cb71",
   "addresses": {
     "semaphore": "0x4ebBdE996EE9cc883d6578dB632624CDe07dc1ac",
     "verifier": "0xEc9bc2D640D86A9b6E75bBb905d21288DDB11757",
@@ -12,5 +12,6 @@
     "registry": "0x4B5F8804BB50C48B6c7610C5485334F66D72C99D",
     "vote": "0x4ce35710eAc8086ab40DC03A76908b9c9f32f9C8",
     "market": "0x43911233BC5994eB3d6329DBBea55ba9f4eBd041"
-  }
+  },
+  "notes": "Admin roles on identity, registry, vote and market, plus vote PROPOSER_ROLE and PlayCredits ownership, granted to the admin wallet on 2026-11-09. The deployer keeps admin as a second key for testnet operations and is the demo clerk issuer."
 }
