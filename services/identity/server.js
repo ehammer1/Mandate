@@ -54,6 +54,7 @@ const IDENTITY_ABI = [
 ];
 
 const { enrolMessage, decodeProof, encodeProof } = require('../../client/enrol');
+const { createEmailPolicy } = require('./email-policy');
 
 // ---------------------------------------------------------------- providers
 
@@ -65,7 +66,7 @@ const { enrolMessage, decodeProof, encodeProof } = require('../../client/enrol')
 function providersFromEnv(env = process.env) {
   const list = [];
   if (env.GOOGLE_CLIENT_ID) {
-    list.push({ id: 'google', name: 'Google', issuer: 'https://accounts.google.com', clientId: env.GOOGLE_CLIENT_ID, clientSecret: env.GOOGLE_CLIENT_SECRET, tier: 0, scope: 'openid email', requireEmailVerified: true });
+    list.push({ id: 'google', name: 'Google', issuer: 'https://accounts.google.com', clientId: env.GOOGLE_CLIENT_ID, clientSecret: env.GOOGLE_CLIENT_SECRET, tier: 0, scope: 'openid email', requireEmailVerified: true, checkEmailDomain: true });
   }
   if (env.MICROSOFT_CLIENT_ID) {
     // Personal Microsoft accounts (the "consumers" tenant has a fixed id, so the issuer validates).
@@ -108,6 +109,7 @@ async function appleClientSecret(apple, clientId) {
  * @param {ethers.Signer} o.signer           issuer key (needs the issuer role on IdentityRegistry)
  * @param {string} o.identityAddress
  * @param {string[]} o.allowedReturnOrigins  where people may be sent back to (the voter app)
+ * @param {object} [o.emailPolicy]           createEmailPolicy(...): applied to providers with checkEmailDomain
  * @param {boolean} [o.allowInsecure]        http providers (tests only)
  */
 function createIdentityService(o) {
@@ -259,6 +261,17 @@ function createIdentityService(o) {
       return backTo(res, s.returnUrl, { enroll_error: `Sign-in with ${p.name} could not be verified (${e.message}).` });
     }
 
+    if (p.checkEmailDomain && o.emailPolicy) {
+      const verified = claims.email_verified === true || claims.email_verified === 'true';
+      const verdict = verified ? o.emailPolicy.check(claims.email) : { ok: false, reason: 'the email address is not verified' };
+      if (!verdict.ok) {
+        log(`sign-in refused by email policy: ${verdict.reason}`);
+        return backTo(res, s.returnUrl, {
+          enroll_error: `This account can't be used to join (${verdict.reason}). Please use an address from a well-known provider such as Gmail, Outlook, iCloud or Yahoo, or a .gov or .edu address.`,
+        });
+      }
+    }
+
     const hash = fingerprint(p, claims);
     const commitment = BigInt(s.commitment);
     try {
@@ -359,6 +372,7 @@ if (require.main === module) {
       signer,
       identityAddress: ethers.getAddress(identityAddress),
       allowedReturnOrigins: need('ALLOWED_RETURN_ORIGINS').split(',').map((s) => s.trim()),
+      emailPolicy: createEmailPolicy({ allow: process.env.EMAIL_DOMAINS_ALLOW, block: process.env.EMAIL_DOMAINS_BLOCK }),
     });
     const port = Number(process.env.PORT || 8790);
     server.listen(port, () => console.log(`[identity] listening on :${port}; issuer ${signer.address}; providers: ${providers.map((p) => `${p.name}(${p.tier ? 'verified' : 'basic'})`).join(', ')}`));

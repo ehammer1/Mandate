@@ -39,6 +39,8 @@ services:
         generateValue: true
       - key: IDENTITY_PEPPER      # secret for account fingerprints; never change it once in use
         generateValue: true
+      - key: EMAIL_DOMAINS_ALLOW   # "reputable" = major providers + .gov/.edu; add your own, comma-separated
+        value: reputable
       - key: GOOGLE_CLIENT_ID
         sync: false
       - key: GOOGLE_CLIENT_SECRET

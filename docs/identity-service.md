@@ -20,6 +20,23 @@ the voter key; the service checks the signature before sign-in starts.
 **Privacy.** The provider learns that the person used Mandate, never how they vote. The
 service keeps nothing. On-chain there is only the voter code and the fingerprint.
 
+## Which email addresses may join
+
+Online sign-ins that report an email (Google today) go through an email policy
+(`services/identity/email-policy.js`):
+
+- **Allowed by default (`EMAIL_DOMAINS_ALLOW=reputable`):** Gmail, Outlook/Hotmail/Live,
+  iCloud, Yahoo/AOL, Proton, Fastmail, Tuta, Zoho, GMX, major US internet providers,
+  and any `.gov`, `.edu`, `.mil` or K-12 (`*.k12.*.us`) address.
+- **Add your own:** `EMAIL_DOMAINS_ALLOW=reputable, examplecity.org, *.examplecounty.us`.
+- **Always refused:** well-known throwaway-email services, plus anything in
+  `EMAIL_DOMAINS_BLOCK`.
+- **Allow everything except throwaway mail:** set `EMAIL_DOMAINS_ALLOW` to an empty value.
+
+The email must be verified by the provider. People with other addresses see a message
+listing the accepted providers. Only the account fingerprint goes on-chain, never the
+email address.
+
 ## Run it on Render
 
 The blueprint in `render.yaml` includes `mandate-identity`. Render generates
