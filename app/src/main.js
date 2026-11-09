@@ -52,7 +52,7 @@ function esc(s) {
 const when = (secs) => new Date(Number(secs) * 1000).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 
 async function loadConfig() {
-  const res = await fetch('config.json', { cache: 'no-store' });
+  const res = await fetch(`config.json?t=${Date.now()}`, { cache: 'no-store' }); // bypass CDN caching of settings
   if (!res.ok) throw new Error('This app is not configured yet (config.json missing).');
   const cfg = await res.json();
   state.config = cfg;
