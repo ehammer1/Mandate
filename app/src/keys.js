@@ -67,12 +67,28 @@ export function savedMethod() {
   return load().method || null;
 }
 
-/** Create a passkey for this site and unlock the keys from it. */
-export async function createPasskey(displayName = 'Mandate voter') {
-  const cred = await navigator.credentials.create({
+/** True if this browser remembers a Mandate passkey (even if a browser-saved key is in use now). */
+export function hasSavedPasskey() {
+  return !!load().credentialId;
+}
+
+/**
+ * Create a passkey for this site and unlock the keys from it.
+ * Never makes a second passkey when this browser already knows one: the known
+ * credential is excluded, so the phone refuses to create a duplicate and we
+ * unlock the existing one instead. (Reusing the same user id would *replace* the
+ * passkey and change the voter key, so that is deliberately not done.)
+ */
+export async function createPasskey(displayName) {
+  const known = load().credentialId;
+  if (known) return unlockWithPasskey();
+  const label = displayName || `Mandate voter · ${new Date().toISOString().slice(0, 10)}`;
+  let cred;
+  try {
+    cred = await navigator.credentials.create({
     publicKey: {
       rp: { name: 'Mandate' },
-      user: { id: random(16), name: displayName, displayName },
+      user: { id: random(16), name: label, displayName: label },
       challenge: random(32),
       pubKeyCredParams: [
         { type: 'public-key', alg: -7 },
@@ -82,6 +98,11 @@ export async function createPasskey(displayName = 'Mandate voter') {
       extensions: { prf: {} },
     },
   });
+  } catch (e) {
+    // InvalidStateError: this authenticator already holds a credential we excluded.
+    if (e?.name === 'InvalidStateError') return unlockWithPasskey();
+    throw e;
+  }
   const ext = cred.getClientExtensionResults?.() || {};
   if (!ext.prf?.enabled) {
     throw Object.assign(new Error('This passkey cannot derive keys (no PRF support). Use a device key instead.'), { code: 'NO_PRF' });
@@ -115,7 +136,7 @@ export async function unlockWithPasskey({ remember = true } = {}) {
 /** Fallback: a random secret kept in this browser. Returns keys plus the backup code to show once. */
 export async function createDeviceKey() {
   const secret = random(32);
-  save({ method: 'device', deviceSecret: b64url(secret) });
+  save({ ...load(), method: 'device', deviceSecret: b64url(secret) }); // keep any known passkey
   return { ...(await deriveKeys(secret, 'device')), backupCode: backupCodeFor(secret) };
 }
 
@@ -139,7 +160,7 @@ export async function restoreFromBackup(code) {
     throw new Error('That backup code is not valid.');
   }
   if (secret.length !== 32) throw new Error('That backup code is not valid.');
-  save({ method: 'device', deviceSecret: b64url(secret) });
+  save({ ...load(), method: 'device', deviceSecret: b64url(secret) }); // keep any known passkey
   return deriveKeys(secret, 'device');
 }
 

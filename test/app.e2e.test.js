@@ -24,7 +24,7 @@ const DAY = 86_400;
 const QUESTION_CID = 'bafy' + 'q'.repeat(55);
 const docHash = (s) => ethers.keccak256(ethers.toUtf8Bytes(`pepper:${s}`));
 
-let walletAccount, rpcUrlForPage;
+let walletAccount, rpcUrlForPage, cdpMain, authIdMain;
 let chain, provider, admin, clerk, relayerSigner, c, relay, app, browser, page, appUrl;
 const servers = [];
 const shot = async (name) => process.env.APP_SCREENSHOT_DIR && page.screenshot({ path: `${process.env.APP_SCREENSHOT_DIR}/${name}.png`, fullPage: true });
@@ -113,10 +113,11 @@ before(async () => {
   }, { rpc: rpcUrlForPage, account: walletAccount });
   const cdp = await context.newCDPSession(page);
   await cdp.send('WebAuthn.enable');
-  await cdp.send('WebAuthn.addVirtualAuthenticator', {
+  cdpMain = cdp;
+  ({ authenticatorId: authIdMain } = await cdp.send('WebAuthn.addVirtualAuthenticator', {
     options: { protocol: 'ctap2', ctap2Version: 'ctap2_1', transport: 'internal', hasResidentKey: true, hasUserVerification: true,
       isUserVerified: true, automaticPresenceSimulation: true, hasPrf: true },
-  });
+  }));
 });
 
 after(async () => {
@@ -308,4 +309,32 @@ test('newcomer: "Join with my email" makes the voter key and lands on the email 
   await page.waitForFunction(() => /Step 2 of 2/.test(document.querySelector('#email-status')?.textContent || ''), null, { timeout: 30_000 });
   assert.equal(await page.evaluate(() => document.activeElement?.id), 'join-email');
   await shot('8-join-with-email');
+});
+
+test('no duplicate passkeys: creating again on a device that has one unlocks the existing key', async () => {
+  const count = async () => (await cdpMain.send('WebAuthn.getCredentials', { authenticatorId: authIdMain })).credentials.length;
+  await page.click('#btn-signout');
+  await page.evaluate(() => localStorage.clear());
+  await page.reload();
+  const before = await count();
+  await page.click('#btn-join-email'); // first time on this browser: creates a passkey
+  await page.waitForSelector('#screen-home:not([hidden])');
+  assert.equal(await count(), before + 1);
+  await page.click('[data-go="screen-code"]');
+  const first = (await page.textContent('#voter-code')).trim();
+
+  // Use a browser-saved key in between (this used to make the app forget the passkey).
+  await page.click('#btn-signout');
+  await page.click('#device-option summary').catch(() => {});
+  await page.click('#btn-device');
+  await page.waitForSelector('#screen-home:not([hidden])');
+
+  for (const btn of ['#btn-join-email', '#btn-create']) {
+    await page.click('#btn-signout');
+    await page.click(btn);
+    await page.waitForSelector('#screen-home:not([hidden])');
+    await page.click('[data-go="screen-code"]');
+    assert.equal((await page.textContent('#voter-code')).trim(), first, `${btn} reused the existing voter key`);
+  }
+  assert.equal(await count(), before + 1); // still just that one new passkey
 });

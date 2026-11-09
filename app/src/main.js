@@ -115,12 +115,17 @@ function wireSignIn() {
   // passkey is cancelled or unsupported), then land on the email box.
   $('btn-join-email').onclick = async () => {
     state.wantEmailJoin = true;
-    status(s, 'Step 1 of 2: save your voter key when your phone asks…');
+    // Already have a passkey here? Unlock it rather than making another.
+    status(s, keys.hasSavedPasskey() ? 'Unlock your existing voter key…' : 'Step 1 of 2: save your voter key when your phone asks…');
     let k;
     try {
       k = keys.passkeysAvailable() ? await keys.createPasskey() : null;
     } catch {
       k = null;
+    }
+    if (!k && keys.hasSavedPasskey()) {
+      state.wantEmailJoin = false;
+      return status(s, 'Unlock cancelled. Your existing voter key is still saved; tap again to unlock it.', 'warn');
     }
     if (!k) {
       try {
