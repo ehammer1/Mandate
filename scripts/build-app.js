@@ -8,14 +8,16 @@ esbuild
   .build({
     entryPoints: [path.join(root, 'app', 'src', 'main.js')],
     bundle: true,
-    format: 'iife',
+    format: 'esm',
+    splitting: true, // wallet libraries load only when someone opens "Use a wallet"
+    chunkNames: 'chunks/[name]-[hash]',
     platform: 'browser',
     target: ['es2022'],
     minify: true,
     sourcemap: true,
-    outfile: path.join(root, 'app', 'dist', 'app.js'),
+    outdir: path.join(root, 'app', 'dist'),
     define: { 'process.env.NODE_DEBUG': 'false', global: 'globalThis' },
     logLevel: 'warning',
   })
-  .then((r) => console.log(`built app/dist/app.js${r.warnings.length ? ` (${r.warnings.length} warnings)` : ''}`))
+  .then((r) => console.log(`built app/dist/${r.warnings.length ? ` (${r.warnings.length} warnings)` : ''}`))
   .catch(() => process.exit(1));

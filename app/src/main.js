@@ -34,7 +34,7 @@ const TIER = ['Basic', 'Verified resident', 'Verified resident (full voting righ
 const GROUP_LABEL = ['Basic members', 'Verified residents', 'Residents with full voting rights'];
 
 const $ = (id) => document.getElementById(id);
-const state = { config: null, provider: null, vote: null, registry: null, identity: null, keys: null, wallet: null };
+const state = { config: null, provider: null, vote: null, registry: null, identity: null, keys: null, wallet: null, external: null, roles: null };
 
 // ---------------------------------------------------------------- utilities
 
@@ -79,6 +79,7 @@ async function signedIn(k, backupCode) {
   show('screen-home');
   await refreshStatus();
   await refreshPolls();
+  await refreshAdminNav();
 }
 
 async function trySignIn(fn, statusEl) {
@@ -106,7 +107,8 @@ function wireSignIn() {
   $('btn-device').onclick = () => trySignIn(() => (keys.savedMethod() === 'device' ? keys.unlockDeviceKey() : keys.createDeviceKey()), s);
   $('btn-restore').onclick = () => trySignIn(() => keys.restoreFromBackup($('restore-code').value), s);
   $('btn-signout').onclick = () => {
-    Object.assign(state, { keys: null, identity: null, wallet: null });
+    Object.assign(state, { keys: null, identity: null, wallet: null, external: null, roles: null });
+    $('nav-admin').hidden = true;
     $('nav').hidden = true;
     show('screen-signin');
   };
@@ -258,7 +260,7 @@ async function castVote(pollId, option, button) {
       lastError = 'A relayer could not be reached; trying the next one.';
     }
   }
-  if (window.ethereum && !/rejected/.test(lastError)) return offerDirectSubmit(el, card, button, pollId, ballot, lastError);
+  if (!/rejected/.test(lastError)) return offerDirectSubmit(el, card, button, pollId, ballot, lastError);
   status(el, lastError, 'error');
   for (const b of card.querySelectorAll('button.choice')) b.disabled = false;
   button.classList.remove('picked');
@@ -273,10 +275,13 @@ function offerDirectSubmit(el, card, button, pollId, ballot, why) {
     <br/><span class="note">This shows publicly that your wallet cast this ballot and which choice it made. Your voter identity stays hidden.</span>`;
   $(`direct-${pollId}`).onclick = async () => {
     try {
-      const chainHex = '0x' + Number(state.config.chainId).toString(16);
-      await window.ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: chainHex }] });
-      const signer = await new ethers.BrowserProvider(window.ethereum).getSigner();
-      const vote = state.vote.connect(signer);
+      if (!state.external) {
+        const w = await walletsModule();
+        const found = await w.discoverInjected();
+        if (!found.length) throw new Error('No wallet connected. Connect one under Account, then try again.');
+        state.external = await w.connectInjected(found[0], state.config);
+      }
+      const vote = state.vote.connect(state.external.signer);
       status(el, 'Confirm the transaction in your wallet…');
       const tx = await vote.castBallot(pollId, ballot);
       status(el, 'Waiting for the network…');
@@ -292,42 +297,218 @@ function offerDirectSubmit(el, card, button, pollId, ballot, why) {
 }
 
 // ------------------------------------------------------------------ account
+//
+// The "active account" signs anything that isn't a ballot (admin actions, the
+// wallet fallback for ballots). It is either the automatic account derived from
+// the passkey, or a wallet the person connects. Ballots never use it.
+
+function activeSigner() {
+  if (state.external) return state.external.signer;
+  return state.wallet.connect(state.provider);
+}
+function activeAddress() {
+  return state.external ? state.external.address : state.wallet.address;
+}
 
 async function refreshAccount() {
-  const own = sessionStorage.getItem('mandate.ownWallet');
-  const address = own || state.wallet.address;
+  const address = activeAddress();
   $('account-address').textContent = address;
-  $('account-kind').textContent = own ? 'Your own wallet' : 'Created automatically from your passkey. No company holds this key.';
+  $('account-kind').textContent = state.external
+    ? `Connected: ${state.external.label}`
+    : 'Automatic account, created from your passkey. No company holds this key.';
+  $('btn-auto-wallet').hidden = !state.external;
   try {
-    if (state.config.creditsAddress) {
-      const credits = new ethers.Contract(state.config.creditsAddress, ERC20_ABI, state.provider);
-      $('account-credits').textContent = `${ethers.formatEther(await credits.balanceOf(address))} play credits`;
-    }
+    const [eth, credits] = await Promise.all([
+      state.provider.getBalance(address),
+      state.config.creditsAddress ? new ethers.Contract(state.config.creditsAddress, ERC20_ABI, state.provider).balanceOf(address) : 0n,
+    ]);
+    $('account-credits').textContent = `${Number(ethers.formatEther(eth)).toFixed(6)} test ETH for fees · ${ethers.formatEther(credits)} play credits`;
   } catch {
     $('account-credits').textContent = 'Balance unavailable';
   }
+  await refreshAdminNav();
 }
+
+async function listWallets() {
+  const box = $('wallet-list');
+  box.innerHTML = '<p class="muted">Looking for wallets…</p>';
+  const injected = await walletsModule().then((w) => w.discoverInjected());
+  const buttons = injected.map((w, i) => `<button data-injected="${i}">${w.icon ? `<img src="${esc(w.icon)}" alt="" width="20" height="20" style="vertical-align:middle;margin-right:8px">` : ''}${esc(w.name)}</button>`);
+  if (state.config.walletConnectProjectId) buttons.push('<button data-wc="1">Other mobile wallet (WalletConnect)</button>');
+  box.innerHTML = buttons.length
+    ? `<div class="stack">${buttons.join('')}</div>`
+    : '<p class="muted">No wallet found in this browser. On a phone, open this page inside your wallet app\'s browser, or ask the site owner to enable WalletConnect.</p>';
+  for (const b of box.querySelectorAll('button[data-injected]')) b.onclick = () => connectWith(() => walletsModule().then((w) => w.connectInjected(injected[Number(b.dataset.injected)], state.config)));
+  const wcBtn = box.querySelector('button[data-wc]');
+  if (wcBtn) wcBtn.onclick = () => connectWith(() => walletsModule().then((w) => w.connectWalletConnect(state.config)));
+}
+
+async function connectWith(fn) {
+  const s = $('account-status');
+  status(s, 'Waiting for your wallet…');
+  try {
+    state.external = await fn();
+    status(s, `Connected ${state.external.label}. Your votes stay separate from this wallet.`, 'ok');
+    await refreshAccount();
+  } catch (e) {
+    status(s, e?.code === 4001 || /reject|denied|closed/i.test(e?.message || '') ? 'Connection cancelled.' : `Could not connect: ${e.shortMessage || e.message}`, 'warn');
+  }
+}
+
+let _wallets;
+const walletsModule = () => (_wallets ||= import('./wallets.js'));
 
 function wireAccount() {
   $('nav-account').onclick = async () => {
     show('screen-account');
-    await refreshAccount();
-  };
-  $('btn-own-wallet').onclick = async () => {
-    const s = $('account-status');
-    if (!window.ethereum) return status(s, 'No browser wallet found. Your automatic account works without one.', 'warn');
-    try {
-      const [addr] = await window.ethereum.request({ method: 'eth_requestAccounts' });
-      sessionStorage.setItem('mandate.ownWallet', ethers.getAddress(addr));
-      status(s, 'Connected. Your vote stays separate from this wallet.', 'ok');
-      await refreshAccount();
-    } catch {
-      status(s, 'Wallet connection cancelled.', 'warn');
-    }
+    await Promise.all([refreshAccount(), listWallets()]);
   };
   $('btn-auto-wallet').onclick = async () => {
-    sessionStorage.removeItem('mandate.ownWallet');
+    try {
+      await state.external?.disconnect?.();
+    } catch {
+      /* ignore */
+    }
+    state.external = null;
+    status($('account-status'), 'Using your automatic account.', 'ok');
     await refreshAccount();
+  };
+}
+
+// -------------------------------------------------------------------- admin
+//
+// Shown only when the active account holds a role. Every action is an ordinary
+// signed transaction from the active account, so the same screen works for the
+// passkey account and for any connected wallet.
+
+const ADMIN_ABI = [
+  'function DEFAULT_ADMIN_ROLE() view returns (bytes32)',
+  'function hasRole(bytes32, address) view returns (bool)',
+  'function grantRole(bytes32, address)',
+  'function revokeRole(bytes32, address)',
+];
+const ROLE_ADMIN = ethers.ZeroHash;
+const ROLE_PROPOSER = ethers.id('PROPOSER_ROLE');
+const ROLE_ISSUER = ethers.id('ISSUER_ROLE');
+
+async function myRoles(address) {
+  const vote = new ethers.Contract(state.config.voteAddress, ADMIN_ABI, state.provider);
+  const reg = new ethers.Contract(state.config.identityAddress, ADMIN_ABI, state.provider);
+  const [voteAdmin, idAdmin, proposer, issuer] = await Promise.all([
+    vote.hasRole(ROLE_ADMIN, address),
+    reg.hasRole(ROLE_ADMIN, address),
+    vote.hasRole(ROLE_PROPOSER, address),
+    reg.hasRole(ROLE_ISSUER, address),
+  ]);
+  return { admin: voteAdmin || idAdmin, voteAdmin, idAdmin, proposer, issuer };
+}
+
+async function refreshAdminNav() {
+  try {
+    const r = await myRoles(activeAddress());
+    state.roles = r;
+    $('nav-admin').hidden = !(r.admin || r.proposer || r.issuer);
+  } catch {
+    $('nav-admin').hidden = true;
+  }
+}
+
+async function refreshAdmin() {
+  for (const id of ['enrol-status', 'poll-status', 'finalize-status', 'grant-status']) status($(id), '');
+  const address = activeAddress();
+  const r = await myRoles(address);
+  state.roles = r;
+  const eth = await state.provider.getBalance(address);
+  const roles = [r.admin && 'admin', r.proposer && 'can open polls', r.issuer && 'can enrol voters'].filter(Boolean);
+  $('admin-who').innerHTML = `<p class="code">${esc(address)}</p><p>${esc(roles.join(' · ') || 'no roles')}</p>
+    <p class="${eth === 0n ? 'warn' : 'muted'}">${Number(ethers.formatEther(eth)).toFixed(6)} test ETH for fees${eth === 0n ? ': this account needs a little test ETH before it can act.' : ''}</p>`;
+  $('admin-enrol').hidden = !r.issuer;
+  $('admin-poll').hidden = !r.proposer;
+  $('admin-roles').hidden = !r.admin;
+}
+
+async function sendAdminTx(statusEl, label, build) {
+  status(statusEl, `${label}: confirm…`);
+  try {
+    const tx = await build(activeSigner());
+    status(statusEl, `${label}: waiting for the network…`);
+    await tx.wait();
+    const link = state.config.explorer ? ` <a href="${esc(state.config.explorer)}/tx/${esc(tx.hash)}" target="_blank" rel="noopener">View transaction</a>` : '';
+    statusEl.innerHTML = `<span class="ok">${esc(label)}: done.</span>${link}`;
+    return true;
+  } catch (e) {
+    status(statusEl, `${label} failed: ${e.revert?.name || e.shortMessage || e.message}`, 'error');
+    return false;
+  }
+}
+
+function wireAdmin() {
+  $('nav-admin').onclick = async () => {
+    show('screen-admin');
+    await refreshAdmin();
+  };
+
+  $('btn-enrol').onclick = async () => {
+    const el = $('enrol-status');
+    let commitment;
+    try {
+      commitment = BigInt($('enrol-code').value.trim());
+    } catch {
+      return status(el, 'That voter code is not valid.', 'error');
+    }
+    const newResident = $('enrol-new').checked;
+    const doc = $('enrol-doc').value.trim();
+    const issuer = activeAddress();
+    // Testnet stand-in for HMAC(document number, issuer's secret pepper); a real clerk desk
+    // keeps the pepper off the device. Without a document number, the code itself is used.
+    const docHash = ethers.keccak256(ethers.toUtf8Bytes(doc ? `doc:${issuer}:${doc.toUpperCase()}` : `testnet-demo:${commitment}`));
+    const block = await state.provider.getBlock('latest');
+    const residentSince = newResident ? 0 : block.timestamp - 5 * 365 * 86_400;
+    const reg = new ethers.Contract(state.config.identityAddress, ['function enroll(uint256,uint8,bytes32,uint64)'], state.provider);
+    if (await sendAdminTx(el, 'Enrol voter', (signer) => reg.connect(signer).enroll(commitment, 1, docHash, residentSince))) {
+      // Clear everything so one person's details never carry over to the next.
+      $('enrol-code').value = '';
+      $('enrol-doc').value = '';
+      $('enrol-new').checked = false;
+    }
+  };
+
+  $('btn-open-poll').onclick = async () => {
+    const el = $('poll-status');
+    const question = $('poll-question').value.trim();
+    const days = Number($('poll-days').value);
+    const quorum = Number($('poll-quorum').value);
+    const tier = Number($('poll-group').value);
+    if (!question || !(days > 0) || !(quorum >= 1)) return status(el, 'Fill in the question id, days and quorum.', 'error');
+    const groupId = await state.registry.groupId(tier);
+    const vote = new ethers.Contract(state.config.voteAddress, ['function createPoll(uint256,uint64,uint32,uint8,uint8,bytes,string,uint256)'], state.provider);
+    await sendAdminTx(el, 'Open poll', (signer) => vote.connect(signer).createPoll(groupId, Math.round(days * 86_400), quorum, 2, 0, '0x', question, 0));
+  };
+
+  $('btn-finalize').onclick = async () => {
+    const el = $('finalize-status');
+    const id = $('finalize-id').value.trim();
+    if (!/^\d+$/.test(id)) return status(el, 'Enter a poll number.', 'error');
+    const vote = new ethers.Contract(state.config.voteAddress, ['function finalize(uint256)'], state.provider);
+    await sendAdminTx(el, `Close poll ${id}`, (signer) => vote.connect(signer).finalize(BigInt(id)));
+  };
+
+  $('btn-grant').onclick = async () => {
+    const el = $('grant-status');
+    const who = $('grant-address').value.trim();
+    if (!ethers.isAddress(who)) return status(el, 'That is not a valid address.', 'error');
+    const target = ethers.getAddress(who);
+    const kind = $('grant-kind').value;
+    const vote = new ethers.Contract(state.config.voteAddress, ADMIN_ABI, state.provider);
+    const reg = new ethers.Contract(state.config.identityAddress, [...ADMIN_ABI, 'function setIssuer(address,uint8,bool,string)'], state.provider);
+    if (kind === 'admin') {
+      await sendAdminTx(el, 'Grant admin (identity)', (s) => reg.connect(s).grantRole(ROLE_ADMIN, target)) &&
+        (await sendAdminTx(el, 'Grant admin (voting)', (s) => vote.connect(s).grantRole(ROLE_ADMIN, target)));
+    } else if (kind === 'proposer') {
+      await sendAdminTx(el, 'Allow opening polls', (s) => vote.connect(s).grantRole(ROLE_PROPOSER, target));
+    } else if (kind === 'issuer') {
+      await sendAdminTx(el, 'Approve as clerk', (s) => reg.connect(s).setIssuer(target, 1, true, $('grant-name').value.trim() || 'Clerk'));
+    }
   };
 }
 
@@ -336,11 +517,12 @@ function wireAccount() {
 async function boot() {
   wireSignIn();
   wireAccount();
+  wireAdmin();
   $('nav-polls').onclick = async () => {
     show('screen-home');
-    await Promise.all([refreshStatus(), refreshPolls()]);
+    await Promise.all([refreshStatus(), refreshPolls(), refreshAdminNav()]);
   };
-  $('btn-refresh').onclick = () => Promise.all([refreshStatus(), refreshPolls()]);
+  $('btn-refresh').onclick = () => Promise.all([refreshStatus(), refreshPolls(), refreshAdminNav()]);
   try {
     await loadConfig();
   } catch (e) {

@@ -33,7 +33,7 @@ jobs:
       - name: Use the Base testnet deployment
         run: cp app/config.base-sepolia.json app/config.json
       - name: Drop sources and source maps from the published site
-        run: rm -rf app/src app/dist/*.map
+        run: rm -rf app/src && find app/dist -name "*.map" -delete
       - uses: actions/upload-pages-artifact@v3
         with:
           path: app

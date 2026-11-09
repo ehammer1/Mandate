@@ -9,5 +9,7 @@
   ],
   "ipfsGateway": "https://ehammer1.github.io/Mandate",
   "artifactsBase": "",
-  "explorer": "https://sepolia.basescan.org"
+  "explorer": "https://sepolia.basescan.org",
+  "chainName": "Base Sepolia",
+  "walletConnectProjectId": ""
 }

@@ -18,14 +18,17 @@ const DAY = 86_400;
 const QUESTION_CID = 'bafy' + 'q'.repeat(55);
 const docHash = (s) => ethers.keccak256(ethers.toUtf8Bytes(`pepper:${s}`));
 
+let walletAccount, rpcUrlForPage;
 let chain, provider, admin, clerk, relayerSigner, c, relay, app, browser, page, appUrl;
 const servers = [];
+const shot = async (name) => process.env.APP_SCREENSHOT_DIR && page.screenshot({ path: `${process.env.APP_SCREENSHOT_DIR}/${name}.png`, fullPage: true });
 const listen = (srv) => new Promise((r) => srv.listen(0, '127.0.0.1', () => { servers.push(srv); r(srv.address().port); }));
 
 before(async () => {
   chain = ganache.server({ logging: { quiet: true }, wallet: { totalAccounts: 4, defaultBalance: 1000 }, chain: { hardfork: 'shanghai', allowUnlimitedContractSize: true } });
   await new Promise((r) => chain.listen(0, '127.0.0.1', r));
   const rpcUrl = `http://127.0.0.1:${chain.address().port}`;
+  rpcUrlForPage = rpcUrl;
   provider = new ethers.JsonRpcProvider(rpcUrl, undefined, { cacheTimeout: -1, pollingInterval: 100 });
   [admin, clerk, relayerSigner] = await Promise.all([0, 1, 2].map((i) => provider.getSigner(i)));
 
@@ -45,8 +48,10 @@ before(async () => {
       creditsAddress: await c.credits.getAddress(),
       relayers: ['http://127.0.0.1:1', `http://127.0.0.1:${relayPort}`], // the first is down: tests fail-over
       artifactsBase: '/artifacts',
+      chainId: Number((await provider.getNetwork()).chainId),
     },
   };
+  walletAccount = (await provider.getSigner(3)).address;
   app = createAppServer(appOpts); // reads appOpts on every request
   const appPort = await listen(app);
   appOpts.config.ipfsGateway = `http://localhost:${appPort}`; // the app's own server doubles as the IPFS gateway
@@ -55,6 +60,27 @@ before(async () => {
   browser = await chromium.launch();
   const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
   page = await context.newPage();
+  // A stand-in browser wallet that announces itself the standard way (EIP-6963) and
+  // forwards requests to the local chain, signing as an unlocked test account.
+  await context.addInitScript(({ rpc, account }) => {
+    const send = async (method, params) => {
+      const res = await fetch(rpc, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params: params || [] }) });
+      const body = await res.json();
+      if (body.error) throw Object.assign(new Error(body.error.message), { code: body.error.code, data: body.error.data });
+      return body.result;
+    };
+    const provider = {
+      request: async ({ method, params }) => {
+        if (method === 'eth_requestAccounts' || method === 'eth_accounts') return [account];
+        if (method === 'wallet_switchEthereumChain' || method === 'wallet_addEthereumChain') return null;
+        return send(method, params);
+      },
+      on() {},
+      removeListener() {},
+    };
+    const announce = () => window.dispatchEvent(new CustomEvent('eip6963:announceProvider', { detail: Object.freeze({ info: { uuid: 'test-wallet', name: 'Test Wallet', icon: '', rdns: 'org.example.test' }, provider }) }));
+    window.addEventListener('eip6963:requestProvider', announce);
+  }, { rpc: rpcUrlForPage, account: walletAccount });
   const cdp = await context.newCDPSession(page);
   await cdp.send('WebAuthn.enable');
   await cdp.send('WebAuthn.addVirtualAuthenticator', {
@@ -75,7 +101,6 @@ after(async () => {
 
 test('passkey sign-up, enrolment, anonymous vote through relayer fail-over, same identity on return', async () => {
   page.on('pageerror', (e) => console.error('page error:', e.message));
-  const shot = async (name) => process.env.APP_SCREENSHOT_DIR && page.screenshot({ path: `${process.env.APP_SCREENSHOT_DIR}/${name}.png`, fullPage: true });
   await page.goto(appUrl);
   await page.waitForSelector('#screen-signin:not([hidden])');
   await shot('1-sign-in');
@@ -122,4 +147,64 @@ test('passkey sign-up, enrolment, anonymous vote through relayer fail-over, same
   const addr = (await page.textContent('#account-address')).trim();
   assert.ok(ethers.isAddress(addr));
   await shot('4-account');
+});
+
+test('admin from the passkey account, and from a connected wallet', async () => {
+  // Make the app's automatic (passkey-derived) account an admin, clerk and poll opener, and give it fee money.
+  await page.click('#nav-account');
+  const auto = ethers.getAddress((await page.textContent('#account-address')).trim());
+  await (await c.identity.grantRole(ethers.ZeroHash, auto)).wait();
+  await (await c.identity.setIssuer(auto, 1, true, 'Main Library desk')).wait();
+  await (await c.vote.grantRole(await c.vote.PROPOSER_ROLE(), auto)).wait();
+  await (await admin.sendTransaction({ to: auto, value: ethers.parseEther('1') })).wait();
+
+  await page.click('#nav-polls'); // refreshes roles
+  await page.waitForSelector('#nav-admin:not([hidden])');
+  await page.click('#nav-admin');
+  await page.waitForFunction(() => /can enrol voters/.test(document.querySelector('#admin-who').textContent));
+
+  // Enrol a newcomer by voter code from the app.
+  const newcomer = new Identity('library-visitor');
+  await page.fill('#enrol-code', newcomer.commitment.toString());
+  await page.fill('#enrol-doc', 'D1234567');
+  await page.check('#enrol-new');
+  await page.click('#btn-enrol');
+  await page.waitForFunction(() => /Enrol voter: done/.test(document.querySelector('#enrol-status').textContent), null, { timeout: 60_000 });
+  const m = await c.identity.members(newcomer.commitment);
+  assert.equal(m.active, true);
+  assert.equal(m.issuer, auto);
+  assert.equal(m.tier, 1n); // new resident: verified, waiting out seasoning
+
+  // Open a poll from the app.
+  const before = await c.vote.pollCount();
+  await page.fill('#poll-question', QUESTION_CID);
+  await page.click('#btn-open-poll');
+  await page.waitForFunction(() => /Open poll: done/.test(document.querySelector('#poll-status').textContent), null, { timeout: 60_000 });
+  assert.equal(await c.vote.pollCount(), before + 1n);
+
+  // Connect a browser wallet (announced via EIP-6963), make it a clerk from the passkey account,
+  // then switch to the wallet and see it act with its own roles.
+  await page.click('#nav-account');
+  await page.waitForSelector('#wallet-list button[data-injected]');
+  await page.click('#nav-admin');
+  await page.fill('#grant-address', walletAccount);
+  await page.selectOption('#grant-kind', 'issuer');
+  await page.fill('#grant-name', 'Test Wallet clerk');
+  await page.click('#btn-grant');
+  await page.waitForFunction(() => /done/.test(document.querySelector('#grant-status').textContent), null, { timeout: 60_000 });
+  assert.equal((await c.identity.issuers(walletAccount)).active, true);
+
+  await page.click('#nav-account');
+  await page.click('#wallet-list button[data-injected]');
+  await page.waitForFunction(() => /Connected: Test Wallet/.test(document.querySelector('#account-kind').textContent));
+  assert.equal(ethers.getAddress((await page.textContent('#account-address')).trim()), walletAccount);
+  await page.click('#nav-admin');
+  await page.waitForFunction(() => /can enrol voters/.test(document.querySelector('#admin-who').textContent));
+  assert.equal(await page.textContent('#enrol-status'), ''); // old results cleared
+  const another = new Identity('wallet-enrolled');
+  await page.fill('#enrol-code', another.commitment.toString());
+  await page.click('#btn-enrol');
+  await page.waitForFunction(() => /Enrol voter: done/.test(document.querySelector('#enrol-status').textContent), null, { timeout: 60_000 });
+  assert.equal((await c.identity.members(another.commitment)).issuer, walletAccount);
+  await shot('5-admin');
 });
