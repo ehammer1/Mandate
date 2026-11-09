@@ -1,8 +1,8 @@
 # Mandate audit report
 
-Generated 2026-11-09T06:34:26.000Z · last 24 hours · 14 high, 8 medium, 1 info
+Generated 2026-11-09T11:55:53.000Z · last 24 hours · 25 high, 13 medium, 1 info
 
-14 alert(s) need attention.
+25 alert(s) need attention.
 - ADMIN role granted to 0xC782…f834 on identity registry
 - ADMIN role granted to 0xC782…f834 on mandate registry
 - ADMIN role granted to 0xC782…f834 on voting
@@ -17,7 +17,18 @@ Generated 2026-11-09T06:34:26.000Z · last 24 hours · 14 high, 8 medium, 1 info
 - ADMIN role granted to 0xd868…6fD0 on mandate registry
 - ADMIN role granted to 0xd868…6fD0 on decision markets
 - Identity source "Mandate app admin" (0xd868…6fD0) approved, up to verified tier
-9 other event(s) were recorded (see the list).
+- Identity source "Online sign-up" (0x7b12…2889) approved, up to basic tier
+- ADMIN role granted to 0x433B…476F on identity registry
+- ADMIN role granted to 0x433B…476F on voting
+- ADMIN role granted to 0x433B…476F on mandate registry
+- ADMIN role granted to 0x433B…476F on decision markets
+- Identity source "Mandate app admin" (0x433B…476F) approved, up to verified tier
+- ADMIN role revoked from 0xd868…6fD0 on identity registry
+- ADMIN role revoked from 0xd868…6fD0 on voting
+- ADMIN role revoked from 0xd868…6fD0 on mandate registry
+- ADMIN role revoked from 0xd868…6fD0 on decision markets
+- Identity source "Mandate app admin (key deleted)" (0xd868…6fD0) removed
+14 other event(s) were recorded (see the list).
 
 ## All alerts
 
@@ -44,5 +55,21 @@ Generated 2026-11-09T06:34:26.000Z · last 24 hours · 14 high, 8 medium, 1 info
 - **medium** PROPOSER role granted to 0xd868…6fD0 on voting ([tx](https://sepolia.basescan.org/tx/0xbe9d957ad4e28d7d38601ea0ca390e433bdad1396c119566652500c780f45412))
 - **medium** ISSUER role granted to 0xd868…6fD0 on identity registry ([tx](https://sepolia.basescan.org/tx/0xb224404933ff35d39c1b1a4a3bc1862700251f9bef745ea1abd8424a1cf9608e))
 - **high** Identity source "Mandate app admin" (0xd868…6fD0) approved, up to verified tier ([tx](https://sepolia.basescan.org/tx/0xb224404933ff35d39c1b1a4a3bc1862700251f9bef745ea1abd8424a1cf9608e))
+- **medium** ISSUER role granted to 0x7b12…2889 on identity registry ([tx](https://sepolia.basescan.org/tx/0x1bda85dfef650525aa8b3ab3fee5bbc57046888cd48d70f7844400b69604fbbc))
+- **high** Identity source "Online sign-up" (0x7b12…2889) approved, up to basic tier ([tx](https://sepolia.basescan.org/tx/0x1bda85dfef650525aa8b3ab3fee5bbc57046888cd48d70f7844400b69604fbbc))
+- **high** ADMIN role granted to 0x433B…476F on identity registry ([tx](https://sepolia.basescan.org/tx/0x5cd5064e37d3f4a5bf8920c1a7e8fdebc0f6c93307d7d30fef503bc58a66762d))
+- **high** ADMIN role granted to 0x433B…476F on voting ([tx](https://sepolia.basescan.org/tx/0x960ac95ccf7e4c500e1a945c021621a405a24aa4d804da2c6c8681e33f510ae1))
+- **high** ADMIN role granted to 0x433B…476F on mandate registry ([tx](https://sepolia.basescan.org/tx/0x82bd15c713e63954d7af750bca56289931129c222c22678e2c364049f2648555))
+- **high** ADMIN role granted to 0x433B…476F on decision markets ([tx](https://sepolia.basescan.org/tx/0x695050b5a58fc04f29355b9efc401253559a43c6988bd1599ea990488395f093))
+- **medium** PROPOSER role granted to 0x433B…476F on voting ([tx](https://sepolia.basescan.org/tx/0x197927d30b446f52511c54c8f9102645fd20a9e540a0e589fcc6e08775650fdf))
+- **medium** ISSUER role granted to 0x433B…476F on identity registry ([tx](https://sepolia.basescan.org/tx/0x22fc700e416d549524841175433e1c538f7f37c4d1ceb3dafdd2c87350e7e304))
+- **high** Identity source "Mandate app admin" (0x433B…476F) approved, up to verified tier ([tx](https://sepolia.basescan.org/tx/0x22fc700e416d549524841175433e1c538f7f37c4d1ceb3dafdd2c87350e7e304))
+- **high** ADMIN role revoked from 0xd868…6fD0 on identity registry ([tx](https://sepolia.basescan.org/tx/0xecf45d48a73b5bb364498300a543eb67bc118850eb45211fd1a5b8548136b038))
+- **high** ADMIN role revoked from 0xd868…6fD0 on voting ([tx](https://sepolia.basescan.org/tx/0xdb5f3a41908eb26b686a95e2cf0a88577e12288b197da43210a1ae97e5bb09f3))
+- **high** ADMIN role revoked from 0xd868…6fD0 on mandate registry ([tx](https://sepolia.basescan.org/tx/0x9a27e634c9e23ac6ff7772aa9a65c6249095d1cf0361d07f8193b33f0d8162bd))
+- **high** ADMIN role revoked from 0xd868…6fD0 on decision markets ([tx](https://sepolia.basescan.org/tx/0x2dcab472e8f43476a3fcb5ce220d0621f6bf70534da6be5715eb82d08c6c1c7b))
+- **medium** PROPOSER role revoked from 0xd868…6fD0 on voting ([tx](https://sepolia.basescan.org/tx/0xc5fa1d830499e10841398b33551d62c196bb793cf595781726ebf8e600acec2a))
+- **medium** ISSUER role revoked from 0xd868…6fD0 on identity registry ([tx](https://sepolia.basescan.org/tx/0x844b351cabe509b23195b7fbfab48f5aab15259154d58b3782a772b6989bb6ef))
+- **high** Identity source "Mandate app admin (key deleted)" (0xd868…6fD0) removed ([tx](https://sepolia.basescan.org/tx/0x844b351cabe509b23195b7fbfab48f5aab15259154d58b3782a772b6989bb6ef))
 
 Summary written by: fixed rules.
