@@ -1,0 +1,53 @@
+# Independent watchdog: scans the Base testnet deployment every 30 minutes and
+# commits its findings to the `watchdog` branch, a permanent public audit history.
+#   alerts:  https://github.com/ehammer1/Mandate/blob/watchdog/alerts.json
+#   report:  https://github.com/ehammer1/Mandate/blob/watchdog/report.md
+# Optional repository secrets: WATCHDOG_WEBHOOK_URL (urgent alerts to Slack/Discord),
+# ANTHROPIC_API_KEY (plain-language reports by Claude; rules work without it).
+name: Watchdog audit
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: watchdog
+  cancel-in-progress: false
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --omit=dev --ignore-scripts --force
+      - name: Load the audit history
+        run: |
+          git fetch origin watchdog:watchdog
+          git worktree add watchdog-data watchdog
+      - name: Scan
+        env:
+          CONFIG_URL: https://ehammer1.github.io/Mandate/config.json
+          STATE_DIR: watchdog-data
+          WATCH_BALANCES: '[{"label":"Relayer","address":"0xA2BEB6f5Ac58fEA9Eda51B883d57c73E41571898","minEth":"0.0005"},{"label":"App admin account","address":"0xd868aF53ED4685eA6B991c64e15C9390c7456fD0","minEth":"0.0002"}]'
+          WEBHOOK_URL: ${{ secrets.WATCHDOG_WEBHOOK_URL }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: node services/watchdog/server.js --once
+      - name: Publish findings
+        if: always()
+        working-directory: watchdog-data
+        run: |
+          git config user.name "mandate-watchdog"
+          git config user.email "watchdog@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet && exit 0
+          git commit -q -m "Watchdog scan $(date -u +%Y-%m-%dT%H:%MZ)"
+          git push origin watchdog

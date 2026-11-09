@@ -116,6 +116,7 @@ if (require.main === module) {
     const provider = new ethers.JsonRpcProvider(rpcUrl, preset?.chainId, preset ? { staticNetwork: true } : undefined);
     const signer = new ethers.Wallet(process.env.DEPLOYER_PRIVATE_KEY, provider);
     const { chainId } = await provider.getNetwork();
+    const startBlock = await provider.getBlockNumber(); // where this deployment's history begins
     if (preset && !preset.testnet && process.env.CONFIRM_MAINNET !== 'yes') throw new Error('refusing a mainnet deploy without CONFIRM_MAINNET=yes');
     console.log(`[deploy] chain ${chainId} from ${signer.address}, balance ${ethers.formatEther(await provider.getBalance(signer.address))} ETH`);
 
@@ -137,14 +138,17 @@ if (require.main === module) {
 
     const name = process.env.NETWORK || String(chainId);
     fs.mkdirSync(path.join(ROOT, 'deployments'), { recursive: true });
-    const record = { network: name, chainId: Number(chainId), deployedAt: new Date().toISOString(), deployer: signer.address, admin: process.env.ADMIN_ADDRESS || null, addresses };
+    const record = { network: name, chainId: Number(chainId), startBlock, deployedAt: new Date().toISOString(), deployer: signer.address, admin: process.env.ADMIN_ADDRESS || null, addresses };
     fs.writeFileSync(path.join(ROOT, 'deployments', `${name}.json`), JSON.stringify(record, null, 2) + '\n');
     const appConfig = {
       chainId: Number(chainId),
+      startBlock,
       rpcUrl,
       voteAddress: addresses.vote,
       identityAddress: addresses.identity,
       creditsAddress: addresses.credits,
+      registryAddress: addresses.registry,
+      marketAddress: addresses.market,
       relayers: (process.env.RELAYERS || '').split(',').map((s) => s.trim()).filter(Boolean),
       ipfsGateway: process.env.IPFS_GATEWAY || 'https://gateway.pinata.cloud',
       artifactsBase: process.env.ARTIFACTS_BASE || '',

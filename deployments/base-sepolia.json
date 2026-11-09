@@ -12,5 +12,6 @@
     "registry": "0xf5ad5AfF071C6685290E7e9985AC85bFAa3b0C74",
     "vote": "0x87325d0Adc1950AB89891b5CaA57eD10438Bab5c",
     "market": "0xbf760Bd9b13cf541954074dF2beb5b8448F94a6E"
-  }
+  },
+  "startBlock": 56415036
 }

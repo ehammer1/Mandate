@@ -12,5 +12,8 @@
   "explorer": "https://sepolia.basescan.org",
   "chainName": "base-sepolia",
   "walletConnectProjectId": "7029f8e8092d1c3c763e9ad1ccc93ce5",
-  "identityService": "https://mandate-identity.onrender.com"
+  "identityService": "https://mandate-identity.onrender.com",
+  "registryAddress": "0xf5ad5AfF071C6685290E7e9985AC85bFAa3b0C74",
+  "marketAddress": "0xbf760Bd9b13cf541954074dF2beb5b8448F94a6E",
+  "startBlock": 56415036
 }
