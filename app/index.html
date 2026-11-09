@@ -85,7 +85,12 @@
     <section id="screen-signin" data-screen hidden>
       <h1>Vote on public decisions, privately</h1>
       <p>No app store, no wallet, no crypto. Your phone or computer unlocks a private voter key with Face ID, your fingerprint, or your device PIN.</p>
-      <div class="card stack">
+      <div class="card stack" id="welcome-back" hidden>
+        <p class="big" style="margin:0">Welcome back</p>
+        <button class="primary" id="btn-welcome-unlock">Unlock my voter key</button>
+        <p class="note">This device already has your voter key. Each person needs only one: it works on all your devices through your Apple, Google or Microsoft account.</p>
+      </div>
+      <div class="card stack" id="new-here">
         <p class="big" style="margin:0">New here?</p>
         <button class="primary" id="btn-join-email">Join with my email</button>
         <p class="note">Your phone first asks to save a passkey: that's your private voter key, unlocked with Face ID or your fingerprint. Then you'll get a 6-digit code by email. You can also join with a Google or Microsoft account, or in person at the city clerk or a library.</p>

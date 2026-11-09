@@ -746,6 +746,12 @@ async function boot() {
     return;
   }
   if (keys.savedMethod() === 'passkey') $('btn-unlock').classList.add('primary');
+  if (keys.hasSavedPasskey()) {
+    // A returning device: lead with unlocking, not with joining (which would reuse this key anyway).
+    $('welcome-back').hidden = false;
+    $('new-here').hidden = true;
+    $('btn-welcome-unlock').onclick = () => $('btn-unlock').click();
+  }
   if (keys.savedMethod() === 'device') {
     // Someone who uses a key saved in this browser should see how to unlock it straight away.
     $('device-option').open = true;

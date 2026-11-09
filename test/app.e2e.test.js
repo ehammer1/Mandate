@@ -338,3 +338,12 @@ test('no duplicate passkeys: creating again on a device that has one unlocks the
   }
   assert.equal(await count(), before + 1); // still just that one new passkey
 });
+
+test('a device that already has a voter key leads with "Welcome back", not "Join"', async () => {
+  await page.click('#btn-signout');
+  await page.reload();
+  assert.equal(await page.isVisible('#welcome-back'), true);
+  assert.equal(await page.isVisible('#new-here'), false);
+  await page.click('#btn-welcome-unlock');
+  await page.waitForSelector('#screen-home:not([hidden])');
+});
