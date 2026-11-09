@@ -66,7 +66,8 @@ contract IdentityRegistry is AccessControlEnumerable {
         bool active;
         uint64 verifiedAt; // 0 if never VERIFIED
         uint64 residentSince; // as attested by the issuer (0 if unknown)
-        bytes32 docHash;
+        bytes32 docHash; // fingerprint of the identity document (VERIFIED)
+        bytes32 accountHash; // fingerprint of the sign-in account used to join (BASIC, optional)
     }
 
     ISemaphore public immutable semaphore;
@@ -82,6 +83,8 @@ contract IdentityRegistry is AccessControlEnumerable {
     mapping(uint8 => mapping(uint256 => uint256)) private _leafIndex; // group -> commitment -> index + 1
     mapping(uint256 => Member) public members;
     mapping(bytes32 => uint256) public commitmentOfDoc;
+    /// @notice Sign-in account fingerprint -> member, so one online account enrols one person.
+    mapping(bytes32 => uint256) public commitmentOfAccount;
 
     event IssuerSet(address indexed issuer, uint8 maxTier, bool active, string name);
     event Enrolled(uint256 indexed commitment, address indexed issuer, uint8 tier, uint64 residentSince);
@@ -97,6 +100,7 @@ contract IdentityRegistry is AccessControlEnumerable {
     error AlreadyEnrolled();
     error NotEnrolled();
     error DocumentAlreadyUsed(uint256 commitment);
+    error AccountAlreadyUsed(uint256 commitment);
     error MissingDocHash();
     error ResidencyInFuture();
     error NotYetSeasoned(uint64 eligibleAt);
@@ -136,7 +140,9 @@ contract IdentityRegistry is AccessControlEnumerable {
      * @notice Enrol a person.
      * @param commitment     Semaphore identity commitment generated on the person's device.
      * @param tier           BASIC or VERIFIED (bounded by the issuer's maxTier).
-     * @param docHash        HMAC of the identity document number (required for VERIFIED).
+     * @param docHash        VERIFIED: HMAC of the identity document number (required).
+     *                       BASIC: optional HMAC of the sign-in account (e.g. an OpenID
+     *                       provider and subject); if given, that account can enrol only once.
      * @param residentSince  Start of proven residency (e.g. from mDL issue date or voter
      *                       roll); 0 if unknown. Long-standing residents skip seasoning.
      */
@@ -150,6 +156,12 @@ contract IdentityRegistry is AccessControlEnumerable {
         m.issuer = msg.sender;
         m.active = true;
         m.tier = BASIC;
+        if (tier == BASIC && docHash != bytes32(0)) {
+            uint256 existing = commitmentOfAccount[docHash];
+            if (existing != 0) revert AccountAlreadyUsed(existing);
+            commitmentOfAccount[docHash] = commitment;
+            m.accountHash = docHash;
+        }
         _add(BASIC, commitment);
         emit Enrolled(commitment, msg.sender, tier, residentSince);
 
@@ -186,6 +198,7 @@ contract IdentityRegistry is AccessControlEnumerable {
         }
         // Free the document so the same person can re-enrol with a new device.
         if (m.docHash != bytes32(0)) delete commitmentOfDoc[m.docHash];
+        if (m.accountHash != bytes32(0)) delete commitmentOfAccount[m.accountHash];
         emit Revoked(commitment, msg.sender);
     }
 

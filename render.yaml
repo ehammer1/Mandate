@@ -1,6 +1,8 @@
-# One-click relayer hosting on Render (render.com -> New -> Blueprint -> this repo).
-# The relayer submits anonymous ballots and pays their fees, so voters need no wallet.
+# Render blueprint (render.com -> New -> Blueprint -> this repo).
+# Both services read contract addresses from the published voter app config, so
+# redeploying the contracts needs no changes here.
 services:
+  # Submits anonymous ballots and pays their fees, so voters need no wallet.
   - type: web
     name: mandate-relayer
     runtime: node
@@ -10,11 +12,34 @@ services:
     startCommand: node broker/relayer.js
     healthCheckPath: /health
     envVars:
-      - key: RPC_URL
-        value: https://sepolia.base.org
-      - key: VOTE_ADDRESS
-        sync: false          # from deployments/base-sepolia.json -> addresses.vote
+      - key: CONFIG_URL
+        value: https://ehammer1.github.io/Mandate/config.json
       - key: RELAYER_PRIVATE_KEY
         sync: false          # a funded key used only to pay ballot fees
       - key: RATE_LIMIT_PER_MIN
         value: "30"
+
+  # Sign-in identity service: enrols voter codes for people who sign in with
+  # Google / Apple / Microsoft (basic) or an identity-verified provider (verified).
+  - type: web
+    name: mandate-identity
+    runtime: node
+    plan: free
+    buildCommand: npm ci --omit=dev --ignore-scripts --force
+    startCommand: node services/identity/server.js
+    healthCheckPath: /health
+    envVars:
+      - key: CONFIG_URL
+        value: https://ehammer1.github.io/Mandate/config.json
+      - key: PUBLIC_URL
+        value: https://mandate-identity.onrender.com
+      - key: ALLOWED_RETURN_ORIGINS
+        value: https://ehammer1.github.io
+      - key: ISSUER_SEED          # Render generates this; the service derives its key from it
+        generateValue: true
+      - key: IDENTITY_PEPPER      # secret for account fingerprints; never change it once in use
+        generateValue: true
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false

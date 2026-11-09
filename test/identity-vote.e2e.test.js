@@ -280,3 +280,14 @@ test('vote: a member revoked after a poll opens does not break other voters (sna
   assert.equal((await post('/ballot', { pollId: pollId.toString(), ballot })).status, 200);
   assert.deepEqual((await vote.tally(pollId)).map(Number), [0, 1]);
 });
+
+test('identity: a sign-in account can enrol only one person (basic tier)', async () => {
+  const acct = ethers.keccak256(ethers.toUtf8Bytes('hmac(google:1234567890)'));
+  const a = new Identity('signin-a');
+  const b = new Identity('signin-b');
+  await wait(identity.connect(phoneCheck).enroll(a.commitment, 0, acct, 0));
+  assert.equal(await identity.commitmentOfAccount(acct), a.commitment);
+  await reverts(() => identity.connect(phoneCheck).enroll.staticCall(b.commitment, 0, acct, 0), 'AccountAlreadyUsed');
+  // Without an account fingerprint, basic enrolment still works (e.g. a phone check).
+  await wait(identity.connect(phoneCheck).enroll(b.commitment, 0, ethers.ZeroHash, 0));
+});

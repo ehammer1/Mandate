@@ -1,15 +1,16 @@
 {
   "chainId": 84532,
   "rpcUrl": "https://sepolia.base.org",
-  "voteAddress": "0x4ce35710eAc8086ab40DC03A76908b9c9f32f9C8",
-  "identityAddress": "0xb1a740cc2F928191bC9aa068f90c69FbEcB9143A",
-  "creditsAddress": "0xf0Cb2E582920C351903af2C031B65F3A4459409d",
+  "voteAddress": "0x87325d0Adc1950AB89891b5CaA57eD10438Bab5c",
+  "identityAddress": "0x47501C8558349aeB6a7139ADaF8Eb88f2A6BB9B4",
+  "creditsAddress": "0x0fd384570c082ABb8eb1Da5f7994d1246872AA52",
   "relayers": [
     "https://mandate-relayer.onrender.com"
   ],
   "ipfsGateway": "https://ehammer1.github.io/Mandate",
   "artifactsBase": "",
   "explorer": "https://sepolia.basescan.org",
-  "chainName": "Base Sepolia",
-  "walletConnectProjectId": ""
+  "chainName": "base-sepolia",
+  "walletConnectProjectId": "",
+  "identityService": "https://mandate-identity.onrender.com"
 }

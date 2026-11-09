@@ -203,38 +203,61 @@ module.exports = { createRelayer };
 if (require.main === module) {
   // Values pasted into hosting dashboards often carry spaces, quotes or their own
   // "NAME=" label; clean those up, then fail loudly instead of crashing later.
-  const need = (n) => {
-    const v = String(process.env[n] || '').trim().replace(/^['"]|['"]$/g, '').replace(new RegExp(`^${n}\\s*=\\s*`), '').trim();
-    if (!v) {
-      console.error(`[relayer] missing env ${n}`);
-      process.exit(2);
-    }
-    return v;
+  const clean = (n) => String(process.env[n] || '').trim().replace(/^['"]|['"]$/g, '').replace(new RegExp(`^${n}\\s*=\\s*`), '').trim();
+  const fail = (m) => {
+    console.error(`[relayer] ${m}`);
+    process.exit(2);
   };
-  const voteAddress = need('VOTE_ADDRESS');
-  if (!ethers.isAddress(voteAddress)) {
-    console.error(`[relayer] VOTE_ADDRESS is not a valid address (got ${JSON.stringify(voteAddress.slice(0, 60))}). Expected 0x followed by 40 hex characters.`);
-    process.exit(2);
-  }
-  let signer;
-  const rpcUrl = need('RPC_URL');
-  const provider = new ethers.JsonRpcProvider(rpcUrl);
-  try {
-    signer = new ethers.Wallet(need('RELAYER_PRIVATE_KEY'), provider);
-  } catch {
-    console.error('[relayer] RELAYER_PRIVATE_KEY is not a valid private key (expected 0x followed by 64 hex characters).');
-    process.exit(2);
-  }
-  console.log(`[relayer] paying fees from ${signer.address}`);
-  const server = createRelayer({
-    provider,
-    signer,
-    voteAddress: ethers.getAddress(voteAddress),
-    rateLimitPerMin: Number(process.env.RATE_LIMIT_PER_MIN || 30),
-    corsOrigin: process.env.CORS_ORIGIN || '*',
-    confirmations: Number(process.env.CONFIRMATIONS || 1),
-    log: (m) => console.log(`${new Date().toISOString()} [relayer] ${m}`),
-  });
-  const port = Number(process.env.PORT || 8787);
-  server.listen(port, () => console.log(`[relayer] listening on :${port} for ${ethers.getAddress(voteAddress)}`));
+  (async () => {
+    // CONFIG_URL (the voter app's published config.json) is preferred: after a redeploy the
+    // relayer picks up the new contract address by itself. VOTE_ADDRESS/RPC_URL also work.
+    const configUrl = clean('CONFIG_URL');
+    let voteAddress = clean('VOTE_ADDRESS');
+    let rpcUrl = clean('RPC_URL');
+    const loadConfig = async () => (await fetch(`${configUrl}${configUrl.includes('?') ? '&' : '?'}t=${Date.now()}`, { cache: 'no-store' })).json();
+    if (configUrl) {
+      const cfg = await loadConfig();
+      voteAddress = cfg.voteAddress;
+      rpcUrl = rpcUrl || cfg.rpcUrl;
+    }
+    if (!rpcUrl) fail('missing RPC_URL (or CONFIG_URL)');
+    if (!ethers.isAddress(voteAddress)) fail(`VOTE_ADDRESS is not a valid address (got ${JSON.stringify(String(voteAddress).slice(0, 60))}). Expected 0x followed by 40 hex characters.`);
+    const key = clean('RELAYER_PRIVATE_KEY');
+    if (!key) fail('missing RELAYER_PRIVATE_KEY');
+    const provider = new ethers.JsonRpcProvider(rpcUrl);
+    let signer;
+    try {
+      signer = new ethers.Wallet(key, provider);
+    } catch {
+      fail('RELAYER_PRIVATE_KEY is not a valid private key (expected 0x followed by 64 hex characters).');
+    }
+    voteAddress = ethers.getAddress(voteAddress);
+    console.log(`[relayer] paying fees from ${signer.address}`);
+    const server = createRelayer({
+      provider,
+      signer,
+      voteAddress,
+      rateLimitPerMin: Number(process.env.RATE_LIMIT_PER_MIN || 30),
+      corsOrigin: process.env.CORS_ORIGIN || '*',
+      confirmations: Number(process.env.CONFIRMATIONS || 1),
+      log: (m) => console.log(`${new Date().toISOString()} [relayer] ${m}`),
+    });
+    const port = Number(process.env.PORT || 8787);
+    server.listen(port, () => console.log(`[relayer] listening on :${port} for ${voteAddress}`));
+
+    if (configUrl) {
+      // Restart (the host brings it back up) when the published contract address changes.
+      setInterval(async () => {
+        try {
+          const cfg = await loadConfig();
+          if (ethers.isAddress(cfg.voteAddress) && ethers.getAddress(cfg.voteAddress) !== voteAddress) {
+            console.log(`[relayer] contracts moved to ${cfg.voteAddress}; restarting to follow them`);
+            process.exit(0);
+          }
+        } catch {
+          /* keep running on the current address */
+        }
+      }, 5 * 60 * 1000).unref();
+    }
+  })().catch((e) => fail(e.message));
 }

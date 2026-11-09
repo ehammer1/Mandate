@@ -53,6 +53,8 @@ Design rules:
 | `docs/us-city-pilot.md` | US city pilot plan: identity sources, anti-gaming, voice, capital, wallet-free participation |
 | `docs/scaling-plan.md` | Plan for scaling from one city to any government or institution |
 | `docs/testnet.md` | Base testnet deployment: contracts, hosted voter app, relayer, admin commands |
+| `services/identity/` | Sign-in identity service: Google / Apple / Microsoft (basic) and identity-verified providers (verified) |
+| `docs/identity-service.md` | How the sign-in identity service works and how to set up Google sign-in |
 | `oracle/review.py` | AI verifier: judges evidence against the mandate's criteria, with quotes checked against the source |
 | `oracle/redact.py` | Optional check for records-release mandates: AI redaction plus layout verification |
 | `oracle/claude_call.py` | Shared Claude call: streaming, refusal fallback, error handling |

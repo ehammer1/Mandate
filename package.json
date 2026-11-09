@@ -12,10 +12,11 @@
     "build:app": "node scripts/build-app.js",
     "serve:app": "node scripts/serve-app.js",
     "deploy": "node scripts/deploy.js",
-    "test": "node scripts/compile.js && node scripts/build-app.js && node --test --test-force-exit test/contracts.test.js test/attestor.e2e.test.js test/identity-vote.e2e.test.js test/app.e2e.test.js && python3 -m unittest discover -s test -p 'test_*.py'",
+    "test": "node scripts/compile.js && node scripts/build-app.js && node --test --test-force-exit test/contracts.test.js test/attestor.e2e.test.js test/identity-vote.e2e.test.js test/app.e2e.test.js test/identity-service.test.js && python3 -m unittest discover -s test -p 'test_*.py'",
     "upload": "node broker/upload.js",
     "attestor": "node broker/attestor.js",
-    "relayer": "node broker/relayer.js"
+    "relayer": "node broker/relayer.js",
+    "identity": "node services/identity/server.js"
   },
   "dependencies": {
     "@semaphore-protocol/group": "4.14.5",
@@ -26,6 +27,8 @@
     "dotenv": "^16.4.7",
     "ethers": "^6.13.4",
     "form-data": "^4.0.1",
+    "jose": "6.2.13",
+    "openid-client": "6.8.8",
     "poseidon-lite": "0.3.0"
   },
   "devDependencies": {

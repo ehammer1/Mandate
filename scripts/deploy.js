@@ -18,6 +18,7 @@
  *   IPFS_GATEWAY       default https://gateway.pinata.cloud
  *   ARTIFACTS_BASE     URL of Semaphore proving files for the app (default: download on demand)
  *   WALLETCONNECT_PROJECT_ID  free project id from cloud.reown.com; enables any mobile wallet
+ *   IDENTITY_SERVICE   URL of the sign-in identity service (services/identity)
  *
  * Writes deployments/<chainId>.json and app/config.json. The deployer is admin
  * of everything; hand admin roles to a timelock before any real use.
@@ -150,6 +151,7 @@ if (require.main === module) {
       explorer: preset?.explorer || '',
       chainName: process.env.NETWORK || `Chain ${chainId}`,
       walletConnectProjectId: process.env.WALLETCONNECT_PROJECT_ID || '',
+      identityService: process.env.IDENTITY_SERVICE || '',
     };
     fs.writeFileSync(path.join(ROOT, 'app', `config.${name}.json`), JSON.stringify(appConfig, null, 2) + '\n');
     console.log(JSON.stringify(record, null, 2));

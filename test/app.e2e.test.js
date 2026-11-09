@@ -13,6 +13,9 @@ const { Identity } = require('@semaphore-protocol/identity');
 const { deployAll } = require('../scripts/deploy');
 const { createAppServer } = require('../scripts/serve-app');
 const { createRelayer } = require('../broker/relayer');
+const { createIdentityService } = require('../services/identity/server');
+const { createMockOidc } = require('./helpers/mock-oidc');
+const net = require('node:net');
 
 const DAY = 86_400;
 const QUESTION_CID = 'bafy' + 'q'.repeat(55);
@@ -25,7 +28,7 @@ const shot = async (name) => process.env.APP_SCREENSHOT_DIR && page.screenshot({
 const listen = (srv) => new Promise((r) => srv.listen(0, '127.0.0.1', () => { servers.push(srv); r(srv.address().port); }));
 
 before(async () => {
-  chain = ganache.server({ logging: { quiet: true }, wallet: { totalAccounts: 4, defaultBalance: 1000 }, chain: { hardfork: 'shanghai', allowUnlimitedContractSize: true } });
+  chain = ganache.server({ logging: { quiet: true }, wallet: { totalAccounts: 6, defaultBalance: 1000 }, chain: { hardfork: 'shanghai', allowUnlimitedContractSize: true } });
   await new Promise((r) => chain.listen(0, '127.0.0.1', r));
   const rpcUrl = `http://127.0.0.1:${chain.address().port}`;
   rpcUrlForPage = rpcUrl;
@@ -51,11 +54,33 @@ before(async () => {
       chainId: Number((await provider.getNetwork()).chainId),
     },
   };
-  walletAccount = (await provider.getSigner(3)).address;
+  walletAccount = (await provider.getSigner(4)).address;
+  // Sign-in identity service with a mock OpenID provider ("Test Login").
+  const idp = await createMockOidc({ clientId: 'mandate-app', clientSecret: 'app-secret' });
+  servers.push(idp.server);
+  const idPort = await new Promise((r) => { const t = net.createServer().listen(0, '127.0.0.1', () => { const p = t.address().port; t.close(() => r(p)); }); });
+  const identitySigner = await provider.getSigner(3);
+  const returnOrigins = [];
+  await (await c.identity.setIssuer(identitySigner.address, 0, true, 'Online sign-up')).wait();
+  const idService = createIdentityService({
+    providers: [{ id: 'testlogin', name: 'Test Login', issuer: idp.issuer(), clientId: 'mandate-app', clientSecret: 'app-secret', tier: 0, scope: 'openid email', requireEmailVerified: true }],
+    publicUrl: `http://127.0.0.1:${idPort}`,
+    pepper: 'p'.repeat(64),
+    signer: identitySigner,
+    identityAddress: await c.identity.getAddress(),
+    allowedReturnOrigins: returnOrigins, // filled once the app's port is known
+    allowInsecure: true,
+    log: () => {},
+  });
+  await new Promise((r) => idService.listen(idPort, '127.0.0.1', r));
+  servers.push(idService);
+  appOpts.config.identityService = `http://127.0.0.1:${idPort}`;
+
   app = createAppServer(appOpts); // reads appOpts on every request
   const appPort = await listen(app);
   appOpts.config.ipfsGateway = `http://localhost:${appPort}`; // the app's own server doubles as the IPFS gateway
   appUrl = `http://localhost:${appPort}/`; // passkeys need a domain name, not an IP
+  returnOrigins.push(`http://localhost:${appPort}`);
 
   browser = await chromium.launch();
   const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
@@ -207,4 +232,30 @@ test('admin from the passkey account, and from a connected wallet', async () => 
   await page.waitForFunction(() => /Enrol voter: done/.test(document.querySelector('#enrol-status').textContent), null, { timeout: 60_000 });
   assert.equal((await c.identity.members(another.commitment)).issuer, walletAccount);
   await shot('5-admin');
+});
+
+test('join online: sign in with a provider, come back enrolled', async () => {
+  // A new person on a fresh device key (signed-out state, different voter identity).
+  await page.click('#btn-signout');
+  await page.evaluate(() => localStorage.clear());
+  await page.reload();
+  await page.click('#device-option summary');
+  await page.click('#btn-device');
+  await page.waitForSelector('#screen-home:not([hidden])');
+  await page.waitForSelector('#join-online button[data-join="testlogin"]');
+  await shot('6-join-online');
+  await page.click('#join-online button[data-join="testlogin"]');
+
+  // Redirected through the identity service and the provider, back to the app.
+  await page.waitForFunction(() => /You joined as a basic member with Test Login/.test((document.querySelector('#signin-status')?.textContent || '') + (document.querySelector('#home-notice')?.textContent || '')), null, { timeout: 60_000 });
+  assert.equal(new URL(page.url()).hash, ''); // notice consumed, address cleaned
+  if (await page.isVisible('#screen-signin')) await page.click('#btn-device'); // fresh load: unlock the same device key
+  await page.waitForSelector('#screen-home:not([hidden])');
+  await page.waitForFunction(() => /^Basic/.test(document.querySelector('#membership .big')?.textContent || ''));
+  assert.match(await page.textContent('#home-notice'), /joined as a basic member/);
+  await page.click('[data-go="screen-code"]');
+  const code = BigInt((await page.textContent('#voter-code')).trim());
+  const m = await c.identity.members(code);
+  assert.equal(m.active, true);
+  assert.notEqual(m.accountHash, ethers.ZeroHash);
 });

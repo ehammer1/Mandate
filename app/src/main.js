@@ -12,6 +12,7 @@ import { Identity } from '@semaphore-protocol/identity';
 import * as keys from './keys.js';
 import { poseidon2 } from 'poseidon-lite/poseidon2';
 import { buildBallot } from '../../client/ballot.js';
+import { enrolStartUrl } from '../../client/enrol.js';
 
 const VOTE_ABI = [
   'function castBallot(uint256 id, tuple(uint256 merkleTreeDepth, uint256 merkleTreeRoot, uint256 nullifier, uint256 message, uint256 scope, uint256[8] points) b)',
@@ -77,6 +78,10 @@ async function signedIn(k, backupCode) {
   }
   $('nav').hidden = false;
   show('screen-home');
+  if (state.notice) {
+    status($('home-notice'), state.notice.text, state.notice.kind === 'ok' ? 'ok' : 'error');
+    state.notice = null;
+  } else status($('home-notice'), '');
   await refreshStatus();
   await refreshPolls();
   await refreshAdminNav();
@@ -131,7 +136,10 @@ async function refreshStatus() {
     const c = state.identity.commitment;
     const m = await state.registry.members(c);
     if (!m.active) {
-      el.innerHTML = `<p class="big">Not enrolled yet</p><p>Show your voter code to the city clerk, a library desk, or an approved online check to join. Nothing else about you is stored on the public record.</p>`;
+      el.innerHTML = `<p class="big">Not enrolled yet</p>
+        <div id="join-online"></div>
+        <p class="note">Or show your voter code (under "My voter code") at the city clerk or a library desk. Only your voter code and a scrambled fingerprint go on the public record.</p>`;
+      await renderJoinOnline();
       return;
     }
     const iss = await state.registry.issuers(m.issuer);
@@ -144,6 +152,64 @@ async function refreshStatus() {
     el.innerHTML = `<p class="big">${esc(TIER[tier])}</p><p>Enrolled by ${esc(iss.name || 'an approved source')}.</p>${extra}`;
   } catch (e) {
     el.innerHTML = `<p class="error">Could not reach the network: ${esc(e.shortMessage || e.message)}</p>`;
+  }
+}
+
+// ------------------------------------------------------------ join online
+//
+// Sign-in identity service: the person signs in with Google, Apple, Microsoft or
+// an identity-verified provider; the service enrols their voter code. The app
+// first signs "this code is mine" with the voter key so nobody can attach their
+// account to someone else's code.
+
+async function renderJoinOnline() {
+  const box = $('join-online');
+  const url = state.config.identityService;
+  if (!box || !url) return;
+  let providers = [];
+  try {
+    providers = await (await fetch(`${url.replace(/\/+$/, '')}/providers`, { cache: 'no-store' })).json();
+  } catch {
+    box.innerHTML = '<p class="note">Online sign-up is unavailable right now. The service may be waking up; try Refresh in a minute.</p>';
+    return;
+  }
+  if (!providers.length) return;
+  const basic = providers.filter((p) => p.tier === 0);
+  const verified = providers.filter((p) => p.tier === 1);
+  const btn = (p) => `<button data-join="${esc(p.id)}">Continue with ${esc(p.name)}</button>`;
+  box.innerHTML = `
+    ${verified.length ? `<p><strong>Join as a verified resident</strong></p><div class="stack">${verified.map(btn).join('')}</div>` : ''}
+    ${basic.length ? `<p style="margin-top:12px"><strong>Join online</strong> <span class="note">(basic membership: advisory polls and proposals)</span></p><div class="stack">${basic.map(btn).join('')}</div>` : ''}`;
+  for (const b of box.querySelectorAll('button[data-join]')) {
+    b.onclick = () => {
+      b.disabled = true;
+      location.href = enrolStartUrl({ serviceUrl: url, providerId: b.dataset.join, identity: state.identity, returnUrl: location.origin + location.pathname });
+    };
+  }
+}
+
+/** Coming back from the identity service: #enrolled=basic&provider=Google or #enroll_error=... */
+function readReturnNotice() {
+  if (!location.hash || location.hash.length < 2) return null;
+  const h = new URLSearchParams(location.hash.slice(1));
+  if (!h.has('enrolled') && !h.has('enroll_error')) return null;
+  history.replaceState(null, '', location.pathname + location.search);
+  if (h.has('enroll_error')) return { kind: 'error', text: h.get('enroll_error') };
+  const level = h.get('enrolled') === 'verified' ? 'a verified resident' : 'a basic member';
+  return { kind: 'ok', text: `You joined as ${level} with ${h.get('provider') || 'your account'}.` };
+}
+
+function handleReturn() {
+  const notice = readReturnNotice();
+  if (!notice) return;
+  const kind = notice.kind === 'ok' ? 'ok' : 'error';
+  if (state.identity) {
+    show('screen-home');
+    status($('home-notice'), notice.text, kind);
+    refreshStatus();
+  } else {
+    state.notice = notice;
+    status($('signin-status'), `${notice.text}${notice.kind === 'ok' ? ' Unlock your voter key to continue.' : ''}`, kind);
   }
 }
 
@@ -530,7 +596,18 @@ async function boot() {
     return;
   }
   if (keys.savedMethod() === 'passkey') $('btn-unlock').classList.add('primary');
+  if (keys.savedMethod() === 'device') {
+    // Someone who uses a key saved in this browser should see how to unlock it straight away.
+    $('device-option').open = true;
+    $('btn-device').textContent = 'Unlock the key saved in this browser';
+    $('btn-device').classList.add('primary');
+  }
   show('screen-signin');
+  handleReturn();
+  // The return from the identity service can arrive as a fragment change or a
+  // back-forward-cache restore instead of a fresh load.
+  window.addEventListener('hashchange', handleReturn);
+  window.addEventListener('pageshow', handleReturn);
 }
 
 boot();
