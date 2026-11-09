@@ -259,3 +259,16 @@ test('join online: sign in with a provider, come back enrolled', async () => {
   assert.equal(m.active, true);
   assert.notEqual(m.accountHash, ethers.ZeroHash);
 });
+
+test('shared computer: sign in with the passkey without saving anything here', async () => {
+  await page.click('#btn-signout');
+  const before = await page.evaluate(() => JSON.stringify(localStorage));
+  await page.click('#btn-public');
+  await page.waitForSelector('#screen-home:not([hidden])');
+  assert.match(await page.textContent('#signin-method'), /nothing is saved here/);
+  assert.equal(await page.evaluate(() => JSON.stringify(localStorage)), before); // no keys, no remembered credential
+  await page.click('#nav-account');
+  await page.waitForSelector('#account-address + .copy-btn');
+  await page.click('#btn-signout');
+  assert.equal(await page.textContent('#voter-code'), ''); // nothing left on screen either
+});

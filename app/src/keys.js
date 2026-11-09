@@ -90,9 +90,14 @@ export async function createPasskey(displayName = 'Mandate voter') {
   return unlockWithPasskey();
 }
 
-/** Ask the passkey (Face ID / fingerprint / PIN) to recompute the keys. */
-export async function unlockWithPasskey() {
-  const state = load();
+/**
+ * Ask the passkey (Face ID / fingerprint / PIN) to recompute the keys.
+ * remember=false (shared or public computers): nothing is read from or written to this
+ * browser, and with no saved passkey the browser offers "use a phone" (scan a QR code),
+ * so the passkey stays on the person's own phone.
+ */
+export async function unlockWithPasskey({ remember = true } = {}) {
+  const state = remember ? load() : {};
   const assertion = await navigator.credentials.get({
     publicKey: {
       challenge: random(32),
@@ -103,8 +108,8 @@ export async function unlockWithPasskey() {
   });
   const out = assertion.getClientExtensionResults?.()?.prf?.results?.first;
   if (!out) throw Object.assign(new Error('The passkey did not return a key. Try another passkey or a device key.'), { code: 'NO_PRF' });
-  save({ ...state, method: 'passkey', credentialId: b64url(assertion.rawId) });
-  return deriveKeys(new Uint8Array(out), 'passkey');
+  if (remember) save({ ...state, method: 'passkey', credentialId: b64url(assertion.rawId) });
+  return deriveKeys(new Uint8Array(out), remember ? 'passkey' : 'public');
 }
 
 /** Fallback: a random secret kept in this browser. Returns keys plus the backup code to show once. */

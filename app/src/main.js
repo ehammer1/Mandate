@@ -69,7 +69,10 @@ async function signedIn(k, backupCode) {
   state.identity = new Identity(k.votingKey);
   state.wallet = new ethers.Wallet(k.accountKeyHex);
   $('voter-code').textContent = state.identity.commitment.toString();
-  $('signin-method').textContent = k.method === 'passkey' ? 'Unlocked with your passkey' : 'Using a key saved in this browser';
+  $('signin-method').textContent =
+    k.method === 'passkey' ? 'Unlocked with your passkey' : k.method === 'public' ? 'Shared computer: nothing is saved here. You will be signed out after 5 minutes without activity.' : 'Using a key saved in this browser';
+  state.publicMode = k.method === 'public';
+  armIdleSignOut();
   if (backupCode) {
     $('backup-code').textContent = backupCode;
     $('backup-panel').hidden = false;
@@ -109,14 +112,20 @@ function wireSignIn() {
   }
   $('btn-create').onclick = () => trySignIn(() => keys.createPasskey(), s);
   $('btn-unlock').onclick = () => trySignIn(() => keys.unlockWithPasskey(), s);
+  $('btn-public').onclick = () => trySignIn(() => keys.unlockWithPasskey({ remember: false }), s);
   $('btn-device').onclick = () => trySignIn(() => (keys.savedMethod() === 'device' ? keys.unlockDeviceKey() : keys.createDeviceKey()), s);
   $('btn-restore').onclick = () => trySignIn(() => keys.restoreFromBackup($('restore-code').value), s);
-  $('btn-signout').onclick = () => {
-    Object.assign(state, { keys: null, identity: null, wallet: null, external: null, roles: null });
+  $('btn-signout').onclick = () => signOut();
+  function signOut(reason) {
+    Object.assign(state, { keys: null, identity: null, wallet: null, external: null, roles: null, publicMode: false });
+    clearTimeout(idleTimer);
+    for (const id of ['voter-code', 'account-address', 'admin-who', 'poll-list', 'membership']) $(id).textContent = '';
+    if (reason) status($('signin-status'), reason, 'warn');
     $('nav-admin').hidden = true;
     $('nav').hidden = true;
     show('screen-signin');
-  };
+  }
+  state.signOut = signOut;
   $('btn-copy').onclick = async () => {
     try {
       await navigator.clipboard.writeText($('voter-code').textContent);
@@ -126,6 +135,42 @@ function wireSignIn() {
     }
   };
   for (const b of document.querySelectorAll('[data-go]')) b.onclick = () => show(b.dataset.go);
+}
+
+// --------------------------------------------------- shared-computer safety
+
+const IDLE_MS = 5 * 60 * 1000;
+let idleTimer;
+function armIdleSignOut() {
+  clearTimeout(idleTimer);
+  if (!state.publicMode) return;
+  idleTimer = setTimeout(() => state.signOut?.('Signed out after 5 minutes without activity.'), IDLE_MS);
+}
+for (const ev of ['pointerdown', 'keydown', 'scroll']) window.addEventListener(ev, () => state.publicMode && armIdleSignOut(), { passive: true });
+// On a shared computer, leaving the page signs out (nothing is stored to come back to anyway).
+window.addEventListener('pagehide', () => state.publicMode && state.signOut?.());
+
+/** Put a small copy button after an element holding an address or code. */
+function addCopyButton(el) {
+  if (!el || el.nextElementSibling?.classList.contains('copy-btn')) return;
+  const b = document.createElement('button');
+  b.className = 'copy-btn';
+  b.type = 'button';
+  b.textContent = 'Copy';
+  b.onclick = async () => {
+    try {
+      await navigator.clipboard.writeText(el.textContent.trim());
+      b.textContent = 'Copied';
+    } catch {
+      const r = document.createRange();
+      r.selectNodeContents(el);
+      getSelection().removeAllRanges();
+      getSelection().addRange(r);
+      b.textContent = 'Selected: copy it';
+    }
+    setTimeout(() => (b.textContent = 'Copy'), 2000);
+  };
+  el.after(b);
 }
 
 // ------------------------------------------------------------------- status
@@ -379,6 +424,7 @@ function activeAddress() {
 async function refreshAccount() {
   const address = activeAddress();
   $('account-address').textContent = address;
+  addCopyButton($('account-address'));
   $('account-kind').textContent = state.external
     ? `Connected: ${state.external.label}`
     : 'Automatic account, created from your passkey. No company holds this key.';
@@ -486,8 +532,9 @@ async function refreshAdmin() {
   state.roles = r;
   const eth = await state.provider.getBalance(address);
   const roles = [r.admin && 'admin', r.proposer && 'can open polls', r.issuer && 'can enrol voters'].filter(Boolean);
-  $('admin-who').innerHTML = `<p class="code">${esc(address)}</p><p>${esc(roles.join(' · ') || 'no roles')}</p>
+  $('admin-who').innerHTML = `<p class="code" id="admin-address">${esc(address)}</p><p>${esc(roles.join(' · ') || 'no roles')}</p>
     <p class="${eth === 0n ? 'warn' : 'muted'}">${Number(ethers.formatEther(eth)).toFixed(6)} test ETH for fees${eth === 0n ? ': this account needs a little test ETH before it can act.' : ''}</p>`;
+  addCopyButton($('admin-address'));
   $('admin-enrol').hidden = !r.issuer;
   $('admin-poll').hidden = !r.proposer;
   $('admin-roles').hidden = !r.admin;
