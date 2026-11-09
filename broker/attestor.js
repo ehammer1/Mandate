@@ -28,6 +28,7 @@
  *   PYTHON_BIN             default python3
  *   ORACLE_TIMEOUT_MS      per check, default 1800000
  *   STATE_FILE             default ./.attestor-state.json
+ *   LOG_BLOCK_SPAN         blocks per log query, default 200 (public RPC limit)
  *   DRY_RUN=1              evaluate but never send transactions
  */
 
@@ -69,7 +70,7 @@ const CFG = {
   oracleTimeoutMs: Number(process.env.ORACLE_TIMEOUT_MS || 30 * 60 * 1000),
   stateFile: path.resolve(process.env.STATE_FILE || '.attestor-state.json'),
   dryRun: process.env.DRY_RUN === '1',
-  maxBlockSpan: 2_000,
+  maxBlockSpan: Number(process.env.LOG_BLOCK_SPAN || 200), // public RPCs cap log ranges (Base Sepolia: 200)
 };
 
 const ORACLE_DIR = path.join(__dirname, '..', 'oracle');

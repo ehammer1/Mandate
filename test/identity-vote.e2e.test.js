@@ -256,3 +256,27 @@ test('vote: residents veto a market PASS; a too-late veto is recorded as failed 
   assert.equal((await mkt.getMarket(1n)).vetoed, true);
   assert.equal((await mkt.getMarket(2n)).vetoed, false);
 });
+
+test('vote: a member revoked after a poll opens does not break other voters (snapshot rewind)', async () => {
+  const verifiedGroup = await identity.groupId(1);
+  await wait(vote.createPoll(verifiedGroup, 2 * DAY, 1, 2, 0, '0x', 'bafyRewind', 0));
+  const pollId = await vote.pollCount();
+
+  // Revoke resident 3 after the snapshot (e.g. they moved away mid-poll).
+  const siblings = [];
+  for (const t of [0, 1, 2]) {
+    const gid = await identity.groupId(t);
+    const added = await semaphore.queryFilter(semaphore.filters.MemberAdded(gid));
+    const removed = await semaphore.queryFilter(semaphore.filters.MemberRemoved(gid));
+    const group = new Group(added.map((l) => l.args.identityCommitment));
+    for (const r of removed) group.removeMember(Number(r.args.index));
+    const idx = group.indexOf(residents[3].commitment);
+    siblings.push(idx === -1 ? [] : group.generateMerkleProof(idx).siblings);
+  }
+  await wait(identity.connect(clerk).revoke(residents[3].commitment, siblings));
+
+  // Resident 2's app must rewind that removal to rebuild the frozen list and prove membership.
+  const ballot = await buildBallot({ provider, vote, pollId, identity: residents[2], option: 1 });
+  assert.equal((await post('/ballot', { pollId: pollId.toString(), ballot })).status, 200);
+  assert.deepEqual((await vote.tally(pollId)).map(Number), [0, 1]);
+});

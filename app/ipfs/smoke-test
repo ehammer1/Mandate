@@ -1,0 +1,5 @@
+{
+  "title": "Test poll: is the system working?",
+  "body": "Automated check run at deployment. Closes after one hour.",
+  "options": ["Yes", "No"]
+}

@@ -36,6 +36,12 @@ import {ISemaphore} from "@semaphore-protocol/contracts/interfaces/ISemaphore.so
  *
  * Privacy note: the link "issuer X enrolled commitment C" is public. That reveals
  * nothing about votes; the anonymity set for each vote is the whole group.
+ *
+ * Voter lists are mirrored here (`leaves`), so a voter's app can rebuild any
+ * poll's frozen list with a few view calls instead of scanning event logs,
+ * which public RPC endpoints limit to small block ranges. Every change bumps
+ * `changeCount`, and removals record the count at which they happened, so a
+ * list can be rewound to any earlier state.
  */
 contract IdentityRegistry is AccessControlEnumerable {
     bytes32 public constant ISSUER_ROLE = keccak256("ISSUER_ROLE");
@@ -68,6 +74,12 @@ contract IdentityRegistry is AccessControlEnumerable {
     uint256[GROUP_COUNT] public groupIds;
 
     mapping(address => Issuer) public issuers;
+
+    /// @notice Incremented on every membership change, in any group.
+    uint64 public changeCount;
+    mapping(uint8 => uint256[]) private _leaves; // group -> commitments in insertion order (as Semaphore indexes them)
+    mapping(uint8 => mapping(uint256 => uint64)) private _removedAt; // group -> leaf index -> changeCount at removal
+    mapping(uint8 => mapping(uint256 => uint256)) private _leafIndex; // group -> commitment -> index + 1
     mapping(uint256 => Member) public members;
     mapping(bytes32 => uint256) public commitmentOfDoc;
 
@@ -138,7 +150,7 @@ contract IdentityRegistry is AccessControlEnumerable {
         m.issuer = msg.sender;
         m.active = true;
         m.tier = BASIC;
-        semaphore.addMember(groupIds[BASIC], commitment);
+        _add(BASIC, commitment);
         emit Enrolled(commitment, msg.sender, tier, residentSince);
 
         if (tier == VERIFIED) _verify(m, commitment, docHash, residentSince);
@@ -170,6 +182,7 @@ contract IdentityRegistry is AccessControlEnumerable {
         m.active = false;
         for (uint8 g = 0; g <= m.tier; g++) {
             semaphore.removeMember(groupIds[g], commitment, siblings[g]);
+            _removedAt[g][_leafIndex[g][commitment] - 1] = ++changeCount;
         }
         // Free the document so the same person can re-enrol with a new device.
         if (m.docHash != bytes32(0)) delete commitmentOfDoc[m.docHash];
@@ -207,6 +220,33 @@ contract IdentityRegistry is AccessControlEnumerable {
         return id == groupIds[0] || id == groupIds[1] || id == groupIds[2];
     }
 
+    /// @notice Number of leaves ever added to a tier's group (removed ones included).
+    function leafCount(uint8 tier) external view returns (uint256) {
+        return _leaves[tier].length;
+    }
+
+    /**
+     * @notice A page of a tier's leaves in Semaphore order, with the changeCount at which
+     *         each was removed (0 = still a member). Rebuild a poll's frozen list from the
+     *         first `electorate` leaves, treating removals up to some changeCount as zero,
+     *         and check the result against the poll's snapshot root.
+     */
+    function leaves(uint8 tier, uint256 start, uint256 count)
+        external
+        view
+        returns (uint256[] memory commitments, uint64[] memory removedAt)
+    {
+        uint256[] storage all = _leaves[tier];
+        uint256 end = start + count > all.length ? all.length : start + count;
+        uint256 n = end > start ? end - start : 0;
+        commitments = new uint256[](n);
+        removedAt = new uint64[](n);
+        for (uint256 i = 0; i < n; i++) {
+            commitments[i] = all[start + i];
+            removedAt[i] = _removedAt[tier][start + i];
+        }
+    }
+
     // --------------------------------------------------------------- internal
 
     function _activeIssuer() private view returns (Issuer memory iss) {
@@ -225,14 +265,21 @@ contract IdentityRegistry is AccessControlEnumerable {
         m.tier = VERIFIED;
         m.verifiedAt = uint64(block.timestamp);
         m.residentSince = residentSince;
-        semaphore.addMember(groupIds[VERIFIED], commitment);
+        _add(VERIFIED, commitment);
 
         if (block.timestamp >= seasonedAt(commitment)) _addSeasoned(m, commitment);
     }
 
+    function _add(uint8 tier, uint256 commitment) private {
+        semaphore.addMember(groupIds[tier], commitment);
+        _leaves[tier].push(commitment);
+        _leafIndex[tier][commitment] = _leaves[tier].length;
+        ++changeCount;
+    }
+
     function _addSeasoned(Member storage m, uint256 commitment) private {
         m.tier = SEASONED;
-        semaphore.addMember(groupIds[SEASONED], commitment);
+        _add(SEASONED, commitment);
         emit Seasoned(commitment);
     }
 }
