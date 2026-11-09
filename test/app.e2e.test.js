@@ -300,3 +300,12 @@ test('join with email: code by email, enrolled without leaving the page', async 
   await page.waitForSelector('#poll-1 >> text=Only residents with full voting rights can vote in this poll');
   assert.equal(await page.locator('#poll-1 button.choice').count(), 0);
 });
+
+test('newcomer: "Join with my email" makes the voter key and lands on the email box', async () => {
+  await page.click('#btn-signout');
+  await page.click('#btn-join-email');
+  await page.waitForSelector('#screen-home:not([hidden])');
+  await page.waitForFunction(() => /Step 2 of 2/.test(document.querySelector('#email-status')?.textContent || ''), null, { timeout: 30_000 });
+  assert.equal(await page.evaluate(() => document.activeElement?.id), 'join-email');
+  await shot('8-join-with-email');
+});

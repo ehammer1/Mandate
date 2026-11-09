@@ -111,6 +111,28 @@ function wireSignIn() {
     status(s, 'This browser does not support passkeys. You can use a key saved in this browser instead.', 'warn');
   }
   $('btn-create').onclick = () => trySignIn(() => keys.createPasskey(), s);
+  // One button for newcomers: make the voter key (passkey, or a browser-saved key if the
+  // passkey is cancelled or unsupported), then land on the email box.
+  $('btn-join-email').onclick = async () => {
+    state.wantEmailJoin = true;
+    status(s, 'Step 1 of 2: save your voter key when your phone asks…');
+    let k;
+    try {
+      k = keys.passkeysAvailable() ? await keys.createPasskey() : null;
+    } catch {
+      k = null;
+    }
+    if (!k) {
+      try {
+        k = await keys.createDeviceKey();
+      } catch (e) {
+        state.wantEmailJoin = false;
+        return status(s, e.message, 'error');
+      }
+    }
+    status(s, '');
+    await signedIn(k, k.backupCode);
+  };
   $('btn-unlock').onclick = () => trySignIn(() => keys.unlockWithPasskey(), s);
   $('btn-public').onclick = () => trySignIn(() => keys.unlockWithPasskey({ remember: false }), s);
   $('btn-device').onclick = () => trySignIn(() => (keys.savedMethod() === 'device' ? keys.unlockDeviceKey() : keys.createDeviceKey()), s);
@@ -238,7 +260,15 @@ async function renderJoinOnline() {
         </div>
         <p class="status" id="email-status" role="status"></p>
       </div>` : ''}`;
-  if (hasEmail) wireEmailJoin(url);
+  if (hasEmail) {
+    wireEmailJoin(url);
+    if (state.wantEmailJoin) {
+      state.wantEmailJoin = false;
+      $('join-email').scrollIntoView({ block: 'center' });
+      $('join-email').focus();
+      status($('email-status'), 'Step 2 of 2: enter your email and we will send you a code.', 'ok');
+    }
+  }
   for (const b of box.querySelectorAll('button[data-join]')) {
     b.onclick = () => {
       b.disabled = true;
