@@ -342,6 +342,14 @@ async function refreshPolls() {
     const [count, block] = await Promise.all([state.vote.pollCount(), state.provider.getBlock('latest')]);
     const now = BigInt(block.timestamp);
     const groups = await Promise.all([0, 1, 2].map((t) => state.registry.groupId(t)));
+    // Which voter lists this person is on (tier 0 = basic, 1 = verified, 2 = full voting rights).
+    let myTier = -1;
+    try {
+      const m = await state.registry.members(state.identity.commitment);
+      if (m.active) myTier = Number(m.tier);
+    } catch {
+      /* treat as not enrolled */
+    }
     const cards = [];
     for (let id = count; id >= 1n && cards.length < 20; id--) {
       const [p, tally] = await Promise.all([state.vote.getPoll(id), state.vote.tally(id)]);
@@ -351,7 +359,9 @@ async function refreshPolls() {
       const scope = await state.vote.scopeOf(id);
       const myNullifier = state.identity ? await nullifierFor(scope) : null;
       const voted = myNullifier !== null && (await state.vote.nullifierUsed(id, myNullifier));
-      const who = GROUP_LABEL[groups.findIndex((g) => g === p.groupId)] || 'Members';
+      const pollTier = groups.findIndex((g) => g === p.groupId);
+      const who = GROUP_LABEL[pollTier] || 'Members';
+      const eligibleTier = myTier >= pollTier;
       const total = tally.reduce((a, b) => a + b, 0n);
       const results = labels.map((l, i) => `<li><span>${esc(l)}</span><span>${tally[i] ?? 0n}</span></li>`).join('');
       const buttons = labels.map((l, i) => `<button class="choice" data-poll="${id}" data-option="${i}">${esc(l)}</button>`).join('');
@@ -359,7 +369,8 @@ async function refreshPolls() {
         <p class="eyebrow">${open ? `Open until ${esc(when(p.end))}` : p.finalized ? (p.passed ? 'Closed · passed' : 'Closed · did not pass') : 'Voting ended · awaiting result'} · ${esc(who)}</p>
         <h3>${esc(q.title)}</h3>
         ${q.body ? `<p>${esc(q.body)}</p>` : ''}
-        ${open && !voted ? `<div class="choices">${buttons}</div>` : ''}
+        ${open && !voted && eligibleTier ? `<div class="choices">${buttons}</div>` : ''}
+        ${open && !voted && !eligibleTier ? `<p class="note">${myTier < 0 ? 'Join first to vote in polls.' : `Only ${esc(who.toLowerCase())} can vote in this poll. ${pollTier === 2 ? 'Verify your ID with the city clerk, a library desk or a mobile ID to get full voting rights.' : 'Verify your ID to vote in it.'}`}</p>` : ''}
         ${voted ? '<p class="ok">Your vote is recorded. Nobody can see which way you voted.</p>' : ''}
         <p class="status" id="poll-status-${id}" role="status"></p>
         <details><summary>Current count (${total} of ${p.electorate} eligible, quorum ${p.quorum})</summary><ul class="tally">${results}</ul></details>

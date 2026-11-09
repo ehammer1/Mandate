@@ -295,4 +295,8 @@ test('join with email: code by email, enrolled without leaving the page', async 
   await page.click('#btn-email-verify');
   await page.waitForFunction(() => /^Basic/.test(document.querySelector('#membership .big')?.textContent || ''), null, { timeout: 60_000 });
   assert.match(await page.textContent('#home-notice'), /joined as a basic member with your email/);
+  // A basic member sees why they can't vote in a full-rights poll, instead of buttons that would fail.
+  await page.click('#btn-refresh');
+  await page.waitForSelector('#poll-1 >> text=Only residents with full voting rights can vote in this poll');
+  assert.equal(await page.locator('#poll-1 button.choice').count(), 0);
 });
