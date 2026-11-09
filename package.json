@@ -9,11 +9,14 @@
   },
   "scripts": {
     "compile": "node scripts/compile.js",
-    "test": "node scripts/compile.js && node --test test/contracts.test.js test/attestor.e2e.test.js && python3 -m unittest discover -s test -p 'test_*.py'",
+    "test": "node scripts/compile.js && node --test --test-force-exit test/contracts.test.js test/attestor.e2e.test.js test/identity-vote.e2e.test.js && python3 -m unittest discover -s test -p 'test_*.py'",
     "upload": "node broker/upload.js",
     "attestor": "node broker/attestor.js"
   },
   "dependencies": {
+    "@semaphore-protocol/group": "4.14.5",
+    "@semaphore-protocol/identity": "4.14.5",
+    "@semaphore-protocol/proof": "4.14.5",
     "axios": "^1.7.9",
     "dotenv": "^16.4.7",
     "ethers": "^6.13.4",
@@ -21,6 +24,8 @@
   },
   "devDependencies": {
     "@openzeppelin/contracts": "5.1.0",
+    "@semaphore-protocol/contracts": "4.14.5",
+    "@zk-kit/semaphore-artifacts": "4.13.0",
     "ganache": "^7.9.2",
     "solc": "0.8.24"
   }

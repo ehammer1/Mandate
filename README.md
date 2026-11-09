@@ -8,7 +8,9 @@ Most systems stop once a decision is made. Mandate records what was decided, who
 deliver it and by when, checks the evidence independently, and enforces the result.
 
 ```
- VALUES          one person, one vote sets goals and how they're measured      (phase 2)
+ IDENTITY        verify once (clerk, mobile ID, passport chip), vote anonymously IdentityRegistry
+   │
+ VALUES          one person, one vote sets goals and how they're measured      MandateVote
    │
  PROPOSALS       PASS/FAIL decision markets advise which proposals meet them   DecisionMarket
    │             public veto window: the people can overturn the market
@@ -43,6 +45,11 @@ Design rules:
 | `contracts/BudgetEscrow.sol` | Per-mandate funds from budgets or citizen backers: release, decay, or pro-rata refund |
 | `contracts/DecisionMarket.sol` | Futarchy-style PASS/FAIL markets: time-weighted prices, decision margin, stake caps, veto, auto-mandate |
 | `contracts/PlayCredits.sol` | Play-money collateral with a weekly faucet |
+| `contracts/IdentityRegistry.sol` | Approved identity sources, BASIC / VERIFIED / SEASONED anonymous groups, one document per person, seasoning, revocation |
+| `contracts/MandateVote.sol` | Private one-person-one-vote with zero-knowledge ballots, frozen voter lists, refundable proposal bonds, binding actions |
+| `client/ballot.js` | Builds an anonymous ballot proof on a phone, browser or kiosk |
+| `broker/relayer.js` | Submits ballots and pays gas, so voters need no wallet |
+| `docs/us-city-pilot.md` | US city pilot plan: identity sources, anti-gaming, voice, capital, wallet-free participation |
 | `oracle/review.py` | AI verifier: judges evidence against the mandate's criteria, with quotes checked against the source |
 | `oracle/redact.py` | Optional check for records-release mandates: AI redaction plus layout verification |
 | `oracle/claude_call.py` | Shared Claude call: streaming, refusal fallback, error handling |
@@ -106,8 +113,10 @@ Open `dashboard/index.html` in a browser to try the simulation.
 
 - **Phase 1 (this release):** registry, escrow, decision markets on play money, AI
   verifier, dashboard simulation.
-- **Phase 2:** private one-person-one-vote (Semaphore/MACI) for values, metrics and vetoes.
-  Governor and timelock ownership. Identity-gated faucet and stake caps. Live dashboard.
+- **Phase 2 (in progress):** identity registry and private voting (built). Next: issuer
+  services (clerk desk, mobile ID, phone check), per-person market caps, MACI
+  receipt-free ballots, voter app and kiosks, timelock handover. See
+  `docs/us-city-pilot.md`.
 - **Phase 3:** dispute courts (Kleros/UMA adapters), selling in markets, opt-in citizen
   bots with hard spending caps, external audit.
 
