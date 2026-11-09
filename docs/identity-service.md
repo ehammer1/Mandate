@@ -37,6 +37,32 @@ The email must be verified by the provider. People with other addresses see a me
 listing the accepted providers. Only the account fingerprint goes on-chain, never the
 email address.
 
+## Email sign-up (one-time codes)
+
+Covers every accepted address, including Proton, Yahoo, iCloud, Outlook, ISPs, `.gov`
+and `.edu`. The app asks for an email, the service sends a 6-digit code, and the person
+types it in.
+
+- Codes expire after 10 minutes, allow 5 guesses, and are stored only as a hash.
+- Limits: 3 codes per mailbox per hour, and 10 per network address per hour.
+- One mailbox enrols one person. `+tags`, Gmail dots and googlemail.com are treated as
+  the same mailbox, and Google sign-in and email sign-up for the same address share one
+  fingerprint.
+- Whether an address is already enrolled is revealed only after the code is confirmed,
+  so the form can't be used to check who has joined.
+- The email address is never stored or published; only its fingerprint goes on-chain.
+
+Setup with **Resend** (free tier):
+1. Sign up at resend.com and create an API key.
+2. **Domains → Add domain**, and add the DNS records it shows at your domain registrar.
+   Until a domain is verified, Resend can only send to your own address, which is fine
+   for testing.
+3. In the Render `mandate-identity` service's Environment, set `EMAIL_PROVIDER=resend`,
+   `EMAIL_API_KEY=<key>`, and `EMAIL_FROM=Mandate <signup@yourdomain.org>` (use
+   `onboarding@resend.dev` while testing with your own address).
+
+SendGrid (`EMAIL_PROVIDER=sendgrid`) and Postmark (`postmark`) work the same way.
+
 ## Run it on Render
 
 The blueprint in `render.yaml` includes `mandate-identity`. Render generates

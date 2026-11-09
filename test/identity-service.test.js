@@ -11,6 +11,9 @@ const { Identity } = require('@semaphore-protocol/identity');
 const { deployAll } = require('../scripts/deploy');
 const { createIdentityService } = require('../services/identity/server');
 const { createEmailPolicy, matches } = require('../services/identity/email-policy');
+const { createMemorySender } = require('../services/identity/senders');
+const { encodeProof, enrolMessage } = require('../client/enrol');
+const mail = createMemorySender();
 const { enrolStartUrl } = require('../client/enrol');
 const { createMockOidc } = require('./helpers/mock-oidc');
 
@@ -45,6 +48,9 @@ before(async () => {
     identityAddress: await c.identity.getAddress(),
     allowedReturnOrigins: [new URL(APP).origin],
     emailPolicy: createEmailPolicy({ allow: 'reputable, examplecity.org' }),
+    emailSender: mail,
+    rateLimitPerMin: 1000, // every test request comes from one address
+    emailCodesPerIpHour: 1000,
     allowInsecure: true,
     log: () => {},
   });
@@ -116,7 +122,7 @@ test('identity-proofed provider enrols at the verified tier only with the requir
   assert.notEqual(m.docHash, ethers.ZeroHash);
 
   const providers = await (await fetch(`${serviceUrl}/providers`)).json();
-  assert.deepEqual(providers.map((p) => [p.id, p.tier]), [['testlogin', 0], ['govid', 1]]);
+  assert.deepEqual(providers.map((p) => [p.id, p.tier]), [['testlogin', 0], ['govid', 1], ['email', 0]]);
 });
 
 test('email policy: reputable providers, .gov/.edu and listed domains in; throwaway and unknown domains out', async () => {
@@ -143,4 +149,82 @@ test('sign-in with an unaccepted email domain is refused before enrolment', asyn
   assert.match(r.enroll_error, /Gmail, Outlook, iCloud or Yahoo/);
   idp.setUser({ sub: 'city-1', email: 'resident@examplecity.org', email_verified: true });
   assert.equal((await signIn(new Identity('city'), 'testlogin')).enrolled, 'basic');
+});
+
+// ---------------------------------------------------------------- email sign-up
+
+const ORIGIN = new URL(APP).origin;
+async function post(path, body, origin = ORIGIN) {
+  const res = await fetch(`${serviceUrl}${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: origin }, body: JSON.stringify(body) });
+  return { status: res.status, json: await res.json() };
+}
+function ownership(identity) {
+  const ts = Date.now();
+  return { commitment: identity.commitment.toString(), ts, proof: encodeProof({ pk: identity.publicKey, sig: identity.signMessage(enrolMessage(serviceUrl, identity.commitment, ts)) }) };
+}
+
+test('email sign-up: code by email, then enrolled once per mailbox', async () => {
+  const providers = await (await fetch(`${serviceUrl}/providers`)).json();
+  assert.ok(providers.some((p) => p.id === 'email' && p.kind === 'email'));
+
+  const erin = new Identity('erin');
+  const r = await post('/email/start', { ...ownership(erin), email: 'Erin.Smith+mandate@proton.me' });
+  assert.equal(r.status, 200, JSON.stringify(r.json));
+  assert.equal(r.json.sentTo, 'E•••@proton.me');
+  const code = mail.lastCodeFor('Erin.Smith+mandate@proton.me');
+  assert.match(code, /^\d{6}$/);
+  assert.match(mail.outbox.at(-1).subject, /sign-up code/);
+
+  const wrong = await post('/email/verify', { session: r.json.session, code: code === '000000' ? '111111' : '000000' });
+  assert.equal(wrong.status, 400);
+  assert.equal(wrong.json.attemptsLeft, 4);
+  const ok = await post('/email/verify', { session: r.json.session, code });
+  assert.equal(ok.status, 200, JSON.stringify(ok.json));
+  assert.equal(ok.json.enrolled, 'basic');
+  assert.equal((await c.identity.members(erin.commitment)).active, true);
+
+  // The same mailbox through an alias: allowed to request a code, refused only after proving the mailbox.
+  const frank = new Identity('frank');
+  const r2 = await post('/email/start', { ...ownership(frank), email: 'erin.smith@proton.me' });
+  assert.equal(r2.status, 200);
+  const v2 = await post('/email/verify', { session: r2.json.session, code: mail.lastCodeFor('erin.smith@proton.me') });
+  assert.equal(v2.status, 409);
+  assert.match(v2.json.error, /already been used/);
+  // A used session can't be replayed.
+  assert.equal((await post('/email/verify', { session: r2.json.session, code: '123456' })).status, 410);
+});
+
+test('email sign-up: Google and email for the same Gmail address count once', async () => {
+  idp.setUser({ sub: 'gina-google', email: 'gina.lopez@gmail.com', email_verified: true });
+  assert.equal((await signIn(new Identity('gina-google'), 'testlogin')).enrolled, 'basic');
+  const g2 = new Identity('gina-email');
+  const r = await post('/email/start', { ...ownership(g2), email: 'GinaLopez+vote@googlemail.com' });
+  assert.equal(r.status, 200);
+  const v = await post('/email/verify', { session: r.json.session, code: mail.lastCodeFor('GinaLopez+vote@googlemail.com') });
+  assert.equal(v.status, 409);
+});
+
+test('email sign-up: lockout, policy, ownership, origin and rate limits', async () => {
+  const hal = new Identity('hal');
+  const r = await post('/email/start', { ...ownership(hal), email: 'hal@outlook.com' });
+  let last;
+  for (let i = 0; i < 5; i++) last = await post('/email/verify', { session: r.json.session, code: 'abcdef' });
+  assert.match(last.json.error, /Too many wrong codes/);
+  assert.equal((await post('/email/verify', { session: r.json.session, code: mail.lastCodeFor('hal@outlook.com') })).status, 410);
+
+  const sentBefore = mail.outbox.length;
+  assert.match((await post('/email/start', { ...ownership(new Identity('t1')), email: 'x@mailinator.com' })).json.error, /temporary-email/);
+  assert.match((await post('/email/start', { ...ownership(new Identity('t2')), email: 'x@unknown-isp.biz' })).json.error, /not on the list/);
+  assert.equal(mail.outbox.length, sentBefore); // nothing sent for refused addresses
+
+  const ivy = new Identity('ivy');
+  const forged = { ...ownership(ivy), commitment: (ivy.commitment + 1n).toString() };
+  assert.match((await post('/email/start', { ...forged, email: 'ivy@gmail.com' })).json.error, /belongs to you/);
+
+  assert.equal((await post('/email/start', { ...ownership(new Identity('j')), email: 'j@gmail.com' }, 'https://evil.example')).status, 403);
+
+  // At most 3 codes per mailbox per hour.
+  const statuses = [];
+  for (let i = 0; i < 4; i++) statuses.push((await post('/email/start', { ...ownership(new Identity(`kim-${i}`)), email: 'kim@yahoo.com' })).status);
+  assert.deepEqual(statuses, [200, 200, 200, 429]);
 });

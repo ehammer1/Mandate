@@ -15,6 +15,9 @@ const { createAppServer } = require('../scripts/serve-app');
 const { createRelayer } = require('../broker/relayer');
 const { createIdentityService } = require('../services/identity/server');
 const { createMockOidc } = require('./helpers/mock-oidc');
+const { createMemorySender } = require('../services/identity/senders');
+const { createEmailPolicy } = require('../services/identity/email-policy');
+const mail = createMemorySender();
 const net = require('node:net');
 
 const DAY = 86_400;
@@ -69,6 +72,8 @@ before(async () => {
     signer: identitySigner,
     identityAddress: await c.identity.getAddress(),
     allowedReturnOrigins: returnOrigins, // filled once the app's port is known
+    emailSender: mail,
+    emailPolicy: createEmailPolicy({ allow: 'reputable' }),
     allowInsecure: true,
     log: () => {},
   });
@@ -271,4 +276,23 @@ test('shared computer: sign in with the passkey without saving anything here', a
   await page.waitForSelector('#account-address + .copy-btn');
   await page.click('#btn-signout');
   assert.equal(await page.textContent('#voter-code'), ''); // nothing left on screen either
+});
+
+test('join with email: code by email, enrolled without leaving the page', async () => {
+  await page.evaluate(() => localStorage.clear());
+  await page.reload();
+  await page.click('#device-option summary');
+  await page.click('#btn-device');
+  await page.waitForSelector('#join-online #join-email');
+  await page.fill('#join-email', 'newcomer@proton.me');
+  await page.click('#btn-email-send');
+  await page.waitForFunction(() => /Code sent to n•••@proton.me/.test(document.querySelector('#email-status').textContent));
+  await shot('7-email-code');
+  await page.fill('#join-code', '000000' === mail.lastCodeFor('newcomer@proton.me') ? '111111' : '000000');
+  await page.click('#btn-email-verify');
+  await page.waitForFunction(() => /not right/.test(document.querySelector('#email-status').textContent));
+  await page.fill('#join-code', mail.lastCodeFor('newcomer@proton.me'));
+  await page.click('#btn-email-verify');
+  await page.waitForFunction(() => /^Basic/.test(document.querySelector('#membership .big')?.textContent || ''), null, { timeout: 60_000 });
+  assert.match(await page.textContent('#home-notice'), /joined as a basic member with your email/);
 });

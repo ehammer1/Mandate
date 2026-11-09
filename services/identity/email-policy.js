@@ -82,4 +82,20 @@ function createEmailPolicy(opts = {}) {
   };
 }
 
-module.exports = { createEmailPolicy, REPUTABLE, DISPOSABLE, matches };
+/**
+ * One mailbox, one identity: fold the aliases that deliver to the same inbox.
+ *   "+tags" are dropped everywhere (you+news@x.com -> you@x.com);
+ *   Gmail also ignores dots, and googlemail.com is gmail.com.
+ */
+function normalizeEmail(email) {
+  const m = /^([^@\s]+)@([a-z0-9.-]+)$/i.exec(String(email || '').trim());
+  if (!m) return null;
+  let [, local, domain] = m;
+  local = local.toLowerCase().split('+')[0];
+  domain = domain.toLowerCase();
+  if (domain === 'googlemail.com') domain = 'gmail.com';
+  if (domain === 'gmail.com') local = local.replace(/\./g, '');
+  return local ? `${local}@${domain}` : null;
+}
+
+module.exports = { createEmailPolicy, normalizeEmail, REPUTABLE, DISPOSABLE, matches };

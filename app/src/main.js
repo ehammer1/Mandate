@@ -12,7 +12,7 @@ import { Identity } from '@semaphore-protocol/identity';
 import * as keys from './keys.js';
 import { poseidon2 } from 'poseidon-lite/poseidon2';
 import { buildBallot } from '../../client/ballot.js';
-import { enrolStartUrl } from '../../client/enrol.js';
+import { enrolStartUrl, ownershipProof } from '../../client/enrol.js';
 
 const VOTE_ABI = [
   'function castBallot(uint256 id, tuple(uint256 merkleTreeDepth, uint256 merkleTreeRoot, uint256 nullifier, uint256 message, uint256 scope, uint256[8] points) b)',
@@ -219,18 +219,75 @@ async function renderJoinOnline() {
     return;
   }
   if (!providers.length) return;
-  const basic = providers.filter((p) => p.tier === 0);
+  const basic = providers.filter((p) => p.tier === 0 && p.kind !== 'email');
   const verified = providers.filter((p) => p.tier === 1);
+  const hasEmail = providers.some((p) => p.kind === 'email');
   const btn = (p) => `<button data-join="${esc(p.id)}">Continue with ${esc(p.name)}</button>`;
   box.innerHTML = `
     ${verified.length ? `<p><strong>Join as a verified resident</strong></p><div class="stack">${verified.map(btn).join('')}</div>` : ''}
-    ${basic.length ? `<p style="margin-top:12px"><strong>Join online</strong> <span class="note">(basic membership: advisory polls and proposals)</span></p><div class="stack">${basic.map(btn).join('')}</div>` : ''}`;
+    ${basic.length || hasEmail ? `<p style="margin-top:12px"><strong>Join online</strong> <span class="note">(basic membership: advisory polls and proposals)</span></p>` : ''}
+    ${basic.length ? `<div class="stack">${basic.map(btn).join('')}</div>` : ''}
+    ${hasEmail ? `<div class="stack" style="margin-top:10px">
+        <label for="join-email">${basic.length ? 'Or join with your email' : 'Join with your email'}</label>
+        <input type="email" id="join-email" autocomplete="email" inputmode="email" placeholder="you@example.com" />
+        <button id="btn-email-send">Send me a code</button>
+        <div class="stack" id="email-code-step" hidden>
+          <label for="join-code">Enter the 6-digit code we emailed you</label>
+          <input type="text" id="join-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" />
+          <button class="primary" id="btn-email-verify">Confirm</button>
+        </div>
+        <p class="status" id="email-status" role="status"></p>
+      </div>` : ''}`;
+  if (hasEmail) wireEmailJoin(url);
   for (const b of box.querySelectorAll('button[data-join]')) {
     b.onclick = () => {
       b.disabled = true;
       location.href = enrolStartUrl({ serviceUrl: url, providerId: b.dataset.join, identity: state.identity, returnUrl: location.origin + location.pathname });
     };
   }
+}
+
+function wireEmailJoin(serviceUrl) {
+  const base = serviceUrl.replace(/\/+$/, '');
+  const el = $('email-status');
+  let session = null;
+  const call = async (path, body) => {
+    const res = await fetch(`${base}${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    return { ok: res.ok, json: await res.json().catch(() => ({ error: 'Unexpected response' })) };
+  };
+  $('btn-email-send').onclick = async () => {
+    const email = $('join-email').value.trim();
+    if (!email) return status(el, 'Enter your email address first.', 'error');
+    $('btn-email-send').disabled = true;
+    status(el, 'Sending…');
+    try {
+      const r = await call('/email/start', { ...ownershipProof({ serviceUrl: base, identity: state.identity }), email });
+      if (!r.ok) throw new Error(r.json.error);
+      session = r.json.session;
+      $('email-code-step').hidden = false;
+      $('join-code').focus();
+      status(el, `Code sent to ${r.json.sentTo}. It expires in 10 minutes. Check spam if you don't see it.`, 'ok');
+      $('btn-email-send').textContent = 'Send a new code';
+    } catch (e) {
+      status(el, e.message || 'Could not send the code. The service may be waking up; try again in a minute.', 'error');
+    } finally {
+      $('btn-email-send').disabled = false;
+    }
+  };
+  $('btn-email-verify').onclick = async () => {
+    if (!session) return;
+    $('btn-email-verify').disabled = true;
+    status(el, 'Checking the code and enrolling you…');
+    try {
+      const r = await call('/email/verify', { session, code: $('join-code').value.trim() });
+      if (!r.ok) throw new Error(r.json.error);
+      status($('home-notice'), 'You joined as a basic member with your email.', 'ok');
+      await refreshStatus();
+    } catch (e) {
+      status(el, e.message || 'Something went wrong. Please try again.', 'error');
+      $('btn-email-verify').disabled = false;
+    }
+  };
 }
 
 /** Coming back from the identity service: #enrolled=basic&provider=Google or #enroll_error=... */

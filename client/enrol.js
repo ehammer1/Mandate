@@ -29,17 +29,16 @@ function decodeProof(s) {
   return JSON.parse(new TextDecoder().decode(Uint8Array.from(bin, (c) => c.charCodeAt(0))));
 }
 
+/** "This voter code is mine": { commitment, ts, proof } signed with the voter key. */
+function ownershipProof({ serviceUrl, identity, now = Date.now() }) {
+  const sig = identity.signMessage(enrolMessage(serviceUrl, identity.commitment, now));
+  return { commitment: identity.commitment.toString(), ts: String(now), proof: encodeProof({ pk: identity.publicKey, sig }) };
+}
+
 /** Build the /start URL for a sign-in provider. */
 function enrolStartUrl({ serviceUrl, providerId, identity, returnUrl, now = Date.now() }) {
-  const sig = identity.signMessage(enrolMessage(serviceUrl, identity.commitment, now));
-  const q = new URLSearchParams({
-    provider: providerId,
-    commitment: identity.commitment.toString(),
-    ts: String(now),
-    proof: encodeProof({ pk: identity.publicKey, sig }),
-    return: returnUrl,
-  });
+  const q = new URLSearchParams({ provider: providerId, ...ownershipProof({ serviceUrl, identity, now }), return: returnUrl });
   return `${serviceUrl.replace(/\/+$/, '')}/start?${q}`;
 }
 
-module.exports = { enrolMessage, encodeProof, decodeProof, enrolStartUrl };
+module.exports = { enrolMessage, encodeProof, decodeProof, enrolStartUrl, ownershipProof };

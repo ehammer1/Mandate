@@ -41,6 +41,12 @@ services:
         generateValue: true
       - key: EMAIL_DOMAINS_ALLOW   # "reputable" = major providers + .gov/.edu; add your own, comma-separated
         value: reputable
+      - key: EMAIL_PROVIDER        # email sign-up: resend | sendgrid | postmark (leave empty to turn off)
+        sync: false
+      - key: EMAIL_API_KEY
+        sync: false
+      - key: EMAIL_FROM            # sender address, e.g. "Mandate <signup@yourdomain.org>"
+        sync: false
       - key: GOOGLE_CLIENT_ID
         sync: false
       - key: GOOGLE_CLIENT_SECRET
