@@ -294,6 +294,12 @@ async function renderJoinOnline() {
   for (const b of box.querySelectorAll('button[data-join]')) {
     b.onclick = () => {
       b.disabled = true;
+      // Remember how this person signed in, so the return trip can reopen the same key.
+      try {
+        sessionStorage.setItem('mandate.returnMethod', state.keys?.method || '');
+      } catch {
+        /* storage unavailable: they'll unlock manually */
+      }
       location.href = enrolStartUrl({ serviceUrl: url, providerId: b.dataset.join, identity: state.identity, returnUrl: location.origin + location.pathname });
     };
   }
@@ -353,7 +359,7 @@ function readReturnNotice() {
   return { kind: 'ok', text: `You joined as ${level} with ${h.get('provider') || 'your account'}.` };
 }
 
-function handleReturn() {
+async function handleReturn() {
   const notice = readReturnNotice();
   if (!notice) return;
   const kind = notice.kind === 'ok' ? 'ok' : 'error';
@@ -361,10 +367,35 @@ function handleReturn() {
     show('screen-home');
     status($('home-notice'), notice.text, kind);
     refreshStatus();
-  } else {
-    state.notice = notice;
-    status($('signin-status'), `${notice.text}${notice.kind === 'ok' ? ' Unlock your voter key to continue.' : ''}`, kind);
+    return;
   }
+  state.notice = notice;
+  let method = '';
+  try {
+    method = sessionStorage.getItem('mandate.returnMethod') || '';
+    sessionStorage.removeItem('mandate.returnMethod');
+  } catch {
+    /* ignore */
+  }
+  // A browser-saved key needs no Face ID: reopen it straight away.
+  if (method === 'device' && keys.savedMethod() === 'device') {
+    try {
+      return await signedIn(await keys.unlockDeviceKey());
+    } catch {
+      /* fall through to the manual path */
+    }
+  }
+  // Otherwise show the result at the top, next to the right unlock button.
+  const top = $('return-notice');
+  const hint =
+    method === 'public' ? ' For your security nothing was kept on this computer: sign in again under "Shared or public computer".'
+      : method === 'device' ? ' Tap "Unlock the key saved in this browser" below to continue.'
+        : notice.kind === 'ok' ? ' Unlock your voter key to continue.' : '';
+  status(top, notice.text + hint, kind);
+  top.hidden = false;
+  top.scrollIntoView({ block: 'start' });
+  if (method === 'device') $('device-option').open = true;
+  if (method === 'public') $('public-option').open = true;
 }
 
 // -------------------------------------------------------------------- polls

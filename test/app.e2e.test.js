@@ -253,10 +253,10 @@ test('join online: sign in with a provider, come back enrolled', async () => {
   await page.click('#join-online button[data-join="testlogin"]');
 
   // Redirected through the identity service and the provider, back to the app.
-  await page.waitForFunction(() => /You joined as a basic member with Test Login/.test((document.querySelector('#signin-status')?.textContent || '') + (document.querySelector('#home-notice')?.textContent || '')), null, { timeout: 60_000 });
+  // Back from the provider: a browser-saved key reopens by itself, with the result shown.
+  await page.waitForSelector('#screen-home:not([hidden])', { timeout: 60_000 });
+  await page.waitForFunction(() => /You joined as a basic member with Test Login/.test(document.querySelector('#home-notice')?.textContent || ''));
   assert.equal(new URL(page.url()).hash, ''); // notice consumed, address cleaned
-  if (await page.isVisible('#screen-signin')) await page.click('#btn-device'); // fresh load: unlock the same device key
-  await page.waitForSelector('#screen-home:not([hidden])');
   await page.waitForFunction(() => /^Basic/.test(document.querySelector('#membership .big')?.textContent || ''));
   assert.match(await page.textContent('#home-notice'), /joined as a basic member/);
   await page.click('[data-go="screen-code"]');
