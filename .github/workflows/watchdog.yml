@@ -38,6 +38,8 @@ jobs:
           CONFIG_URL: https://ehammer1.github.io/Mandate/config.json
           STATE_DIR: watchdog-data
           WATCH_BALANCES: '[{"label":"Relayer","address":"0xA2BEB6f5Ac58fEA9Eda51B883d57c73E41571898","minEth":"0.0005"},{"label":"App admin account","address":"0x433B8c945c9f4664870fFD3dA3Ea8d16dD41476F","minEth":"0.0002"},{"label":"Online sign-up service","address":"0x7b12B4ffe042902AC1b6916dc990EDbab5532889","minEth":"0.0002"}]'
+          # Dates when outside credentials stop working. Update the date after renewing.
+          WATCH_EXPIRY: '[{"label":"Microsoft sign-in secret","expires":"2028-11-08","fix":"Entra admin center > App registrations > Mandate > Certificates & secrets > New client secret, then paste its Value into MICROSOFT_CLIENT_SECRET on Render"}]'
           WEBHOOK_URL: ${{ secrets.WATCHDOG_WEBHOOK_URL }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: node services/watchdog/server.js --once

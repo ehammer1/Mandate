@@ -14,6 +14,7 @@ the rules still raise every alert.
 | high | enrolment spike | One identity source enrolled more than `ENROL_PER_HOUR` people in an hour |
 | high | action failed | A vote passed but its binding action failed |
 | high | low balance | The relayer or another operational account is running out of fee money |
+| medium / high | credential expiry | An outside credential (such as the Microsoft sign-in secret) expires within 30 days (medium) or 7 days, or has expired (high). Dates live in `WATCH_EXPIRY` in `.github/workflows/watchdog.yml`; change the date there after renewing. |
 | medium | role change (other) | Clerk, poll-opener, verifier, veto and other roles |
 | medium | revocation, repeal, veto | A member removed, a mandate repealed, a market decision vetoed |
 | medium | binding poll, overdue mandate, metric resolved | Notable but expected events |

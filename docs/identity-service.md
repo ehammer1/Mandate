@@ -76,14 +76,34 @@ The blueprint in `render.yaml` includes `mandate-identity`. Render generates
 
 ## Google sign-in setup (free)
 
-1. https://console.cloud.google.com → create a project.
-2. **APIs & Services → OAuth consent screen**: External; app name "Mandate"; your email.
-   While in "Testing" mode, add the Google accounts allowed to sign in under **Test users**.
-3. **APIs & Services → Credentials → Create credentials → OAuth client ID** →
-   **Web application**.
-   - Authorized redirect URI: `https://mandate-identity.onrender.com/callback`
-4. Copy the **Client ID** and **Client secret** into the Render service's environment as
-   `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`.
+Works on a phone browser (desktop-site mode helps on small screens).
+
+1. Open https://console.cloud.google.com and sign in with the Google account that will own
+   the app. Accept the terms if asked.
+2. Project picker (top left) -> **New project** -> name `Mandate` -> **Create**, then
+   make sure `Mandate` is selected.
+3. Menu -> **APIs & Services -> OAuth consent screen** (also called **Google Auth
+   Platform**) -> **Get started**:
+   - App name `Mandate`, support email: yours -> Next
+   - Audience: **External** -> Next
+   - Contact email: yours -> Next -> agree -> **Create**
+4. **Audience** -> **Publish app** -> Confirm, so anyone can sign in. Mandate asks only
+   for name and email (`openid email profile`), which needs no Google review.
+   (Left in "Testing", only accounts listed under **Test users** can sign in.)
+5. **Clients** -> **Create client**:
+   - Application type: **Web application**, name `Mandate identity`
+   - Authorized redirect URIs -> **Add URI**:
+     `https://mandate-identity.onrender.com/callback`
+   - Leave "Authorized JavaScript origins" empty -> **Create**
+6. Copy the **Client ID** (ends in `.apps.googleusercontent.com`) and the **Client
+   secret** (starts with `GOCSPX-`). The secret is shown in full only now; if you lose it,
+   add a new secret on the client's page.
+7. Render -> **mandate-identity** -> **Environment** -> **Edit**: set `GOOGLE_CLIENT_ID`
+   and `GOOGLE_CLIENT_SECRET` -> **Save, rebuild, and deploy**.
+8. Check: https://mandate-identity.onrender.com/providers lists Google, and the app's
+   "Join online" shows **Continue with Google**.
+
+Google secrets do not expire on a timer, so they need no watchdog date.
 
 ## Microsoft sign-in setup (free)
 

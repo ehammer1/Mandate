@@ -25,6 +25,8 @@
  *   POLL_INTERVAL_MS      default 60000
  *   ENROL_PER_HOUR        enrolments per identity source per hour before alerting, default 50
  *   WATCH_BALANCES        JSON [{"label":"Relayer","address":"0x…","minEth":"0.0005"}]
+ *   WATCH_EXPIRY          JSON [{"label":"Microsoft sign-in secret","expires":"2028-11-08","fix":"…"}]
+ *                         warns 30 days ahead (medium), 7 days ahead (high), and once expired (high)
  *   WEBHOOK_URL           optional, receives high-severity alerts
  *   ANTHROPIC_API_KEY     optional, plain-language reports by Claude (rules work without it)
  *   REPORT_HOUR_UTC       hour of the daily report, default 6
@@ -187,6 +189,31 @@ function createWatchdog(o) {
         raised.push({ rule: 'low-balance', severity: 'high', key, time: now, title: `${w.label} (${short(w.address)}) is low on fee money: ${ethers.formatEther(bal)} ETH left`, facts: { address: w.address, balance: ethers.formatEther(bal), minimum: ethers.formatEther(min) } });
       } else if (bal >= min) flaggedOnce.delete(key);
     }
+    for (const x of o.watchExpiry || []) {
+      const expires = Date.parse(x.expires);
+      if (!Number.isFinite(expires)) continue;
+      const days = Math.floor((expires - (o.now ? o.now() : Date.now())) / 86_400_000);
+      const stage = days < 0 ? 'expired' : days <= 7 ? '7d' : days <= 30 ? '30d' : null;
+      const base = `expiry:${x.label}`;
+      if (!stage) {
+        for (const st of ['30d', '7d', 'expired']) flaggedOnce.delete(`${base}:${st}`);
+        continue;
+      }
+      const key = `${base}:${stage}`;
+      if (flaggedOnce.has(key)) continue;
+      flaggedOnce.add(key);
+      const when = new Date(expires).toISOString().slice(0, 10);
+      raised.push({
+        rule: 'credential-expiry',
+        severity: stage === '30d' ? 'medium' : 'high',
+        key,
+        time: now,
+        title: stage === 'expired'
+          ? `${x.label} expired on ${when}: renew it now${x.fix ? ` (${x.fix})` : ''}`
+          : `${x.label} expires on ${when}, in ${days} day${days === 1 ? '' : 's'}${x.fix ? `: ${x.fix}` : ''}`,
+        facts: { label: x.label, expires: when, daysLeft: days },
+      });
+    }
     if (registry) {
       const n = Number(await rpc(() => registry.mandateCount()));
       for (let id = 1; id <= n; id++) {
@@ -296,6 +323,7 @@ if (require.main === module) {
       blockSpan: Number(env('LOG_BLOCK_SPAN') || 200),
       enrolPerHour: Number(env('ENROL_PER_HOUR') || 50),
       watchBalances: env('WATCH_BALANCES') ? JSON.parse(env('WATCH_BALANCES')) : [],
+      watchExpiry: env('WATCH_EXPIRY') ? JSON.parse(env('WATCH_EXPIRY')) : [],
       webhookUrl: env('WEBHOOK_URL') || undefined,
       explorer: cfg.explorer,
     });

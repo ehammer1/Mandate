@@ -137,3 +137,27 @@ test('state survives a restart (scheduled runs resume where they stopped)', asyn
   assert.equal(again.alerts.length, dog.alerts.length);
   assert.equal((await again.scanOnce()).filter((a) => a.rule === 'mandate-overdue').length, 0); // remembered, not re-flagged
 });
+
+test('credential expiry: warns at 30 days, again at 7, and once expired, each only once', async () => {
+  let clock = Date.parse('2028-09-01T00:00:00Z');
+  const ex = createWatchdog({
+    provider,
+    addresses: { identity: await c.identity.getAddress() },
+    startBlock: 0,
+    watchExpiry: [{ label: 'Microsoft sign-in secret', expires: '2028-11-08', fix: 'renew it in Entra' }],
+    now: () => clock,
+    log: () => {},
+  });
+  const expiry = async () => (await ex.scanOnce()).filter((a) => a.rule === 'credential-expiry');
+  assert.equal((await expiry()).length, 0); // 68 days away: quiet
+  clock = Date.parse('2028-10-20T00:00:00Z');
+  const first = await expiry();
+  assert.equal(first.length, 1);
+  assert.equal(first[0].severity, 'medium');
+  assert.match(first[0].title, /expires on 2028-11-08, in 19 days: renew it in Entra/);
+  assert.equal((await expiry()).length, 0); // not repeated every scan
+  clock = Date.parse('2028-11-03T00:00:00Z');
+  assert.equal((await expiry())[0]?.severity, 'high');
+  clock = Date.parse('2028-11-09T00:00:00Z');
+  assert.match((await expiry())[0]?.title || '', /expired on 2028-11-08/);
+});
