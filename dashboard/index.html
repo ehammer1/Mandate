@@ -3,430 +3,310 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Oversight Dashboard</title>
-  <meta name="description" content="Declassification escrow oversight: fiscal-freeze countdown, AI redaction oracle feed, and public clawback trigger." />
+  <title>Mandate Oversight</title>
+  <meta name="description" content="Public tracker for mandates: what the people decided, who must deliver it, by when, and whether they did." />
   <script src="https://cdn.tailwindcss.com/3.4.16"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;800&display=swap" rel="stylesheet" />
   <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          fontFamily: { mono: ['"JetBrains Mono"', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'] },
-          colors: { term: { bg: '#05080a', panel: '#0a1014', line: '#16232b', green: '#3dff8b', dim: '#5f7a6c', amber: '#ffb547', red: '#ff4d5e', cyan: '#4dd6ff' } },
-        },
-      },
+    if (window.tailwind) tailwind.config = {
+      theme: { extend: {
+        fontFamily: { mono: ['"JetBrains Mono"', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'] },
+        colors: { term: { bg: '#05080a', panel: '#0a1014', line: '#16232b', green: '#3dff8b', dim: '#6f8a7c', amber: '#ffb547', red: '#ff4d5e', cyan: '#4dd6ff' } },
+      } },
     };
   </script>
   <style>
     :root { color-scheme: dark; }
     body { background: #05080a; }
-    .scanlines::after {
-      content: ''; pointer-events: none; position: fixed; inset: 0;
-      background: repeating-linear-gradient(to bottom, rgba(255,255,255,0.025) 0 1px, transparent 1px 3px);
-    }
-    .glow { text-shadow: 0 0 12px rgba(61,255,139,0.45); }
-    .glow-red { text-shadow: 0 0 14px rgba(255,77,94,0.55); }
+    .glow { text-shadow: 0 0 12px rgba(61,255,139,.45); }
+    .glow-red { text-shadow: 0 0 14px rgba(255,77,94,.55); }
     .cursor::after { content: '\2588'; animation: blink 1s steps(1) infinite; margin-left: 2px; }
     @keyframes blink { 50% { opacity: 0; } }
-    #log::-webkit-scrollbar { width: 6px; }
-    #log::-webkit-scrollbar-thumb { background: #16232b; }
     @media (prefers-reduced-motion: reduce) { .cursor::after { animation: none; } }
+    #log::-webkit-scrollbar { width: 6px; } #log::-webkit-scrollbar-thumb { background: #16232b; }
   </style>
 </head>
-<body class="scanlines min-h-screen bg-term-bg font-mono text-term-green antialiased">
-  <main class="mx-auto max-w-6xl px-4 py-6 sm:py-10">
+<body class="min-h-screen bg-term-bg font-mono text-term-green antialiased">
+<main class="mx-auto max-w-7xl px-4 py-6 sm:py-10">
 
-    <!-- Header -->
-    <header class="mb-6 flex flex-col gap-3 border-b border-term-line pb-4 sm:flex-row sm:items-end sm:justify-between">
+  <header class="mb-6 flex flex-col gap-3 border-b border-term-line pb-4 sm:flex-row sm:items-end sm:justify-between">
+    <div>
+      <p class="text-xs uppercase tracking-[0.3em] text-term-dim">the people decide · the protocol makes sure it happens</p>
+      <h1 class="glow mt-1 text-2xl font-extrabold sm:text-3xl">MANDATE_OVERSIGHT<span class="cursor"></span></h1>
+    </div>
+    <div class="flex flex-wrap items-center gap-2 text-xs">
+      <span class="rounded border border-term-amber px-2 py-1 text-term-amber">SIMULATION · PLAY CREDITS</span>
+      <span class="rounded border border-term-line px-2 py-1 text-term-dim">wallet: <span id="credits">1,000</span> MPC</span>
+      <button id="resetBtn" class="rounded border border-term-line px-2 py-1 text-term-dim hover:text-term-green">reset demo</button>
+    </div>
+  </header>
+
+  <!-- Summary -->
+  <section class="grid grid-cols-2 gap-3 sm:grid-cols-5" id="stats"></section>
+
+  <!-- Filters -->
+  <nav class="mt-6 flex flex-wrap gap-2 text-xs" id="filters" aria-label="Filter mandates by category"></nav>
+
+  <section class="mt-4 grid gap-4 lg:grid-cols-3">
+    <!-- Mandates -->
+    <div class="lg:col-span-2">
+      <h2 class="mb-2 text-xs uppercase tracking-widest text-term-dim">mandates</h2>
+      <div id="mandates" class="grid gap-3"></div>
+    </div>
+
+    <!-- Markets + feed -->
+    <div class="flex flex-col gap-4">
       <div>
-        <p class="text-xs uppercase tracking-[0.3em] text-term-dim">declassification oversight network</p>
-        <h1 class="glow mt-1 text-2xl font-extrabold sm:text-3xl">DECLASSIFICATION_ESCROW<span class="cursor"></span></h1>
+        <h2 class="mb-2 text-xs uppercase tracking-widest text-term-dim">open decision markets</h2>
+        <div id="markets" class="grid gap-3"></div>
       </div>
-      <div class="flex flex-wrap items-center gap-2 text-xs">
-        <span id="modeBadge" class="rounded border border-term-amber px-2 py-1 text-term-amber">SIMULATION</span>
-        <span id="statusBadge" class="rounded border border-term-cyan px-2 py-1 text-term-cyan">AWAITING RELEASE</span>
-        <span class="break-all text-term-dim" id="escrowAddr">escrow: not connected</span>
-      </div>
-    </header>
-
-    <!-- Top stats -->
-    <section class="grid gap-4 md:grid-cols-3">
-      <div class="rounded border border-term-line bg-term-panel p-4 md:col-span-2">
-        <p class="text-xs uppercase tracking-widest text-term-dim">time remaining before fiscal freeze</p>
-        <div id="countdown" class="glow mt-2 grid grid-cols-4 gap-2 text-center" aria-live="polite">
-          <div><div id="cd-d" class="text-3xl font-extrabold sm:text-5xl">--</div><div class="text-[10px] text-term-dim">DAYS</div></div>
-          <div><div id="cd-h" class="text-3xl font-extrabold sm:text-5xl">--</div><div class="text-[10px] text-term-dim">HRS</div></div>
-          <div><div id="cd-m" class="text-3xl font-extrabold sm:text-5xl">--</div><div class="text-[10px] text-term-dim">MIN</div></div>
-          <div><div id="cd-s" class="text-3xl font-extrabold sm:text-5xl">--</div><div class="text-[10px] text-term-dim">SEC</div></div>
-        </div>
-        <p id="deadlineLabel" class="mt-3 text-xs text-term-dim">deadline: --</p>
-      </div>
-
-      <div class="rounded border border-term-line bg-term-panel p-4">
-        <p class="text-xs uppercase tracking-widest text-term-dim">locked operational budget</p>
-        <p id="budget" class="glow mt-2 break-all text-2xl font-extrabold sm:text-3xl">$1,450,000,000</p>
-        <dl class="mt-3 space-y-1 text-xs">
-          <div class="flex justify-between gap-2"><dt class="text-term-dim">clawed back</dt><dd id="clawed" class="text-term-amber">$0</dd></div>
-          <div class="flex justify-between gap-2"><dt class="text-term-dim">decay rate</dt><dd>5% / 24h</dd></div>
-          <div class="flex justify-between gap-2"><dt class="text-term-dim">next decay</dt><dd id="nextDecay">after deadline</dd></div>
-        </dl>
-      </div>
-    </section>
-
-    <!-- Ingestion progress -->
-    <section class="mt-4 rounded border border-term-line bg-term-panel p-4">
-      <div class="flex flex-wrap items-baseline justify-between gap-2 text-xs">
-        <p class="uppercase tracking-widest text-term-dim">batch ingestion</p>
-        <p><span id="batchLabel">BATCH 07 / JFK-ARCHIVE</span> · <span id="docCount">0 / 1,284</span> docs · <span id="pct" class="text-term-cyan">0.0%</span></p>
-      </div>
-      <div class="mt-3 h-4 w-full overflow-hidden rounded-sm border border-term-line bg-term-bg" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="progressWrap">
-        <div id="progress" class="h-full bg-term-green transition-[width] duration-500" style="width:0%; box-shadow: 0 0 12px rgba(61,255,139,.6)"></div>
-      </div>
-      <div class="mt-2 grid grid-cols-2 gap-2 text-[11px] text-term-dim sm:grid-cols-4">
-        <p>redactions: <span id="statRedactions" class="text-term-green">0</span></p>
-        <p>layout pass: <span id="statPass" class="text-term-green">0</span></p>
-        <p>flagged: <span id="statFlag" class="text-term-amber">0</span></p>
-        <p>pinned CIDs: <span id="statPinned" class="text-term-cyan">0</span></p>
-      </div>
-    </section>
-
-    <!-- Terminal + controls -->
-    <section class="mt-4 grid gap-4 lg:grid-cols-3">
-      <div class="rounded border border-term-line bg-black lg:col-span-2">
+      <div class="rounded border border-term-line bg-black">
         <div class="flex items-center justify-between border-b border-term-line px-3 py-2 text-[11px] text-term-dim">
-          <span>oracle@redaction-loop:~$ tail -f /var/log/oracle.log</span>
-          <button id="pauseBtn" class="rounded border border-term-line px-2 py-0.5 hover:border-term-green hover:text-term-green">pause</button>
+          <span>verifiers@mandate:~$ tail -f events.log</span>
+          <button id="pauseBtn" class="rounded border border-term-line px-2 py-0.5 hover:text-term-green">pause</button>
         </div>
-        <pre id="log" class="h-80 overflow-y-auto whitespace-pre-wrap break-words p-3 text-[11px] leading-relaxed sm:h-96 sm:text-xs" aria-live="off"></pre>
+        <pre id="log" class="h-72 overflow-y-auto whitespace-pre-wrap break-words p-3 text-[11px] leading-relaxed" aria-live="off"></pre>
       </div>
+    </div>
+  </section>
 
-      <div class="flex flex-col gap-4">
-        <div class="rounded border border-term-red/60 bg-term-panel p-4">
-          <p class="text-xs uppercase tracking-widest text-term-dim">public enforcement</p>
-          <p class="mt-2 text-xs leading-relaxed text-term-dim">Once the deadline passes without verified compliance, any citizen may claw back 5% of the remaining budget to the treasury, once every 24 hours.</p>
-          <button id="clawbackBtn" class="glow-red mt-4 w-full rounded border-2 border-term-red bg-term-red/10 px-4 py-3 text-sm font-extrabold uppercase tracking-widest text-term-red transition hover:bg-term-red/25 focus:outline-none focus:ring-2 focus:ring-term-red disabled:cursor-not-allowed disabled:opacity-40">
-            &#9888; Force Clawback
-          </button>
-          <p id="clawbackMsg" class="mt-2 min-h-[1.25rem] text-[11px] text-term-dim" aria-live="polite"></p>
-        </div>
+  <footer class="mt-8 border-t border-term-line pt-4 text-[10px] leading-relaxed text-term-dim">
+    Simulation: all mandates, markets, and verifier activity are demo data and run in this page only. Clock runs at
+    <span id="speedLabel">1 hour per second</span>. Money backing a mandate funds and enforces it; it never counts as a vote.
+  </footer>
+</main>
 
-        <div class="rounded border border-term-line bg-term-panel p-4 text-xs">
-          <p class="uppercase tracking-widest text-term-dim">connection</p>
-          <p class="mt-2 leading-relaxed text-term-dim">Simulation runs entirely in this page. For live mode open with <code class="text-term-cyan">?escrow=0x…</code> and a browser wallet.</p>
-          <div class="mt-3 flex flex-wrap gap-2">
-            <button id="connectBtn" class="rounded border border-term-cyan px-3 py-1 text-term-cyan hover:bg-term-cyan/10">connect wallet</button>
-            <button id="expireBtn" class="rounded border border-term-amber px-3 py-1 text-term-amber hover:bg-term-amber/10">demo: expire deadline</button>
-            <button id="resetBtn" class="rounded border border-term-line px-3 py-1 text-term-dim hover:text-term-green">reset demo</button>
-          </div>
-        </div>
-      </div>
-    </section>
+<script>
+(() => {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const HOUR = 3_600_000, DAY = 24 * HOUR;
+  const SPEED = HOUR; // simulated ms per real second
+  const KEY = 'mandate-demo-v1';
+  const CATS = { policy: 'Policy', budget: 'Budget', records: 'Records', infrastructure: 'Infrastructure' };
+  const STATUS = { active: 'ACTIVE', review: 'UNDER REVIEW', fulfilled: 'FULFILLED', cancelled: 'REPEALED' };
 
-    <footer class="mt-8 border-t border-term-line pt-4 text-[10px] text-term-dim">
-      Log feed and ingestion figures are simulated. Contract actions in live mode are real transactions.
-    </footer>
-  </main>
-
-  <script>
-  (() => {
-    'use strict';
-
-    // ------------------------------------------------------------------ state
-    const INITIAL_BUDGET = 1_450_000_000;
-    const DECAY_BPS = 500n;
-    const DAY_MS = 86_400_000;
-    const STORE_KEY = 'oversight-demo-v1';
-    const params = new URLSearchParams(location.search);
-    const ESCROW = params.get('escrow');
-    const $ = (id) => document.getElementById(id);
-
-    const store = {
-      load() { try { return JSON.parse(localStorage.getItem(STORE_KEY)) || null; } catch { return null; } },
-      save(s) { try { localStorage.setItem(STORE_KEY, JSON.stringify(s)); } catch { /* storage unavailable */ } },
-      clear() { try { localStorage.removeItem(STORE_KEY); } catch { /* ignore */ } },
+  // ------------------------------------------------------------------ demo data
+  function seed() {
+    const t = Date.now();
+    return {
+      simNow: t,
+      credits: 1000,
+      mandates: [
+        m(1, 'Publish line-item city budget for FY2027', 'budget', 'City Finance Dept.', t + 5 * DAY, 'active', 2, 3, 2_400_000, 'market #12 (PASS 71% vs FAIL 38%)'),
+        m(2, 'Release 1990s zoning-board meeting records', 'records', 'City Clerk', t - 2 * DAY, 'active', 2, 3, 850_000, 'public vote 68% yes'),
+        m(3, 'Adopt open-data standard for transit ridership', 'policy', 'Transit Authority', t + 12 * DAY, 'review', 3, 5, 0, 'public vote 74% yes'),
+        m(4, 'Repair Elm St. bridge to inspection grade B', 'infrastructure', 'Public Works', t + 40 * DAY, 'active', 2, 3, 6_100_000, 'market #9 (PASS 64% vs FAIL 22%)'),
+        m(5, 'Post all council votes within 48 hours', 'policy', 'City Council', t - 20 * DAY, 'fulfilled', 2, 3, 0, 'public vote 81% yes'),
+      ],
+      markets: [
+        mk(14, 'Switch streetlights to LED by 2028', 'Energy use per capita falls 10% by 2029', t + 2 * DAY, 0.58, 0.41),
+        mk(15, 'Free transit fares on weekends', 'Downtown retail revenue +5% within 12 months', t + 4 * DAY, 0.47, 0.49),
+      ],
     };
+  }
+  function m(id, title, category, responsible, deadline, status, threshold, verifiers, escrow, origin) {
+    return { id, title, category, responsible, deadline, status, threshold, verifiers, approvals: status === 'review' ? 1 : status === 'fulfilled' ? threshold : 0,
+      rejections: 0, escrow, clawed: 0, lastDecay: 0, backers: escrow ? Math.round(escrow / 5000) : 0, origin };
+  }
+  function mk(id, proposal, metric, closes, pass, fail) {
+    return { id, proposal, metric, closes, price: [pass, fail], twap: [pass, fail], stake: [0, 0], maxStake: 500, decided: null };
+  }
 
-    function freshSim() {
-      const qd = Number(params.get('deadline'));
-      return {
-        deadline: Number.isFinite(qd) && qd > 0 ? qd * 1000 : Date.now() + 3 * DAY_MS + 7 * 3_600_000,
-        budget: INITIAL_BUDGET,
-        clawed: 0,
-        lastDecayAt: 0,
-        complies: false,
-      };
-    }
-    let sim = store.load() || freshSim();
-    const live = { enabled: false, contract: null, signer: null, decimals: 18, isEth: true };
+  let S;
+  try { S = JSON.parse(localStorage.getItem(KEY)) || seed(); } catch { S = seed(); }
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch { /* storage unavailable */ } };
 
-    // -------------------------------------------------------------- formatting
-    const usd = (n) => '$' + Math.round(n).toLocaleString('en-US');
-    const pad = (n) => String(n).padStart(2, '0');
-    const fmtDate = (ms) => new Date(ms).toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
+  // ----------------------------------------------------------------- formatting
+  const usd = (n) => '$' + Math.round(n).toLocaleString('en-US');
+  const pct = (p) => Math.round(p * 100) + '%';
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  function left(ms) {
+    if (ms <= 0) return null;
+    const d = Math.floor(ms / DAY), h = Math.floor((ms % DAY) / HOUR), mnt = Math.floor((ms % HOUR) / 60000);
+    return d ? `${d}d ${String(h).padStart(2, '0')}h` : `${h}h ${String(mnt).padStart(2, '0')}m`;
+  }
+  const overdue = (x) => (x.status === 'active' || x.status === 'review') && S.simNow > x.deadline;
 
-    // ---------------------------------------------------------------- terminal
-    const logEl = $('log');
-    const MAX_LINES = 400;
-    let paused = false;
-    const COLORS = { info: 'text-term-green', dim: 'text-term-dim', warn: 'text-term-amber', err: 'text-term-red', ok: 'text-term-cyan' };
+  // ---------------------------------------------------------------------- log
+  const logEl = $('log');
+  let paused = false;
+  const C = { info: 'text-term-green', dim: 'text-term-dim', warn: 'text-term-amber', err: 'text-term-red', ok: 'text-term-cyan' };
+  function log(msg, lvl = 'info') {
+    const div = document.createElement('div');
+    div.className = C[lvl];
+    div.textContent = `[${new Date(S.simNow).toISOString().slice(5, 16).replace('T', ' ')}] ${msg}`;
+    logEl.appendChild(div);
+    while (logEl.childElementCount > 300) logEl.firstChild.remove();
+    if (logEl.scrollHeight - logEl.scrollTop - logEl.clientHeight < 80) logEl.scrollTop = logEl.scrollHeight;
+  }
+  $('pauseBtn').onclick = (e) => { paused = !paused; e.target.textContent = paused ? 'resume' : 'pause'; };
 
-    function log(msg, level = 'info') {
-      const line = document.createElement('div');
-      line.className = COLORS[level] || COLORS.info;
-      const t = new Date().toISOString().slice(11, 23);
-      line.textContent = `[${t}] ${msg}`;
-      logEl.appendChild(line);
-      while (logEl.childElementCount > MAX_LINES) logEl.firstChild.remove();
-      const nearBottom = logEl.scrollHeight - logEl.scrollTop - logEl.clientHeight < 80;
-      if (nearBottom) logEl.scrollTop = logEl.scrollHeight;
-    }
+  // ------------------------------------------------------------------ render
+  let filter = 'all';
+  function renderFilters() {
+    $('filters').innerHTML = ['all', ...Object.keys(CATS)].map((c) =>
+      `<button data-f="${c}" class="rounded border px-3 py-1 ${filter === c ? 'border-term-green text-term-green' : 'border-term-line text-term-dim hover:text-term-green'}">${c === 'all' ? 'All' : CATS[c]}</button>`).join('');
+    $('filters').querySelectorAll('button').forEach((b) => (b.onclick = () => { filter = b.dataset.f; render(); }));
+  }
 
-    $('pauseBtn').addEventListener('click', (e) => {
-      paused = !paused;
-      e.target.textContent = paused ? 'resume' : 'pause';
-      log(paused ? 'feed paused by operator' : 'feed resumed', 'dim');
-    });
-
-    // ------------------------------------------------------------ mock oracle
-    const TOTAL_DOCS = 1284;
-    const stats = { done: 0, redactions: 0, pass: 0, flag: 0, pinned: 0 };
-    const hex = (n) => Array.from(crypto.getRandomValues(new Uint8Array(n)), (b) => b.toString(16).padStart(2, '0')).join('');
-    const b32 = (n) => { const a = 'abcdefghijklmnopqrstuvwxyz234567'; return Array.from(crypto.getRandomValues(new Uint8Array(n)), (b) => a[b % 32]).join(''); };
-    const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
-    const SERIES = ['NARA-104-10', 'RIF-124-10', 'DOD-UAP-LOG', 'CIA-CREST', 'HSCA-180-10', 'AARO-INC'];
-
-    function mockStep() {
-      if (paused || stats.done >= TOTAL_DOCS) return;
-      const id = `${pick(SERIES)}-${String(Math.floor(Math.random() * 99999)).padStart(5, '0')}`;
-      const pages = 2 + Math.floor(Math.random() * 40);
-      const r = Math.floor(Math.random() * 7);
-      log(`ingest   ${id}  pages=${pages}  sha256=${hex(8)}…`, 'dim');
-      setTimeout(() => {
-        if (r > 0) log(`redact   ${id}  [REDACTED_BY_AI] x${r}  (living-operator: ${Math.ceil(r * 0.7)}, crypto-method: ${Math.floor(r * 0.3)})`);
-        else log(`redact   ${id}  no sensitive spans detected`);
-        stats.redactions += r;
-      }, 250);
-      setTimeout(() => {
-        const ok = Math.random() > 0.06;
-        if (ok) {
-          stats.pass++;
-          log(`verify   ${id}  layout_preserved=true line_ratio=${(0.99 + Math.random() * 0.01).toFixed(3)} idempotent=true`, 'ok');
-          stats.pinned++;
-          log(`pin      ${id}  cid=bafkrei${b32(52)}`, 'ok');
-        } else {
-          stats.flag++;
-          log(`verify   ${id}  FLAGGED unexplained_edit_ratio=${(0.03 + Math.random() * 0.05).toFixed(3)} -> requeued for agency review`, 'warn');
-        }
-        stats.done++;
-        renderProgress();
-        if (stats.done === TOTAL_DOCS) log('batch complete; awaiting agency submitDataHash() for aggregate CID', 'ok');
-      }, 650);
-    }
-
-    function renderProgress() {
-      const pct = (stats.done / TOTAL_DOCS) * 100;
-      $('progress').style.width = pct.toFixed(2) + '%';
-      $('progressWrap').setAttribute('aria-valuenow', pct.toFixed(1));
-      $('pct').textContent = pct.toFixed(1) + '%';
-      $('docCount').textContent = `${stats.done.toLocaleString()} / ${TOTAL_DOCS.toLocaleString()}`;
-      $('statRedactions').textContent = stats.redactions.toLocaleString();
-      $('statPass').textContent = stats.pass.toLocaleString();
-      $('statFlag').textContent = stats.flag.toLocaleString();
-      $('statPinned').textContent = stats.pinned.toLocaleString();
-    }
-
-    // -------------------------------------------------------------- countdown
-    let liveSnapshot = null; // { deadline, locked, clawed, lastDecayAt, complies }
-
-    function view() {
-      return live.enabled && liveSnapshot ? liveSnapshot : sim;
-    }
-
-    function renderClock() {
-      const v = view();
-      const left = Math.max(0, v.deadline - Date.now());
-      const d = Math.floor(left / DAY_MS);
-      const h = Math.floor((left % DAY_MS) / 3_600_000);
-      const m = Math.floor((left % 3_600_000) / 60_000);
-      const s = Math.floor((left % 60_000) / 1000);
-      $('cd-d').textContent = pad(d); $('cd-h').textContent = pad(h);
-      $('cd-m').textContent = pad(m); $('cd-s').textContent = pad(s);
-      $('deadlineLabel').textContent = `deadline: ${fmtDate(v.deadline)}`;
-
-      const expired = left === 0;
-      const cd = $('countdown');
-      cd.classList.toggle('text-term-red', expired && !v.complies);
-      cd.classList.toggle('glow-red', expired && !v.complies);
-
-      const badge = $('statusBadge');
-      if (v.complies) { badge.textContent = 'COMPLIANT · BUDGET RELEASED'; badge.className = 'rounded border border-term-green px-2 py-1 text-term-green'; }
-      else if (expired) { badge.textContent = 'FISCAL FREEZE ACTIVE'; badge.className = 'rounded border border-term-red px-2 py-1 text-term-red'; }
-      else { badge.textContent = 'AWAITING RELEASE'; badge.className = 'rounded border border-term-cyan px-2 py-1 text-term-cyan'; }
-
-      const next = nextDecayAt(v);
-      $('nextDecay').textContent = v.complies ? 'n/a (compliant)' : !expired ? 'after deadline' : next <= Date.now() ? 'AVAILABLE NOW' : fmtDate(next);
-      $('clawbackBtn').disabled = v.complies;
-    }
-
-    function nextDecayAt(v) {
-      const afterDeadline = v.deadline + 1000;
-      return v.lastDecayAt ? Math.max(v.lastDecayAt + DAY_MS, afterDeadline) : afterDeadline;
-    }
-
-    function renderBudget() {
-      const v = view();
-      if (live.enabled && liveSnapshot) {
-        const fmt = (x) => ethers.formatUnits(x, live.decimals) + (live.isEth ? ' ETH' : ' units');
-        $('budget').textContent = fmt(liveSnapshot.locked);
-        $('clawed').textContent = fmt(liveSnapshot.clawed);
-      } else {
-        $('budget').textContent = usd(v.budget);
-        $('clawed').textContent = usd(v.clawed);
-      }
-    }
-
-    // --------------------------------------------------------------- clawback
-    const msg = (text, level = 'dim') => { const el = $('clawbackMsg'); el.textContent = text; el.className = `mt-2 min-h-[1.25rem] text-[11px] ${COLORS[level]}`; };
-
-    async function forceClawback() {
-      log('citizen invoked progressiveDecay()', 'warn');
-      if (live.enabled) return liveClawback();
-
-      const now = Date.now();
-      if (sim.complies) return deny('AlreadyCompliant: budget already released');
-      if (now <= sim.deadline) return deny(`DeadlineNotReached: freeze begins ${fmtDate(sim.deadline)}`);
-      const next = nextDecayAt(sim);
-      if (now < next) return deny(`DecayCooldown: next eligible ${fmtDate(next)}`);
-
-      const amount = Math.floor(sim.budget * Number(DECAY_BPS) / 10_000);
-      if (amount <= 0) return deny('NothingToDecay');
-      sim.budget -= amount; sim.clawed += amount; sim.lastDecayAt = now;
-      store.save(sim);
-      log(`tx 0x${hex(32)} :: ProgressiveDecay(amount=${usd(amount)}, remaining=${usd(sim.budget)})`, 'err');
-      log(`treasury credited ${usd(amount)}; next decay window opens in 24h`, 'warn');
-      msg(`clawed back ${usd(amount)} to treasury`, 'warn');
-      flashBudget();
-      renderBudget(); renderClock();
-    }
-
-    function deny(reason) { log(`revert ${reason}`, 'err'); msg(reason, 'err'); }
-
-    function flashBudget() {
-      const el = $('budget');
-      el.classList.add('text-term-red', 'glow-red');
-      setTimeout(() => el.classList.remove('text-term-red', 'glow-red'), 900);
-    }
-
-    $('clawbackBtn').addEventListener('click', () => { forceClawback().catch((e) => deny(e.message || String(e))); });
-
-    $('expireBtn').addEventListener('click', () => {
-      if (live.enabled) return msg('demo controls are disabled in live mode', 'warn');
-      sim.deadline = Date.now() - 1000; store.save(sim);
-      log('DEMO: deadline forced to now; fiscal freeze engaged', 'warn');
-      renderClock();
-    });
-    $('resetBtn').addEventListener('click', () => {
-      if (live.enabled) return msg('demo controls are disabled in live mode', 'warn');
-      store.clear(); sim = freshSim();
-      log('DEMO: escrow state reset', 'dim');
-      msg('');
-      renderBudget(); renderClock();
-    });
-
-    // ------------------------------------------------------------- live mode
-    const ABI = [
-      'function deadline() view returns (uint256)',
-      'function lockedBalance() view returns (uint256)',
-      'function totalClawedBack() view returns (uint256)',
-      'function lastDecayAt() view returns (uint256)',
-      'function complies() view returns (bool)',
-      'function asset() view returns (address)',
-      'function progressiveDecay() returns (uint256)',
-      'error DeadlineNotReached(uint256 deadline, uint256 nowTs)',
-      'error DecayCooldown(uint256 nextEligibleAt)',
-      'error AlreadyCompliant()',
-      'error NothingToDecay()',
+  function renderStats() {
+    const ms = S.mandates;
+    const tiles = [
+      ['active', ms.filter((x) => x.status === 'active' || x.status === 'review').length, 'text-term-green'],
+      ['overdue', ms.filter(overdue).length, 'text-term-red'],
+      ['fulfilled', ms.filter((x) => x.status === 'fulfilled').length, 'text-term-cyan'],
+      ['escrowed', usd(ms.reduce((a, x) => a + x.escrow, 0)), 'text-term-green'],
+      ['clawed back', usd(ms.reduce((a, x) => a + x.clawed, 0)), 'text-term-amber'],
     ];
+    $('stats').innerHTML = tiles.map(([l, v, c]) =>
+      `<div class="rounded border border-term-line bg-term-panel p-3"><p class="text-[10px] uppercase tracking-widest text-term-dim">${l}</p><p class="mt-1 text-lg font-extrabold sm:text-xl ${c}">${v}</p></div>`).join('');
+  }
 
-    function loadEthers() {
-      if (window.ethers) return Promise.resolve();
-      return new Promise((resolve, reject) => {
-        const s = document.createElement('script');
-        s.src = 'https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js';
-        s.onload = resolve; s.onerror = () => reject(new Error('failed to load ethers.js'));
-        document.head.appendChild(s);
-      });
+  function badge(x) {
+    if (overdue(x)) return '<span class="rounded border border-term-red px-2 py-0.5 text-term-red">OVERDUE</span>';
+    const cls = { active: 'border-term-green text-term-green', review: 'border-term-cyan text-term-cyan', fulfilled: 'border-term-cyan text-term-cyan', cancelled: 'border-term-line text-term-dim' }[x.status];
+    return `<span class="rounded border px-2 py-0.5 ${cls}">${STATUS[x.status]}</span>`;
+  }
+
+  function renderMandates() {
+    const list = S.mandates.filter((x) => filter === 'all' || x.category === filter);
+    $('mandates').innerHTML = list.map((x) => {
+      const remaining = left(x.deadline - S.simNow);
+      const late = overdue(x);
+      const open = x.status === 'active' || x.status === 'review';
+      const nextDecay = x.lastDecay ? x.lastDecay + DAY : 0;
+      const canDecay = late && x.escrow > 0 && S.simNow >= nextDecay;
+      const bar = Math.min(100, (x.approvals / x.threshold) * 100);
+      return `
+      <article class="rounded border ${late ? 'border-term-red/60' : 'border-term-line'} bg-term-panel p-4">
+        <div class="flex flex-wrap items-start justify-between gap-2">
+          <div class="min-w-0">
+            <p class="text-[10px] uppercase tracking-widest text-term-dim">#${x.id} · ${CATS[x.category]} · ${esc(x.origin)}</p>
+            <h3 class="mt-1 text-sm font-semibold text-term-green sm:text-base">${esc(x.title)}</h3>
+            <p class="mt-1 text-[11px] text-term-dim">responsible: ${esc(x.responsible)}</p>
+          </div>
+          <div class="text-[11px]">${badge(x)}</div>
+        </div>
+        <div class="mt-3 grid grid-cols-2 gap-3 text-[11px] sm:grid-cols-4">
+          <div><p class="text-term-dim">deadline</p><p class="${late ? 'glow-red text-term-red' : ''} font-semibold">${open ? (remaining || 'PASSED') : '—'}</p></div>
+          <div><p class="text-term-dim">verification</p>
+            <div class="mt-1 h-1.5 w-full rounded-sm bg-term-bg"><div class="h-full bg-term-cyan" style="width:${bar}%"></div></div>
+            <p class="mt-1">${x.approvals}/${x.threshold} of ${x.verifiers} verifiers</p></div>
+          <div><p class="text-term-dim">escrow</p><p class="font-semibold">${x.escrow ? usd(x.escrow) : '—'}</p><p class="text-term-dim">${x.backers} backers</p></div>
+          <div><p class="text-term-dim">clawed back</p><p class="font-semibold text-term-amber">${x.clawed ? usd(x.clawed) : '—'}</p></div>
+        </div>
+        ${open ? `<div class="mt-3 flex flex-wrap gap-2 text-[11px]">
+          <button data-act="back" data-id="${x.id}" class="rounded border border-term-green px-3 py-1 hover:bg-term-green/10">back with 100 MPC</button>
+          <button data-act="clawback" data-id="${x.id}" ${canDecay ? '' : 'disabled'} title="${late ? (x.escrow ? 'once per 24h' : 'no escrow') : 'only after the deadline'}"
+            class="glow-red rounded border border-term-red px-3 py-1 font-bold uppercase text-term-red hover:bg-term-red/15 disabled:cursor-not-allowed disabled:opacity-30">&#9888; force clawback 5%</button>
+        </div>` : ''}
+      </article>`;
+    }).join('') || '<p class="text-xs text-term-dim">No mandates in this category.</p>';
+    $('mandates').querySelectorAll('button[data-act]').forEach((b) => (b.onclick = () => act(b.dataset.act, Number(b.dataset.id))));
+  }
+
+  function renderMarkets() {
+    $('markets').innerHTML = S.markets.map((k) => {
+      const remaining = left(k.closes - S.simNow);
+      const lead = k.twap[0] - k.twap[1];
+      const row = (b, label) => `
+        <div class="mt-2">
+          <div class="flex justify-between text-[11px]"><span>${label} · YES ${pct(k.price[b])}</span><span class="text-term-dim">avg ${pct(k.twap[b])} · you ${k.stake[b]}/${k.maxStake}</span></div>
+          <div class="mt-1 h-2 w-full rounded-sm bg-term-bg"><div class="h-full ${b ? 'bg-term-amber' : 'bg-term-green'}" style="width:${k.price[b] * 100}%"></div></div>
+          ${k.decided ? '' : `<div class="mt-1 flex gap-2 text-[10px]">
+            <button data-mk="${k.id}" data-b="${b}" data-y="1" class="rounded border border-term-line px-2 py-0.5 hover:text-term-green">buy YES 50</button>
+            <button data-mk="${k.id}" data-b="${b}" data-y="0" class="rounded border border-term-line px-2 py-0.5 hover:text-term-green">buy NO 50</button></div>`}
+        </div>`;
+      return `<article class="rounded border border-term-line bg-term-panel p-3 text-xs">
+        <p class="text-[10px] uppercase tracking-widest text-term-dim">market #${k.id} · ${k.decided ? 'decided' : remaining ? 'closes in ' + remaining : 'closing'}</p>
+        <h3 class="mt-1 font-semibold">${esc(k.proposal)}</h3>
+        <p class="mt-1 text-[11px] text-term-dim">metric: ${esc(k.metric)}</p>
+        ${row(0, 'IF ADOPTED')}${row(1, 'IF NOT')}
+        <p class="mt-2 text-[11px] ${k.decided ? 'text-term-cyan' : 'text-term-dim'}">${k.decided || (lead >= 0.02 ? 'leaning PASS' : 'leaning FAIL') + ' · needs +2% edge · 24h public veto after close'}</p>
+      </article>`;
+    }).join('') || '<p class="text-xs text-term-dim">No open markets.</p>';
+    $('markets').querySelectorAll('button[data-mk]').forEach((b) => (b.onclick = () => trade(Number(b.dataset.mk), Number(b.dataset.b), b.dataset.y === '1')));
+  }
+
+  function render() {
+    $('credits').textContent = S.credits.toLocaleString();
+    renderStats(); renderFilters(); renderMandates(); renderMarkets();
+  }
+
+  // ----------------------------------------------------------------- actions
+  function act(kind, id) {
+    const x = S.mandates.find((y) => y.id === id);
+    if (kind === 'back') {
+      if (S.credits < 100) return log('not enough play credits', 'err');
+      S.credits -= 100; x.escrow += 100; x.backers += 1;
+      log(`you backed mandate #${id} with 100 MPC (funds enforcement, not a vote)`, 'ok');
+    } else if (kind === 'clawback') {
+      if (!overdue(x)) return log(`revert NotOverdue (#${id})`, 'err');
+      if (x.lastDecay && S.simNow < x.lastDecay + DAY) return log(`revert DecayCooldown (#${id})`, 'err');
+      const amt = Math.floor(x.escrow * 0.05);
+      x.escrow -= amt; x.clawed += amt; x.lastDecay = S.simNow;
+      log(`ProgressiveDecay #${id}: ${usd(amt)} returned to treasury, ${usd(x.escrow)} still locked`, 'err');
     }
+    save(); render();
+  }
 
-    async function connect() {
-      if (!ESCROW) return msg('add ?escrow=0x… to the URL to enable live mode', 'warn');
-      if (!window.ethereum) return msg('no browser wallet detected', 'err');
-      try {
-        await loadEthers();
-        if (!ethers.isAddress(ESCROW)) return msg('invalid ?escrow address', 'err');
-        const provider = new ethers.BrowserProvider(window.ethereum);
-        await provider.send('eth_requestAccounts', []);
-        live.signer = await provider.getSigner();
-        live.contract = new ethers.Contract(ESCROW, ABI, live.signer);
-        const asset = await live.contract.asset();
-        live.isEth = asset === ethers.ZeroAddress;
-        if (!live.isEth) {
-          try {
-            const t = new ethers.Contract(asset, ['function decimals() view returns (uint8)'], provider);
-            live.decimals = Number(await t.decimals());
-          } catch { live.decimals = 18; }
-        }
-        live.enabled = true;
-        $('modeBadge').textContent = 'LIVE'; $('modeBadge').className = 'rounded border border-term-green px-2 py-1 text-term-green';
-        $('escrowAddr').textContent = `escrow: ${ESCROW}`;
-        $('connectBtn').textContent = (await live.signer.getAddress()).slice(0, 10) + '…';
-        log(`wallet connected; reading escrow ${ESCROW}`, 'ok');
-        await refreshLive();
-        setInterval(() => refreshLive().catch(() => {}), 15_000);
-      } catch (e) {
-        msg(e.shortMessage || e.message || 'connection failed', 'err');
+  function trade(id, b, yes) {
+    const k = S.markets.find((y) => y.id === id);
+    if (k.stake[b] + 50 > k.maxStake) return log(`revert StakeCapExceeded (market #${id}, cap ${k.maxStake})`, 'err');
+    if (S.credits < 50) return log('not enough play credits', 'err');
+    S.credits -= 50; k.stake[b] += 50;
+    const before = k.price[b];
+    k.price[b] = Math.min(0.97, Math.max(0.03, before + (yes ? 0.03 : -0.03)));
+    log(`you bought ${yes ? 'YES' : 'NO'} in market #${id} ${b ? 'FAIL' : 'PASS'} branch: ${pct(before)} -> ${pct(k.price[b])}`, 'ok');
+    save(); render();
+  }
+
+  $('resetBtn').onclick = () => { try { localStorage.removeItem(KEY); } catch { /* ignore */ } S = seed(); logEl.innerHTML = ''; log('demo reset', 'dim'); render(); };
+
+  // --------------------------------------------------------------- simulation
+  const VERIFIERS = ['ai-verifier-1', 'ai-verifier-2', 'auditor.city-coop', 'kleros-adapter', 'ai-verifier-3'];
+  function step() {
+    if (paused) return;
+    S.simNow += SPEED;
+
+    // Markets: drift prices, update time-weighted averages, close when due.
+    for (const k of S.markets) {
+      if (k.decided) continue;
+      for (const b of [0, 1]) {
+        k.price[b] = Math.min(0.97, Math.max(0.03, k.price[b] + (Math.random() - 0.5) * 0.02));
+        k.twap[b] = k.twap[b] * 0.95 + k.price[b] * 0.05;
+      }
+      if (S.simNow >= k.closes) {
+        const pass = k.twap[0] >= k.twap[1] + 0.02;
+        k.decided = pass ? `PASS (${pct(k.twap[0])} vs ${pct(k.twap[1])}) · in 24h veto window` : `FAIL (${pct(k.twap[0])} vs ${pct(k.twap[1])}) · not adopted`;
+        log(`market #${k.id} closed -> ${pass ? 'PASS, public veto window open' : 'FAIL'}`, pass ? 'ok' : 'warn');
       }
     }
 
-    async function refreshLive() {
-      const c = live.contract;
-      const [deadline, locked, clawed, lastDecayAt, complies] = await Promise.all([
-        c.deadline(), c.lockedBalance(), c.totalClawedBack(), c.lastDecayAt(), c.complies(),
-      ]);
-      liveSnapshot = { deadline: Number(deadline) * 1000, locked, clawed, lastDecayAt: Number(lastDecayAt) * 1000, complies };
-      renderBudget(); renderClock();
-    }
-
-    async function liveClawback() {
-      const btn = $('clawbackBtn');
-      btn.disabled = true;
-      try {
-        await live.contract.progressiveDecay.staticCall();
-        msg('confirm the transaction in your wallet…', 'warn');
-        const tx = await live.contract.progressiveDecay();
-        log(`tx submitted ${tx.hash}`, 'warn');
-        const rcpt = await tx.wait();
-        log(`ProgressiveDecay confirmed in block ${rcpt.blockNumber}`, 'err');
-        msg('clawback confirmed on-chain', 'warn');
-        flashBudget();
-        await refreshLive();
-      } catch (e) {
-        deny(e.revert?.name ? `${e.revert.name}${e.revert.args?.length ? ' ' + e.revert.args.join(', ') : ''}` : (e.shortMessage || e.message));
-      } finally {
-        btn.disabled = view().complies;
+    // Mandates: occasional evidence and attestations.
+    for (const x of S.mandates) {
+      if (x.status === 'active' && Math.random() < 0.01) {
+        x.status = 'review'; x.approvals = 0; x.rejections = 0;
+        log(`#${x.id} ${x.responsible} submitted evidence (cid bafy…${Math.random().toString(36).slice(2, 8)})`, 'warn');
+      } else if (x.status === 'review' && Math.random() < 0.08) {
+        const v = VERIFIERS[Math.floor(Math.random() * x.verifiers)];
+        const ok = Math.random() < 0.7;
+        if (ok) x.approvals++; else x.rejections++;
+        log(`#${x.id} ${v} ${ok ? 'APPROVED' : 'REJECTED'} (${ok ? 'all criteria grounded in evidence' : 'c2: supporting quote not found'})`, ok ? 'ok' : 'err');
+        if (x.approvals >= x.threshold) { x.status = 'fulfilled'; log(`#${x.id} FULFILLED; escrow released to ${x.responsible}`, 'ok'); x.escrow = 0; }
+        else if (x.rejections >= x.threshold) { x.status = 'active'; log(`#${x.id} evidence rejected; responsible party must resubmit`, 'warn'); }
       }
     }
+    save(); render();
+  }
 
-    $('connectBtn').addEventListener('click', connect);
-
-    // ------------------------------------------------------------------ boot
-    log('oracle node online :: model=claude-sonnet-5-5 mode=verify', 'ok');
-    log('subscribed to DocumentSubmitted on DeclassificationEscrow', 'dim');
-    renderBudget(); renderClock(); renderProgress();
-    setInterval(renderClock, 1000);
-    setInterval(mockStep, 900);
-  })();
-  </script>
+  log('mandate oversight node online · registry + 2 markets + 5 verifiers', 'ok');
+  log('mandate #2 is overdue: anyone may trigger a 5% clawback every 24h', 'warn');
+  render();
+  setInterval(step, 1000);
+})();
+</script>
 </body>
 </html>
