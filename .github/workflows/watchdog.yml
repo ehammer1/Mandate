@@ -37,7 +37,7 @@ jobs:
         env:
           CONFIG_URL: https://ehammer1.github.io/Mandate/config.json
           STATE_DIR: watchdog-data
-          WATCH_BALANCES: '[{"label":"Relayer","address":"0xA2BEB6f5Ac58fEA9Eda51B883d57c73E41571898","minEth":"0.0005"},{"label":"App admin account","address":"0xd868aF53ED4685eA6B991c64e15C9390c7456fD0","minEth":"0.0002"}]'
+          WATCH_BALANCES: '[{"label":"Relayer","address":"0xA2BEB6f5Ac58fEA9Eda51B883d57c73E41571898","minEth":"0.0005"},{"label":"App admin account","address":"0xd868aF53ED4685eA6B991c64e15C9390c7456fD0","minEth":"0.0002"},{"label":"Online sign-up service","address":"0x7b12B4ffe042902AC1b6916dc990EDbab5532889","minEth":"0.0002"}]'
           WEBHOOK_URL: ${{ secrets.WATCHDOG_WEBHOOK_URL }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: node services/watchdog/server.js --once
