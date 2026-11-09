@@ -61,6 +61,10 @@ Setup with **Resend** (free tier):
    `EMAIL_API_KEY=<key>`, and `EMAIL_FROM=Mandate <signup@yourdomain.org>` (use
    `onboarding@resend.dev` while testing with your own address).
 
+Live setup: sending domain `mail.mandateprotocol.org` (DNS at Cloudflare: TXT and CNAME
+records from Resend, CNAMEs set to **DNS only**, not proxied; receiving off), with
+`EMAIL_FROM=Mandate <signup@mail.mandateprotocol.org>`.
+
 SendGrid (`EMAIL_PROVIDER=sendgrid`) and Postmark (`postmark`) work the same way.
 
 ## Run it on Render
