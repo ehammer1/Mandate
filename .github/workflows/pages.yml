@@ -26,7 +26,9 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci --ignore-scripts
+      # --force: ganache (a test-only dependency) bundles a macOS-only package that
+      # otherwise fails npm's platform check on Linux; --ignore-scripts runs nothing from it.
+      - run: npm ci --ignore-scripts --force
       - run: node scripts/build-app.js
       - name: Use the Base testnet deployment
         run: cp app/config.base-sepolia.json app/config.json
