@@ -116,4 +116,4 @@ async function buildBallot({ provider, vote, pollId, identity, option, artifacts
   };
 }
 
-module.exports = { buildBallot, groupAtSnapshot };
+module.exports = { buildBallot, groupAtSnapshot, artifactsAt, envArtifacts, REGISTRY_ABI };

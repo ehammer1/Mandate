@@ -18,6 +18,7 @@
         <button data-go="screen-code">My voter code</button>
         <button id="nav-account">Account</button>
         <button id="nav-mandates">Mandates</button>
+        <button id="nav-budget">Budget</button>
         <button id="nav-rules">Rules</button>
         <button id="nav-clerk" hidden>Clerk desk</button>
         <button id="nav-admin" hidden>Admin</button>
@@ -116,6 +117,13 @@
       <div id="wallet-list"></div>
       <p class="status" id="account-status" role="status"></p>
       <p class="note">Your voter key is separate from every account and wallet, so nothing links your money to your votes.</p>
+    </section>
+
+    <!-- Civic budget -->
+    <section id="screen-budget" data-screen hidden>
+      <h1>Civic budget</h1>
+      <p>Decide together how to spend part of the public budget. Everyone gets the same credits each round; nobody can buy more, sell them or see how you spent yours.</p>
+      <div id="budget-list" class="stack"></div>
     </section>
 
     <!-- Rules -->
@@ -255,6 +263,29 @@
         <h3 style="margin-top:16px">Close a finished poll</h3>
         <div class="row"><input type="text" id="finalize-id" placeholder="Poll number" inputmode="numeric" style="width:160px" /><button id="btn-finalize">Close poll</button></div>
         <p class="status" id="finalize-status" role="status"></p>
+      </div>
+
+      <div class="card stack" id="admin-budget" hidden>
+        <h3>Open a budget round</h3>
+        <label for="round-title">Title</label>
+        <input type="text" id="round-title" placeholder="e.g. Neighbourhood projects, spring 2027" />
+        <label for="round-body">Details</label>
+        <textarea id="round-body" rows="3"></textarea>
+        <label for="round-proposals">Proposals, one per line: Title | cost</label>
+        <textarea id="round-proposals" rows="5" placeholder="Repave Oak Street | 50000&#10;Library Sunday hours | 30000&#10;New playground | 40000"></textarea>
+        <div class="row">
+          <label>Total budget ($) <input type="text" id="round-budget" inputmode="numeric" style="width:130px" /></label>
+          <label>Credits per person <input type="text" id="round-credits" value="100" inputmode="numeric" style="width:90px" /></label>
+          <label>Days <input type="text" id="round-days" value="14" inputmode="decimal" style="width:80px" /></label>
+        </div>
+        <label for="round-group">Who takes part</label>
+        <select id="round-group">
+          <option value="0">All members</option>
+          <option value="1">ID-checked residents</option>
+          <option value="2" selected>Residents with full voting rights</option>
+        </select>
+        <button class="primary" id="btn-open-round">Open round</button>
+        <p class="status" id="round-status" role="status"></p>
       </div>
 
       <div class="card stack" id="admin-council" hidden>

@@ -34,6 +34,12 @@ require('dotenv').config();
 const http = require('http');
 const { ethers } = require('ethers');
 
+const BUDGET_ABI = [
+  'function allocate(uint256 id, tuple(uint256 merkleTreeDepth, uint256 merkleTreeRoot, uint256 nullifier, uint256 scope, uint256[8] points, uint32[] votes) a)',
+  'function nullifierUsed(uint256, uint256) view returns (bool)',
+  'error NotOpen()', 'error WrongRoot()', 'error WrongScope()', 'error BadDepth()', 'error WrongLength()',
+  'error OverBudget(uint256 cost, uint32 credits)', 'error NullifierUsed()', 'error InvalidProof()', 'error UnknownRound()',
+];
 const VOTE_ABI = [
   'function castBallot(uint256 id, tuple(uint256 merkleTreeDepth, uint256 merkleTreeRoot, uint256 nullifier, uint256 message, uint256 scope, uint256[8] points) b)',
   'function getPoll(uint256 id) view returns (tuple(uint256 groupId, uint256 snapshotRoot, uint256 electorate, uint64 start, uint64 end, uint32 quorum, uint8 options, uint8 action, bool finalized, bool passed, address proposer, uint256 bond, string questionCID, bytes actionData))',
@@ -52,8 +58,9 @@ const VOTE_ABI = [
 
 const MAX_BODY = 16 * 1024;
 
-function createRelayer({ provider, signer, voteAddress, rateLimitPerMin = 30, corsOrigin = '*', confirmations = 1, log = console.log }) {
+function createRelayer({ provider, signer, voteAddress, budgetAddress, rateLimitPerMin = 30, corsOrigin = '*', confirmations = 1, log = console.log }) {
   const vote = new ethers.Contract(voteAddress, VOTE_ABI, signer);
+  const budget = budgetAddress ? new ethers.Contract(budgetAddress, BUDGET_ABI, signer) : null;
   const hits = new Map(); // ip -> [timestamps]; in memory only, never logged
   const inFlight = new Set(); // pollId:nullifier being submitted
   let queue = Promise.resolve(); // serialise sends to keep nonces simple
@@ -163,6 +170,63 @@ function createRelayer({ provider, signer, voteAddress, rateLimitPerMin = 30, co
     }
   }
 
+  // POST /allocation { roundId, allocation: { ..., points[8], votes[] } }: civic-credit allocations.
+  async function handleAllocation(req, res) {
+    if (!budget) return send(res, 404, { error: 'no civic budget on this relayer' });
+    const body = await readJson(req);
+    const a = body?.allocation;
+    let roundId;
+    let alloc;
+    try {
+      if (!a || !Array.isArray(a.points) || a.points.length !== 8 || !Array.isArray(a.votes) || a.votes.length > 20) throw new Error();
+      roundId = BigInt(body.roundId);
+      alloc = {
+        merkleTreeDepth: BigInt(a.merkleTreeDepth),
+        merkleTreeRoot: BigInt(a.merkleTreeRoot),
+        nullifier: BigInt(a.nullifier),
+        scope: BigInt(a.scope),
+        points: a.points.map((p) => BigInt(p)),
+        votes: a.votes.map((v) => Number(v)),
+      };
+    } catch {
+      return send(res, 400, { error: 'expected { roundId, allocation: { ..., points[8], votes[] } }' });
+    }
+    const key = `budget:${roundId}:${alloc.nullifier}`;
+    if (inFlight.has(key) || (await budget.nullifierUsed(roundId, alloc.nullifier))) {
+      return send(res, 409, { error: 'NullifierUsed', message: 'an allocation from this person is already recorded' });
+    }
+    const why = (e) => {
+      try {
+        return e?.revert?.name || budget.interface.parseError(e?.data || e?.info?.error?.data)?.name || null;
+      } catch {
+        return null;
+      }
+    };
+    try {
+      await budget.allocate.staticCall(roundId, alloc);
+    } catch (e) {
+      const name = why(e);
+      return send(res, name ? 422 : 502, { error: name || 'RPCError', message: name ? 'allocation rejected by contract' : 'chain unavailable' });
+    }
+    inFlight.add(key);
+    try {
+      const run = queue.then(async () => {
+        const gas = await budget.allocate.estimateGas(roundId, alloc);
+        return (await budget.allocate(roundId, alloc, { gasLimit: (gas * 12n) / 10n })).wait(confirmations);
+      });
+      queue = run.catch(() => {});
+      const receipt = await run;
+      if (!receipt || receipt.status !== 1) throw new Error('transaction failed');
+      log(`allocation recorded round=${roundId} tx=${receipt.hash}`);
+      send(res, 200, { txHash: receipt.hash });
+    } catch (e) {
+      const name = why(e);
+      send(res, name ? 422 : 502, { error: name || 'SubmitFailed', message: e.shortMessage || e.message });
+    } finally {
+      inFlight.delete(key);
+    }
+  }
+
   async function handlePoll(res, idText) {
     let id;
     try {
@@ -190,6 +254,7 @@ function createRelayer({ provider, signer, voteAddress, rateLimitPerMin = 30, co
       const poll = req.method === 'GET' && req.url.match(/^\/poll\/(\d+)$/);
       if (poll) return await handlePoll(res, poll[1]);
       if (req.method === 'POST' && req.url === '/ballot') return await handleBallot(req, res);
+      if (req.method === 'POST' && req.url === '/allocation') return await handleAllocation(req, res);
       send(res, 404, { error: 'not found' });
     } catch (e) {
       send(res, e.status || 500, { error: e.status ? e.message : 'internal error' });
@@ -213,11 +278,13 @@ if (require.main === module) {
     // relayer picks up the new contract address by itself. VOTE_ADDRESS/RPC_URL also work.
     const configUrl = clean('CONFIG_URL');
     let voteAddress = clean('VOTE_ADDRESS');
+    let budgetAddress = clean('BUDGET_ADDRESS');
     let rpcUrl = clean('RPC_URL');
     const loadConfig = async () => (await fetch(`${configUrl}${configUrl.includes('?') ? '&' : '?'}t=${Date.now()}`, { cache: 'no-store' })).json();
     if (configUrl) {
       const cfg = await loadConfig();
       voteAddress = cfg.voteAddress;
+      budgetAddress = budgetAddress || cfg.budgetAddress || '';
       rpcUrl = rpcUrl || cfg.rpcUrl;
     }
     if (!rpcUrl) fail('missing RPC_URL (or CONFIG_URL)');
@@ -237,6 +304,7 @@ if (require.main === module) {
       provider,
       signer,
       voteAddress,
+      budgetAddress: ethers.isAddress(budgetAddress) ? ethers.getAddress(budgetAddress) : undefined,
       rateLimitPerMin: Number(process.env.RATE_LIMIT_PER_MIN || 30),
       corsOrigin: process.env.CORS_ORIGIN || '*',
       confirmations: Number(process.env.CONFIRMATIONS || 1),
@@ -250,7 +318,8 @@ if (require.main === module) {
       setInterval(async () => {
         try {
           const cfg = await loadConfig();
-          if (ethers.isAddress(cfg.voteAddress) && ethers.getAddress(cfg.voteAddress) !== voteAddress) {
+          const budgetMoved = ethers.isAddress(cfg.budgetAddress || '') && ethers.getAddress(cfg.budgetAddress) !== (ethers.isAddress(budgetAddress) ? ethers.getAddress(budgetAddress) : '');
+          if ((ethers.isAddress(cfg.voteAddress) && ethers.getAddress(cfg.voteAddress) !== voteAddress) || budgetMoved) {
             console.log(`[relayer] contracts moved to ${cfg.voteAddress}; restarting to follow them`);
             process.exit(0);
           }

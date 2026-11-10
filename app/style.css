@@ -57,3 +57,10 @@ ul.tally li { display: flex; justify-content: space-between; padding: 6px 0; bor
 [hidden] { display: none !important; }
 .copy-btn { min-height: 36px; padding: 4px 12px; font-size: 14px; margin: 0 0 8px; }
 ul.rules { list-style: none; padding: 0; margin: 0; } ul.rules li { padding: 10px 0; border-top: 1px solid var(--line); } ul.rules li:first-child { border-top: 0; }
+.budget-rows { list-style: none; padding: 0; margin: 0; }
+.budget-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid var(--line); }
+.budget-row:first-child { border-top: 0; }
+.stepper { display: flex; align-items: center; gap: 8px; flex: none; }
+.stepper button { min-width: 44px; padding: 6px 0; font-size: 20px; }
+.stepper .n { min-width: 2ch; text-align: center; font-weight: 700; font-variant-numeric: tabular-nums; }
+.credits { font-weight: 600; }

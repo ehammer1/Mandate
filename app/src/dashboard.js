@@ -171,6 +171,31 @@ async function renderMandates() {
   return { active, total: count, held };
 }
 
+async function renderBudget() {
+  const box = $('budget');
+  if (!state.cfg.budgetAddress) return (box.innerHTML = '<div class="card"><p class="muted">Not set up on this deployment.</p></div>');
+  const b = new ethers.Contract(state.cfg.budgetAddress, [
+    'function roundCount() view returns (uint256)',
+    'function getRound(uint256) view returns (tuple(uint256 groupId, uint256 snapshotRoot, uint256 electorate, uint64 start, uint64 end, uint32 credits, uint256 budget, string ref, bool finalized, uint256 participants, uint256 spent, uint256 fundedMask))',
+    'function getProposals(uint256) view returns (string[] refs, uint256[] costs, uint256[] votes)',
+  ], state.provider);
+  const n = Number(await b.roundCount());
+  if (!n) return (box.innerHTML = '<div class="card"><p class="muted">No budget rounds yet.</p></div>');
+  const cards = [];
+  for (let id = n; id >= Math.max(1, n - 4); id--) {
+    const [r, [refs, costs, votes]] = await Promise.all([b.getRound(id), b.getProposals(id)]);
+    const doc = await readDoc(state.cfg, state.provider, r.ref);
+    const max = votes.reduce((m, v) => (v > m ? v : m), 0n) || 1n;
+    const rows = refs.map((t, i) => {
+      const funded = r.finalized && (r.fundedMask >> BigInt(i)) & 1n;
+      const share = Math.round((Number(votes[i]) / Number(max)) * 100);
+      return `<span>${esc(t)} <span class="meta">$${num(costs[i])}${r.finalized ? (funded ? ' · ✓ funded' : ' · not funded') : ''}</span></span><span class="track" role="img" aria-label="${esc(t)}: ${votes[i]} votes"><span class="fill" style="display:block;width:${share}%"></span></span><span class="v">${num(votes[i])}</span>`;
+    }).join('');
+    cards.push(`<div class="card"><p class="eyebrow">Round ${id} · ${r.finalized ? `closed · $${num(r.spent)} of $${num(r.budget)} allocated` : `open until ${esc(when(r.end))}`} · ${num(r.participants)} of ${num(r.electorate)} took part</p><h3>${esc(doc.title)}</h3><div class="tally">${rows}</div></div>`);
+  }
+  box.innerHTML = cards.join('');
+}
+
 async function renderSources(identity) {
   const n = Number(await identity.getRoleMemberCount(ISSUER_ROLE));
   const items = [];
@@ -238,6 +263,7 @@ async function refresh() {
     const groupIds = (await Promise.all([0, 1, 2].map((t) => identity.groupId(t)))).map(String);
     const [all, verified, full] = [await activeCount(identity, 0), await activeCount(identity, 1), await activeCount(identity, 2)];
     const [polls, pending, mandates] = [await renderPolls(vote, groupIds, now), await renderCouncil(), await renderMandates()];
+    await renderBudget();
     await renderSources(identity);
     const rules = await loadRules(state.cfg, state.provider).catch(() => []);
     $('rules').innerHTML = rules.length ? `<ul class="list">${rules.map((r) => `<li><strong>${esc(r.label)}</strong><br>${esc(r.shown)} <span class="meta">(limits: ${esc(r.range)})</span></li>`).join('')}</ul>` : '<p class="muted">No charter on this deployment.</p>';

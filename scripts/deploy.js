@@ -86,6 +86,7 @@ async function deployAll(signer, opts = {}) {
   const rules = Object.entries(opts.rules || {});
   const charter = await deploy(signer, 'Charter', {}, me, rules.map(([k]) => ethers.id(k)), rules.map(([, v]) => v));
   const vote = await deploy(signer, 'MandateVote', {}, me, await identity.getAddress(), await verifier.getAddress(), await credits.getAddress(), treasury, minBond, await charter.getAddress());
+  const budget = await deploy(signer, 'CivicBudget', {}, me, await identity.getAddress(), await verifier.getAddress(), await charter.getAddress());
   const market = await deploy(signer, 'DecisionMarket', {}, me, await credits.getAddress(), await registry.getAddress());
   log('mandate contracts deployed');
 
@@ -94,11 +95,13 @@ async function deployAll(signer, opts = {}) {
   await send(registry.grantRole(await registry.GOVERNOR_ROLE(), await market.getAddress()));
   await send(market.grantRole(await market.VETO_ROLE(), await vote.getAddress()));
   await send(vote.grantRole(await vote.PROPOSER_ROLE(), me));
+  await send(budget.grantRole(await budget.PROPOSER_ROLE(), me)); // can open budget rounds
   await send(charter.grantRole(await charter.GOVERNOR_ROLE(), await vote.getAddress())); // only a passed vote changes a rule
   log('roles granted');
 
   if (opts.admin) {
-    for (const c of [identity, registry, vote, market, charter]) await send(c.grantRole(ethers.ZeroHash, opts.admin)); // DEFAULT_ADMIN_ROLE
+    for (const c of [identity, registry, vote, market, charter, budget]) await send(c.grantRole(ethers.ZeroHash, opts.admin)); // DEFAULT_ADMIN_ROLE
+    await send(budget.grantRole(await budget.PROPOSER_ROLE(), opts.admin));
     await send(vote.grantRole(await vote.PROPOSER_ROLE(), opts.admin));
     if (!opts.council) await send(credits.transferOwnership(opts.admin)); // with a council, the council gets it
     log(`admin roles also granted to ${opts.admin}`);
@@ -108,7 +111,7 @@ async function deployAll(signer, opts = {}) {
     log('deployer registered as the testnet demo clerk');
   }
 
-  const contracts = { semaphore, verifier, identity, credits, registry, vote, market, charter };
+  const contracts = { semaphore, verifier, identity, credits, registry, vote, market, charter, budget };
   if (opts.council) {
     const { members, threshold = Math.floor(opts.council.members.length / 2) + 1, delaySeconds = 48 * 3600 } = opts.council;
     contracts.council = await deploy(signer, 'Council', {}, members, threshold, delaySeconds);
@@ -183,6 +186,7 @@ if (require.main === module) {
       ...(addresses.council ? { councilAddress: addresses.council } : {}),
       noticeBoardAddress: addresses.notices,
       charterAddress: addresses.charter,
+      budgetAddress: addresses.budget,
       escrowFactoryAddress: addresses.escrows,
       relayers: (process.env.RELAYERS || '').split(',').map((s) => s.trim()).filter(Boolean),
       ipfsGateway: process.env.IPFS_GATEWAY || 'https://gateway.pinata.cloud',

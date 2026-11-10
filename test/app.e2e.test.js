@@ -72,7 +72,7 @@ before(async () => {
   ({ contracts: c } = await deployAll(admin, { seasoningDays: 30, rules: { MIN_POLL_MINUTES: 10, BINDING_QUORUM_PCT: 0, BINDING_CHECK_REQUIRED: 0, CHECK_MIN_VOTES: 1, RULE_CHANGE_MIN_MINUTES: 1440 } }));
   await (await c.identity.setIssuer(clerk.address, 1, true, 'Example City Clerk')).wait();
 
-  relay = createRelayer({ provider, signer: relayerSigner, voteAddress: await c.vote.getAddress(), log: () => {} });
+  relay = createRelayer({ provider, signer: relayerSigner, voteAddress: await c.vote.getAddress(), budgetAddress: await c.budget.getAddress(), log: () => {} });
   const relayPort = await listen(relay);
 
   const ipfs = { [QUESTION_CID]: JSON.stringify({ title: 'Publish the FY2027 line-item budget?', body: 'Every line item above $10,000, as CSV, within 30 days.', options: ['Yes', 'No'] }) };
@@ -86,6 +86,7 @@ before(async () => {
       registryAddress: await c.registry.getAddress(),
       noticeBoardAddress: await c.notices.getAddress(),
       charterAddress: await c.charter.getAddress(),
+      budgetAddress: await c.budget.getAddress(),
       escrowFactoryAddress: await c.escrows.getAddress(),
       relayers: ['http://127.0.0.1:1', `http://127.0.0.1:${relayPort}`], // the first is down: tests fail-over
       artifactsBase: '/artifacts',
@@ -883,4 +884,59 @@ test('voter-roll lookup at the desk: found by name, birth date and address, enro
   await page.waitForSelector('#clerk-roll-status >> text=already linked to another voter code');
   await shot('13-roll-lookup');
   delete appConfig.clerkAnchor;
+});
+
+test('civic budget: open a round, spread credits quadratically and privately, fund the most-backed projects', async () => {
+  process.env.SEMAPHORE_ARTIFACTS_DIR ||= require('node:path').dirname(require.resolve('@zk-kit/semaphore-artifacts/package.json'));
+  const { buildAllocation } = require('../client/budget');
+  await page.click('#nav-account');
+  const me = ethers.getAddress((await page.textContent('#account-address')).trim());
+  await (await c.budget.grantRole(await c.budget.PROPOSER_ROLE(), me)).wait();
+  await page.click('#nav-polls'); // refresh roles
+  await page.waitForSelector('#nav-admin:not([hidden])');
+  await page.click('#nav-admin');
+  await page.waitForSelector('#admin-budget:not([hidden])');
+  await page.fill('#round-title', 'Neighbourhood projects');
+  await page.fill('#round-proposals', 'Repave Oak Street | 50000\nLibrary Sunday hours | $30k\nNew playground | 40,000');
+  await page.fill('#round-budget', '80000');
+  await page.fill('#round-credits', '9');
+  await page.fill('#round-days', '0.01');
+  await page.selectOption('#round-group', '2');
+  await page.click('#btn-open-round');
+  await page.waitForFunction(() => /Open budget round: done/.test(document.querySelector('#round-status').textContent), null, { timeout: 60_000 });
+  const id = await c.budget.roundCount();
+  const [, costs] = await c.budget.getProposals(id);
+  assert.deepEqual(costs.map(Number), [50_000, 30_000, 40_000]);
+
+  // Two neighbours (ID-checked residents enrolled in earlier tests) take part without the app.
+  for (const [who, votes] of [[new Identity('n1'), [0, 2, 2]], [new Identity('n2'), [0, 3, 0]]]) {
+    await (await c.budget.allocate(id, await buildAllocation({ provider, budget: c.budget, roundId: id, identity: who, votes }))).wait();
+  }
+
+  await page.click('#nav-budget');
+  await page.waitForSelector(`#round-${id} >> text=Neighbourhood projects`);
+  const plus = (i) => page.click(`#round-${id} .budget-row[data-i="${i}"] button[data-step="1"]`);
+  await plus(0);
+  await plus(0);
+  assert.equal((await page.textContent(`#credits-${id}`)).trim(), '4 of 9 credits used');
+  await plus(0);
+  assert.equal((await page.textContent(`#credits-${id}`)).trim(), '9 of 9 credits used');
+  await plus(1); // would cost 10
+  assert.match(await page.textContent(`#round-status-${id}`), /would cost 10 credits; you have 9/);
+  await page.click(`#round-${id} button[data-act="allocate"]`);
+  await page.waitForSelector(`#round-${id} >> text=Your choices are recorded.`, { timeout: 120_000 });
+  assert.equal(await page.locator(`#round-${id} button[data-step]`).count(), 0);
+  const [, , votes] = await c.budget.getProposals(id);
+  assert.deepEqual(votes.map(Number), [3, 5, 2]);
+
+  await provider.send('evm_increaseTime', [3600]);
+  await provider.send('evm_mine', []);
+  await page.click('#nav-budget');
+  await page.click(`#round-${id} button[data-act="count"]`);
+  await page.waitForSelector(`#round-${id} >> text=$80,000 of $80,000 allocated`, { timeout: 60_000 });
+  // Library (5 votes, 30k) then Oak (3, 50k) fill the budget; the playground (2) doesn't fit.
+  assert.match(await page.textContent(`#round-${id} .budget-row[data-i="1"]`), /✓ funded/);
+  assert.match(await page.textContent(`#round-${id} .budget-row[data-i="0"]`), /✓ funded/);
+  assert.match(await page.textContent(`#round-${id} .budget-row[data-i="2"]`), /not funded/);
+  await shot('14-budget');
 });

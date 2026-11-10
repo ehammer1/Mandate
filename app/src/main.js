@@ -20,6 +20,7 @@ import { wireCouncil } from './council.js';
 import { readDoc, postDoc } from './notices.js';
 import { wireMandates } from './mandates.js';
 import { loadRules, describeRuleChange, RULE_ERRORS } from './rules.js';
+import { wireBudget } from './budget.js';
 
 const VOTE_ABI = [
   'function castBallot(uint256 id, tuple(uint256 merkleTreeDepth, uint256 merkleTreeRoot, uint256 nullifier, uint256 message, uint256 scope, uint256[8] points) b)',
@@ -702,14 +703,15 @@ async function myRoles(address) {
     reg.hasRole(ROLE_ISSUER, address),
     state.council ? state.council.isMember(address) : false,
   ]);
-  return { admin: voteAdmin || idAdmin, voteAdmin, idAdmin, proposer, issuer, councilMember };
+  const budgetProposer = state.budget ? await state.budget.canOpen(address).catch(() => false) : false;
+  return { admin: voteAdmin || idAdmin, voteAdmin, idAdmin, proposer, issuer, councilMember, budgetProposer };
 }
 
 async function refreshAdminNav() {
   try {
     const r = await myRoles(activeAddress());
     state.roles = r;
-    $('nav-admin').hidden = !(r.admin || r.proposer || r.issuer || r.councilMember);
+    $('nav-admin').hidden = !(r.admin || r.proposer || r.issuer || r.councilMember || r.budgetProposer);
     $('nav-clerk').hidden = !r.issuer;
   } catch {
     $('nav-admin').hidden = true;
@@ -718,7 +720,7 @@ async function refreshAdminNav() {
 }
 
 async function refreshAdmin() {
-  for (const id of ['poll-status', 'finalize-status', 'grant-status', 'credits-status', 'council-status']) status($(id), '');
+  for (const id of ['poll-status', 'finalize-status', 'grant-status', 'credits-status', 'council-status', 'round-status']) status($(id), '');
   const address = activeAddress();
   const r = await myRoles(address);
   state.roles = r;
@@ -728,6 +730,7 @@ async function refreshAdmin() {
     <p class="${eth === 0n ? 'warn' : 'muted'}">${Number(ethers.formatEther(eth)).toFixed(6)} test ETH for fees${eth === 0n ? ': this account needs a little test ETH before it can act.' : ''}</p>`;
   addCopyButton($('admin-address'));
   $('admin-poll').hidden = !r.proposer;
+  $('admin-budget').hidden = !r.budgetProposer;
   $('admin-roles').hidden = !(r.admin || r.councilMember);
   // With a council, role changes are proposals (unless this account is still a direct admin).
   const viaCouncil = !r.admin && r.councilMember;
@@ -932,6 +935,7 @@ async function boot() {
       box.innerHTML = `<p class="error">Could not load the rules: ${esc(e.shortMessage || e.message)}</p>`;
     }
   };
+  state.budget = wireBudget({ state, $, status, esc, show, activeSigner, activeAddress, sendTx: (el, label, fn) => sendAdminTx(el, label, () => fn()), nullifierFor });
   state.council = wireCouncil({ state, $, status, esc, activeSigner, activeAddress });
   state.clerk = wireClerk({ state, $, status, esc, show, activeSigner, activeAddress });
   $('nav-polls').onclick = async () => {

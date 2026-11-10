@@ -142,6 +142,10 @@ function rulesForEvent(ev, ctx) {
     }
     case 'PollFinalized':
       return [{ ...base, rule: 'poll-closed', severity: 'info', title: `Poll ${a.id} closed: ${a.passed ? 'passed' : 'did not pass'} with ${a.totalBallots} ballots`, facts: { poll: String(a.id), passed: a.passed, ballots: String(a.totalBallots) } }];
+    case 'RoundCreated':
+      return [{ ...base, rule: 'budget-round', severity: 'info', title: `Budget round ${a.id} opened: ${a.proposals} proposals, budget ${Number(a.budget).toLocaleString('en-US')}, ${a.credits} credits per person, closes ${new Date(Number(a.end) * 1000).toISOString().slice(0, 16).replace('T', ' ')} UTC`, facts: { round: String(a.id) } }];
+    case 'RoundFinalized':
+      return [{ ...base, rule: 'budget-round', severity: 'medium', title: `Budget round ${a.id} counted: ${Number(a.spent).toLocaleString('en-US')} allocated, ${a.participants} people took part`, facts: { round: String(a.id), spent: String(a.spent), participants: String(a.participants), fundedMask: String(a.fundedMask) } }];
     case 'RuleChanged':
       return [{ ...base, rule: 'rule-changed', severity: 'high', title: `Voting rule ${a.name} changed by public vote from ${a.oldValue} to ${a.newValue}`, facts: { rule: a.name, from: String(a.oldValue), to: String(a.newValue) } }];
     case 'PollCrossChecked':
