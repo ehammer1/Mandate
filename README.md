@@ -50,6 +50,7 @@ Design rules:
 | `client/ballot.js` | Builds an anonymous ballot proof on a phone, browser or kiosk |
 | `app/` | Voter web app for phones and computers: passkey sign-in, voter code, anonymous voting, optional account |
 | `broker/relayer.js` | Submits ballots and pays gas, so voters need no wallet |
+| `docs/principles.md` | Founding principles: how Mandate applies the Constitution's ideas, and the gaps still to close |
 | `docs/us-city-pilot.md` | US city pilot plan: identity sources, anti-gaming, voice, capital, wallet-free participation |
 | `docs/scaling-plan.md` | Plan for scaling from one city to any government or institution |
 | `docs/testnet.md` | Base testnet deployment: contracts, hosted voter app, relayer, admin commands |
