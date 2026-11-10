@@ -25,7 +25,7 @@
     },
     {
       "label": "Watchdog GitHub token (Render)",
-      "expires": "2026-12-31",
+      "expires": "2026-12-10",
       "fix": "GitHub (ehammer1) > Settings > Developer settings > Fine-grained tokens > regenerate the watchdog token (only ehammer1/Mandate, Contents read and write), then paste it into GITHUB_TOKEN on Render's mandate-watchdog"
     }
   ]
