@@ -1,7 +1,7 @@
 {
   "chainId": 84532,
   "rpcUrl": "https://sepolia.base.org",
-  "voteAddress": "0x74eE8AAE2d5b98186571Ac5DCbD6FcEB69E612c6",
+  "voteAddress": "0xf107e52eCc54975e438b3de8F273d3d52109c291",
   "identityAddress": "0x47501C8558349aeB6a7139ADaF8Eb88f2A6BB9B4",
   "creditsAddress": "0x0fd384570c082ABb8eb1Da5f7994d1246872AA52",
   "relayers": [
@@ -13,14 +13,14 @@
   "chainName": "base-sepolia",
   "walletConnectProjectId": "7029f8e8092d1c3c763e9ad1ccc93ce5",
   "identityService": "https://mandate-identity.onrender.com",
-  "registryAddress": "0xf5ad5AfF071C6685290E7e9985AC85bFAa3b0C74",
-  "marketAddress": "0xbf760Bd9b13cf541954074dF2beb5b8448F94a6E",
+  "registryAddress": "0x2bEad6e7E168E740d6EE9f30094467d0C153b613",
+  "marketAddress": "0x8CB103DC275bf4A9671aE5f20439409bbA1917F0",
   "startBlock": 56415036,
-  "councilAddress": "0x4c0eC8820a4514DdB8aA3D98dEf878c6e296797F",
+  "councilAddress": "0xf8689d8b7B041A1E7664d703645508F8976342ad",
   "watchdogAlertsUrl": "https://raw.githubusercontent.com/ehammer1/Mandate/watchdog/alerts.json",
   "noticeBoardAddress": "0xAC12845D280E5cC0aBa10B84A6FBfA2074e5CF94",
-  "escrowFactoryAddress": "0x9E10C0C4cE19095a0d88235E545f9534b1bA2b95",
-  "previousVoteAddress": "0xe332a9a3D1243F46ed5E61DB11Fb343E175CAa3a",
-  "charterAddress": "0x96Fc9E0277B1a848C9c2FDcF19b6a0B4fd438eff",
-  "budgetAddress": "0xb48599404dFcad89aa572567320071e2667162aa"
+  "escrowFactoryAddress": "0xdc77DAF412Ff704a9cAd36efA4810eF899999637",
+  "charterAddress": "0x26E65604471403a2AEb5C7AD410Bd663211F3B02",
+  "budgetAddress": "0xb772EcB9084848966f13b70D07f2d6A59160AcdD",
+  "feedbackAddress": "0x38Be50854E8ceBF4d3ACf2Baef2b0902Bc51b8aA"
 }

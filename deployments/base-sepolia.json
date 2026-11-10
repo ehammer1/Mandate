@@ -9,18 +9,38 @@
     "verifier": "0x91C3bE79B920d08D6D3C7F68a5e4C4b40ab674b5",
     "identity": "0x47501C8558349aeB6a7139ADaF8Eb88f2A6BB9B4",
     "credits": "0x0fd384570c082ABb8eb1Da5f7994d1246872AA52",
-    "registry": "0xf5ad5AfF071C6685290E7e9985AC85bFAa3b0C74",
-    "vote": "0x74eE8AAE2d5b98186571Ac5DCbD6FcEB69E612c6",
-    "market": "0xbf760Bd9b13cf541954074dF2beb5b8448F94a6E",
-    "council": "0x4c0eC8820a4514DdB8aA3D98dEf878c6e296797F",
+    "registry": "0x2bEad6e7E168E740d6EE9f30094467d0C153b613",
+    "vote": "0xf107e52eCc54975e438b3de8F273d3d52109c291",
+    "market": "0x8CB103DC275bf4A9671aE5f20439409bbA1917F0",
+    "council": "0xf8689d8b7B041A1E7664d703645508F8976342ad",
     "notices": "0xAC12845D280E5cC0aBa10B84A6FBfA2074e5CF94",
-    "escrows": "0x9E10C0C4cE19095a0d88235E545f9534b1bA2b95",
-    "charter": "0x96Fc9E0277B1a848C9c2FDcF19b6a0B4fd438eff",
-    "budget": "0xb48599404dFcad89aa572567320071e2667162aa"
+    "escrows": "0xdc77DAF412Ff704a9cAd36efA4810eF899999637",
+    "charter": "0x26E65604471403a2AEb5C7AD410Bd663211F3B02",
+    "budget": "0xb772EcB9084848966f13b70D07f2d6A59160AcdD",
+    "feedback": "0x38Be50854E8ceBF4d3ACf2Baef2b0902Bc51b8aA"
   },
   "startBlock": 56415036,
   "previousVotes": [
     "0x87325d0Adc1950AB89891b5CaA57eD10438Bab5c",
     "0xe332a9a3D1243F46ed5E61DB11Fb343E175CAa3a"
-  ]
+  ],
+  "previous": [
+    {
+      "replacedAt": "2026-11-10T13:16:04.167Z",
+      "council": "0x4c0eC8820a4514DdB8aA3D98dEf878c6e296797F",
+      "vote": "0x74eE8AAE2d5b98186571Ac5DCbD6FcEB69E612c6",
+      "registry": "0xf5ad5AfF071C6685290E7e9985AC85bFAa3b0C74",
+      "market": "0xbf760Bd9b13cf541954074dF2beb5b8448F94a6E",
+      "charter": "0x96Fc9E0277B1a848C9c2FDcF19b6a0B4fd438eff",
+      "budget": "0xb48599404dFcad89aa572567320071e2667162aa",
+      "escrows": "0x9E10C0C4cE19095a0d88235E545f9534b1bA2b95"
+    }
+  ],
+  "oldCouncilPending": {
+    "council": "0x4c0eC8820a4514DdB8aA3D98dEf878c6e296797F",
+    "proposals": [
+      "10",
+      "11"
+    ]
+  }
 }
