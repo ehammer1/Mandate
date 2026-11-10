@@ -88,6 +88,7 @@ contract CivicBudget is AccessControl {
     error StillOpen();
     error AlreadyFinalized();
     error RoundTooShort(uint64 minSeconds);
+    error RoundTooLong(uint64 maxSeconds);
     error WrongRoot();
     error WrongScope();
     error BadDepth();
@@ -134,6 +135,8 @@ contract CivicBudget is AccessControl {
         if (address(charter) != address(0)) {
             uint64 min = uint64(charter.rule(keccak256("MIN_POLL_MINUTES")) * 60);
             if (duration < min) revert RoundTooShort(min);
+            uint64 max = uint64(charter.rule(keccak256("MAX_POLL_MINUTES")) * 60);
+            if (duration > max) revert RoundTooLong(max);
         } else if (duration == 0) revert InvalidParams();
     }
 

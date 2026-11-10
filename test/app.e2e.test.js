@@ -73,7 +73,7 @@ before(async () => {
   ({ contracts: c } = await deployAll(admin, { seasoningDays: 30, rules: { MIN_POLL_MINUTES: 10, BINDING_QUORUM_PCT: 0, BINDING_CHECK_REQUIRED: 0, CHECK_MIN_VOTES: 1, RULE_CHANGE_MIN_MINUTES: 1440 } }));
   await (await c.identity.setIssuer(clerk.address, 1, true, 'Example City Clerk')).wait();
 
-  relay = createRelayer({ provider, signer: relayerSigner, voteAddress: await c.vote.getAddress(), budgetAddress: await c.budget.getAddress(), log: () => {} });
+  relay = createRelayer({ provider, signer: relayerSigner, voteAddress: await c.vote.getAddress(), budgetAddress: await c.budget.getAddress(), feedbackAddress: await c.feedback.getAddress(), noticeBoardAddress: await c.notices.getAddress(), log: () => {} });
   const relayPort = await listen(relay);
 
   const ipfs = { [QUESTION_CID]: JSON.stringify({ title: 'Publish the FY2027 line-item budget?', body: 'Every line item above $10,000, as CSV, within 30 days.', options: ['Yes', 'No'] }) };
@@ -88,6 +88,7 @@ before(async () => {
       noticeBoardAddress: await c.notices.getAddress(),
       charterAddress: await c.charter.getAddress(),
       budgetAddress: await c.budget.getAddress(),
+      feedbackAddress: await c.feedback.getAddress(),
       escrowFactoryAddress: await c.escrows.getAddress(),
       relayers: ['http://127.0.0.1:1', `http://127.0.0.1:${relayPort}`], // the first is down: tests fail-over
       artifactsBase: '/artifacts',
@@ -369,7 +370,7 @@ test('council: one member proposes a new clerk, another approves, it runs after 
   await page.click('#btn-auto-wallet');
   await page.waitForFunction(() => /automatic/i.test(document.querySelector('#account-status').textContent));
   const auto = ethers.getAddress((await page.textContent('#account-address')).trim());
-  const council = await deploy(admin, 'Council', {}, [auto, walletAccount, admin.address], 2, 3600);
+  const council = await deploy(admin, 'Council', {}, [auto, walletAccount, admin.address], 2, 3600, 0, await c.vote.getAddress());
   await (await c.identity.grantRole(ethers.ZeroHash, await council.getAddress())).wait();
   appConfig.councilAddress = await council.getAddress();
 
@@ -977,4 +978,38 @@ test('verify by mail: a newcomer matches their voter registration and confirms t
   await page.waitForFunction(() => /Verified resident|full voting rights/i.test(document.querySelector('#membership .big')?.textContent || ''), null, { timeout: 30_000 });
   await shot('15-verified-by-mail');
   delete appConfig.clerkAnchor;
+});
+
+test('residents speak between votes: comments, a petition that opens its own poll, and an outcome rating', async () => {
+  // The resident verified by mail in the previous test (ID-checked) is still signed in.
+  await page.click('#nav-polls');
+  await page.waitForSelector('#poll-1 .thread-box summary');
+  await page.click('#poll-1 .thread-box summary');
+  await page.fill('#c-poll-1', 'Please publish the spreadsheet in an open format too.');
+  await page.click('#poll-1 .thread-box button[data-post]');
+  await page.waitForSelector('#poll-1 .thread-box >> text=Please publish the spreadsheet in an open format too.', { timeout: 120_000 });
+  assert.match(await page.textContent('#poll-1 .thread-box'), /Comments \(1\)/);
+  assert.match(await page.textContent('#poll-1 .thread-box .comment'), /ID-checked resident/);
+
+  // A petition: once it has enough signatures, its poll opens by itself.
+  await page.click('#nav-petitions');
+  await page.click('#screen-petitions details summary');
+  await page.selectOption('#petition-kind', '0');
+  await page.fill('#petition-title', 'Should the library open on Sundays?');
+  await page.selectOption('#petition-tier', '1');
+  await page.click('#btn-petition');
+  await page.waitForSelector('#petition-status >> text=Petition started', { timeout: 60_000 });
+  const pid = await c.feedback.petitionCount();
+  const before = await c.vote.pollCount();
+  await page.click(`#petition-${pid} button[data-sign]`);
+  await page.waitForSelector(`#petition-${pid} >> text=opened by itself`, { timeout: 120_000 });
+  assert.equal(await c.vote.pollCount(), before + 1n);
+  assert.match(await page.textContent(`#petition-${pid}`), /1 of 1/);
+
+  // Rate the finished Elm Street mandate.
+  await page.click('#nav-mandates');
+  await page.waitForSelector('#mandate-1 .rating-box button[data-score="4"]');
+  await page.click('#mandate-1 .rating-box button[data-score="4"]');
+  await page.waitForSelector('#mandate-1 .rating-box >> text=4.0 of 5 from 1 resident', { timeout: 120_000 });
+  await shot('16-feedback');
 });

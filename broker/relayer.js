@@ -34,6 +34,15 @@ require('dotenv').config();
 const http = require('http');
 const { ethers } = require('ethers');
 
+const PROOF = 'tuple(uint256 merkleTreeDepth, uint256 merkleTreeRoot, uint256 nullifier, uint256 message, uint256 scope, uint256[8] points)';
+const FEEDBACK_ABI = [
+  `function comment(bytes32 topic, uint8 tier, string ref, ${PROOF} proof)`,
+  `function rate(bytes32 topic, uint8 tier, uint8 score, ${PROOF} proof)`,
+  `function sign(uint256 id, ${PROOF} proof)`,
+  'function createPetition(uint8 tier, uint8 action, bytes actionData, string ref) returns (uint256)',
+  'error BadRef()', 'error BadTier()', 'error BadScore()', 'error WrongScope()', 'error WrongMessage()', 'error NullifierUsed()',
+  'error InvalidProof()', 'error UnknownPetition()', 'error AlreadyOpened()', 'error BindingNeedsIdChecked()',
+];
 const BUDGET_ABI = [
   'function allocate(uint256 id, tuple(uint256 merkleTreeDepth, uint256 merkleTreeRoot, uint256 nullifier, uint256 scope, uint256[8] points, uint32[] votes) a)',
   'function nullifierUsed(uint256, uint256) view returns (bool)',
@@ -58,9 +67,11 @@ const VOTE_ABI = [
 
 const MAX_BODY = 16 * 1024;
 
-function createRelayer({ provider, signer, voteAddress, budgetAddress, rateLimitPerMin = 30, corsOrigin = '*', confirmations = 1, log = console.log }) {
+function createRelayer({ provider, signer, voteAddress, budgetAddress, feedbackAddress, noticeBoardAddress, rateLimitPerMin = 30, corsOrigin = '*', confirmations = 1, log = console.log }) {
   const vote = new ethers.Contract(voteAddress, VOTE_ABI, signer);
   const budget = budgetAddress ? new ethers.Contract(budgetAddress, BUDGET_ABI, signer) : null;
+  const feedback = feedbackAddress ? new ethers.Contract(feedbackAddress, FEEDBACK_ABI, signer) : null;
+  const board = noticeBoardAddress ? new ethers.Contract(noticeBoardAddress, ['function post(string) returns (bytes32)', 'function read(bytes32) view returns (string)'], signer) : null;
   const hits = new Map(); // ip -> [timestamps]; in memory only, never logged
   const inFlight = new Set(); // pollId:nullifier being submitted
   let queue = Promise.resolve(); // serialise sends to keep nonces simple
@@ -227,6 +238,70 @@ function createRelayer({ provider, signer, voteAddress, budgetAddress, rateLimit
     }
   }
 
+  // POST /feedback { method: 'comment' | 'rate' | 'sign' | 'petition', args: [...], proof? }
+  // Residents' comments, ratings, petition signatures (anonymous proofs) and new petitions.
+  async function handleFeedback(req, res) {
+    if (!feedback) return send(res, 404, { error: 'no feedback contract on this relayer' });
+    const body = await readJson(req);
+    const method = { comment: 'comment', rate: 'rate', sign: 'sign', petition: 'createPetition' }[body?.method];
+    if (!method || !Array.isArray(body.args) || body.args.length > 4) return send(res, 400, { error: 'expected { method, args[], proof }' });
+    let args;
+    try {
+      const p = body.proof;
+      const proof = p && { merkleTreeDepth: BigInt(p.merkleTreeDepth), merkleTreeRoot: BigInt(p.merkleTreeRoot), nullifier: BigInt(p.nullifier), message: BigInt(p.message), scope: BigInt(p.scope), points: p.points.map((x) => BigInt(x)) };
+      if (method !== 'createPetition' && (!proof || proof.points.length !== 8)) throw new Error();
+      args = method === 'createPetition' ? body.args : [...body.args, proof];
+    } catch {
+      return send(res, 400, { error: 'bad proof' });
+    }
+    const why = (e) => {
+      try {
+        return e?.revert?.name || feedback.interface.parseError(e?.data || e?.info?.error?.data)?.name || null;
+      } catch {
+        return null;
+      }
+    };
+    try {
+      await feedback[method].staticCall(...args);
+    } catch (e) {
+      const name = why(e);
+      return send(res, name ? (name === 'NullifierUsed' ? 409 : 422) : 502, { error: name || 'RPCError' });
+    }
+    try {
+      const run = queue.then(async () => {
+        const gas = await feedback[method].estimateGas(...args);
+        return (await feedback[method](...args, { gasLimit: (gas * 13n) / 10n })).wait(confirmations);
+      });
+      queue = run.catch(() => {});
+      const receipt = await run;
+      log(`feedback ${body.method} recorded tx=${receipt.hash}`);
+      send(res, 200, { txHash: receipt.hash });
+    } catch (e) {
+      const name = why(e);
+      send(res, name ? 422 : 502, { error: name || 'SubmitFailed', message: e.shortMessage || e.message });
+    }
+  }
+
+  // POST /notice { text }: publish a resident's text (a comment, a petition) on the notice
+  // board, so speaking needs no wallet. Short texts only; returns its reference.
+  async function handleNotice(req, res) {
+    if (!board) return send(res, 404, { error: 'no notice board on this relayer' });
+    const body = await readJson(req);
+    const text = typeof body?.text === 'string' ? body.text : '';
+    if (!text || Buffer.byteLength(text) > 4000) return send(res, 400, { error: 'text must be 1 to 4000 bytes' });
+    const id = ethers.keccak256(ethers.toUtf8Bytes(text));
+    try {
+      if (!(await board.read(id))) {
+        const run = queue.then(async () => (await board.post(text)).wait(confirmations));
+        queue = run.catch(() => {});
+        await run;
+      }
+      send(res, 200, { ref: `nb:${id}` });
+    } catch (e) {
+      send(res, 502, { error: 'SubmitFailed', message: e.shortMessage || e.message });
+    }
+  }
+
   async function handlePoll(res, idText) {
     let id;
     try {
@@ -255,6 +330,8 @@ function createRelayer({ provider, signer, voteAddress, budgetAddress, rateLimit
       if (poll) return await handlePoll(res, poll[1]);
       if (req.method === 'POST' && req.url === '/ballot') return await handleBallot(req, res);
       if (req.method === 'POST' && req.url === '/allocation') return await handleAllocation(req, res);
+      if (req.method === 'POST' && req.url === '/feedback') return await handleFeedback(req, res);
+      if (req.method === 'POST' && req.url === '/notice') return await handleNotice(req, res);
       send(res, 404, { error: 'not found' });
     } catch (e) {
       send(res, e.status || 500, { error: e.status ? e.message : 'internal error' });
@@ -279,12 +356,16 @@ if (require.main === module) {
     const configUrl = clean('CONFIG_URL');
     let voteAddress = clean('VOTE_ADDRESS');
     let budgetAddress = clean('BUDGET_ADDRESS');
+    let feedbackAddress = clean('FEEDBACK_ADDRESS');
+    let noticeBoardAddress = clean('NOTICE_BOARD_ADDRESS');
     let rpcUrl = clean('RPC_URL');
     const loadConfig = async () => (await fetch(`${configUrl}${configUrl.includes('?') ? '&' : '?'}t=${Date.now()}`, { cache: 'no-store' })).json();
     if (configUrl) {
       const cfg = await loadConfig();
       voteAddress = cfg.voteAddress;
       budgetAddress = budgetAddress || cfg.budgetAddress || '';
+      feedbackAddress = feedbackAddress || cfg.feedbackAddress || '';
+      noticeBoardAddress = noticeBoardAddress || cfg.noticeBoardAddress || '';
       rpcUrl = rpcUrl || cfg.rpcUrl;
     }
     if (!rpcUrl) fail('missing RPC_URL (or CONFIG_URL)');
@@ -300,18 +381,21 @@ if (require.main === module) {
     }
     voteAddress = ethers.getAddress(voteAddress);
     console.log(`[relayer] paying fees from ${signer.address}`);
-    const build = (vote, budget) =>
+    const addr = (a) => (ethers.isAddress(a || '') ? ethers.getAddress(a) : undefined);
+    const build = (vote, budget, fb) =>
       createRelayer({
         provider,
         signer,
         voteAddress: vote,
-        budgetAddress: ethers.isAddress(budget || '') ? ethers.getAddress(budget) : undefined,
+        budgetAddress: addr(budget),
+        feedbackAddress: addr(fb),
+        noticeBoardAddress: addr(noticeBoardAddress),
         rateLimitPerMin: Number(process.env.RATE_LIMIT_PER_MIN || 30),
         corsOrigin: process.env.CORS_ORIGIN || '*',
         confirmations: Number(process.env.CONFIRMATIONS || 1),
         log: (m) => console.log(`${new Date().toISOString()} [relayer] ${m}`),
       });
-    const server = build(voteAddress, budgetAddress);
+    const server = build(voteAddress, budgetAddress, feedbackAddress);
     const port = Number(process.env.PORT || 8787);
     server.listen(port, () => console.log(`[relayer] listening on :${port} for ${voteAddress}`));
 
@@ -323,14 +407,16 @@ if (require.main === module) {
           const cfg = await loadConfig();
           const v = ethers.isAddress(cfg.voteAddress) ? ethers.getAddress(cfg.voteAddress) : voteAddress;
           const b = ethers.isAddress(cfg.budgetAddress || '') ? ethers.getAddress(cfg.budgetAddress) : '';
+          const f = addr(cfg.feedbackAddress) || '';
           const current = ethers.isAddress(budgetAddress || '') ? ethers.getAddress(budgetAddress) : '';
-          if (v === voteAddress && b === current) return;
-          const next = build(v, b).listeners('request')[0];
+          if (v === voteAddress && b === current && f === (addr(feedbackAddress) || '')) return;
+          const next = build(v, b, f).listeners('request')[0];
           server.removeAllListeners('request');
           server.on('request', next);
           console.log(`[relayer] now serving voting ${v}${b ? ` and civic budget ${b}` : ''}`);
           voteAddress = v;
           budgetAddress = b;
+          feedbackAddress = f;
         } catch {
           /* keep serving the current addresses */
         }

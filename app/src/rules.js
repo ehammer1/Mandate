@@ -20,6 +20,9 @@ const TIERS = ['all members', 'ID-checked residents', 'residents with full votin
 /** label: what the rule is; show(v): its value in words; unit: how the value is typed in the poll form. */
 export const RULE_TEXT = {
   MIN_POLL_MINUTES: { label: 'Shortest time a poll stays open', show: duration, unit: 'minutes' },
+  MAX_POLL_MINUTES: { label: 'Longest time a poll stays open', show: duration, unit: 'minutes' },
+  PETITION_PCT: { label: 'Signatures a petition needs to open a vote', show: (v) => `${v}% of the voter list`, unit: 'percent' },
+  PETITION_POLL_MINUTES: { label: 'How long a poll opened by a petition stays open', show: duration, unit: 'minutes' },
   BINDING_QUORUM_PCT: { label: 'Turnout a binding poll needs', show: (v) => `${v}% of eligible voters`, unit: 'percent' },
   BINDING_CHECK_REQUIRED: { label: 'Binding polls open to online sign-ups must be cross-checked against ID-checked voters', show: (v) => (Number(v) ? 'Yes' : 'No'), unit: '1 = yes, 0 = no' },
   CHECK_MIN_VOTES: { label: 'ID-checked votes needed before a disagreement holds a result', show: (v) => String(v), unit: 'votes' },

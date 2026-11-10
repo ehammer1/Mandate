@@ -24,6 +24,17 @@ interface ICharter {
     function setRule(bytes32 key, uint256 value) external;
 }
 
+interface IMandateReview {
+    function pauseMandate(uint256 id, string calldata reasonCID) external;
+    function reviseMandate(uint256 id, address responsible, uint64 extraTime, uint16 threshold, string calldata specCID, string calldata reasonCID) external;
+}
+
+interface ICouncilElectorate {
+    function electMember(address member, uint64 termEnd) external;
+    function recallMember(address member) external;
+    function removePowerByVote(address target, bytes calldata data) external;
+}
+
 interface IVetoable {
     function veto(uint256 id) external;
 }
@@ -79,7 +90,12 @@ contract MandateVote is AccessControl, ReentrancyGuard {
         VetoMarket,
         CreateMandate,
         CancelMandate,
-        SetRule // change one of the community's voting rules (Charter): abi.encode(bytes32 key, uint256 value)
+        SetRule, // change one of the community's voting rules (Charter): abi.encode(bytes32 key, uint256 value)
+        PauseMandate, // abi.encode(address registry, uint256 mandateId, string reasonCID)
+        ReviseMandate, // abi.encode(address registry, uint256 mandateId, address responsible, uint64 extraTime, uint16 threshold, string specCID, string reasonCID)
+        ElectCouncilMember, // abi.encode(address council, address member, uint64 termSeconds)
+        RecallCouncilMember, // abi.encode(address council, address member)
+        RemovePower // abi.encode(address council, address target, bytes call): revokeRole or removing a clerk, at once
     }
 
     struct Poll {
@@ -166,6 +182,7 @@ contract MandateVote is AccessControl, ReentrancyGuard {
     error NullifierUsed();
     error InvalidProof();
     error PollTooShort(uint64 minSeconds);
+    error PollTooLong(uint64 maxSeconds);
     error QuorumTooLow(uint256 minQuorum);
     error CrossCheckRequired();
     error CheckTooSmall(uint256 minChecked);
@@ -401,6 +418,10 @@ contract MandateVote is AccessControl, ReentrancyGuard {
             return;
         }
         if (duration < _rule("MIN_POLL_MINUTES") * 60) revert PollTooShort(uint64(_rule("MIN_POLL_MINUTES") * 60));
+        // Rule-change polls may run as long as their own minimum requires.
+        uint256 maxMinutes = _rule("MAX_POLL_MINUTES");
+        if (action == Action.SetRule && _rule("RULE_CHANGE_MIN_MINUTES") > maxMinutes) maxMinutes = _rule("RULE_CHANGE_MIN_MINUTES");
+        if (duration > maxMinutes * 60) revert PollTooLong(uint64(maxMinutes * 60));
         if (checked && checkQuorum < _rule("CHECK_MIN_VOTES")) revert CheckTooSmall(_rule("CHECK_MIN_VOTES"));
         if (action == Action.Advisory) return;
 
@@ -417,6 +438,16 @@ contract MandateVote is AccessControl, ReentrancyGuard {
             bool eligible;
             for (uint8 t = uint8(_rule("RULE_CHANGE_VOTER_TIER")); t <= 2; t++) if (groupId == identity.groupId(t)) eligible = true;
             if (!eligible || checked) revert RuleVotersNotEligible();
+        }
+    }
+
+    function _revise(bytes storage data) private returns (bool ok, bytes memory reason) {
+        (address reg, uint256 mandateId, address responsible, uint64 extraTime, uint16 threshold, string memory spec, string memory why) =
+            abi.decode(data, (address, uint256, address, uint64, uint16, string, string));
+        try IMandateReview(reg).reviseMandate(mandateId, responsible, extraTime, threshold, spec, why) {
+            ok = true;
+        } catch (bytes memory r) {
+            reason = r;
         }
     }
 
@@ -482,6 +513,36 @@ contract MandateVote is AccessControl, ReentrancyGuard {
         } else if (p.action == Action.SetRule) {
             (bytes32 key, uint256 value) = abi.decode(p.actionData, (bytes32, uint256));
             try charter.setRule(key, value) {
+                ok = true;
+            } catch (bytes memory r) {
+                reason = r;
+            }
+        } else if (p.action == Action.PauseMandate) {
+            (address reg, uint256 mandateId, string memory why) = abi.decode(p.actionData, (address, uint256, string));
+            try IMandateReview(reg).pauseMandate(mandateId, why) {
+                ok = true;
+            } catch (bytes memory r) {
+                reason = r;
+            }
+        } else if (p.action == Action.ReviseMandate) {
+            (ok, reason) = _revise(p.actionData);
+        } else if (p.action == Action.ElectCouncilMember) {
+            (address council, address member, uint64 term) = abi.decode(p.actionData, (address, address, uint64));
+            try ICouncilElectorate(council).electMember(member, uint64(block.timestamp) + term) {
+                ok = true;
+            } catch (bytes memory r) {
+                reason = r;
+            }
+        } else if (p.action == Action.RecallCouncilMember) {
+            (address council, address member) = abi.decode(p.actionData, (address, address));
+            try ICouncilElectorate(council).recallMember(member) {
+                ok = true;
+            } catch (bytes memory r) {
+                reason = r;
+            }
+        } else if (p.action == Action.RemovePower) {
+            (address council, address target, bytes memory call) = abi.decode(p.actionData, (address, address, bytes));
+            try ICouncilElectorate(council).removePowerByVote(target, call) {
                 ok = true;
             } catch (bytes memory r) {
                 reason = r;

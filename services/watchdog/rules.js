@@ -142,6 +142,24 @@ function rulesForEvent(ev, ctx) {
     }
     case 'PollFinalized':
       return [{ ...base, rule: 'poll-closed', severity: 'info', title: `Poll ${a.id} closed: ${a.passed ? 'passed' : 'did not pass'} with ${a.totalBallots} ballots`, facts: { poll: String(a.id), passed: a.passed, ballots: String(a.totalBallots) } }];
+    case 'MandatePaused':
+      return [{ ...base, rule: 'mandate', severity: 'medium', title: `Mandate ${a.id} paused for review by public vote: its deadline clock is stopped`, facts: { mandate: String(a.id) } }];
+    case 'MandateRevised':
+      return [{ ...base, rule: 'mandate', severity: 'medium', title: `Mandate ${a.id} revised by public vote: responsible ${short(a.responsible)}, due ${new Date(Number(a.deadline) * 1000).toISOString().slice(0, 10)}, ${a.threshold} check(s)`, facts: { mandate: String(a.id), responsible: a.responsible } }];
+    case 'MemberElected':
+      return [{ ...base, rule: 'council-membership', severity: 'high', title: `${short(a.member)} elected to the council by public vote, term ends ${new Date(Number(a.termEnd) * 1000).toISOString().slice(0, 10)}`, facts: { member: a.member } }];
+    case 'MemberRecalled':
+      return [{ ...base, rule: 'council-membership', severity: 'high', title: `${short(a.member)} recalled from the council by public vote`, facts: { member: a.member } }];
+    case 'PowerRemovedByVote':
+      return [{ ...base, rule: 'role-change', severity: 'high', title: `Public vote removed power: ${describeCall(a.target, a.data, ctx.contractNames)}`, facts: { target: a.target, data: a.data } }];
+    case 'ElectorateChanged':
+      return [{ ...base, rule: 'council-settings', severity: 'high', title: `The council changed which voting contract can elect and recall it, to ${short(a.electorate)}. Check this was publicly agreed.`, facts: { electorate: a.electorate } }];
+    case 'PetitionCreated':
+      return [{ ...base, rule: 'petition', severity: 'info', title: `Petition ${a.id} started (action ${a.action}): ${a.needed} signatures open its vote`, facts: { petition: String(a.id) } }];
+    case 'PetitionSucceeded':
+      return [{ ...base, rule: 'petition', severity: 'medium', title: `Petition ${a.id} reached its signatures: poll ${a.pollId} opened by itself`, facts: { petition: String(a.id), poll: String(a.pollId) } }];
+    case 'PetitionPollFailed':
+      return [{ ...base, rule: 'petition', severity: 'high', title: `Petition ${a.id} has enough signatures but its poll could not open (check the rules); anyone can retry`, facts: { petition: String(a.id) } }];
     case 'RoundCreated':
       return [{ ...base, rule: 'budget-round', severity: 'info', title: `Budget round ${a.id} opened: ${a.proposals} proposals, budget ${Number(a.budget).toLocaleString('en-US')}, ${a.credits} credits per person, closes ${new Date(Number(a.end) * 1000).toISOString().slice(0, 16).replace('T', ' ')} UTC`, facts: { round: String(a.id) } }];
     case 'RoundFinalized':

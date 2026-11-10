@@ -64,3 +64,7 @@ ul.rules { list-style: none; padding: 0; margin: 0; } ul.rules li { padding: 10p
 .stepper button { min-width: 44px; padding: 6px 0; font-size: 20px; }
 .stepper .n { min-width: 2ch; text-align: center; font-weight: 700; font-variant-numeric: tabular-nums; }
 .credits { font-weight: 600; }
+.thread summary { cursor: pointer; color: var(--muted); }
+.comment { border-top: 1px solid var(--line); padding: 8px 0; }
+.comment:first-child { border-top: 0; }
+.stars button { min-width: 0; padding: 6px 10px; font-size: 14px; }

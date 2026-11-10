@@ -65,11 +65,18 @@ const ABIS = {
     'event MandateCreated(uint256 indexed id, address indexed responsible, bytes32 indexed category, uint64 deadline, uint16 threshold, string specCID)',
     'event MandateFulfilled(uint256 indexed id, uint32 round, string evidenceCID)',
     'event MandateCancelled(uint256 indexed id, string reasonCID)',
+    'event MandatePaused(uint256 indexed id, string reasonCID)',
+    'event MandateRevised(uint256 indexed id, address indexed responsible, uint64 deadline, uint16 threshold, string specCID, string reasonCID)',
     'function mandateCount() view returns (uint256)',
     'function isOverdue(uint256) view returns (bool)',
   ],
   charter: [
     'event RuleChanged(bytes32 indexed key, string name, uint256 oldValue, uint256 newValue)',
+  ],
+  feedback: [
+    'event PetitionCreated(uint256 indexed id, uint8 action, uint8 tier, uint32 needed, string ref)',
+    'event PetitionSucceeded(uint256 indexed id, uint256 indexed pollId)',
+    'event PetitionPollFailed(uint256 indexed id, bytes reason)',
   ],
   budget: [
     'event RoundCreated(uint256 indexed id, uint256 indexed groupId, uint64 end, uint32 credits, uint256 budget, uint256 proposals, string ref)',
@@ -84,6 +91,10 @@ const ABIS = {
     'event MemberRemoved(address indexed member)',
     'event ThresholdChanged(uint256 threshold)',
     'event DelayChanged(uint64 delay)',
+    'event MemberElected(address indexed member, uint64 termEnd)',
+    'event MemberRecalled(address indexed member)',
+    'event PowerRemovedByVote(address indexed target, bytes data)',
+    'event ElectorateChanged(address electorate)',
   ],
   market: [
     'event Decided(uint256 indexed id, uint8 chosen, uint256 twapPass, uint256 twapFail, uint64 vetoEnd)',
@@ -95,7 +106,7 @@ const ROLE_EVENTS = [
   'event RoleGranted(bytes32 indexed role, address indexed account, address indexed sender)',
   'event RoleRevoked(bytes32 indexed role, address indexed account, address indexed sender)',
 ];
-const CONTRACT_LABEL = { identity: 'identity registry', vote: 'voting', registry: 'mandate registry', market: 'decision markets', council: 'council', charter: 'charter (voting rules)', budget: 'civic budget' };
+const CONTRACT_LABEL = { identity: 'identity registry', vote: 'voting', registry: 'mandate registry', market: 'decision markets', council: 'council', charter: 'charter (voting rules)', budget: 'civic budget', feedback: 'petitions and comments' };
 
 /**
  * @param {object} o
@@ -345,7 +356,7 @@ if (require.main === module) {
     const startBlock = env('START_BLOCK') ? Number(env('START_BLOCK')) : cfg.startBlock ? Number(cfg.startBlock) : Math.max(0, head - Number(env('LOOKBACK_BLOCKS') || 43_200));
     const dog = createWatchdog({
       provider,
-      addresses: { identity: cfg.identityAddress, vote: cfg.voteAddress, registry: cfg.registryAddress, market: cfg.marketAddress, council: cfg.councilAddress, charter: cfg.charterAddress, budget: cfg.budgetAddress },
+      addresses: { identity: cfg.identityAddress, vote: cfg.voteAddress, registry: cfg.registryAddress, market: cfg.marketAddress, council: cfg.councilAddress, charter: cfg.charterAddress, budget: cfg.budgetAddress, feedback: cfg.feedbackAddress },
       startBlock,
       blockSpan: Number(env('LOG_BLOCK_SPAN') || 200),
       enrolPerHour: Number(env('ENROL_PER_HOUR') || 50),

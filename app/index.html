@@ -19,6 +19,7 @@
         <button id="nav-account">Account</button>
         <button id="nav-mandates">Mandates</button>
         <button id="nav-budget">Budget</button>
+        <button id="nav-petitions">Petitions</button>
         <button id="nav-rules">Rules</button>
         <button id="nav-clerk" hidden>Clerk desk</button>
         <button id="nav-admin" hidden>Admin</button>
@@ -117,6 +118,42 @@
       <div id="wallet-list"></div>
       <p class="status" id="account-status" role="status"></p>
       <p class="note">Your voter key is separate from every account and wallet, so nothing links your money to your votes.</p>
+    </section>
+
+    <!-- Petitions -->
+    <section id="screen-petitions" data-screen hidden>
+      <h1>Petitions</h1>
+      <p>Ask for a vote. When enough residents sign (a share of the voter list set in the community's rules), the poll opens by itself: no official can block it. Signatures are anonymous.</p>
+      <details class="card"><summary><strong>Start a petition</strong></summary>
+        <div class="stack">
+          <label for="petition-kind">What should the vote decide?</label>
+          <select id="petition-kind">
+            <option value="0">An advisory question</option>
+            <option value="5">Pause a mandate for review</option>
+            <option value="7">Elect someone to the council</option>
+            <option value="8">Recall a council member</option>
+            <option value="9">Remove someone's role (clerk or verifier)</option>
+          </select>
+          <div id="petition-target-row" class="stack" hidden>
+            <label for="petition-target" id="petition-target-label">Their account address (0x…)</label>
+            <input type="text" id="petition-target" autocomplete="off" spellcheck="false" />
+          </div>
+          <div id="petition-term-row" hidden><label>Term in days <input type="text" id="petition-term" value="365" inputmode="numeric" style="width:100px" /></label></div>
+          <div id="petition-role-row" class="stack" hidden>
+            <label for="petition-role">Which role</label>
+            <select id="petition-role"><option value="issuer">Clerk (enrols voters)</option><option value="verifier">Verifier (checks mandates)</option></select>
+          </div>
+          <label for="petition-title">The petition, in one sentence</label>
+          <input type="text" id="petition-title" placeholder="e.g. Pause the Elm Street project until the safety review is done" />
+          <label for="petition-body">Why</label>
+          <textarea id="petition-body" rows="3"></textarea>
+          <label for="petition-tier">Who signs and votes</label>
+          <select id="petition-tier"><option value="2">Residents with full voting rights</option><option value="1">ID-checked residents</option><option value="0">All members (advisory questions only)</option></select>
+          <button class="primary" id="btn-petition">Start petition</button>
+          <p class="status" id="petition-status" role="status"></p>
+        </div>
+      </details>
+      <div id="petition-list" class="stack"></div>
     </section>
 
     <!-- Civic budget -->
@@ -218,7 +255,24 @@
           <option value="0">Advisory: records what the public wants</option>
           <option value="2">Binding: creates a mandate with a deadline</option>
           <option value="4">Binding: changes one of the community's voting rules</option>
+          <option value="5">Binding: pauses a mandate for review</option>
+          <option value="6">Binding: revises a mandate (new deadline, checks or responsible party)</option>
+          <option value="7">Binding: elects someone to the council</option>
+          <option value="8">Binding: recalls a council member</option>
         </select>
+        <div id="poll-review" class="stack" hidden>
+          <label for="poll-target" id="poll-target-label">Mandate number</label>
+          <input type="text" id="poll-target" autocomplete="off" spellcheck="false" />
+          <div id="poll-revise" class="stack" hidden>
+            <label for="poll-new-responsible">New responsible party (leave empty to keep)</label>
+            <input type="text" id="poll-new-responsible" autocomplete="off" spellcheck="false" />
+            <div class="row">
+              <label>Extra days <input type="text" id="poll-extra-days" value="0" inputmode="numeric" style="width:90px" /></label>
+              <label>Checks needed (0 = keep) <input type="text" id="poll-new-checks" value="0" inputmode="numeric" style="width:90px" /></label>
+            </div>
+          </div>
+          <div id="poll-term-row" hidden><label>Term in days <input type="text" id="poll-term" value="365" inputmode="numeric" style="width:100px" /></label></div>
+        </div>
         <div id="poll-rule" class="stack" hidden>
           <label for="poll-rule-key">Rule to change</label>
           <select id="poll-rule-key"></select>

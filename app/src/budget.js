@@ -83,11 +83,14 @@ export function wireBudget(ctx) {
         ${done ? '<p class="ok">Your choices are recorded. Nobody can see how you spent your credits.</p>' : ''}
         ${!open && !r.finalized ? `<button data-act="count" data-id="${id}">Count the results</button>` : ''}
         <p class="status" id="round-status-${id}" role="status"></p>
+        ${r.finalized ? `<div class="rating-box" data-id="${id}"></div>` : ''}<div class="thread-box" data-id="${id}"></div>
       </article>`);
     }
     list.innerHTML = cards.join('') || '<p class="muted">No budget rounds yet.</p>';
     for (const card of list.querySelectorAll('article[data-credits]')) wireSteppers(card);
     for (const btn of list.querySelectorAll('button[data-act]')) btn.onclick = () => act(btn, Number(btn.dataset.id), btn.dataset.act);
+    for (const box of list.querySelectorAll('.thread-box')) state.feedback?.thread(box, 'round', Number(box.dataset.id)).catch(() => {});
+    for (const box of list.querySelectorAll('.rating-box')) state.feedback?.rating(box, 'round', Number(box.dataset.id)).catch(() => {});
   }
 
   function choices(card) {

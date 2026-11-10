@@ -19,6 +19,11 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
  * stolen keys can be stopped by one honest member during the wait. A member cannot
  * cancel the proposal that removes them.
  *
+ * Answerable to the public: the voting contract (`electorate`) carries out passed public
+ * votes directly, without the council's approval: electing a member for a term, recalling
+ * a member, or taking power away from anyone (revokeRole, removing a clerk). Members serve
+ * fixed terms; when a term ends, the member's approvals stop counting.
+ *
  * Fast lane: proposals that only take power away (revokeRole, or setIssuer(..., false)
  * to remove a clerk) skip the wait once approved, so a compromised account can be
  * shut off quickly. Everything that grants power, and every change to the council
@@ -53,7 +58,12 @@ contract Council is ReentrancyGuard {
     }
 
     address[] private _members;
-    mapping(address => bool) public isMember;
+    mapping(address => bool) private _seated;
+    /// @notice When each member's term ends (0: no end date).
+    mapping(address => uint64) public termEnds;
+    /// @notice The public voting contract: carries out elections, recalls and removals of power.
+    ///         Changed only by a council proposal (after the public wait), e.g. when voting is upgraded.
+    address public electorate;
     uint256 public threshold;
     uint64 public delay;
 
@@ -71,6 +81,10 @@ contract Council is ReentrancyGuard {
     event MemberRemoved(address indexed member);
     event ThresholdChanged(uint256 threshold);
     event DelayChanged(uint64 delay);
+    event MemberElected(address indexed member, uint64 termEnd);
+    event MemberRecalled(address indexed member);
+    event PowerRemovedByVote(address indexed target, bytes data);
+    event ElectorateChanged(address electorate);
 
     error NotMember();
     error OnlyCouncil();
@@ -85,9 +99,11 @@ contract Council is ReentrancyGuard {
     error NotEnoughApprovals(uint256 have, uint256 need);
     error CannotCancelOwnRemoval();
     error CallFailed(bytes reason);
+    error OnlyElectorate();
+    error NotARemoval();
 
     modifier onlyMember() {
-        if (!isMember[msg.sender]) revert NotMember();
+        if (!isMember(msg.sender)) revert NotMember();
         _;
     }
 
@@ -96,8 +112,19 @@ contract Council is ReentrancyGuard {
         _;
     }
 
-    constructor(address[] memory members_, uint256 threshold_, uint64 delay_) {
-        for (uint256 i = 0; i < members_.length; i++) _addMember(members_[i]);
+    modifier onlyElectorate() {
+        if (msg.sender != electorate || electorate == address(0)) revert OnlyElectorate();
+        _;
+    }
+
+    /// @param termEnd_    when the founding members' terms end (0: no end date)
+    /// @param electorate_ the public voting contract (address(0): no public elections or recalls)
+    constructor(address[] memory members_, uint256 threshold_, uint64 delay_, uint64 termEnd_, address electorate_) {
+        electorate = electorate_;
+        for (uint256 i = 0; i < members_.length; i++) {
+            _addMember(members_[i]);
+            termEnds[members_[i]] = termEnd_;
+        }
         _setThreshold(threshold_);
         _setDelay(delay_);
     }
@@ -143,7 +170,7 @@ contract Council is ReentrancyGuard {
         State s = state(id);
         if (s != State.Ready) revert WrongState(s);
         uint256 have = approvalCount(id);
-        if (have < threshold) revert NotEnoughApprovals(have, threshold);
+        if (have < effectiveThreshold()) revert NotEnoughApprovals(have, effectiveThreshold());
         p.executed = true;
         (bool ok, bytes memory ret) = p.target.call{value: p.value}(p.data);
         if (!ok) revert CallFailed(ret);
@@ -174,17 +201,35 @@ contract Council is ReentrancyGuard {
     }
 
     function removeMember(address member) external onlyCouncil {
-        if (!isMember[member]) revert BadMember();
+        if (!_seated[member]) revert BadMember();
         if (_members.length - 1 < threshold) revert BadThreshold();
-        isMember[member] = false;
-        for (uint256 i = 0; i < _members.length; i++) {
-            if (_members[i] == member) {
-                _members[i] = _members[_members.length - 1];
-                _members.pop();
-                break;
-            }
-        }
+        _unseat(member);
         emit MemberRemoved(member);
+    }
+
+    // ---------------------------------------------------- the public's own lane
+
+    /// @notice A passed public election: seat (or re-seat) a member until `termEnd`.
+    function electMember(address member, uint64 termEnd) external onlyElectorate {
+        if (termEnd <= block.timestamp) revert BadMember();
+        if (!_seated[member]) _addMember(member);
+        termEnds[member] = termEnd;
+        emit MemberElected(member, termEnd);
+    }
+
+    /// @notice A passed public recall: the member leaves the council at once.
+    function recallMember(address member) external onlyElectorate {
+        if (!_seated[member]) revert BadMember();
+        _unseat(member);
+        emit MemberRecalled(member);
+    }
+
+    /// @notice A passed public vote to take power away (revokeRole, or removing a clerk), at once.
+    function removePowerByVote(address target, bytes calldata data) external onlyElectorate nonReentrant {
+        if (!_onlyRemovesPower(target, data)) revert NotARemoval();
+        (bool ok, bytes memory ret) = target.call(data);
+        if (!ok) revert CallFailed(ret);
+        emit PowerRemovedByVote(target, data);
     }
 
     function setThreshold(uint256 threshold_) external onlyCouncil {
@@ -195,15 +240,35 @@ contract Council is ReentrancyGuard {
         _setDelay(delay_);
     }
 
+    function setElectorate(address electorate_) external onlyCouncil {
+        electorate = electorate_;
+        emit ElectorateChanged(electorate_);
+    }
+
     // ----------------------------------------------------------------- views
 
     function members() external view returns (address[] memory) {
         return _members;
     }
 
-    /// @notice Approvals from current members (approvals by removed members don't count).
+    /// @notice A seated member whose term has not ended.
+    function isMember(address a) public view returns (bool) {
+        return _seated[a] && (termEnds[a] == 0 || block.timestamp < termEnds[a]);
+    }
+
+    function activeMemberCount() public view returns (uint256 n) {
+        for (uint256 i = 0; i < _members.length; i++) if (isMember(_members[i])) n++;
+    }
+
+    /// @notice Approvals needed now: the threshold, or every member still serving if fewer remain.
+    function effectiveThreshold() public view returns (uint256) {
+        uint256 active = activeMemberCount();
+        return active == 0 ? type(uint256).max : (threshold < active ? threshold : active);
+    }
+
+    /// @notice Approvals from members currently serving (removed or expired members don't count).
     function approvalCount(uint256 id) public view returns (uint256 n) {
-        for (uint256 i = 0; i < _members.length; i++) if (hasApproved[id][_members[i]]) n++;
+        for (uint256 i = 0; i < _members.length; i++) if (hasApproved[id][_members[i]] && isMember(_members[i])) n++;
     }
 
     function state(uint256 id) public view returns (State) {
@@ -238,7 +303,7 @@ contract Council is ReentrancyGuard {
         if (hasApproved[id][msg.sender]) revert AlreadyApproved();
         hasApproved[id][msg.sender] = true;
         emit Approved(id, msg.sender);
-        if (p.readyAt == 0 && approvalCount(id) >= threshold) {
+        if (p.readyAt == 0 && approvalCount(id) >= effectiveThreshold()) {
             p.readyAt = uint64(block.timestamp) + (p.fast ? 0 : delay);
             emit Queued(id, p.readyAt);
         }
@@ -256,11 +321,23 @@ contract Council is ReentrancyGuard {
     }
 
     function _addMember(address member) private {
-        if (member == address(0) || member == address(this) || isMember[member]) revert BadMember();
+        if (member == address(0) || member == address(this) || _seated[member]) revert BadMember();
         if (_members.length >= MAX_MEMBERS) revert TooManyMembers();
-        isMember[member] = true;
+        _seated[member] = true;
         _members.push(member);
         emit MemberAdded(member);
+    }
+
+    function _unseat(address member) private {
+        _seated[member] = false;
+        delete termEnds[member];
+        for (uint256 i = 0; i < _members.length; i++) {
+            if (_members[i] == member) {
+                _members[i] = _members[_members.length - 1];
+                _members.pop();
+                break;
+            }
+        }
     }
 
     function _setThreshold(uint256 threshold_) private {

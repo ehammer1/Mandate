@@ -19,6 +19,9 @@ contract Charter is AccessControl {
     bytes32 public constant GOVERNOR_ROLE = keccak256("GOVERNOR_ROLE");
 
     bytes32 public constant MIN_POLL_MINUTES = keccak256("MIN_POLL_MINUTES");
+    bytes32 public constant MAX_POLL_MINUTES = keccak256("MAX_POLL_MINUTES");
+    bytes32 public constant PETITION_PCT = keccak256("PETITION_PCT");
+    bytes32 public constant PETITION_POLL_MINUTES = keccak256("PETITION_POLL_MINUTES");
     bytes32 public constant BINDING_QUORUM_PCT = keccak256("BINDING_QUORUM_PCT");
     bytes32 public constant BINDING_CHECK_REQUIRED = keccak256("BINDING_CHECK_REQUIRED");
     bytes32 public constant CHECK_MIN_VOTES = keccak256("CHECK_MIN_VOTES");
@@ -47,6 +50,9 @@ contract Charter is AccessControl {
     constructor(address admin, bytes32[] memory keys, uint256[] memory values) {
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
         _define(MIN_POLL_MINUTES, "MIN_POLL_MINUTES", 3 days / 60, 10, 60 days / 60);
+        _define(MAX_POLL_MINUTES, "MAX_POLL_MINUTES", 30 days / 60, 1 days / 60, 365 days / 60);
+        _define(PETITION_PCT, "PETITION_PCT", 5, 1, 50);
+        _define(PETITION_POLL_MINUTES, "PETITION_POLL_MINUTES", 7 days / 60, 10, 60 days / 60);
         _define(BINDING_QUORUM_PCT, "BINDING_QUORUM_PCT", 10, 0, 100);
         _define(BINDING_CHECK_REQUIRED, "BINDING_CHECK_REQUIRED", 1, 0, 1);
         _define(CHECK_MIN_VOTES, "CHECK_MIN_VOTES", 3, 1, 1_000_000);

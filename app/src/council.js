@@ -9,6 +9,8 @@ export const COUNCIL_ABI = [
   'function isMember(address) view returns (bool)',
   'function members() view returns (address[])',
   'function threshold() view returns (uint256)',
+  'function termEnds(address) view returns (uint64)',
+  'function effectiveThreshold() view returns (uint256)',
   'function delay() view returns (uint64)',
   'function proposalCount() view returns (uint256)',
   'function hasApproved(uint256, address) view returns (bool)',
@@ -150,7 +152,8 @@ export function wireCouncil(ctx) {
     box.hidden = false;
     $('council-summary').innerHTML = `<p>${members.length} members · ${threshold} must approve a change · then a public wait of ${esc(hours(delay))} (removing power needs no wait). Any one member can cancel a pending change.</p>
       <p class="muted">${mine ? 'You are a member.' : 'This account is not a member: you can see changes and run ready ones, but not approve.'}</p>
-      <details><summary>Members</summary><ul>${members.map((m) => `<li><span class="code">${esc(m)}</span>${m.toLowerCase() === me.toLowerCase() ? ' (you)' : ''}</li>`).join('')}</ul></details>`;
+      <details><summary>Members and terms</summary><ul>${(await Promise.all(members.map(async (m) => [m, await c.termEnds(m).catch(() => 0n)]))).map(([m, t]) => `<li><span class="code">${esc(m)}</span>${m.toLowerCase() === me.toLowerCase() ? ' (you)' : ''}<br><span class="muted">${t ? `term ends ${esc(new Date(Number(t) * 1000).toLocaleDateString(undefined, { dateStyle: 'medium' }))}` : 'no end date'}</span></li>`).join('')}</ul></details>
+      <p class="note">The public can elect members for a term, recall them, and remove anyone's role by vote, without the council.</p>`;
     const list = $('council-list');
     list.innerHTML = '';
     const n = Number(count);

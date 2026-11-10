@@ -16,7 +16,7 @@ import { readDoc, postDoc } from './notices.js';
 
 const REGISTRY_ABI = [
   'function mandateCount() view returns (uint256)',
-  'function getMandate(uint256) view returns (tuple(address responsible, uint64 createdAt, uint64 deadline, uint64 settledAt, uint16 threshold, uint8 status, uint32 round, uint32 approvals, uint32 rejections, bytes32 category, string specCID, string evidenceCID))',
+  'function getMandate(uint256) view returns (tuple(address responsible, uint64 createdAt, uint64 deadline, uint64 settledAt, uint16 threshold, uint8 status, uint32 round, uint32 approvals, uint32 rejections, bytes32 category, string specCID, string evidenceCID, uint64 pausedAt))',
   'function isOverdue(uint256) view returns (bool)',
   'function hasRole(bytes32, address) view returns (bool)',
   'function hasAttested(uint256, uint32, address) view returns (bool)',
@@ -38,7 +38,7 @@ const ESCROW_ABI = [
   'function claimRefund()',
   'function progressiveDecay()',
 ];
-const STATUS = ['', 'In progress', 'Evidence under review', 'Done and verified', 'Repealed'];
+const STATUS = ['', 'In progress', 'Evidence under review', 'Done and verified', 'Repealed', 'Paused for review'];
 const VERIFIER = ethers.id('VERIFIER_ROLE');
 const short = (a) => `${a.slice(0, 6)}…${a.slice(-4)}`;
 const eth = (wei) => `${Number(ethers.formatEther(wei)).toLocaleString(undefined, { maximumFractionDigits: 6 })} ETH`;
@@ -97,10 +97,13 @@ export function wireMandates(ctx) {
       if (e && Number(settlement) === 2 && myShare > 0n && !claimed) acts.push(`<button class="primary" data-act="claim" data-id="${id}">Claim my refund</button>`);
       if (e && overdue && canDecay) acts.push(`<button data-act="decay" data-id="${id}">Apply the lateness penalty now</button>`);
       if (myShare > 0n) parts.push(`<p class="muted">You backed it with ${esc(eth(myShare))}.</p>`);
-      cards.push(`<article class="card stack" id="mandate-${id}">${parts.join('')}${acts.join('')}<p class="status" id="mandate-status-${id}" role="status"></p></article>`);
+      cards.push(`<article class="card stack" id="mandate-${id}">${parts.join('')}${acts.join('')}<p class="status" id="mandate-status-${id}" role="status"></p>
+        ${st === 3 || st === 4 ? `<div class="rating-box" data-id="${id}"></div>` : ''}<div class="thread-box" data-id="${id}"></div></article>`);
     }
     list.innerHTML = cards.join('') || '<p class="muted">No mandates yet. A mandate is created when a binding poll passes.</p>';
     for (const b of list.querySelectorAll('button[data-act]')) b.onclick = () => act(b, Number(b.dataset.id), b.dataset.act);
+    for (const box of list.querySelectorAll('.thread-box')) state.feedback?.thread(box, 'mandate', Number(box.dataset.id)).catch(() => {});
+    for (const box of list.querySelectorAll('.rating-box')) state.feedback?.rating(box, 'mandate', Number(box.dataset.id)).catch(() => {});
   }
 
   async function act(button, id, kind) {

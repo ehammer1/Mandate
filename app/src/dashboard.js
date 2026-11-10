@@ -34,12 +34,12 @@ const VOTE_ABI = [
 ];
 const REGISTRY_ABI = [
   'function mandateCount() view returns (uint256)',
-  'function getMandate(uint256) view returns (tuple(address responsible, uint64 createdAt, uint64 deadline, uint64 settledAt, uint16 threshold, uint8 status, uint32 round, uint32 approvals, uint32 rejections, bytes32 category, string specCID, string evidenceCID))',
+  'function getMandate(uint256) view returns (tuple(address responsible, uint64 createdAt, uint64 deadline, uint64 settledAt, uint16 threshold, uint8 status, uint32 round, uint32 approvals, uint32 rejections, bytes32 category, string specCID, string evidenceCID, uint64 pausedAt))',
   'function isOverdue(uint256) view returns (bool)',
 ];
 const GROUP_NAMES = ['All members', 'ID-checked residents', 'Residents with full voting rights'];
 const ACTIONS = ['Advisory', 'Binding: veto a market decision', 'Binding: create a mandate', 'Binding: repeal a mandate'];
-const MANDATE_STATUS = ['', 'In progress', 'Under review', 'Fulfilled', 'Repealed'];
+const MANDATE_STATUS = ['', 'In progress', 'Under review', 'Fulfilled', 'Repealed', 'Paused for review'];
 const COUNCIL_STATES = ['', 'Collecting approvals', 'Waiting period', 'Ready to run', 'Done', 'Cancelled', 'Expired'];
 const SEV = { high: '▲ Urgent', medium: '● Notable', info: '○ Info' };
 const ISSUER_ROLE = ethers.id('ISSUER_ROLE');
@@ -148,6 +148,7 @@ async function renderMandates() {
   const count = Number(await r.mandateCount());
   if (!count) {
     box.innerHTML = '<p class="muted">No mandates yet. A mandate is created when a binding poll passes or a decision market chooses one.</p>';
+    $('scorecard').innerHTML = '<p class="muted">No mandates yet.</p>';
     return { active: 0, total: 0, held: 0n };
   }
   let active = 0;
@@ -168,6 +169,26 @@ async function renderMandates() {
       <p class="meta">Responsible: <span class="addr">${link('address', m.responsible, short(m.responsible))}</span> · checks passed ${m.approvals} of ${m.threshold} · budget held: ${escrow !== ethers.ZeroAddress ? `${link('address', escrow, `${ethers.formatEther(locked)} ETH`)}` : 'none yet'}</p></li>`);
   }
   box.innerHTML = `<ul class="list">${items.join('')}</ul>`;
+  // Scorecard: per responsible party.
+  const score = new Map();
+  for (let id = 1; id <= count; id++) {
+    const [m, overdue] = await Promise.all([r.getMandate(id), r.isOverdue(id)]);
+    const k = m.responsible.toLowerCase();
+    const s = score.get(k) || { who: m.responsible, total: 0, done: 0, late: 0, overdue: 0, paused: 0, repealed: 0 };
+    s.total++;
+    const st = Number(m.status);
+    if (st === 3) {
+      s.done++;
+      if (Number(m.settledAt) > Number(m.deadline)) s.late++;
+    }
+    if (overdue) s.overdue++;
+    if (st === 5) s.paused++;
+    if (st === 4) s.repealed++;
+    score.set(k, s);
+  }
+  $('scorecard').innerHTML = score.size
+    ? `<table class="data"><thead><tr><th>Responsible</th><th class="num">Mandates</th><th class="num">Done</th><th class="num">Done late</th><th class="num">Overdue</th><th class="num">Paused</th><th class="num">Repealed</th></tr></thead><tbody>${[...score.values()].map((s) => `<tr><td class="addr">${link('address', s.who, short(s.who))}</td><td class="num">${s.total}</td><td class="num">${s.done}</td><td class="num">${s.late}</td><td class="num">${s.overdue ? `▲ ${s.overdue}` : 0}</td><td class="num">${s.paused}</td><td class="num">${s.repealed}</td></tr>`).join('')}</tbody></table>`
+    : '<p class="muted">No mandates yet.</p>';
   return { active, total: count, held };
 }
 

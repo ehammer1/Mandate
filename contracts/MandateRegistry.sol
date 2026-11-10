@@ -44,7 +44,8 @@ contract MandateRegistry is AccessControlEnumerable {
         Active,
         UnderReview,
         Fulfilled,
-        Cancelled
+        Cancelled,
+        Paused // on hold for review: the deadline clock stops, budgets stay where they are
     }
 
     struct Mandate {
@@ -60,6 +61,7 @@ contract MandateRegistry is AccessControlEnumerable {
         bytes32 category;
         string specCID;
         string evidenceCID;
+        uint64 pausedAt; // when it was paused (0 if not paused)
     }
 
     uint256 public mandateCount;
@@ -83,6 +85,8 @@ contract MandateRegistry is AccessControlEnumerable {
     event EvidenceRejected(uint256 indexed id, uint32 indexed round);
     event MandateFulfilled(uint256 indexed id, uint32 round, string evidenceCID);
     event MandateCancelled(uint256 indexed id, string reasonCID);
+    event MandatePaused(uint256 indexed id, string reasonCID);
+    event MandateRevised(uint256 indexed id, address indexed responsible, uint64 deadline, uint16 threshold, string specCID, string reasonCID);
 
     // ------------------------------------------------------------------ errors
 
@@ -136,12 +140,62 @@ contract MandateRegistry is AccessControlEnumerable {
     }
 
     /// @notice Repeal a mandate (e.g. the public vote reversed it). Cannot undo a fulfilled mandate.
+    /// @dev Works on paused mandates too.
     function cancelMandate(uint256 id, string calldata reasonCID) external onlyRole(GOVERNOR_ROLE) {
         Mandate storage m = _get(id);
         if (m.status == Status.Fulfilled || m.status == Status.Cancelled) revert WrongStatus(id, m.status);
         m.status = Status.Cancelled;
         m.settledAt = uint64(block.timestamp);
         emit MandateCancelled(id, reasonCID);
+    }
+
+    /// @notice Put a mandate on hold for review (e.g. residents said it isn't working). Its
+    ///         deadline clock stops and nothing can be paid out or forfeited until it is revised.
+    function pauseMandate(uint256 id, string calldata reasonCID) external onlyRole(GOVERNOR_ROLE) {
+        Mandate storage m = _get(id);
+        if (m.status != Status.Active && m.status != Status.UnderReview) revert WrongStatus(id, m.status);
+        m.status = Status.Paused;
+        m.pausedAt = uint64(block.timestamp);
+        emit MandatePaused(id, reasonCID);
+    }
+
+    /**
+     * @notice Redesign a mandate (and resume it if paused): a new responsible party (a recall
+     *         of the old one), more time, a different number of checks or a new goal. Any
+     *         evidence under review is set aside and checking starts again.
+     * @param responsible   new responsible party, or address(0) to keep the current one
+     * @param extraTime     seconds added to the deadline (time spent paused is added automatically)
+     * @param threshold     new number of verifier checks, or 0 to keep it
+     * @param specCID       new goal text, or "" to keep it
+     */
+    function reviseMandate(uint256 id, address responsible, uint64 extraTime, uint16 threshold, string calldata specCID, string calldata reasonCID)
+        external
+        onlyRole(GOVERNOR_ROLE)
+    {
+        Mandate storage m = _get(id);
+        if (m.status != Status.Active && m.status != Status.UnderReview && m.status != Status.Paused) revert WrongStatus(id, m.status);
+        if (m.status == Status.Paused) m.deadline += uint64(block.timestamp) - m.pausedAt;
+        m.deadline += extraTime;
+        if (m.deadline <= block.timestamp) revert InvalidDeadline();
+        if (responsible != address(0)) m.responsible = responsible;
+        if (threshold != 0) {
+            uint256 verifiers = getRoleMemberCount(VERIFIER_ROLE);
+            if (threshold > verifiers) revert InvalidThreshold(threshold, verifiers);
+            m.threshold = threshold;
+        }
+        if (bytes(specCID).length != 0) {
+            _checkCID(specCID);
+            m.specCID = specCID;
+        }
+        m.status = Status.Active;
+        m.pausedAt = 0;
+        unchecked {
+            ++m.round; // earlier attestations don't carry over
+        }
+        m.approvals = 0;
+        m.rejections = 0;
+        delete m.evidenceCID;
+        emit MandateRevised(id, m.responsible, m.deadline, m.threshold, m.specCID, reasonCID);
     }
 
     // ------------------------------------------------------- responsible party

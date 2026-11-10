@@ -21,6 +21,7 @@ import { readDoc, postDoc } from './notices.js';
 import { wireMandates } from './mandates.js';
 import { loadRules, describeRuleChange, RULE_ERRORS } from './rules.js';
 import { wireBudget } from './budget.js';
+import { wireFeedback } from './feedback.js';
 
 const VOTE_ABI = [
   'function castBallot(uint256 id, tuple(uint256 merkleTreeDepth, uint256 merkleTreeRoot, uint256 nullifier, uint256 message, uint256 scope, uint256[8] points) b)',
@@ -551,6 +552,38 @@ async function fetchQuestion(cid) {
 const VOTE_ERRORS = new ethers.Interface(['error PollTooShort(uint64)', 'error QuorumTooLow(uint256)', 'error CrossCheckRequired()', 'error CheckTooSmall(uint256)', 'error RuleVotersNotEligible()', 'error OutOfBounds(bytes32,uint256,uint256,uint256)', 'error UnknownRule(bytes32)']);
 const MANDATE_ACTION = 2;
 const RULE_ACTION = 4;
+const shortAddr = (a) => `${a.slice(0, 6)}…${a.slice(-4)}`;
+/** Plain-language effect of the review and accountability actions (5 to 9). */
+function describeAction(p) {
+  const coder = ethers.AbiCoder.defaultAbiCoder();
+  try {
+    switch (Number(p.action)) {
+      case 5: {
+        const [, id] = coder.decode(['address', 'uint256', 'string'], p.actionData);
+        return `pause mandate ${id} for review: its deadline clock stops and its budget is held`;
+      }
+      case 6: {
+        const [, id, who, extra, checks] = coder.decode(['address', 'uint256', 'address', 'uint64', 'uint16', 'string', 'string'], p.actionData);
+        const parts = [who !== ethers.ZeroAddress && `hand it to ${shortAddr(who)}`, extra > 0n && `give ${Math.round(Number(extra) / 86_400)} more days`, checks > 0n && `require ${checks} checks`].filter(Boolean);
+        return `revise mandate ${id}${parts.length ? `: ${parts.join(', ')}` : ''}, and resume it`;
+      }
+      case 7: {
+        const [, who, term] = coder.decode(['address', 'address', 'uint64'], p.actionData);
+        return `elect ${shortAddr(who)} to the council for ${Math.round(Number(term) / 86_400)} days`;
+      }
+      case 8: {
+        const [, who] = coder.decode(['address', 'address'], p.actionData);
+        return `recall ${shortAddr(who)} from the council at once`;
+      }
+      case 9:
+        return 'remove a role from someone at once (see the question for who)';
+      default:
+        return '';
+    }
+  } catch {
+    return '';
+  }
+}
 /** For a binding "create a mandate" poll: who, how long, how many checks. */
 function mandateTerms(p) {
   if (Number(p.action) !== MANDATE_ACTION) return null;
@@ -608,6 +641,8 @@ async function refreshPolls() {
         ${q.body ? `<p>${esc(q.body)}</p>` : ''}
         ${(() => {
           const t = mandateTerms(p);
+          const other = describeAction(p);
+          if (other) return `<p class="note"><strong>Binding.</strong> If Yes wins, this will ${esc(other)}.</p>`;
           if (Number(p.action) === RULE_ACTION) return `<p class="note"><strong>Rule change.</strong> If it passes, this will ${esc(describeRuleChange(state.rules || [], p.actionData))}. It needs a supermajority of Yes votes (set by the rules when it opened).</p>`;
           return t ? `<p class="note"><strong>Binding.</strong> If Yes wins, this becomes a mandate: <span class="code">${esc(t.responsible.slice(0, 6))}…${esc(t.responsible.slice(-4))}</span> is responsible for doing it within ${t.days} days, and ${t.checks} independent verifier${t.checks === 1 ? '' : 's'} must confirm it was done.</p>` : '';
         })()}
@@ -619,10 +654,12 @@ async function refreshPolls() {
         ${voted ? '<p class="ok">Your vote is recorded. Nobody can see which way you voted.</p>' : ''}
         <p class="status" id="poll-status-${id}" role="status"></p>
         <details><summary>Current count (${total} of ${p.electorate} eligible, quorum ${p.quorum})</summary><ul class="tally">${results}</ul></details>
+        <div class="thread-box" data-kind="poll" data-id="${id}"></div>
       </article>`);
     }
     list.innerHTML = cards.join('') || '<p class="muted">No polls yet.</p>';
     for (const b of list.querySelectorAll('button.choice')) b.onclick = () => castVote(BigInt(b.dataset.poll), Number(b.dataset.option), b);
+    for (const box of list.querySelectorAll('.thread-box')) state.feedback.thread(box, box.dataset.kind, Number(box.dataset.id)).catch(() => {});
     // Anyone may record a finished poll's result (and so trigger a binding action).
     for (const b of list.querySelectorAll('button.finalize')) {
       b.onclick = async () => {
@@ -907,6 +944,11 @@ function wireAdmin() {
 
 
   $('poll-kind').onchange = async () => {
+    const k = Number($('poll-kind').value);
+    $('poll-review').hidden = !(k >= 5 && k <= 8);
+    $('poll-revise').hidden = k !== 6;
+    $('poll-term-row').hidden = k !== 7;
+    $('poll-target-label').textContent = k <= 6 ? 'Mandate number' : 'Their account address (0x…)';
     $('poll-mandate').hidden = $('poll-kind').value !== String(MANDATE_ACTION);
     $('poll-rule').hidden = $('poll-kind').value !== String(RULE_ACTION);
     if (!$('poll-rule').hidden) {
@@ -932,6 +974,21 @@ function wireAdmin() {
     if (!(days > 0) || !(quorum >= 1)) return status(el, 'Fill in the days and quorum.', 'error');
     let actionData = '0x';
     let mandate = null;
+    if (action >= 5 && action <= 8) {
+      const coder = ethers.AbiCoder.defaultAbiCoder();
+      const t = $('poll-target').value.trim();
+      try {
+        if (action === 5) actionData = coder.encode(['address', 'uint256', 'string'], [state.config.registryAddress, BigInt(t), '']);
+        if (action === 6) {
+          const who = $('poll-new-responsible').value.trim();
+          actionData = coder.encode(['address', 'uint256', 'address', 'uint64', 'uint16', 'string', 'string'], [state.config.registryAddress, BigInt(t), who ? ethers.getAddress(who) : ethers.ZeroAddress, BigInt(Math.round(Number($('poll-extra-days').value || 0) * 86_400)), Number($('poll-new-checks').value || 0), '', '']);
+        }
+        if (action === 7) actionData = coder.encode(['address', 'address', 'uint64'], [state.config.councilAddress, ethers.getAddress(t), BigInt(Math.round(Number($('poll-term').value || 365) * 86_400))]);
+        if (action === 8) actionData = coder.encode(['address', 'address'], [state.config.councilAddress, ethers.getAddress(t)]);
+      } catch {
+        return status(el, action <= 6 ? 'Enter the mandate number (and a valid address, if any).' : 'Enter a valid account address (0x…).', 'error');
+      }
+    }
     if (action === RULE_ACTION) {
       const r = (state.rules || []).find((x) => x.key === $('poll-rule-key').value);
       const v = $('poll-rule-value').value.trim();
@@ -1067,6 +1124,10 @@ async function boot() {
       box.innerHTML = `<p class="error">Could not load the rules: ${esc(e.shortMessage || e.message)}</p>`;
     }
   };
+  state.feedback = wireFeedback({ state, $, status, esc, show, nullifierFor, myTier: async () => {
+    const m = await state.registry.members(state.identity.commitment);
+    return m.active ? Number(m.tier) : -1;
+  } });
   state.budget = wireBudget({ state, $, status, esc, show, activeSigner, activeAddress, sendTx: (el, label, fn) => sendAdminTx(el, label, () => fn()), nullifierFor });
   state.council = wireCouncil({ state, $, status, esc, activeSigner, activeAddress });
   state.clerk = wireClerk({ state, $, status, esc, show, activeSigner, activeAddress });
