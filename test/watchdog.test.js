@@ -192,3 +192,29 @@ test('council: every proposed, scheduled, cancelled and carried-out admin change
   raised = await next.scanOnce();
   assert.ok(raised.some((a) => a.rule === 'council-executed' && /Council change #1 carried out: approve .* "Night desk"/.test(a.title)), raised.map((a) => a.title).join('\n'));
 });
+
+test('public feeds: an Atom news feed and a calendar of deadlines', async () => {
+  const feeds = require('../services/watchdog/feeds');
+  const alerts = [{ id: 'a1', rule: 'poll-opened', severity: 'info', title: 'Poll 3 opened: "Parks & <trees>"', time: 1_800_000_000, tx: '0xabc' }];
+  const xml = feeds.atom(alerts, { appUrl: 'https://example.org/app/', explorer: 'https://scan.example' });
+  assert.match(xml, /<feed xmlns="http:\/\/www.w3.org\/2005\/Atom">/);
+  assert.match(xml, /Parks &amp; &lt;trees&gt;/); // escaped
+  assert.match(xml, /href="https:\/\/scan.example\/tx\/0xabc"/);
+  const cal = feeds.calendar([{ uid: 'poll-1', at: 1_800_000_000, title: 'Poll 1 closes: Fix the crossing, now', body: 'Vote.' }], { appUrl: 'https://example.org/app/' });
+  assert.match(cal, /^BEGIN:VCALENDAR\r\n/);
+  assert.match(cal, /DTEND:20270115T080000Z/);
+  assert.match(cal, /SUMMARY:Poll 1 closes: Fix the crossing\\, now/);
+  assert.match(cal, /TRIGGER:-PT24H/); // a reminder a day before
+  assert.ok(cal.split('\r\n').every((l) => l.length <= 75));
+  // Deadlines come from the contracts.
+  const { deployAll } = require('../scripts/deploy');
+  const { contracts: k, addresses } = await deployAll(admin, { rules: { MIN_POLL_MINUTES: 10 } });
+  await (await k.identity.setIssuer(admin.address, 1, true, 'Clerk')).wait();
+  await (await k.identity.enroll(77n, 1, ethers.id('feed-doc'), 0)).wait();
+  const doc = JSON.stringify({ title: 'Repaint the bridge' });
+  await (await k.notices.post(doc)).wait();
+  await (await k.vote.createPoll(await k.identity.groupId(0), 86_400, 1, 2, 0, '0x', `nb:${ethers.keccak256(ethers.toUtf8Bytes(doc))}`, 0)).wait();
+  const events = await feeds.deadlines({ voteAddress: addresses.vote, registryAddress: addresses.registry, budgetAddress: addresses.budget, noticeBoardAddress: addresses.notices }, provider, require('../services/explainer/source').readDoc);
+  assert.equal(events.length, 1);
+  assert.equal(events[0].title, 'Poll 1 closes: Repaint the bridge');
+});

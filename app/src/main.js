@@ -23,6 +23,7 @@ import { loadRules, describeRuleChange, RULE_ERRORS } from './rules.js';
 import { wireBudget } from './budget.js';
 import { wireFeedback } from './feedback.js';
 import { renderExplainer } from './explain.js';
+import { informedHtml } from './informed.js';
 
 const VOTE_ABI = [
   'function castBallot(uint256 id, tuple(uint256 merkleTreeDepth, uint256 merkleTreeRoot, uint256 nullifier, uint256 message, uint256 scope, uint256[8] points) b)',
@@ -620,6 +621,7 @@ async function refreshPolls() {
     }
     state.rules = await loadRules(state.config, state.provider).catch(() => []);
     const cards = [];
+    const soon = [];
     for (let id = count; id >= 1n && cards.length < 20; id--) {
       const [p, tally] = await Promise.all([state.vote.getPoll(id), state.vote.tally(id)]);
       const [ck, ckCounts] = await state.vote.getCheck(id).catch(() => [{ root: 0n }, [0n, 0n]]);
@@ -633,6 +635,7 @@ async function refreshPolls() {
       const pollTier = groups.findIndex((g) => g === p.groupId);
       const who = GROUP_LABEL[pollTier] || 'Members';
       const eligibleTier = myTier >= pollTier;
+      if (open && !voted && eligibleTier && Number(p.end) - Number(now) < 48 * 3600) soon.push({ id, end: p.end });
       const total = tally.reduce((a, b) => a + b, 0n);
       const results = labels.map((l, i) => `<li><span>${esc(l)}</span><span>${tally[i] ?? 0n}</span></li>`).join('');
       const buttons = labels.map((l, i) => `<button class="choice" data-poll="${id}" data-option="${i}">${esc(l)}</button>`).join('');
@@ -659,7 +662,20 @@ async function refreshPolls() {
         <div class="thread-box" data-kind="poll" data-id="${id}"></div>
       </article>`);
     }
-    list.innerHTML = cards.join('') || '<p class="muted">No polls yet.</p>';
+    // Closing soon (polls this person can still vote in) and what's new since the last visit.
+    let seen = 0;
+    try {
+      seen = Number(localStorage.getItem('mandate.seenPolls') || 0);
+      localStorage.setItem('mandate.seenPolls', String(count));
+    } catch {
+      /* private window */
+    }
+    const fresh = seen && Number(count) > seen ? Number(count) - seen : 0;
+    const banner = [
+      soon.length ? `<p class="warn"><strong>Closing soon:</strong> ${soon.map((s) => `poll ${s.id} closes ${esc(when(s.end))}`).join('; ')}. You haven't voted yet.</p>` : '',
+      fresh ? `<p class="ok">${fresh} new poll${fresh === 1 ? '' : 's'} since your last visit.</p>` : '',
+    ].join('');
+    list.innerHTML = (banner ? `<div class="card">${banner}</div>` : '') + (cards.join('') || '<p class="muted">No polls yet.</p>') + `<details class="card"><summary><strong>Stay informed</strong></summary><div class="stack">${informedHtml(state.config)}</div></details>`;
     for (const b of list.querySelectorAll('button.choice')) b.onclick = () => castVote(BigInt(b.dataset.poll), Number(b.dataset.option), b);
     for (const box of list.querySelectorAll('.thread-box')) state.feedback.thread(box, box.dataset.kind, Number(box.dataset.id)).catch(() => {});
     for (const box of list.querySelectorAll('.explain-box')) renderExplainer({ state, esc, status }, box, 'poll', Number(box.dataset.id)).catch(() => {});

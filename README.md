@@ -60,6 +60,7 @@ Design rules:
 | `docs/council.md` | The council: multi-signature admin with a public waiting period, and how changes happen |
 | `docs/mobile-id.md` | Sign-up with a state mobile ID: what is shared, what is checked, how to switch it on |
 | `docs/explainer.md` | Plain-language AI explanations of polls and mandates, and residents' questions |
+| `docs/outreach.md` | Staying informed: calendar and news feeds, printable notices, reminders |
 | `app/dashboard.html` | Live public dashboard: voter list, polls, council changes, mandates, clerks, watchdog alerts (https://ehammer1.github.io/Mandate/dashboard.html) |
 | `services/watchdog/` | Independent auditor: rule-based alerts on every contract, AI-written reports |
 | `docs/watchdog.md` | What the watchdog flags, where it runs, and its limits |

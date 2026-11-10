@@ -439,6 +439,15 @@ if (require.main === module) {
       fs.writeFileSync(path.join(dir, 'alerts.json'), JSON.stringify(dog.alerts.slice(0, 500), (_k, v) => (typeof v === 'bigint' ? v.toString() : v), 1));
       fs.writeFileSync(path.join(dir, 'report.md'), dog.reportMarkdown(report) + '\n');
       console.log(`[watchdog] scanned to block ${dog.nextBlock - 1}; ${raised.length} new alert(s); report ${needSummary ? 'updated' : 'unchanged'}`);
+      try {
+        // Public feeds: news (from the alerts) and a calendar of deadlines.
+        const feeds = require('./feeds');
+        const appUrl = env('APP_URL') || 'https://ehammer1.github.io/Mandate/';
+        fs.writeFileSync(path.join(dir, 'feed.xml'), feeds.atom(dog.alerts, { appUrl, explorer: cfg.explorer }));
+        fs.writeFileSync(path.join(dir, 'calendar.ics'), feeds.calendar(await feeds.deadlines(cfg, provider, require('../explainer/source').readDoc), { appUrl }));
+      } catch (e) {
+        console.error(`[watchdog] feeds skipped: ${e.message}`);
+      }
       if (env('ANTHROPIC_API_KEY')) {
         try {
           const made = await writeExplanations(dir, cfg, provider, Number(env('EXPLAIN_PER_RUN') || 3));

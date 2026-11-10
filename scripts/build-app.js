@@ -6,7 +6,7 @@ const esbuild = require('esbuild');
 const root = path.join(__dirname, '..');
 esbuild
   .build({
-    entryPoints: [path.join(root, 'app', 'src', 'main.js'), path.join(root, 'app', 'src', 'dashboard.js')],
+    entryPoints: [path.join(root, 'app', 'src', 'main.js'), path.join(root, 'app', 'src', 'dashboard.js'), path.join(root, 'app', 'src', 'notice.js')],
     bundle: true,
     format: 'esm',
     splitting: true, // wallet libraries load only when someone opens "Use a wallet"

@@ -1046,3 +1046,28 @@ test('explained in plain language: the published AI summary, labelled, and answe
   await page.waitForSelector("#poll-1 .explain-box .answer >> text=The text doesn't answer this.");
   await shot('17-explained');
 });
+
+test('stay informed: closing-soon reminder, calendar and news feeds, a printable notice', async () => {
+  appConfig.calendarUrl = 'https://example.org/calendar.ics';
+  appConfig.feedUrl = 'https://example.org/feed.xml';
+  const doc = JSON.stringify({ title: 'Plant 200 street trees this spring?', body: 'Advisory.' });
+  await (await c.notices.post(doc)).wait();
+  await (await c.vote.createPoll(await c.identity.groupId(0), 86_400, 1, 2, 0, '0x', `nb:${ethers.keccak256(ethers.toUtf8Bytes(doc))}`, 0)).wait();
+  const id = await c.vote.pollCount();
+  await page.reload();
+  await page.click('#btn-device');
+  await page.waitForSelector('#screen-home:not([hidden])');
+  await page.click('#nav-polls');
+  await page.waitForSelector(`#poll-${id}`);
+  assert.match(await page.textContent('#poll-list'), new RegExp(`Closing soon:.*poll ${id} closes`));
+  await page.click('#poll-list details.card summary >> text=Stay informed');
+  assert.equal(await page.getAttribute('#poll-list a[href^="webcal:"]', 'href'), 'webcal://example.org/calendar.ics');
+
+  const sheet = await browser.newPage({ viewport: { width: 800, height: 1000 } });
+  await sheet.goto(`${appUrl}notice.html`);
+  await sheet.waitForSelector('#items >> text=Plant 200 street trees this spring?');
+  assert.match(await sheet.textContent('#address'), /^http:\/\/localhost:\d+\/$/);
+  assert.ok(await sheet.evaluate(() => document.querySelector('#qr').width > 0)); // the QR code is drawn
+  await sheet.screenshot({ path: process.env.APP_SCREENSHOT_DIR ? `${process.env.APP_SCREENSHOT_DIR}/18-notice.png` : require('node:os').tmpdir() + '/notice.png' });
+  await sheet.close();
+});

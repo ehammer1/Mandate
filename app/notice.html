@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Mandate notice</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    body { background: #fff; color: #111; }
+    main { max-width: 720px; }
+    .sheet h1 { font-size: 30px; }
+    .item { border-top: 2px solid #111; padding: 12px 0; }
+    .qr { float: right; margin: 0 0 12px 16px; text-align: center; font-size: 13px; }
+    .noprint { margin: 16px 0; }
+    @media print { .noprint { display: none; } header, footer { display: none; } body { font-size: 14pt; } }
+  </style>
+</head>
+<body>
+  <main class="sheet">
+    <div class="noprint row"><button class="primary" onclick="window.print()">Print this notice</button><a href="./"><button>Back to the app</button></a></div>
+    <div class="qr"><canvas id="qr"></canvas><br>Scan to vote,<br>privately</div>
+    <h1>Have your say</h1>
+    <p>Residents decide these together. Voting is private: nobody can see how you voted. Bring a photo ID (or your voter registration) to the city clerk or a library desk to get full voting rights, or join online.</p>
+    <p class="muted" id="when"></p>
+    <div id="items"><p>Loading…</p></div>
+    <p class="muted">No smartphone? Use a library computer: open the address below, choose "Shared or public computer", and use your written voter code.</p>
+    <p><strong id="address"></strong></p>
+  </main>
+  <script type="module" src="dist/notice.js"></script>
+</body>
+</html>

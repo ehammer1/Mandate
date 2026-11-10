@@ -9,6 +9,7 @@ import { ethers } from 'ethers';
 import { describeCall, COUNCIL_ABI } from './council.js';
 import { readDoc } from './notices.js';
 import { loadRules } from './rules.js';
+import { informedHtml } from './informed.js';
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -311,6 +312,7 @@ async function boot() {
   state.cfg = await res.json();
   state.provider = new ethers.JsonRpcProvider(state.cfg.rpcUrl, undefined, { staticNetwork: true, cacheTimeout: -1 });
   renderContracts();
+  $('informed').innerHTML = informedHtml(state.cfg);
   for (const b of document.querySelectorAll('#alert-filters button')) {
     b.onclick = () => {
       state.sev = b.dataset.sev;
