@@ -44,6 +44,23 @@ const ADMIN = ethers.ZeroHash;
     await tx.wait();
     console.log(`${label}: ${tx.hash}`);
   };
+  // Finishing a previous run: once the new council holds the voter list, the old one steps down.
+  if (dep.oldCouncilPending && !dep.migration) {
+    const identity = new ethers.Contract(dep.addresses.identity, abi('IdentityRegistry'), signer);
+    const old = new ethers.Contract(dep.oldCouncilPending.council, abi('Council'), signer);
+    if (!(await identity.hasRole(ADMIN, dep.addresses.council))) return console.log('waiting: the old council has not yet run the move of the voter list');
+    if (!(await identity.hasRole(ADMIN, dep.oldCouncilPending.council))) {
+      delete dep.oldCouncilPending;
+      save();
+      return console.log('done: the old council has stepped down');
+    }
+    const data = identity.interface.encodeFunctionData('revokeRole', [ADMIN, dep.oldCouncilPending.council]);
+    const rc = await (await old.propose(dep.addresses.identity, 0, data, 'The old council steps down from the voter list (the new council now holds it)')).wait();
+    const id = old.interface.parseLog(rc.logs.find((l) => l.topics[0] === old.interface.getEvent('Proposed').topicHash)).args.id;
+    dep.oldCouncilPending.stepDown = String(id);
+    save();
+    return console.log(`old council change #${id} proposed: step down (approve it in the app: Admin, Previous council)`);
+  }
   const m = (dep.migration ||= {});
   const oldCouncil = new ethers.Contract(dep.addresses.council, abi('Council'), signer);
   const members = [...(await oldCouncil.members())];
@@ -109,10 +126,9 @@ const ADMIN = ethers.ZeroHash;
   const identity = at('IdentityRegistry', dep.addresses.identity);
   if (!m.identityProposals) {
     const ids = [];
-    for (const [data, why] of [
-      [identity.interface.encodeFunctionData('grantRole', [ADMIN, m.council]), 'Move the voter list to the new council (with terms, answerable to public votes)'],
-      [identity.interface.encodeFunctionData('revokeRole', [ADMIN, dep.addresses.council]), 'The old council steps down from the voter list (run after the move above)'],
-    ]) {
+    // Only the move now: the step-down (instant once approved) is proposed after the move has run,
+    // so the voter list is never left without an admin.
+    for (const [data, why] of [[identity.interface.encodeFunctionData('grantRole', [ADMIN, m.council]), 'Move the voter list to the new council (with terms, answerable to public votes)']]) {
       const rc = await (await oldCouncil.propose(dep.addresses.identity, 0, data, why)).wait();
       ids.push(String(oldCouncil.interface.parseLog(rc.logs.find((l) => l.topics[0] === oldCouncil.interface.getEvent('Proposed').topicHash)).args.id));
       console.log(`old council change #${ids.at(-1)} proposed: ${why}`);
