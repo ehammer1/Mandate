@@ -8,6 +8,7 @@
  * nobody can tell whose record is whose. Several variants tolerate the usual differences:
  *   v1  surname + first name + date of birth + ZIP          (moved house within the ZIP)
  *   v2  surname + date of birth + house number + ZIP        (nickname, initial, typo in first name)
+ *   v3  surname + date of birth + house number + street + ZIP  (required before mailing anything to an address)
  * and every part of a hyphenated or double surname counts on its own.
  */
 
@@ -37,6 +38,13 @@ const zip = (s) => (String(s || '').match(/\d{5}/) || [''])[0];
 /** House number from a house-number field or a street line: "123B Main St" -> "123B". */
 const house = (s) => (String(s || '').trim().toUpperCase().match(/^\d+[A-Z]?/) || [''])[0];
 
+const SUFFIXES = new Set(['st', 'street', 'ave', 'av', 'avenue', 'rd', 'road', 'dr', 'drive', 'ln', 'lane', 'ct', 'court', 'blvd', 'boulevard', 'pl', 'place', 'way', 'ter', 'terrace', 'cir', 'circle', 'hwy', 'highway', 'pkwy', 'parkway', 'sq', 'square', 'trl', 'trail', 'n', 's', 'e', 'w', 'north', 'south', 'east', 'west', 'ne', 'nw', 'se', 'sw']);
+/** Street name from a street line, without house number, unit, type or direction: "123B N Main St Apt 4" -> "main". */
+function street(s) {
+  const t = String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/^\s*\d+[a-z]?\s+/, '').split(/[,#]|\b(?:apt|apartment|unit|ste|suite|fl|floor)\b/)[0];
+  return t.split(/[^a-z0-9]+/).filter((w) => w && !SUFFIXES.has(w)).join('');
+}
+
 /**
  * @param {{ first: string, last: string, dob: string, house: string, zip: string }} p
  * @returns {string[]} match variants (empty if the details are too incomplete to match safely)
@@ -45,12 +53,14 @@ function variants(p) {
   const f = letters(p.first);
   const d = dob(p.dob);
   const z = zip(p.zip);
-  const h = house(p.house);
+  const h = house(p.house || p.street);
   if (!d || !z) return [];
   const out = [];
   for (const l of surnames(p.last)) {
     if (f) out.push(`v1|${l}|${f}|${d}|${z}`);
     if (h) out.push(`v2|${l}|${d}|${h}|${z}`);
+    const st = street(p.street ?? p.house);
+    if (h && st) out.push(`v3|${l}|${d}|${h}|${st}|${z}`);
   }
   return out;
 }
@@ -66,6 +76,7 @@ function lookUp(roll, key, person) {
   if (!vs.length) return { matched: false, incomplete: true };
   const found = new Set();
   let shared = false;
+  let streetMatched = false;
   let on = '';
   for (const v of vs) {
     const hit = roll.entries[fingerprint(key, v)];
@@ -76,11 +87,12 @@ function lookUp(roll, key, person) {
     }
     found.add(hit);
     on ||= v.startsWith('v1') ? 'name, date of birth and ZIP' : 'surname, date of birth, house number and ZIP';
+    if (v.startsWith('v3')) streetMatched = true;
   }
   // Exactly one registration fits: a match, even if a looser combination was shared.
   if (found.size > 1 || (!found.size && shared)) return { matched: false, ambiguous: true };
   if (!found.size) return { matched: false };
-  return { matched: true, registration: [...found][0], matchedOn: on };
+  return { matched: true, registration: [...found][0], matchedOn: on, streetMatched };
 }
 
-module.exports = { variants, fingerprint, lookUp, normalize: { letters, surnames, dob, zip, house } };
+module.exports = { variants, fingerprint, lookUp, normalize: { letters, surnames, dob, zip, house, street } };

@@ -120,6 +120,8 @@ async function appleClientSecret(apple, clientId) {
  * @param {object} [o.emailSender]           senders.js sender; enables email sign-up with one-time codes
  * @param {number} [o.rateLimitPerMin]       requests per IP per minute (default 20)
  * @param {number} [o.emailCodesPerIpHour]   sign-up codes per IP per hour (default 10)
+ * @param {number} [o.mailPerIpHour]       letter requests per IP per hour (default 3)
+ * @param {object} [o.mailer]              mail.js mailer: verification codes by post to registered addresses (voter-roll cities)
  * @param {object} [o.mdl]                 createMdlVerifier(...): sign-up with a state mobile ID (verified tier)
  * @param {() => object} [o.roll]           the voter roll file (scripts/roll-import.js), or null
  * @param {string} [o.rollKey]               the key its fingerprints were made with (ROLL_KEY)
@@ -456,23 +458,105 @@ function createIdentityService(o) {
     }
     const docHash = hmac(canonicalDoc({ kind: r.jurisdiction.length === 2 ? 'state' : 'other', region: r.jurisdiction, number: r.documentNumber }));
     if ((await registry.commitmentOfDoc(docHash)) !== 0n) return [409, { error: 'This ID has already been used to enrol someone. If you lost your phone, ask the clerk to remove your old voter code.' }];
-    const m = await registry.members(r.commitment);
-    if (m.active && Number(m.tier) >= 1) return [409, { error: 'This voter code already has its ID checked.' }];
+    return enrolVerified(r.commitment, docHash, `mobile ID (${r.jurisdiction})`);
+  }
+
+  /** Enrol at the ID-checked level, or upgrade a basic member. */
+  async function enrolVerified(commitment, docHash, how) {
+    const m = await registry.members(commitment);
+    if (m.active && Number(m.tier) >= 1) return [409, { error: 'This voter code is already ID-checked.' }];
     if (m.issuer !== ethers.ZeroAddress && !m.active) return [409, { error: 'This voter code was removed. Please make a new one.' }];
     try {
       const run = queue.then(async () => {
-        const tx = m.active ? await registry.upgrade(r.commitment, docHash, 0) : await registry.enroll(r.commitment, 1, docHash, 0);
+        const tx = m.active ? await registry.upgrade(commitment, docHash, 0) : await registry.enroll(commitment, 1, docHash, 0);
         await tx.wait();
         return tx.hash;
       });
       queue = run.catch(() => {});
       const tx = await run;
-      log(`enrolled a voter via mobile ID (${r.jurisdiction}) tx=${tx}`);
+      log(`enrolled a voter via ${how} tx=${tx}`);
       return [200, { enrolled: 'verified', tx }];
     } catch (e) {
-      log(`mobile ID enrol failed: ${e.revert?.name || e.shortMessage || e.message}`);
-      return [e.revert?.name === 'DocumentAlreadyUsed' ? 409 : 502, { error: e.revert?.name === 'DocumentAlreadyUsed' ? 'This ID has already been used to enrol someone.' : 'Enrolment failed on the network. Please try again later.' }];
+      log(`${how} enrol failed: ${e.revert?.name || e.shortMessage || e.message}`);
+      return [e.revert?.name === 'DocumentAlreadyUsed' ? 409 : 502, { error: e.revert?.name === 'DocumentAlreadyUsed' ? 'This registration or ID has already been used to enrol someone.' : 'Enrolment failed on the network. Please try again later.' }];
     }
+  }
+
+  // POST /roll/mail/start  { commitment, ts, proof, person: { first, last, dob, street, line2?, city, state, zip } } -> { sent }
+  // POST /roll/mail/verify { commitment, ts, proof, person, code } -> { enrolled: 'verified', tx }
+  // Voter-roll cities: the person's details must match their registration, including the
+  // street, and a code goes by post in a sealed letter to that registered address. The code
+  // is derived (registration, voter code, month), so nothing waits in storage meanwhile.
+  const mailIp = new Map();
+  const mailReg = new Map();
+  const mailTries = new Map();
+  const mailCode = (registration, commitment, month) => {
+    const h = crypto.createHmac('sha256', String(o.pepper)).update(`mailcode|${registration}|${commitment}|${month}`).digest();
+    const A = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    return Array.from(h.subarray(0, 8), (b) => A[b % 32]).join('');
+  };
+  const month = (offset = 0) => {
+    const d = new Date();
+    d.setUTCDate(1);
+    d.setUTCMonth(d.getUTCMonth() + offset);
+    return d.toISOString().slice(0, 7);
+  };
+
+  async function rollMailCheck(body) {
+    const roll = o.roll && o.roll();
+    if (!o.mailer || !roll || !o.rollKey || ((o.clerkAnchor && o.clerkAnchor()) || 'id') !== 'roll') return { err: [503, { error: 'Verification by mail is not available here.' }] };
+    let commitment;
+    try {
+      commitment = verifyOwnership(body.commitment, body.ts, body.proof);
+    } catch {
+      return { err: [400, { error: 'Could not confirm this voter code belongs to you. Please try again.' }] };
+    }
+    const p = body.person || {};
+    const r = lookUp(roll, o.rollKey, p);
+    if (r.ambiguous) return { err: [409, { error: 'These details fit more than one registration. Please verify in person at the clerk.' }] };
+    if (!r.matched || !r.streetMatched) return { err: [404, { error: 'We could not find a registration with exactly these details, including your street. Check them against your voter registration card, or verify in person.' }] };
+    const docHash = hmac(canonicalDoc({ kind: 'roll', region: roll.state, number: r.registration }));
+    if ((await registry.commitmentOfDoc(docHash)) !== 0n) return { err: [409, { error: 'This registration has already been used to enrol someone. If that wasn\'t you, please contact the city clerk.' }] };
+    const me = await registry.issuers(await o.signer.getAddress());
+    if (!me.active || Number(me.maxTier) < 1) return { err: [503, { error: 'Verification by mail is waiting for the council to approve this service for ID checks.' }] };
+    return { commitment, registration: r.registration, docHash, person: p, state: roll.state };
+  }
+
+  async function rollMailStart(body, ip) {
+    if ((recentCount(mailIp, ip, 3600_000)).length >= (o.mailPerIpHour ?? 3)) return [429, { error: 'Too many requests. Please try again in an hour.' }];
+    mailIp.get(ip).push(Date.now());
+    const c = await rollMailCheck(body);
+    if (c.err) return c.err;
+    const sent = recentCount(mailReg, c.registration, 30 * 86_400_000);
+    if (sent.length >= 2) return [429, { error: 'Two letters have already been sent for this registration this month. Please wait for them, or verify in person.' }];
+    sent.push(Date.now());
+    const p = c.person;
+    try {
+      await o.mailer.send(
+        { name: `${String(p.first || '').trim()} ${String(p.last || '').trim()}`.trim(), address_line1: String(p.street || '').trim(), address_line2: String(p.line2 || '').trim() || undefined, address_city: String(p.city || '').trim(), address_state: String(p.state || c.state).trim(), address_zip: String(p.zip || '').trim() },
+        mailCode(c.registration, c.commitment, month()),
+      );
+    } catch (e) {
+      log(`letter failed: ${e.message}`);
+      return [502, { error: 'We could not send the letter. Please try again later.' }];
+    }
+    log(`verification letter sent for a ${c.state} registration`);
+    return [200, { sent: true }];
+  }
+
+  async function rollMailVerify(body) {
+    const c = await rollMailCheck(body);
+    if (c.err) return c.err;
+    const tries = recentCount(mailTries, String(c.commitment), 3600_000);
+    if (tries.length >= 5) return [429, { error: 'Too many attempts. Please wait an hour.' }];
+    tries.push(Date.now());
+    const code = String(body.code || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    const ok = [month(), month(-1)].some((mo) => {
+      const want = Buffer.from(mailCode(c.registration, c.commitment, mo));
+      return code.length === want.length && crypto.timingSafeEqual(Buffer.from(code), want);
+    });
+    if (!ok) return [400, { error: 'That code is not right, or it has expired. Check the letter, or request a new one.' }];
+    return enrolVerified(c.commitment, c.docHash, `mailed code (${c.state} voter roll)`);
   }
 
   async function emailStart(body, ip) {
@@ -578,9 +662,10 @@ function createIdentityService(o) {
         const list = [...providers.values()].map((p) => ({ id: p.id, name: p.name, tier: p.tier }));
         if (o.emailSender) list.push({ id: 'email', name: 'Email', tier: 0, kind: 'email' });
         if (o.mdl) list.push({ id: 'mdl', name: 'Mobile ID', tier: 1, kind: 'mdl' });
+        if (o.mailer && o.roll && o.roll() && (o.clerkAnchor ? o.clerkAnchor() : 'id') === 'roll') list.push({ id: 'mail', name: 'Code by mail', tier: 1, kind: 'mail' });
         return res.end(JSON.stringify(list));
       }
-      if (url.pathname.startsWith('/email/') || url.pathname.startsWith('/clerk/') || url.pathname.startsWith('/mdl/')) {
+      if (url.pathname.startsWith('/email/') || url.pathname.startsWith('/clerk/') || url.pathname.startsWith('/mdl/') || url.pathname.startsWith('/roll/')) {
         // Called from the voter app's page: allow its origin only.
         const origin = req.headers.origin || '';
         const cors = o.allowedReturnOrigins.includes(origin) ? { 'Access-Control-Allow-Origin': origin, Vary: 'Origin' } : {};
@@ -601,7 +686,7 @@ function createIdentityService(o) {
         } catch {
           return json(400, { error: 'Invalid request.' });
         }
-        const route = { '/email/start': () => emailStart(body, ip), '/email/verify': () => emailVerify(body), '/clerk/doc-hash': () => clerkDocHash(body), '/clerk/roll-match': () => clerkRollMatch(body), '/mdl/start': () => mdlStart(body), '/mdl/finish': () => mdlFinish(body, origin) }[url.pathname];
+        const route = { '/email/start': () => emailStart(body, ip), '/email/verify': () => emailVerify(body), '/clerk/doc-hash': () => clerkDocHash(body), '/clerk/roll-match': () => clerkRollMatch(body), '/mdl/start': () => mdlStart(body), '/mdl/finish': () => mdlFinish(body, origin), '/roll/mail/start': () => rollMailStart(body, ip), '/roll/mail/verify': () => rollMailVerify(body) }[url.pathname];
         const [status, out] = route ? await route() : [404, { error: 'Not found' }];
         return json(status, out);
       }
@@ -687,6 +772,7 @@ if (require.main === module) {
       emailSender: senderFromEnv(),
       clerkAnchor: () => anchor,
       mdl: await mdlFromEnv(),
+      mailer: require('./mail').mailerFromEnv(),
       roll: () => roll,
       rollKey: clean(process.env.ROLL_KEY) || undefined,
     });

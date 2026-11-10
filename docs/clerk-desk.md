@@ -51,6 +51,23 @@ front of the clerk is that voter. That is the clerk's in-person check (signature
 document, questions), as at a polling place. Voter rolls are public records in many
 states, which is why lookups are only open to approved clerk desks, rate-limited and logged.
 
+## Verify by mail (voter-roll cities)
+
+People can also verify from home: in the app, **Verify by mail** asks for their name, date
+of birth and registered address. If the details match their registration, **including the
+street** (house number and ZIP alone are not enough, so nobody can redirect a stranger's
+letter), a code is mailed in a sealed letter to that address through Lob. Entering the code
+makes them an ID-checked resident, with the same one-person fingerprint a desk would make
+from their registration.
+
+- Nothing is stored while the letter travels: the code is derived from the registration,
+  the voter code and the month, and works for about a month.
+- At most 2 letters per registration a month and 3 requests per connection an hour; 5 code
+  attempts an hour.
+- Only in voter-roll cities (otherwise it would be a second way to enrol beside photo ID).
+- Needs: the roll loaded, `MAIL_PROVIDER=lob` with `LOB_API_KEY` and the clerk's return
+  address (`MAIL_FROM_*`), and the council's approval of the identity service for ID checks.
+
 ## At the desk
 
 1. **Open the desk** once per shift. The clerk's account signs a short message (silent with

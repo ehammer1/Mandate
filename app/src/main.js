@@ -250,8 +250,11 @@ async function refreshStatus() {
       const at = await state.registry.seasonedAt(c);
       extra = `<p>Full voting rights from <strong>${esc(when(at))}</strong> (new residents wait 30 days).</p>`;
     }
-    el.innerHTML = `<p class="big">${esc(TIER[tier])}</p><p>Enrolled by ${esc(iss.name || 'an approved source')}.</p>${extra}${tier === 0 ? '<div id="mdl-upgrade"></div>' : ''}`;
-    if (tier === 0) await renderMdlOption($('mdl-upgrade'), 'Get full voting rights with your mobile ID');
+    el.innerHTML = `<p class="big">${esc(TIER[tier])}</p><p>Enrolled by ${esc(iss.name || 'an approved source')}.</p>${extra}${tier === 0 ? '<div id="mdl-upgrade"></div><div id="mail-upgrade"></div>' : ''}`;
+    if (tier === 0) {
+      await renderMdlOption($('mdl-upgrade'), 'Get full voting rights with your mobile ID');
+      await renderMailOption($('mail-upgrade'));
+    }
   } catch (e) {
     el.innerHTML = `<p class="error">Could not reach the network: ${esc(e.shortMessage || e.message)}</p>`;
   }
@@ -279,10 +282,12 @@ async function renderJoinOnline() {
   const basic = providers.filter((p) => p.tier === 0 && p.kind !== 'email');
   const verified = providers.filter((p) => p.tier === 1 && p.kind !== 'mdl');
   const hasMdl = providers.some((p) => p.kind === 'mdl');
+  const hasMail = providers.some((p) => p.kind === 'mail');
   const hasEmail = providers.some((p) => p.kind === 'email');
   const btn = (p) => `<button data-join="${esc(p.id)}">Continue with ${esc(p.name)}</button>`;
   box.innerHTML = `
     ${hasMdl ? '<div id="mdl-join"></div>' : ''}
+    ${hasMail ? '<div id="mail-join"></div>' : ''}
     ${verified.length ? `<p><strong>Join as a verified resident</strong></p><div class="stack">${verified.map(btn).join('')}</div>` : ''}
     ${basic.length || hasEmail ? `<p style="margin-top:12px"><strong>Join online</strong> <span class="note">(basic membership: advisory polls and proposals)</span></p>` : ''}
     ${basic.length ? `<div class="stack">${basic.map(btn).join('')}</div>` : ''}
@@ -298,6 +303,7 @@ async function renderJoinOnline() {
         <p class="status" id="email-status" role="status"></p>
       </div>` : ''}`;
   if (hasMdl) await renderMdlOption($('mdl-join'), 'Join as a verified resident with your mobile ID');
+  if (hasMail) await renderMailOption($('mail-join'));
   if (hasEmail) {
     wireEmailJoin(url);
     if (state.wantEmailJoin) {
@@ -377,6 +383,70 @@ async function verifyWithMobileId(serviceUrl) {
   } finally {
     if ($('btn-mdl')) $('btn-mdl').disabled = false;
   }
+}
+
+// ------------------------------------------------------- verify by mail
+//
+// Voter-roll cities: match your registration (name, birth date and registered address),
+// then enter the code from a letter mailed to that address.
+
+async function renderMailOption(box) {
+  const url = state.config.identityService;
+  if (!box || !url) return;
+  let providers = [];
+  try {
+    providers = await (await fetch(`${url.replace(/\/+$/, '')}/providers`, { cache: 'no-store' })).json();
+  } catch {
+    return;
+  }
+  if (!providers.some((p) => p.kind === 'mail')) return;
+  const f = (id, label, attrs = '') => `<label for="${id}">${label}</label><input type="text" id="${id}" ${attrs} />`;
+  box.innerHTML = `<details class="card" id="mail-option"><summary><strong>Verify by mail</strong> with your voter registration</summary>
+    <div class="stack">
+      <p class="note">Enter your details exactly as registered to vote. We mail a code in a sealed letter to that address; enter it here when it arrives (usually 3 to 7 days). Nothing you type is stored.</p>
+      <div class="row">${f('mail-first', 'First name', 'autocomplete="given-name"')}${f('mail-last', 'Surname', 'autocomplete="family-name"')}</div>
+      <label for="mail-dob">Date of birth</label><input type="date" id="mail-dob" style="min-height:48px;font:inherit;border-radius:10px;padding:8px" />
+      ${f('mail-street', 'Street address (as registered)', 'autocomplete="address-line1"')}
+      ${f('mail-line2', 'Apartment or unit (optional)', 'autocomplete="address-line2"')}
+      <div class="row">${f('mail-city', 'City', 'autocomplete="address-level2"')}${f('mail-state', 'State', 'autocomplete="address-level1" maxlength="2" style="width:80px"')}${f('mail-zip', 'ZIP', 'autocomplete="postal-code" inputmode="numeric" style="width:110px"')}</div>
+      <button id="btn-mail-send">Mail me a code</button>
+      <label for="mail-code">Code from the letter</label>
+      <div class="row"><input type="text" id="mail-code" autocomplete="one-time-code" maxlength="10" style="width:160px;text-transform:uppercase" /><button class="primary" id="btn-mail-verify">Confirm</button></div>
+      <p class="status" id="mail-status" role="status"></p>
+    </div></details>`;
+  const person = () => ({ first: $('mail-first').value, last: $('mail-last').value, dob: $('mail-dob').value, street: $('mail-street').value, line2: $('mail-line2').value, city: $('mail-city').value, state: $('mail-state').value, zip: $('mail-zip').value });
+  const post = async (path, extra) => {
+    const res = await fetch(`${url.replace(/\/+$/, '')}${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...ownershipProof({ serviceUrl: url, identity: state.identity }), person: person(), ...extra }) });
+    const out = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(out.error || `The service answered ${res.status}.`);
+    return out;
+  };
+  const el = $('mail-status');
+  $('btn-mail-send').onclick = async () => {
+    $('btn-mail-send').disabled = true;
+    try {
+      status(el, 'Checking your registration…');
+      await post('/roll/mail/start');
+      status(el, 'Letter on its way to your registered address. When it arrives, enter your details again with the code.', 'ok');
+    } catch (e) {
+      status(el, e.message, 'error');
+    } finally {
+      $('btn-mail-send').disabled = false;
+    }
+  };
+  $('btn-mail-verify').onclick = async () => {
+    $('btn-mail-verify').disabled = true;
+    try {
+      status(el, 'Checking the code…');
+      await post('/roll/mail/verify', { code: $('mail-code').value });
+      status(el, 'Verified: you are now an ID-checked resident.', 'ok');
+      setTimeout(refreshStatus, 800);
+    } catch (e) {
+      status(el, e.message, 'error');
+    } finally {
+      if ($('btn-mail-verify')) $('btn-mail-verify').disabled = false;
+    }
+  };
 }
 
 function wireEmailJoin(serviceUrl) {

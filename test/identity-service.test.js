@@ -21,6 +21,7 @@ const APP = 'http://localhost:9999/app/';
 let provider, c, idp, gov, msft, service, serviceUrl, issuerKey;
 let anchor = 'id';
 let mdlIssuer;
+const mailer = require('../services/identity/mail').createMemoryMailer();
 const ROLL_KEY = 'r'.repeat(48);
 const ROLL_CSV = [
   'VOTER_ID,FIRST_NAME,LAST_NAME,BIRTH_DATE,RES_ADDRESS,ZIP_CODE',
@@ -67,6 +68,8 @@ before(async () => {
     emailCodesPerIpHour: 1000,
     clerkAnchor: () => anchor,
     roll: () => testRoll,
+    mailer,
+    mailPerIpHour: 1000,
     mdl: require('../services/identity/mdl').createMdlVerifier({ roots: [mdlIssuer.rootPem], zips: ['972'] }),
     rollKey: ROLL_KEY,
     allowInsecure: true,
@@ -434,4 +437,43 @@ test('mobile ID: a state mobile licence makes a verified resident, with the same
   const s4 = await post('/mdl/start', ownershipProof({ serviceUrl, identity: new Identity('mobile-id-phished') }));
   const r4 = await post('/mdl/finish', { session: s4.session, response: await answer(other, s4.request, 'https://phish.example') });
   assert.equal(r4.status, 400);
+});
+
+test('verify by mail (voter-roll city): details must match the registration including the street; the code goes to that address', async () => {
+  const { ownershipProof } = require('../client/enrol');
+  const origin = new URL(APP).origin;
+  const post = (path, body) => fetch(`${serviceUrl}${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: origin }, body: JSON.stringify(body) }).then(async (r) => ({ status: r.status, ...(await r.json()) }));
+  const me = new Identity('mail-verified-person');
+  const person = { first: 'Robert', last: 'Garcia-Lopez', dob: '1980-04-12', street: '123B Main Street', line2: 'Apt 4', city: 'Portland', state: 'OR', zip: '97201' };
+  const ask = (path, extra) => post(path, { ...ownershipProof({ serviceUrl, identity: me }), person, ...extra });
+
+  anchor = 'id';
+  assert.equal((await ask('/roll/mail/start')).status, 503); // photo-ID city: not offered
+  anchor = 'roll';
+  assert.ok((await (await fetch(`${serviceUrl}/providers`)).json()).some((p) => p.kind === 'mail'));
+
+  // Same house number and ZIP but another street: refused, nothing is mailed.
+  const elsewhere = await post('/roll/mail/start', { ...ownershipProof({ serviceUrl, identity: me }), person: { ...person, street: '123B Pine Street' } });
+  assert.equal(elsewhere.status, 404);
+  assert.equal(mailer.outbox.length, 0);
+
+  assert.equal((await ask('/roll/mail/start')).sent, true);
+  assert.equal(mailer.outbox.length, 1);
+  const letter = mailer.outbox[0];
+  assert.deepEqual([letter.to.name, letter.to.address_line1, letter.to.address_line2, letter.to.address_zip], ['Robert Garcia-Lopez', '123B Main Street', 'Apt 4', '97201']);
+  assert.match(letter.code, /^[A-Z2-9]{8}$/);
+
+  assert.equal((await ask('/roll/mail/verify', { code: 'WRONG123' })).status, 400);
+  const ok = await ask('/roll/mail/verify', { code: letter.code.toLowerCase() });
+  assert.equal(ok.enrolled, 'verified', JSON.stringify(ok));
+  assert.equal((await c.identity.members(me.commitment)).tier >= 1n, true);
+
+  // The registration now backs a voter code: no second one, by mail or otherwise.
+  const other = new Identity('mail-second-phone');
+  const again = await post('/roll/mail/start', { ...ownershipProof({ serviceUrl, identity: other }), person });
+  assert.equal(again.status, 409);
+  // The code only works for the voter code it was mailed for.
+  const stolen = await post('/roll/mail/verify', { ...ownershipProof({ serviceUrl, identity: other }), person, code: letter.code });
+  assert.equal(stolen.status, 409); // registration already used (and the code wouldn't match anyway)
+  anchor = 'id';
 });

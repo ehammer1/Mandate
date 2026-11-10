@@ -52,6 +52,23 @@ services:
         sync: false          # a PEM bundle of the states' IACA root certificates (e.g. from AAMVA's Digital Trust Service)
       - key: MDL_ZIPS
         sync: false          # comma-separated ZIP codes or prefixes of the community, e.g. 972
+      # Verify by mail (voter-roll cities): codes in sealed letters to registered addresses, via Lob.
+      - key: MAIL_PROVIDER
+        sync: false          # "lob" to switch it on
+      - key: LOB_API_KEY
+        sync: false
+      - key: MAIL_COMMUNITY
+        sync: false          # e.g. "the City of Example" (printed in the letter)
+      - key: MAIL_FROM_NAME
+        sync: false          # the city clerk's return address
+      - key: MAIL_FROM_LINE1
+        sync: false
+      - key: MAIL_FROM_CITY
+        sync: false
+      - key: MAIL_FROM_STATE
+        sync: false
+      - key: MAIL_FROM_ZIP
+        sync: false
       # Voter roll for clerk-desk lookups (scripts/roll-import.js). TESTNET DEMO: a fictional roll
       # whose key is public on purpose (demo/README.md). For a real roll, set ROLL_KEY as a
       # secret in the dashboard instead (sync: false) and never commit it.

@@ -18,6 +18,7 @@ const { createMockOidc } = require('./helpers/mock-oidc');
 const { createMemorySender } = require('../services/identity/senders');
 const { createEmailPolicy } = require('../services/identity/email-policy');
 const mail = createMemorySender();
+const postbox = require('../services/identity/mail').createMemoryMailer();
 const net = require('node:net');
 const fs = require('node:fs');
 const os = require('node:os');
@@ -114,6 +115,8 @@ before(async () => {
     clerkAnchor: () => appOpts.config.clerkAnchor || 'id',
     roll: () => appRoll,
     rollKey: ROLL_KEY,
+    mailer: postbox,
+    mailPerIpHour: 1000,
     log: () => {},
   });
   await new Promise((r) => idService.listen(idPort, '127.0.0.1', r));
@@ -939,4 +942,39 @@ test('civic budget: open a round, spread credits quadratically and privately, fu
   assert.match(await page.textContent(`#round-${id} .budget-row[data-i="0"]`), /✓ funded/);
   assert.match(await page.textContent(`#round-${id} .budget-row[data-i="2"]`), /not funded/);
   await shot('14-budget');
+});
+
+test('verify by mail: a newcomer matches their voter registration and confirms the code from the letter', async () => {
+  appConfig.clerkAnchor = 'roll';
+  // The council has approved the sign-in service for ID checks (here: the test admin does it directly).
+  await (await c.identity.setIssuer((await provider.getSigner(3)).address, 1, true, 'Online sign-up')).wait();
+  await page.evaluate(() => localStorage.clear());
+  await page.reload();
+  await page.click('#device-option summary');
+  await page.click('#btn-device');
+  await page.waitForSelector('#screen-home:not([hidden])');
+  await page.waitForSelector('#mail-option');
+  await page.click('#mail-option summary');
+  await page.fill('#mail-first', 'Sam');
+  await page.fill('#mail-last', 'Lee');
+  await page.fill('#mail-dob', '1990-02-14');
+  await page.fill('#mail-street', '12 Oak Avenue');
+  await page.fill('#mail-city', 'Portland');
+  await page.fill('#mail-state', 'OR');
+  await page.fill('#mail-zip', '97206');
+  await page.click('#btn-mail-send');
+  await page.waitForSelector('#mail-status >> text=Letter on its way', { timeout: 60_000 });
+  const letter = postbox.outbox.at(-1);
+  assert.deepEqual([letter.to.name, letter.to.address_line1, letter.to.address_zip], ['Sam Lee', '12 Oak Avenue', '97206']);
+
+  // Days later: the code from the letter.
+  await page.fill('#mail-code', 'NOTRIGHT');
+  await page.click('#btn-mail-verify');
+  await page.waitForSelector('#mail-status >> text=That code is not right');
+  await page.fill('#mail-code', letter.code);
+  await page.click('#btn-mail-verify');
+  await page.waitForSelector('#mail-status >> text=you are now an ID-checked resident', { timeout: 60_000 });
+  await page.waitForFunction(() => /Verified resident|full voting rights/i.test(document.querySelector('#membership .big')?.textContent || ''), null, { timeout: 30_000 });
+  await shot('15-verified-by-mail');
+  delete appConfig.clerkAnchor;
 });
