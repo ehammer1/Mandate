@@ -15,5 +15,6 @@
   "identityService": "https://mandate-identity.onrender.com",
   "registryAddress": "0xf5ad5AfF071C6685290E7e9985AC85bFAa3b0C74",
   "marketAddress": "0xbf760Bd9b13cf541954074dF2beb5b8448F94a6E",
-  "startBlock": 56415036
+  "startBlock": 56415036,
+  "councilAddress": "0x4c0eC8820a4514DdB8aA3D98dEf878c6e296797F"
 }

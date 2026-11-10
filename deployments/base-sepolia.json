@@ -11,7 +11,8 @@
     "credits": "0x0fd384570c082ABb8eb1Da5f7994d1246872AA52",
     "registry": "0xf5ad5AfF071C6685290E7e9985AC85bFAa3b0C74",
     "vote": "0x87325d0Adc1950AB89891b5CaA57eD10438Bab5c",
-    "market": "0xbf760Bd9b13cf541954074dF2beb5b8448F94a6E"
+    "market": "0xbf760Bd9b13cf541954074dF2beb5b8448F94a6E",
+    "council": "0x4c0eC8820a4514DdB8aA3D98dEf878c6e296797F"
   },
   "startBlock": 56415036
 }
