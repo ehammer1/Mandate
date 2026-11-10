@@ -47,10 +47,13 @@ services:
         sync: false
       - key: EMAIL_FROM            # sender address, e.g. "Mandate <signup@yourdomain.org>"
         sync: false
+      # Voter roll for clerk-desk lookups (scripts/roll-import.js). TESTNET DEMO: a fictional roll
+      # whose key is public on purpose (demo/README.md). For a real roll, set ROLL_KEY as a
+      # secret in the dashboard instead (sync: false) and never commit it.
       - key: ROLL_URL
-        sync: false          # optional: the city's voter-roll file (scripts/roll-import.js), fingerprints only
+        value: https://ehammer1.github.io/Mandate/roll/demo-or.json
       - key: ROLL_KEY
-        sync: false          # optional: the secret that roll file was made with
+        value: mandate-testnet-demo-roll-key-fictional-people-only
       - key: GOOGLE_CLIENT_ID
         sync: false
       - key: GOOGLE_CLIENT_SECRET
