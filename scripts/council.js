@@ -7,6 +7,7 @@
  *                                           power, remove every individual admin
  *   NETWORK=base-sepolia node scripts/council.js status
  *   NETWORK=base-sepolia node scripts/council.js approve|execute|cancel <id>
+ *   NETWORK=base-sepolia node scripts/council.js propose-role <identity|registry|vote|market> <ROLE_NAME> <address> "<reason>"
  *
  * Signs with DEPLOYER_PRIVATE_KEY. Hand-over must run while that key is still an admin.
  * Updates deployments/<NETWORK>.json and app/config.<NETWORK>.json with the council address.
@@ -83,6 +84,17 @@ async function main() {
       const [p, s, approvals] = await council.proposal(id);
       console.log(`#${id} ${STATES[Number(s)]} (${approvals} approvals): ${p.description} -> ${p.target} ${p.data.slice(0, 10)}`);
     }
+    return;
+  }
+  if (cmd === 'propose-role') {
+    const [, key, role, who, ...why] = process.argv.slice(2);
+    if (!c[key] || !role || !ethers.isAddress(who)) throw new Error('usage: propose-role <identity|registry|vote|market> <ROLE_NAME> <address> "<reason>"');
+    const roleId = role === 'ADMIN' ? ADMIN : ethers.id(role);
+    const data = c[key].interface.encodeFunctionData('grantRole', [roleId, ethers.getAddress(who)]);
+    const tx = await council.propose(await c[key].getAddress(), 0, data, why.join(' ') || `Grant ${role} to ${who}`);
+    const rc = await tx.wait();
+    const id = rc.logs.map((l) => { try { return council.interface.parseLog(l); } catch { return null; } }).find((e) => e?.name === 'Proposed').args.id;
+    console.log(`proposed council change #${id}: ${link(tx.hash)}`);
     return;
   }
   if (['approve', 'execute', 'cancel'].includes(cmd)) {
