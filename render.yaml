@@ -55,3 +55,25 @@ services:
         sync: false
       - key: MICROSOFT_CLIENT_SECRET
         sync: false
+
+  # Independent watchdog: scans every contract every 15 minutes and publishes its
+  # findings to the repository's `watchdog` branch (the public audit history the
+  # dashboard reads). Render cron jobs are paid: billed per second, $1/month minimum.
+  - type: cron
+    name: mandate-watchdog
+    runtime: node
+    plan: starter
+    schedule: "*/15 * * * *"
+    buildCommand: npm ci --omit=dev --ignore-scripts --force
+    startCommand: bash scripts/watchdog-cron.sh
+    envVars:
+      - key: CONFIG_URL
+        value: https://ehammer1.github.io/Mandate/config.json
+      - key: GITHUB_REPO
+        value: ehammer1/Mandate
+      - key: GITHUB_TOKEN
+        sync: false          # fine-grained token: this repository only, Contents read and write
+      - key: WEBHOOK_URL
+        sync: false          # optional: urgent alerts to Slack or Discord
+      - key: ANTHROPIC_API_KEY
+        sync: false          # optional: plain-language daily reports

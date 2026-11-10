@@ -24,12 +24,32 @@ Each alert names the transaction behind it, so anyone can check it on the block 
 
 ## Where it runs
 
-- **GitHub Actions (default, free):** `.github/workflows/watchdog.yml` runs every 30
-  minutes and commits `report.md`, `alerts.json` and its state to the `watchdog` branch.
-  That branch's history is the permanent public audit trail.
+- **Render cron job (main, about $1/month):** `mandate-watchdog` in `render.yaml` runs
+  `scripts/watchdog-cron.sh` every 15 minutes: it loads the history from the `watchdog`
+  branch, scans, and pushes `report.md`, `alerts.json` and its state back. That branch's
+  history is the permanent public audit trail. Needs `GITHUB_TOKEN` (below).
+- **GitHub Actions (backup, free):** `.github/workflows/watchdog.yml` does the same on
+  GitHub's schedule, which runs only when GitHub has spare capacity (sometimes hours
+  apart). The two take turns safely: a run that finds the branch moved starts again from
+  the newer history.
 - **Anywhere else:** `node services/watchdog/server.js` runs continuously with an HTTP
   feed (`/alerts`, `/report`, `/report.md`). Several independent organisations should
   each run one.
+
+## What it watches besides events
+
+`services/watchdog/watchlist.json`: operational accounts that must not run out of fee money,
+and dates when outside credentials expire (renew, then update the date there).
+
+## Render setup
+
+1. GitHub (signed in as the repository owner): Settings -> Developer settings ->
+   Personal access tokens -> Fine-grained tokens -> Generate new token. Repository access:
+   only `ehammer1/Mandate`. Permissions: Contents -> Read and write. Copy the token.
+2. Render: Blueprints -> the Mandate blueprint -> Manual sync. Render creates
+   `mandate-watchdog` (a cron job needs a payment method on the account).
+3. `mandate-watchdog` -> Environment: paste the token as `GITHUB_TOKEN` -> Save. Then
+   Trigger Run to check: the log ends with "findings published" or "nothing new".
 
 ## Optional settings (GitHub: Settings -> Secrets and variables -> Actions)
 

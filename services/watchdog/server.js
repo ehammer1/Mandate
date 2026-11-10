@@ -26,6 +26,8 @@
  *   ENROL_PER_HOUR        enrolments per identity source per hour before alerting, default 50
  *   WATCH_BALANCES        JSON [{"label":"Relayer","address":"0x…","minEth":"0.0005"}]
  *   WATCH_EXPIRY          JSON [{"label":"Microsoft sign-in secret","expires":"2028-11-08","fix":"…"}]
+ *   WATCH_FILE            JSON file with { balances, expiry } used when the two above are unset
+ *                         (default services/watchdog/watchlist.json)
  *                         warns 30 days ahead (medium), 7 days ahead (high), and once expired (high)
  *   WEBHOOK_URL           optional, receives high-severity alerts
  *   ANTHROPIC_API_KEY     optional, plain-language reports by Claude (rules work without it)
@@ -321,6 +323,8 @@ if (require.main === module) {
   const fs = require('fs');
   const path = require('path');
   const once = process.argv.includes('--once');
+  const watchFile = String(process.env.WATCH_FILE || '').trim() || path.join(__dirname, 'watchlist.json');
+  const watchList = fs.existsSync(watchFile) ? JSON.parse(fs.readFileSync(watchFile, 'utf8')) : {};
   (async () => {
     const env = (n) => String(process.env[n] || '').trim();
     let cfg = {};
@@ -336,8 +340,8 @@ if (require.main === module) {
       startBlock,
       blockSpan: Number(env('LOG_BLOCK_SPAN') || 200),
       enrolPerHour: Number(env('ENROL_PER_HOUR') || 50),
-      watchBalances: env('WATCH_BALANCES') ? JSON.parse(env('WATCH_BALANCES')) : [],
-      watchExpiry: env('WATCH_EXPIRY') ? JSON.parse(env('WATCH_EXPIRY')) : [],
+      watchBalances: env('WATCH_BALANCES') ? JSON.parse(env('WATCH_BALANCES')) : watchList.balances || [],
+      watchExpiry: env('WATCH_EXPIRY') ? JSON.parse(env('WATCH_EXPIRY')) : watchList.expiry || [],
       webhookUrl: env('WEBHOOK_URL') || undefined,
       explorer: cfg.explorer,
     });
