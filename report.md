@@ -1,16 +1,8 @@
 # Mandate audit report
 
-Generated 2026-11-10T10:15:45.000Z · last 24 hours · 44 high, 11 medium, 0 info
+Generated 2026-11-10T12:45:37.000Z · last 24 hours · 43 high, 11 medium, 0 info
 
-44 alert(s) need attention.
-- ADMIN role granted to 0x433B…476F on identity registry
-- ADMIN role granted to 0x433B…476F on mandate registry
-- ADMIN role granted to 0x433B…476F on decision markets
-- Identity source "Mandate app admin" (0x433B…476F) approved, up to verified tier
-- ADMIN role revoked from 0xd868…6fD0 on identity registry
-- ADMIN role revoked from 0xd868…6fD0 on mandate registry
-- ADMIN role revoked from 0xd868…6fD0 on decision markets
-- Identity source "Mandate app admin (key deleted)" (0xd868…6fD0) removed
+43 alert(s) need attention.
 - 0x433B…476F joined the council
 - 0xb8e5…Cb71 joined the council
 - 0xC782…f834 joined the council
@@ -47,20 +39,17 @@ Generated 2026-11-10T10:15:45.000Z · last 24 hours · 44 high, 11 medium, 0 inf
 - ADMIN role granted to 0xC782…f834 on civic budget
 - ADMIN role granted to 0x4c0e…797F on civic budget
 - ADMIN role revoked from 0xC782…f834 on civic budget
+- Council change #1 approved: it can run from 2026-11-10 13:43 UTC (grant VERIFIER to 0xb8e5…Cb71 on mandate registry). Members can still cancel it until then.
+- Council change #6 approved: it can run from 2026-11-10 13:44 UTC (grant GOVERNOR to 0x74eE…12c6 on mandate registry). Members can still cancel it until then.
+- Council change #7 approved: it can run from 2026-11-10 13:44 UTC (grant VETO to 0x74eE…12c6 on decision markets). Members can still cancel it until then.
+- Council change #8 approved: it can run from 2026-11-10 12:44 UTC (revoke GOVERNOR from 0x8732…ab5c on mandate registry). Members can still cancel it until then.
+- Council change #8 carried out: revoke GOVERNOR from 0x8732…ab5c on mandate registry
+- Council change #9 approved: it can run from 2026-11-10 12:45 UTC (revoke VETO from 0x8732…ab5c on decision markets). Members can still cancel it until then.
+- Council change #9 carried out: revoke VETO from 0x8732…ab5c on decision markets
 11 other event(s) were recorded (see the list).
 
 ## All alerts
 
-- **high** ADMIN role granted to 0x433B…476F on identity registry ([tx](https://sepolia.basescan.org/tx/0x5cd5064e37d3f4a5bf8920c1a7e8fdebc0f6c93307d7d30fef503bc58a66762d))
-- **high** ADMIN role granted to 0x433B…476F on mandate registry ([tx](https://sepolia.basescan.org/tx/0x82bd15c713e63954d7af750bca56289931129c222c22678e2c364049f2648555))
-- **high** ADMIN role granted to 0x433B…476F on decision markets ([tx](https://sepolia.basescan.org/tx/0x695050b5a58fc04f29355b9efc401253559a43c6988bd1599ea990488395f093))
-- **medium** ISSUER role granted to 0x433B…476F on identity registry ([tx](https://sepolia.basescan.org/tx/0x22fc700e416d549524841175433e1c538f7f37c4d1ceb3dafdd2c87350e7e304))
-- **high** Identity source "Mandate app admin" (0x433B…476F) approved, up to verified tier ([tx](https://sepolia.basescan.org/tx/0x22fc700e416d549524841175433e1c538f7f37c4d1ceb3dafdd2c87350e7e304))
-- **high** ADMIN role revoked from 0xd868…6fD0 on identity registry ([tx](https://sepolia.basescan.org/tx/0xecf45d48a73b5bb364498300a543eb67bc118850eb45211fd1a5b8548136b038))
-- **high** ADMIN role revoked from 0xd868…6fD0 on mandate registry ([tx](https://sepolia.basescan.org/tx/0x9a27e634c9e23ac6ff7772aa9a65c6249095d1cf0361d07f8193b33f0d8162bd))
-- **high** ADMIN role revoked from 0xd868…6fD0 on decision markets ([tx](https://sepolia.basescan.org/tx/0x2dcab472e8f43476a3fcb5ce220d0621f6bf70534da6be5715eb82d08c6c1c7b))
-- **medium** ISSUER role revoked from 0xd868…6fD0 on identity registry ([tx](https://sepolia.basescan.org/tx/0x844b351cabe509b23195b7fbfab48f5aab15259154d58b3782a772b6989bb6ef))
-- **high** Identity source "Mandate app admin (key deleted)" (0xd868…6fD0) removed ([tx](https://sepolia.basescan.org/tx/0x844b351cabe509b23195b7fbfab48f5aab15259154d58b3782a772b6989bb6ef))
 - **high** 0x433B…476F joined the council ([tx](https://sepolia.basescan.org/tx/0x7249bfb83ee3bc76561c068e44b49f4b012939685c0100435928f35ddd0a6f39))
 - **high** 0xb8e5…Cb71 joined the council ([tx](https://sepolia.basescan.org/tx/0x7249bfb83ee3bc76561c068e44b49f4b012939685c0100435928f35ddd0a6f39))
 - **high** 0xC782…f834 joined the council ([tx](https://sepolia.basescan.org/tx/0x7249bfb83ee3bc76561c068e44b49f4b012939685c0100435928f35ddd0a6f39))
@@ -106,5 +95,14 @@ Generated 2026-11-10T10:15:45.000Z · last 24 hours · 44 high, 11 medium, 0 inf
 - **medium** PROPOSER role granted to 0x433B…476F on civic budget ([tx](https://sepolia.basescan.org/tx/0x99dfb8b6ca4d0b53946d09617af4760458a63ecbb482d891c53a8a3707826fba))
 - **high** ADMIN role granted to 0x4c0e…797F on civic budget ([tx](https://sepolia.basescan.org/tx/0x72915ce0ca862b304ef32e528df1ed493b3005ebc86cb6a9c771ef805b3e4ee1))
 - **high** ADMIN role revoked from 0xC782…f834 on civic budget ([tx](https://sepolia.basescan.org/tx/0xcd0980cd657d77fcb63a80ef09a17c7b0dbf7ebb5b25f750d7ba5c9dee82b64a))
+- **high** Council change #1 approved: it can run from 2026-11-10 13:43 UTC (grant VERIFIER to 0xb8e5…Cb71 on mandate registry). Members can still cancel it until then. ([tx](https://sepolia.basescan.org/tx/0xd163c006a3ce064e4f035d80b3e75f4ffd81b6b7ee4103c24a6f0d858500d875))
+- **high** Council change #6 approved: it can run from 2026-11-10 13:44 UTC (grant GOVERNOR to 0x74eE…12c6 on mandate registry). Members can still cancel it until then. ([tx](https://sepolia.basescan.org/tx/0x72d67251f19cfd9a89942040aa68f48c56accc2bac54347d9874c7fbb69468df))
+- **high** Council change #7 approved: it can run from 2026-11-10 13:44 UTC (grant VETO to 0x74eE…12c6 on decision markets). Members can still cancel it until then. ([tx](https://sepolia.basescan.org/tx/0x07ee033eb7274b31b0a0125e3232ba7393f957891ca9954a9d6887c277c4cd9e))
+- **high** Council change #8 approved: it can run from 2026-11-10 12:44 UTC (revoke GOVERNOR from 0x8732…ab5c on mandate registry). Members can still cancel it until then. ([tx](https://sepolia.basescan.org/tx/0x8295ab1b961ff941200f16e302c9e49ed924034b77b3601839f95df4717b4b36))
+- **medium** GOVERNOR role revoked from 0x8732…ab5c on mandate registry ([tx](https://sepolia.basescan.org/tx/0x227c8ae273761669151ca92e1a03a6b294b6c8f5a538c238163964723dace374))
+- **high** Council change #8 carried out: revoke GOVERNOR from 0x8732…ab5c on mandate registry ([tx](https://sepolia.basescan.org/tx/0x227c8ae273761669151ca92e1a03a6b294b6c8f5a538c238163964723dace374))
+- **high** Council change #9 approved: it can run from 2026-11-10 12:45 UTC (revoke VETO from 0x8732…ab5c on decision markets). Members can still cancel it until then. ([tx](https://sepolia.basescan.org/tx/0xeed1778399ec22c77e5cc25c0ccdc8fb07e0141993da3e85535984a6e05f2617))
+- **medium** VETO role revoked from 0x8732…ab5c on decision markets ([tx](https://sepolia.basescan.org/tx/0xb031e00aa60401a654c6360f11ff9b16f970e304bc4ee705df7543733fa05ced))
+- **high** Council change #9 carried out: revoke VETO from 0x8732…ab5c on decision markets ([tx](https://sepolia.basescan.org/tx/0xb031e00aa60401a654c6360f11ff9b16f970e304bc4ee705df7543733fa05ced))
 
 Summary written by: fixed rules.
