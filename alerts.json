@@ -1,5 +1,25 @@
 [
  {
+  "tx": "0x91b9f1f3b3d71d8233ef0cab43d295570ba1c20a37f9460d6e270a1992bdd777",
+  "block": 56825893,
+  "time": 1794287047,
+  "contract": "council",
+  "event": "Proposed",
+  "rule": "council-proposal",
+  "severity": "high",
+  "title": "Council change #1 proposed by 0xC782…f834: grant VERIFIER to 0xb8e5…Cb71 on mandate registry",
+  "facts": {
+   "proposal": "1",
+   "proposer": "0xC782e1690D4B6c4C2Aba21283a6271477690f834",
+   "target": "0xf5ad5AfF071C6685290E7e9985AC85bFAa3b0C74",
+   "value": "0",
+   "data": "0x2f2ff15d0ce23c3e399818cfee81a7ab0880f714e53d7672b08df0fa62f2843416e1ea09000000000000000000000000b8e5da10ce9be2a0dc3d86cb180c0e605491cb71",
+   "description": "First mandate verifier for the testnet pilot: the owner's Coinbase wallet",
+   "fast": false
+  },
+  "id": "council-proposal:0x91b9f1f3b3d71d8233ef0cab43d295570ba1c20a37f9460d6e270a1992bdd777:1794287047"
+ },
+ {
   "tx": "0x7362b263579a7cebd1d5265640613dc2d8c069d1d2cfdbb753450efc0c5e3182",
   "block": 56808537,
   "time": 1794283576,

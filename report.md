@@ -1,8 +1,8 @@
 # Mandate audit report
 
-Generated 2026-11-10T04:27:07.000Z · last 24 hours · 46 high, 13 medium, 1 info
+Generated 2026-11-10T05:48:23.000Z · last 24 hours · 47 high, 13 medium, 1 info
 
-46 alert(s) need attention.
+47 alert(s) need attention.
 - ADMIN role granted to 0xC782…f834 on identity registry
 - ADMIN role granted to 0xC782…f834 on mandate registry
 - ADMIN role granted to 0xC782…f834 on voting
@@ -49,6 +49,7 @@ Generated 2026-11-10T04:27:07.000Z · last 24 hours · 46 high, 13 medium, 1 inf
 - ADMIN role revoked from 0xC782…f834 on mandate registry
 - ADMIN role revoked from 0xC782…f834 on voting
 - ADMIN role revoked from 0xC782…f834 on decision markets
+- Council change #1 proposed by 0xC782…f834: grant VERIFIER to 0xb8e5…Cb71 on mandate registry
 14 other event(s) were recorded (see the list).
 
 ## All alerts
@@ -113,5 +114,6 @@ Generated 2026-11-10T04:27:07.000Z · last 24 hours · 46 high, 13 medium, 1 inf
 - **high** ADMIN role revoked from 0xC782…f834 on mandate registry ([tx](https://sepolia.basescan.org/tx/0x1e9023ce1c7d6f0163974373dcc77170b84b052452b344787e3e35619973a9e3))
 - **high** ADMIN role revoked from 0xC782…f834 on voting ([tx](https://sepolia.basescan.org/tx/0x76408507294f846c7f21b183d33137c82d5801378e07193d01bf2c5b497cbeda))
 - **high** ADMIN role revoked from 0xC782…f834 on decision markets ([tx](https://sepolia.basescan.org/tx/0x7362b263579a7cebd1d5265640613dc2d8c069d1d2cfdbb753450efc0c5e3182))
+- **high** Council change #1 proposed by 0xC782…f834: grant VERIFIER to 0xb8e5…Cb71 on mandate registry ([tx](https://sepolia.basescan.org/tx/0x91b9f1f3b3d71d8233ef0cab43d295570ba1c20a37f9460d6e270a1992bdd777))
 
 Summary written by: fixed rules.
