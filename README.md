@@ -149,3 +149,7 @@ person's own wallet.
 ## Status
 
 Prototype. Not audited. Don't put real funds behind it.
+
+## License
+
+Apache License 2.0 (see `LICENSE` and `NOTICE`): anyone, including governments and companies, may use, change and redistribute Mandate, with an explicit patent grant from contributors. The name "Mandate Protocol" is not licensed for use by others except to describe where the work came from.

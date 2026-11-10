@@ -1,0 +1,10 @@
+Mandate Protocol
+Copyright 2026 Mandate Protocol (https://github.com/ehammer1/Mandate)
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+"Mandate Protocol" and its logo are names of the project; the license does not grant
+permission to use them (Apache License 2.0, section 6), except to describe the origin
+of the work.
+
+It includes third-party software under their own licenses, listed in package.json and
+requirements.txt (OpenZeppelin Contracts, Semaphore, ethers, and others).

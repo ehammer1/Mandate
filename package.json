@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "description": "Mandate: people-set goals, market-advised decisions, on-chain enforcement (prototype)",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "engines": {
     "node": ">=18"
   },
