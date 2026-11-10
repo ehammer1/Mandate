@@ -22,5 +22,6 @@
   "escrowFactoryAddress": "0xdc77DAF412Ff704a9cAd36efA4810eF899999637",
   "charterAddress": "0x26E65604471403a2AEb5C7AD410Bd663211F3B02",
   "budgetAddress": "0xb772EcB9084848966f13b70D07f2d6A59160AcdD",
-  "feedbackAddress": "0x38Be50854E8ceBF4d3ACf2Baef2b0902Bc51b8aA"
+  "feedbackAddress": "0x38Be50854E8ceBF4d3ACf2Baef2b0902Bc51b8aA",
+  "previousCouncilAddress": "0x4c0eC8820a4514DdB8aA3D98dEf878c6e296797F"
 }

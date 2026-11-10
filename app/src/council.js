@@ -95,12 +95,14 @@ export function describeCall(cfg, target, data) {
 /**
  * @param {object} ctx  { state, $, status, esc, activeSigner, activeAddress }
  */
-export function wireCouncil(ctx) {
-  const { state, $, status, esc } = ctx;
-  const council = () => new ethers.Contract(state.config.councilAddress, COUNCIL_ABI, state.provider);
+export function wireCouncil(ctx, { addressKey = 'councilAddress', prefix = 'council', box = 'admin-council' } = {}) {
+  const { state, status, esc } = ctx;
+  const $ = (id) => ctx.$(id.replace(/^council-/, `${prefix}-`).replace(/^btn-council-/, `btn-${prefix}-`).replace(/^admin-council$/, box));
+  const addr = () => state.config[addressKey];
+  const council = () => new ethers.Contract(addr(), COUNCIL_ABI, state.provider);
 
   async function isMember(address) {
-    if (!state.config.councilAddress) return false;
+    if (!addr()) return false;
     return council().isMember(address);
   }
 
@@ -145,7 +147,7 @@ export function wireCouncil(ctx) {
 
   async function render() {
     const box = $('admin-council');
-    if (!state.config.councilAddress) return (box.hidden = true);
+    if (!addr()) return (box.hidden = true);
     const me = ctx.activeAddress();
     const c = council();
     const [members, threshold, delay, count, mine] = await Promise.all([c.members(), c.threshold(), c.delay(), c.proposalCount(), c.isMember(me)]);
@@ -165,7 +167,7 @@ export function wireCouncil(ctx) {
       const when = st === 2 ? ` · can run from ${new Date(Number(p.readyAt) * 1000).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}` : '';
       const card = document.createElement('div');
       card.className = 'card stack';
-      card.id = `council-${id}`;
+      card.id = `${prefix}-${id}`;
       card.innerHTML = `<p class="muted">#${id} · ${esc(STATES[st])}${active ? ` · ${approvals} of ${threshold} approvals` : ''}${esc(when)}${p.fast && active ? ' · removes power: no wait' : ''}</p>
         <p class="big" style="font-size:1.05rem">${esc(describeCall(state.config, p.target, p.data))}</p>
         ${p.description ? `<p>${esc(p.description)}</p>` : ''}
@@ -196,7 +198,7 @@ export function wireCouncil(ctx) {
     try {
       await render();
     } catch (e) {
-      $('admin-council').hidden = !state.config.councilAddress;
+      $('admin-council').hidden = !addr();
       status($('council-status'), `Could not load the council right now (${e.shortMessage || e.message}). Tap Refresh.`, 'error');
     }
   }

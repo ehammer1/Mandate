@@ -910,6 +910,7 @@ async function refreshAdmin() {
     const credits = new ethers.Contract(state.config.creditsAddress, ['function owner() view returns (address)'], state.provider);
     $('admin-credits').hidden = (await credits.owner()).toLowerCase() !== address.toLowerCase();
     await state.council.render();
+    if (state.config.previousCouncilAddress) await state.prevCouncil.render();
   }
 }
 
@@ -1130,6 +1131,7 @@ async function boot() {
   } });
   state.budget = wireBudget({ state, $, status, esc, show, activeSigner, activeAddress, sendTx: (el, label, fn) => sendAdminTx(el, label, () => fn()), nullifierFor });
   state.council = wireCouncil({ state, $, status, esc, activeSigner, activeAddress });
+  state.prevCouncil = wireCouncil({ state, $, status, esc, activeSigner, activeAddress }, { addressKey: 'previousCouncilAddress', prefix: 'prevcouncil', box: 'admin-prevcouncil' });
   state.clerk = wireClerk({ state, $, status, esc, show, activeSigner, activeAddress });
   $('nav-polls').onclick = async () => {
     show('screen-home');
