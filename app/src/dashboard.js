@@ -6,7 +6,7 @@
  */
 
 import { ethers } from 'ethers';
-import { describeCall, COUNCIL_ABI } from './council.js';
+import { describeCall, COUNCIL_ABI, readProposal } from './council.js';
 import { readDoc } from './notices.js';
 import { loadRules } from './rules.js';
 import { informedHtml } from './informed.js';
@@ -145,7 +145,7 @@ async function renderCouncil() {
   let pending = 0;
   const items = [];
   for (let id = Number(count); id >= Math.max(1, Number(count) - 9); id--) {
-    const [p, s, approvals] = await c.proposal(id);
+    const [p, s, approvals] = await readProposal(c, id);
     const st = Number(s);
     if (st >= 1 && st <= 3) pending++;
     const timing = st === 2 ? ` · can run from ${when(p.readyAt)} (${countdown(p.readyAt)})` : st === 3 ? ` · can run now (ready ${countdown(p.readyAt)})` : '';

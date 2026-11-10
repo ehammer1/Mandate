@@ -101,6 +101,17 @@ export function describeCall(cfg, target, data) {
 /**
  * @param {object} ctx  { state, $, status, esc, activeSigner, activeAddress }
  */
+// Councils deployed before the emergency lane return a shorter proposal; read those with the older shape.
+export async function readProposal(c, id) {
+  try {
+    return await c.proposal(id);
+  } catch {
+    const old = new ethers.Contract(await c.getAddress(), ['function proposal(uint256) view returns (tuple(address target, uint256 value, bytes data, string description, address proposer, uint64 proposedAt, uint64 readyAt, bool fast, bool executed, bool cancelled) p, uint8 s, uint256 approvals)'], c.runner);
+    const [p, s, approvals] = await old.proposal(id);
+    return [{ ...p.toObject(), emergency: false, lapsed: false, ratifyPoll: 0n, ratifyBy: 0n }, s, approvals];
+  }
+}
+
 export function wireCouncil(ctx, { addressKey = 'councilAddress', prefix = 'council', box = 'admin-council' } = {}) {
   const { state, status, esc } = ctx;
   const $ = (id) => ctx.$(id.replace(/^council-/, `${prefix}-`).replace(/^btn-council-/, `btn-${prefix}-`).replace(/^admin-council$/, box));
@@ -182,7 +193,7 @@ export function wireCouncil(ctx, { addressKey = 'councilAddress', prefix = 'coun
     const n = Number(count);
     if (!n) return (list.innerHTML = '<p class="muted">No changes proposed yet.</p>');
     for (let id = n; id >= Math.max(1, n - 19); id--) {
-      const [[p, s, approvals], approvedByMe] = await Promise.all([c.proposal(id), mine ? c.hasApproved(id, me) : false]);
+      const [[p, s, approvals], approvedByMe] = await Promise.all([readProposal(c, id), mine ? c.hasApproved(id, me) : false]);
       const st = Number(s);
       const active = st >= 1 && st <= 3;
       const fmt = (t) => new Date(Number(t) * 1000).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
