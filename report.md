@@ -1,8 +1,8 @@
 # Mandate audit report
 
-Generated 2026-11-10T07:35:23.000Z · last 24 hours · 41 high, 9 medium, 0 info
+Generated 2026-11-10T10:15:45.000Z · last 24 hours · 44 high, 11 medium, 0 info
 
-41 alert(s) need attention.
+44 alert(s) need attention.
 - ADMIN role granted to 0x433B…476F on identity registry
 - ADMIN role granted to 0x433B…476F on mandate registry
 - ADMIN role granted to 0x433B…476F on decision markets
@@ -44,7 +44,10 @@ Generated 2026-11-10T07:35:23.000Z · last 24 hours · 41 high, 9 medium, 0 info
 - Council change #7 proposed by 0xC782…f834: grant VETO to 0x74eE…12c6 on decision markets
 - Council change #8 proposed by 0xC782…f834: revoke GOVERNOR from 0x8732…ab5c on mandate registry (removes power: can run as soon as approved)
 - Council change #9 proposed by 0xC782…f834: revoke VETO from 0x8732…ab5c on decision markets (removes power: can run as soon as approved)
-9 other event(s) were recorded (see the list).
+- ADMIN role granted to 0xC782…f834 on civic budget
+- ADMIN role granted to 0x4c0e…797F on civic budget
+- ADMIN role revoked from 0xC782…f834 on civic budget
+11 other event(s) were recorded (see the list).
 
 ## All alerts
 
@@ -98,5 +101,10 @@ Generated 2026-11-10T07:35:23.000Z · last 24 hours · 41 high, 9 medium, 0 info
 - **high** Council change #8 proposed by 0xC782…f834: revoke GOVERNOR from 0x8732…ab5c on mandate registry (removes power: can run as soon as approved) ([tx](https://sepolia.basescan.org/tx/0x7b9fb835e85453decf2cbaad63064c25093adab4166b274084a4689782d427f5))
 - **high** Council change #9 proposed by 0xC782…f834: revoke VETO from 0x8732…ab5c on decision markets (removes power: can run as soon as approved) ([tx](https://sepolia.basescan.org/tx/0x5e2bc7e6cdbc324555c9021da3ad1737152d5dcb94ce28c3fa9a3983e65c920d))
 - **medium** Watchdog GitHub token (Render) expires on 2026-12-10, in 29 days: GitHub (ehammer1) > Settings > Developer settings > Fine-grained tokens > regenerate the watchdog token (only ehammer1/Mandate, Contents read and write), then paste it into GITHUB_TOKEN on Render's mandate-watchdog
+- **high** ADMIN role granted to 0xC782…f834 on civic budget ([tx](https://sepolia.basescan.org/tx/0x3338a07ec21f04c9d918012b906c94b140f9d566769cedb8460f9aadde763caa))
+- **medium** PROPOSER role granted to 0xC782…f834 on civic budget ([tx](https://sepolia.basescan.org/tx/0xefba98375cfdf688068b44cc034a385f335359df00a8a6155bbb5ac21934b6c9))
+- **medium** PROPOSER role granted to 0x433B…476F on civic budget ([tx](https://sepolia.basescan.org/tx/0x99dfb8b6ca4d0b53946d09617af4760458a63ecbb482d891c53a8a3707826fba))
+- **high** ADMIN role granted to 0x4c0e…797F on civic budget ([tx](https://sepolia.basescan.org/tx/0x72915ce0ca862b304ef32e528df1ed493b3005ebc86cb6a9c771ef805b3e4ee1))
+- **high** ADMIN role revoked from 0xC782…f834 on civic budget ([tx](https://sepolia.basescan.org/tx/0xcd0980cd657d77fcb63a80ef09a17c7b0dbf7ebb5b25f750d7ba5c9dee82b64a))
 
 Summary written by: fixed rules.

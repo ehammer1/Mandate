@@ -1,5 +1,85 @@
 [
  {
+  "tx": "0xcd0980cd657d77fcb63a80ef09a17c7b0dbf7ebb5b25f750d7ba5c9dee82b64a",
+  "block": 56917664,
+  "time": 1794305401,
+  "contract": "civic budget",
+  "event": "RoleRevoked",
+  "rule": "role-change",
+  "severity": "high",
+  "title": "ADMIN role revoked from 0xC782…f834 on civic budget",
+  "facts": {
+   "role": "ADMIN",
+   "account": "0xC782e1690D4B6c4C2Aba21283a6271477690f834",
+   "by": "0xC782e1690D4B6c4C2Aba21283a6271477690f834"
+  },
+  "id": "role-change:0xcd0980cd657d77fcb63a80ef09a17c7b0dbf7ebb5b25f750d7ba5c9dee82b64a:1794305401"
+ },
+ {
+  "tx": "0x72915ce0ca862b304ef32e528df1ed493b3005ebc86cb6a9c771ef805b3e4ee1",
+  "block": 56917642,
+  "time": 1794305397,
+  "contract": "civic budget",
+  "event": "RoleGranted",
+  "rule": "role-change",
+  "severity": "high",
+  "title": "ADMIN role granted to 0x4c0e…797F on civic budget",
+  "facts": {
+   "role": "ADMIN",
+   "account": "0x4c0eC8820a4514DdB8aA3D98dEf878c6e296797F",
+   "by": "0xC782e1690D4B6c4C2Aba21283a6271477690f834"
+  },
+  "id": "role-change:0x72915ce0ca862b304ef32e528df1ed493b3005ebc86cb6a9c771ef805b3e4ee1:1794305397"
+ },
+ {
+  "tx": "0x99dfb8b6ca4d0b53946d09617af4760458a63ecbb482d891c53a8a3707826fba",
+  "block": 56917620,
+  "time": 1794305392,
+  "contract": "civic budget",
+  "event": "RoleGranted",
+  "rule": "role-change",
+  "severity": "medium",
+  "title": "PROPOSER role granted to 0x433B…476F on civic budget",
+  "facts": {
+   "role": "PROPOSER",
+   "account": "0x433B8c945c9f4664870fFD3dA3Ea8d16dD41476F",
+   "by": "0xC782e1690D4B6c4C2Aba21283a6271477690f834"
+  },
+  "id": "role-change:0x99dfb8b6ca4d0b53946d09617af4760458a63ecbb482d891c53a8a3707826fba:1794305392"
+ },
+ {
+  "tx": "0xefba98375cfdf688068b44cc034a385f335359df00a8a6155bbb5ac21934b6c9",
+  "block": 56917598,
+  "time": 1794305388,
+  "contract": "civic budget",
+  "event": "RoleGranted",
+  "rule": "role-change",
+  "severity": "medium",
+  "title": "PROPOSER role granted to 0xC782…f834 on civic budget",
+  "facts": {
+   "role": "PROPOSER",
+   "account": "0xC782e1690D4B6c4C2Aba21283a6271477690f834",
+   "by": "0xC782e1690D4B6c4C2Aba21283a6271477690f834"
+  },
+  "id": "role-change:0xefba98375cfdf688068b44cc034a385f335359df00a8a6155bbb5ac21934b6c9:1794305388"
+ },
+ {
+  "tx": "0x3338a07ec21f04c9d918012b906c94b140f9d566769cedb8460f9aadde763caa",
+  "block": 56917574,
+  "time": 1794305383,
+  "contract": "civic budget",
+  "event": "RoleGranted",
+  "rule": "role-change",
+  "severity": "high",
+  "title": "ADMIN role granted to 0xC782…f834 on civic budget",
+  "facts": {
+   "role": "ADMIN",
+   "account": "0xC782e1690D4B6c4C2Aba21283a6271477690f834",
+   "by": "0xC782e1690D4B6c4C2Aba21283a6271477690f834"
+  },
+  "id": "role-change:0x3338a07ec21f04c9d918012b906c94b140f9d566769cedb8460f9aadde763caa:1794305383"
+ },
+ {
   "rule": "credential-expiry",
   "severity": "medium",
   "key": "expiry:Watchdog GitHub token (Render):30d",
