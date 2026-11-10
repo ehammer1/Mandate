@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Mandate dashboard</title>
+  <meta name="description" content="Live public record of Mandate: voter list, polls, mandates, the council and watchdog alerts, read from the blockchain." />
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin: 12px 0; }
+    .tile { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; }
+    .tile .n { font-size: 32px; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
+    .tile .l { color: var(--muted); font-size: 14px; }
+    .tile .s { font-size: 13px; color: var(--muted); margin-top: 6px; }
+    .tally { display: grid; grid-template-columns: minmax(48px, max-content) 1fr minmax(64px, max-content); gap: 6px 10px; align-items: center; margin: 8px 0; }
+    .tally .track { height: 12px; background: var(--accent-soft); border-radius: 4px; overflow: hidden; }
+    .tally .fill { height: 100%; background: var(--accent); border-radius: 0 4px 4px 0; min-width: 0; }
+    .tally .v { text-align: right; font-variant-numeric: tabular-nums; }
+    .sev { font-weight: 600; white-space: nowrap; }
+    .sev.high { color: var(--error); }
+    .sev.medium { color: var(--warn); }
+    .sev.info { color: var(--muted); }
+    .alert { border-top: 1px solid var(--line); padding: 10px 0; }
+    .alert:first-child { border-top: 0; }
+    .meta { font-size: 13px; color: var(--muted); }
+    .list { list-style: none; padding: 0; margin: 0; }
+    .list li { border-top: 1px solid var(--line); padding: 10px 0; }
+    .list li:first-child { border-top: 0; }
+    .addr { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; overflow-wrap: anywhere; }
+    .filters { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0; }
+    .filters button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); }
+    .filters button { min-height: 40px; padding: 6px 14px; }
+    table.data { width: 100%; border-collapse: collapse; font-size: 14px; }
+    table.data th, table.data td { text-align: left; padding: 6px 4px; border-top: 1px solid var(--line); }
+    table.data td.num, table.data th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="bar">
+      <div class="brand">Mandate<small>Live public dashboard</small></div>
+      <nav aria-label="Main"><a href="./"><button>Open the app</button></a></nav>
+    </div>
+  </header>
+  <main>
+    <h1>What's happening, in public</h1>
+    <p class="muted">Every number here is read directly from the public blockchain, so anyone can check it. No sign-in, and nothing here identifies a voter.</p>
+    <div class="row"><button id="btn-refresh">Refresh</button><span class="meta" id="updated" role="status"></span></div>
+    <p class="status" id="dash-status" role="status"></p>
+
+    <section aria-labelledby="h-overview">
+      <h2 id="h-overview">At a glance</h2>
+      <div class="tiles" id="tiles"></div>
+    </section>
+
+    <section aria-labelledby="h-polls">
+      <h2 id="h-polls">Polls</h2>
+      <div id="polls"></div>
+    </section>
+
+    <section aria-labelledby="h-council">
+      <h2 id="h-council">Council: changes to who runs the system</h2>
+      <p class="muted">Admin power belongs to a council. Every change is proposed in public, needs several members' approval, then waits before it can run. Any one member can cancel it during the wait.</p>
+      <div class="card" id="council"></div>
+    </section>
+
+    <section aria-labelledby="h-mandates">
+      <h2 id="h-mandates">Mandates</h2>
+      <p class="muted">Goals set by public vote or market decision, with a deadline and independent checks that they were met.</p>
+      <div class="card" id="mandates"></div>
+    </section>
+
+    <section aria-labelledby="h-sources">
+      <h2 id="h-sources">Who can add people to the voter list</h2>
+      <div class="card" id="sources"></div>
+    </section>
+
+    <section aria-labelledby="h-alerts">
+      <h2 id="h-alerts">Watchdog alerts</h2>
+      <p class="muted">An independent watchdog checks every change every 30 minutes and flags anything that moves power or looks unusual.</p>
+      <div class="filters" id="alert-filters" role="group" aria-label="Show alerts">
+        <button data-sev="all" aria-pressed="true">All</button>
+        <button data-sev="high" aria-pressed="false">Urgent only</button>
+      </div>
+      <div class="card" id="alerts"></div>
+    </section>
+
+    <section aria-labelledby="h-contracts">
+      <h2 id="h-contracts">Check it yourself</h2>
+      <div class="card" id="contracts"></div>
+    </section>
+  </main>
+  <footer style="text-align:center;margin:24px 16px;font-size:.85rem"><a href="./">App</a> · <a href="privacy.html">Privacy</a> · <a href="terms.html">Terms</a> · <a href="https://github.com/ehammer1/Mandate">Source code</a></footer>
+  <script type="module" src="dist/dashboard.js"></script>
+</body>
+</html>

@@ -49,7 +49,7 @@ const DAY = 86_400;
 const QUESTION_CID = 'bafy' + 'q'.repeat(55);
 const docHash = (s) => ethers.keccak256(ethers.toUtf8Bytes(`pepper:${s}`));
 
-let walletAccount, rpcUrlForPage, cdpMain, authIdMain, appConfig;
+let walletAccount, rpcUrlForPage, cdpMain, authIdMain, appConfig, appIpfs;
 let chain, provider, admin, clerk, relayerSigner, c, relay, app, browser, page, appUrl;
 const servers = [];
 const shot = async (name) => process.env.APP_SCREENSHOT_DIR && page.screenshot({ path: `${process.env.APP_SCREENSHOT_DIR}/${name}.png`, fullPage: true });
@@ -77,6 +77,7 @@ before(async () => {
       voteAddress: await c.vote.getAddress(),
       identityAddress: await c.identity.getAddress(),
       creditsAddress: await c.credits.getAddress(),
+      registryAddress: await c.registry.getAddress(),
       relayers: ['http://127.0.0.1:1', `http://127.0.0.1:${relayPort}`], // the first is down: tests fail-over
       artifactsBase: '/artifacts',
       chainId: Number((await provider.getNetwork()).chainId),
@@ -107,6 +108,7 @@ before(async () => {
   appOpts.config.identityService = `http://127.0.0.1:${idPort}`;
 
   appConfig = appOpts.config;
+  appIpfs = appOpts.ipfs;
   app = createAppServer(appOpts); // reads appOpts on every request
   const appPort = await listen(app);
   appOpts.config.ipfsGateway = `http://localhost:${appPort}`; // the app's own server doubles as the IPFS gateway
@@ -554,4 +556,37 @@ test('shared computer, new person with a phone: the passkey is made without bein
   } finally {
     await cdpMain.send('WebAuthn.removeVirtualAuthenticator', { authenticatorId: phone });
   }
+});
+
+test('public dashboard: voter list, polls with counts, clerks and watchdog alerts, without signing in', async () => {
+  const now = Math.floor(Date.now() / 1000);
+  appIpfs['alerts.json'] = JSON.stringify([
+    { severity: 'info', rule: 'poll-opened', title: 'Poll 1 opened', time: now - 7200, tx: '0x' + '1'.repeat(64) },
+    { severity: 'high', rule: 'role-change', title: 'ADMIN role granted to 0xabc…1234 on voting', time: now - 600, tx: '0x' + '2'.repeat(64) },
+  ]);
+  appConfig.watchdogAlertsUrl = `${appUrl}ipfs/alerts.json`;
+  const dash = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  const errors = [];
+  dash.on('pageerror', (e) => errors.push(e.message));
+  await dash.goto(`${appUrl}dashboard.html`);
+  await dash.waitForSelector('#tiles .tile', { timeout: 60_000 });
+  const tiles = await dash.textContent('#tiles');
+  const members = Number((await dash.textContent('#tiles .tile .n')).replace(/,/g, ''));
+  assert.ok(members >= 5, tiles); // the voters enrolled by earlier tests
+  assert.match(tiles, /1\s*urgent watchdog alerts/);
+  await dash.waitForSelector('#dash-poll-1 >> text=Publish the FY2027 line-item budget?');
+  assert.match(await dash.textContent('#dash-poll-1'), /Yes\s*1 · 100%/);
+  assert.match(await dash.textContent('#dash-poll-1'), /1 of 3 eligible voted \(33% turnout\)/);
+  assert.match(await dash.textContent('#sources'), /Example City Clerk/);
+  assert.match(await dash.textContent('#mandates'), /No mandates yet/);
+  // Urgent-only filter.
+  assert.equal(await dash.locator('#alerts .alert').count(), 2);
+  await dash.click('#alert-filters button[data-sev="high"]');
+  assert.equal(await dash.locator('#alerts .alert').count(), 1);
+  assert.match(await dash.textContent('#alerts'), /▲ Urgent.*ADMIN role granted/s);
+  // Fits a phone screen: no sideways scrolling.
+  assert.ok(await dash.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
+  await dash.screenshot({ path: process.env.APP_SCREENSHOT_DIR ? `${process.env.APP_SCREENSHOT_DIR}/9-dashboard.png` : require('node:os').tmpdir() + '/dash.png', fullPage: true });
+  assert.deepEqual(errors, []);
+  await dash.close();
 });

@@ -19,6 +19,7 @@
  *   ARTIFACTS_BASE     URL of Semaphore proving files for the app (default: download on demand)
  *   WALLETCONNECT_PROJECT_ID  free project id from cloud.reown.com; enables any mobile wallet
  *   IDENTITY_SERVICE   URL of the sign-in identity service (services/identity)
+ *   WATCHDOG_ALERTS_URL  the watchdog's published alerts.json, shown on the public dashboard
  *   COUNCIL_MEMBERS    comma-separated addresses: deploy a Council (multi-signature admin
  *                      with a waiting period) and hand it every admin power; no single key
  *                      stays admin. COUNCIL_THRESHOLD (default: majority), COUNCIL_DELAY_HOURS
@@ -175,6 +176,7 @@ if (require.main === module) {
       chainName: process.env.NETWORK || `Chain ${chainId}`,
       walletConnectProjectId: process.env.WALLETCONNECT_PROJECT_ID || '',
       identityService: process.env.IDENTITY_SERVICE || '',
+      watchdogAlertsUrl: process.env.WATCHDOG_ALERTS_URL || '',
     };
     fs.writeFileSync(path.join(ROOT, 'app', `config.${name}.json`), JSON.stringify(appConfig, null, 2) + '\n');
     console.log(JSON.stringify(record, null, 2));
