@@ -35,6 +35,11 @@ interface ICouncilElectorate {
     function removePowerByVote(address target, bytes calldata data) external;
 }
 
+interface IDelegates {
+    function isDelegate(uint256 id) external view returns (bool);
+    function positionBeforeClose(uint256 pollId, uint256 officialId) external view returns (bool stated, uint8 position);
+}
+
 interface IVetoable {
     function veto(uint256 id) external;
 }
@@ -150,12 +155,21 @@ contract MandateVote is AccessControl, ReentrancyGuard {
     mapping(uint256 => uint16) public supermajorityPct;
     /// @notice The community's voting rules (address(0): none enforced).
     ICharter public immutable charter;
+    /// @notice Public delegates (the Officials registry); set once.
+    IDelegates public delegates;
+    /// @notice A ballot whose message is DELEGATE_BASE + id hands the vote to delegate `id`.
+    uint256 public constant DELEGATE_BASE = 1_000_000;
+    uint256 public constant MAX_DELEGATES_PER_POLL = 50;
+    mapping(uint256 => uint256[]) private _delegatesUsed; // poll => delegate ids
+    mapping(uint256 => mapping(uint256 => uint256)) private _delegated; // poll => delegate => ballots
+    mapping(uint256 => mapping(uint256 => uint256)) private _delegatedChecked; // the same, from checked voters
     mapping(uint256 => mapping(uint256 => uint256)) private _checkTally; // poll -> option (YES, NO) -> checked ballots
 
     event PollCreated(
         uint256 indexed id, uint256 indexed groupId, uint256 snapshotRoot, Action action, uint64 end, string questionCID
     );
     event BallotCast(uint256 indexed id, uint256 option, uint256 nullifier);
+    event DelegatedVotesCounted(uint256 indexed id, uint256 indexed delegateId, uint256 ballots, bool stated, uint8 position);
     event PollCrossChecked(uint256 indexed id, uint256 indexed checkGroupId, uint256 checkRoot, uint32 checkQuorum);
     event PollDisputed(uint256 indexed id, uint256 yes, uint256 no, uint256 checkYes, uint256 checkNo);
     event PollFinalized(uint256 indexed id, bool passed, uint256 totalBallots);
@@ -182,6 +196,9 @@ contract MandateVote is AccessControl, ReentrancyGuard {
     error NullifierUsed();
     error InvalidProof();
     error PollTooShort(uint64 minSeconds);
+    error NotADelegate();
+    error TooManyDelegates();
+    error DelegatesAlreadySet();
     error PollTooLong(uint64 maxSeconds);
     error QuorumTooLow(uint256 minQuorum);
     error CrossCheckRequired();
@@ -201,6 +218,12 @@ contract MandateVote is AccessControl, ReentrancyGuard {
         minBond = minBond_;
         charter = ICharter(charter_);
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
+    }
+
+    /// @notice Connect the public delegates registry (once, at setup).
+    function setDelegates(address registry) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (address(delegates) != address(0)) revert DelegatesAlreadySet();
+        delegates = IDelegates(registry);
     }
 
     function setMinBond(uint256 amount) external onlyRole(DEFAULT_ADMIN_ROLE) {
@@ -321,7 +344,11 @@ contract MandateVote is AccessControl, ReentrancyGuard {
         bool checked = checkRoot != 0 && b.merkleTreeRoot == checkRoot;
         if (b.merkleTreeRoot != p.snapshotRoot && !checked) revert WrongRoot();
         if (b.scope != scopeOf(id)) revert WrongScope();
-        if (b.message >= p.options) revert BadOption();
+        bool delegated = b.message >= DELEGATE_BASE;
+        if (delegated) {
+            // Anonymous delegation: counted the way the delegate publicly stated before the close.
+            if (p.options != 2 || address(delegates) == address(0) || !delegates.isDelegate(b.message - DELEGATE_BASE)) revert NotADelegate();
+        } else if (b.message >= p.options) revert BadOption();
         if (b.merkleTreeDepth < MIN_DEPTH || b.merkleTreeDepth > MAX_DEPTH) revert BadDepth();
         if (nullifierUsed[id][b.nullifier]) revert NullifierUsed();
 
@@ -335,8 +362,18 @@ contract MandateVote is AccessControl, ReentrancyGuard {
         if (!ok) revert InvalidProof();
 
         nullifierUsed[id][b.nullifier] = true;
-        _tally[id][b.message] += 1;
-        if (checked) _checkTally[id][b.message] += 1;
+        if (delegated) {
+            uint256 d = b.message - DELEGATE_BASE;
+            if (_delegated[id][d] == 0) {
+                if (_delegatesUsed[id].length >= MAX_DELEGATES_PER_POLL) revert TooManyDelegates();
+                _delegatesUsed[id].push(d);
+            }
+            _delegated[id][d] += 1;
+            if (checked) _delegatedChecked[id][d] += 1;
+        } else {
+            _tally[id][b.message] += 1;
+            if (checked) _checkTally[id][b.message] += 1;
+        }
         emit BallotCast(id, b.message, b.nullifier);
     }
 
@@ -346,6 +383,18 @@ contract MandateVote is AccessControl, ReentrancyGuard {
         if (p.finalized) revert AlreadyFinalized();
         if (block.timestamp < p.end) revert StillOpen();
         p.finalized = true;
+
+        // Delegated ballots join the count as their delegate stated; unstated ones are not counted.
+        uint256[] storage used = _delegatesUsed[id];
+        for (uint256 k = 0; k < used.length; k++) {
+            (bool stated, uint8 pos) = delegates.positionBeforeClose(id, used[k]);
+            uint256 n = _delegated[id][used[k]];
+            if (stated && pos < 2) {
+                _tally[id][pos] += n;
+                _checkTally[id][pos] += _delegatedChecked[id][used[k]];
+            }
+            emit DelegatedVotesCounted(id, used[k], n, stated, pos);
+        }
 
         uint256 total;
         for (uint8 i = 0; i < p.options; i++) total += _tally[id][i];
@@ -471,6 +520,14 @@ contract MandateVote is AccessControl, ReentrancyGuard {
         _get(id);
         ck = _checks[id];
         counts = [_checkTally[id][YES], _checkTally[id][NO]];
+    }
+
+    /// @notice Ballots handed to delegates so far (counted at the close, as each delegate states).
+    function delegatedVotes(uint256 id) external view returns (uint256[] memory ids, uint256[] memory ballots) {
+        _get(id);
+        ids = _delegatesUsed[id];
+        ballots = new uint256[](ids.length);
+        for (uint256 k = 0; k < ids.length; k++) ballots[k] = _delegated[id][ids[k]];
     }
 
     function tally(uint256 id) external view returns (uint256[] memory counts) {

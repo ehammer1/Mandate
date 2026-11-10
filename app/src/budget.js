@@ -25,6 +25,7 @@ const BUDGET_ABI = [
 const PROPOSER = ethers.id('PROPOSER_ROLE');
 const GROUP_LABEL = ['All members', 'ID-checked residents', 'Residents with full voting rights'];
 const money = (n) => `$${Number(n).toLocaleString()}`;
+import { countdown } from './time.js';
 const when = (secs) => new Date(Number(secs) * 1000).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 
 /** A proposal's text: a notice-board reference or the plain title stored on-chain. */
@@ -73,7 +74,7 @@ export function wireBudget(ctx) {
         })
         .join('');
       cards.push(`<article class="card stack" id="round-${id}" data-credits="${r.credits}">
-        <p class="eyebrow">Budget round ${id} · ${open ? `open until ${esc(when(r.end))}` : r.finalized ? `closed · ${esc(money(r.spent))} of ${esc(money(r.budget))} allocated` : 'voting ended · results not yet counted'} · ${esc(GROUP_LABEL[tier] || 'Members')}</p>
+        <p class="eyebrow">Budget round ${id} · ${open ? `open until ${esc(when(r.end))} · closes ${countdown(r.end)}` : r.finalized ? `closed · ${esc(money(r.spent))} of ${esc(money(r.budget))} allocated` : 'voting ended · results not yet counted'} · ${esc(GROUP_LABEL[tier] || 'Members')}</p>
         <h3>${esc(doc.title)}</h3>${doc.body ? `<p>${esc(doc.body)}</p>` : ''}
         <p class="muted">Budget ${esc(money(r.budget))} · ${r.credits} credits per person · ${r.participants} of ${r.electorate} have taken part</p>
         ${canVote ? `<p class="note">Spread your ${r.credits} credits. 1 vote costs 1 credit, 2 votes cost 4, 3 votes cost 9: strong preferences count, but cost more. Nobody sees how you spent them.</p>` : ''}

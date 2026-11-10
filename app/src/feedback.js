@@ -7,6 +7,7 @@
 import { ethers } from 'ethers';
 import { commentProof, ratingProof, signatureProof, topicOf } from '../../client/feedback.js';
 import { readDoc } from './notices.js';
+import { countdown } from './time.js';
 
 const FEEDBACK_ABI = [
   'function identity() view returns (address)',
@@ -138,6 +139,7 @@ export function wireFeedback(ctx) {
 
   // -------------------------------------------------------------- petitions
 
+  let sortBy = 'top';
   async function renderPetitions() {
     const list = $('petition-list');
     const f = fb();
@@ -146,14 +148,19 @@ export function wireFeedback(ctx) {
     const n = Number(await f.petitionCount());
     const tier = await tierNow();
     const cards = [];
-    for (let id = n; id >= Math.max(1, n - 19); id--) {
-      const p = await f.getPetition(id);
+    // Newest 100, ranked by share of the signatures needed (most requested first) unless "Newest" is chosen.
+    const ids = [];
+    for (let id = n; id >= Math.max(1, n - 99); id--) ids.push(id);
+    const all = await Promise.all(ids.map((id) => f.getPetition(id)));
+    let order = ids.map((id, i) => ({ id, p: all[i] }));
+    if (sortBy === 'top') order = order.sort((a, b) => (Number(a.p.pollId > 0n) - Number(b.p.pollId > 0n)) || (Number(b.p.signatures) / Math.max(1, Number(b.p.needed)) - Number(a.p.signatures) / Math.max(1, Number(a.p.needed))) || b.id - a.id);
+    for (const [rank, { id, p }] of order.slice(0, 20).entries()) {
       const doc = await readDoc(state.config, state.provider, p.ref);
       const signed = state.identity ? await f.nullifierUsed(await ctx.nullifierFor(await f.petitionScope(id))) : false;
       const pct = Math.min(100, Math.round((Number(p.signatures) / Math.max(1, Number(p.needed))) * 100));
       const opened = p.pollId > 0n;
       cards.push(`<article class="card stack" id="petition-${id}">
-        <p class="eyebrow">Petition ${id} · ${esc(PETITION_KINDS[Number(p.action)] || 'A vote')} · signed by ${esc(TIER_WHO[Number(p.tier)].toLowerCase())}s</p>
+        <p class="eyebrow">${sortBy === 'top' && !opened ? `#${rank + 1} most requested · ` : ''}Petition ${id} · ${esc(PETITION_KINDS[Number(p.action)] || 'A vote')} · started ${countdown(p.createdAt)} · signed by ${esc(TIER_WHO[Number(p.tier)].toLowerCase())}s</p>
         <h3>${esc(doc.title)}</h3>${doc.body ? `<p>${esc(doc.body)}</p>` : ''}
         <p><strong>${p.signatures} of ${p.needed}</strong> signatures</p>
         <div class="tally"><span>Progress</span><span class="track"><span class="fill" style="display:block;width:${pct}%"></span></span><span class="v">${pct}%</span></div>
@@ -162,6 +169,12 @@ export function wireFeedback(ctx) {
       </article>`);
     }
     list.innerHTML = cards.join('') || '<p class="muted">No petitions yet.</p>';
+    for (const [k, v] of [['petition-sort-top', 'top'], ['petition-sort-new', 'new']]) {
+      const b = $(k);
+      if (!b) continue;
+      b.setAttribute('aria-pressed', String(sortBy === v));
+      b.onclick = () => { sortBy = v; renderPetitions(); };
+    }
     for (const b of list.querySelectorAll('[data-sign]')) {
       b.onclick = async () => {
         const id = Number(b.dataset.sign);

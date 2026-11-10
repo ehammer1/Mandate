@@ -117,6 +117,14 @@
       <p class="note">Works with wallet extensions on a computer, your wallet app's built-in browser on a phone, and (when enabled) any mobile wallet through WalletConnect.</p>
       <div id="wallet-list"></div>
       <p class="status" id="account-status" role="status"></p>
+      <details class="card"><summary><strong>Become a public delegate</strong></summary>
+        <div class="stack">
+          <p class="note">Residents can hand you their vote on a poll. Their vote then counts the way you state publicly before the poll closes. You never learn who they are. This uses your account above, not your voter key, so it is public.</p>
+          <label for="delegate-name">Your name, as residents will see it</label><input type="text" id="delegate-name" maxlength="80" />
+          <label for="delegate-why">Who you are and what you stand for</label><textarea id="delegate-why" rows="3"></textarea>
+          <button id="btn-delegate">Become a public delegate</button><p class="status" id="delegate-status" role="status"></p>
+        </div>
+      </details>
       <p class="note">Your voter key is separate from every account and wallet, so nothing links your money to your votes.</p>
     </section>
 
@@ -153,6 +161,7 @@
           <p class="status" id="petition-status" role="status"></p>
         </div>
       </details>
+      <div class="row" role="group" aria-label="Order petitions"><span class="muted">Show:</span><button id="petition-sort-top" aria-pressed="true">Most signed</button><button id="petition-sort-new" aria-pressed="false">Newest</button></div>
       <div id="petition-list" class="stack"></div>
     </section>
 
@@ -349,6 +358,33 @@
         <div id="council-list" class="stack"></div>
       </div>
 
+      <div class="card stack" id="admin-officials" hidden>
+        <h3>Officials</h3>
+        <div id="officials-register" class="stack" hidden>
+          <p class="note">Register an official's public account: everything it does is then attributed to them by name and office.</p>
+          <label for="official-address">Their account address (0x…)</label><input type="text" id="official-address" autocomplete="off" spellcheck="false" />
+          <div class="row"><label>Name <input type="text" id="official-name" style="width:170px" /></label><label>Office <input type="text" id="official-office" placeholder="e.g. Mayor" style="width:170px" /></label></div>
+          <div class="row"><label>Jurisdiction <input type="text" id="official-jurisdiction" placeholder="e.g. Example City" style="width:170px" /></label><label>Term ends <input type="date" id="official-term" style="min-height:48px;font:inherit;border-radius:10px;padding:8px" /></label></div>
+          <button id="btn-official-register">Register official</button><p class="status" id="official-status" role="status"></p>
+        </div>
+        <div id="officials-mine" class="stack" hidden>
+          <p><strong id="officials-who"></strong></p>
+          <p class="note">Record where you stand on a poll (for example your council vote on the same question). It is public and compared with residents' results.</p>
+          <div class="row"><label>Poll <input type="text" id="position-poll" inputmode="numeric" style="width:90px" /></label>
+            <select id="position-choice" style="width:auto"><option value="0">Yes</option><option value="1">No</option><option value="2">Abstain</option></select></div>
+          <label for="position-why">Your reasons (public)</label><textarea id="position-why" rows="2"></textarea>
+          <button id="btn-position">Record my position</button><p class="status" id="position-status" role="status"></p>
+        </div>
+        <div id="officials-emergency" class="stack" hidden>
+          <h3>Declare an emergency measure</h3>
+          <p class="note">Ratify or it lapses: a ratification vote opens at once. Unless residents ratify the measure before the window ends, it is recorded as lapsed.</p>
+          <label for="emergency-title">The measure</label><input type="text" id="emergency-title" placeholder="e.g. Close the river path during the flood" />
+          <label for="emergency-body">Details and why it couldn't wait</label><textarea id="emergency-body" rows="3"></textarea>
+          <label>Days residents have to ratify <input type="text" id="emergency-days" value="7" inputmode="numeric" style="width:80px" /></label>
+          <button id="btn-emergency">Declare and open the ratification vote</button><p class="status" id="emergency-status" role="status"></p>
+        </div>
+      </div>
+
       <div class="card stack" id="admin-prevcouncil" hidden>
         <h3>Previous council</h3>
         <p class="note">Mandate moved to a new council. These last changes on the previous one finish the move; once they have run, this section can be ignored.</p>
@@ -380,6 +416,7 @@
           <option value="proposer">Can open polls</option>
           <option value="admin">Admin (council member, if there is a council)</option>
         </select>
+        <label class="row" id="grant-emergency-row" hidden><input type="checkbox" id="grant-emergency" /> Emergency: give it at once; residents must ratify within the council's window or it is undone</label>
         <label for="grant-name">Name (for clerks, shown to voters)</label>
         <input type="text" id="grant-name" placeholder="e.g. City Clerk, Main Library" />
         <label for="grant-reason">Reason (shown to the public with the proposal)</label>

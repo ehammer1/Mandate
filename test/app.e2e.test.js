@@ -373,7 +373,7 @@ test('council: one member proposes a new clerk, another approves, it runs after 
   await page.click('#btn-auto-wallet');
   await page.waitForFunction(() => /automatic/i.test(document.querySelector('#account-status').textContent));
   const auto = ethers.getAddress((await page.textContent('#account-address')).trim());
-  const council = await deploy(admin, 'Council', {}, [auto, walletAccount, admin.address], 2, 3600, 0, await c.vote.getAddress());
+  const council = await deploy(admin, 'Council', {}, [auto, walletAccount, admin.address], 2, 3600, 0, await c.vote.getAddress(), await c.identity.groupId(2), 7 * 86_400);
   await (await c.identity.grantRole(ethers.ZeroHash, await council.getAddress())).wait();
   appConfig.councilAddress = await council.getAddress();
 
@@ -1015,6 +1015,35 @@ test('residents speak between votes: comments, a petition that opens its own pol
   await page.click('#mandate-1 .rating-box button[data-score="4"]');
   await page.waitForSelector('#mandate-1 .rating-box >> text=4.0 of 5 from 1 resident', { timeout: 120_000 });
   await shot('16-feedback');
+});
+
+test('most requested petitions are ranked, and times count down live', async () => {
+  await page.reload(); // the test chain's clock jumped ahead; a fresh visit reads it again
+  await page.click('#btn-device');
+  await page.waitForSelector('#screen-home:not([hidden])');
+  await page.click('#nav-petitions');
+  if (!(await page.$eval('#screen-petitions details', (d) => d.open))) await page.click('#screen-petitions details summary');
+  await page.selectOption('#petition-kind', '0');
+  await page.fill('#petition-title', 'Add a crosswalk on Main Street');
+  await page.selectOption('#petition-tier', '1');
+  await page.click('#btn-petition');
+  await page.waitForSelector('#petition-status >> text=Petition started', { timeout: 60_000 });
+  const pid = await c.feedback.petitionCount();
+  await page.waitForSelector(`#petition-${pid} >> text=#1 most requested`, { timeout: 60_000 });
+  assert.match(await page.textContent(`#petition-${pid}`), /started (just now|\d+s ago|\d+m)/);
+  await page.click('#petition-sort-new');
+  await page.waitForSelector('#petition-sort-new[aria-pressed="true"]');
+
+  const dash = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  const errors = [];
+  dash.on('pageerror', (e) => errors.push(e.message));
+  await dash.goto(`${appUrl}dashboard.html`);
+  await dash.waitForSelector('#requested li', { timeout: 60_000 });
+  assert.match(await dash.textContent('#requested'), /#1 · Petition \d+[\s\S]*Add a crosswalk on Main Street/);
+  const first = await dash.textContent('#requested .countdown');
+  await dash.waitForFunction((t) => document.querySelector('#requested .countdown').textContent !== t, first, { timeout: 5000 });
+  assert.deepEqual(errors, []);
+  await dash.close();
 });
 
 test('explained in plain language: the published AI summary, labelled, and answers from the text', async () => {

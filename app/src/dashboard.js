@@ -10,6 +10,28 @@ import { describeCall, COUNCIL_ABI } from './council.js';
 import { readDoc } from './notices.js';
 import { loadRules } from './rules.js';
 import { informedHtml } from './informed.js';
+import { officialsDashboard } from './officials.js';
+import { countdown, startTicker } from './time.js';
+
+async function mostRequested() {
+  if (!state.cfg.feedbackAddress) return '<p class="muted">Petitions are not set up on this deployment.</p>';
+  const f = new ethers.Contract(state.cfg.feedbackAddress, ['function petitionCount() view returns (uint256)', 'function getPetition(uint256) view returns (tuple(uint8 tier, uint8 action, uint32 needed, uint32 signatures, uint256 pollId, bytes actionData, string ref, address creator, uint64 createdAt))'], state.provider);
+  const n = Number(await f.petitionCount());
+  const ids = [];
+  for (let id = n; id >= Math.max(1, n - 99); id--) ids.push(id);
+  const ps = await Promise.all(ids.map((id) => f.getPetition(id)));
+  const share = (p) => Number(p.signatures) / Math.max(1, Number(p.needed));
+  const top = ids.map((id, i) => ({ id, p: ps[i] })).filter((x) => x.p.pollId === 0n).sort((a, b) => share(b.p) - share(a.p) || b.id - a.id).slice(0, 10);
+  if (!top.length) return '<p class="muted">No petitions are collecting signatures right now.</p>';
+  const rows = [];
+  for (const [i, { id, p }] of top.entries()) {
+    const doc = await readDoc(state.cfg, state.provider, p.ref).catch(() => ({ title: p.ref }));
+    const pct = Math.min(100, Math.round(share(p) * 100));
+    rows.push(`<li><p class="eyebrow">#${i + 1} · Petition ${id} · started ${countdown(p.createdAt)}</p><p><strong>${esc(doc.title)}</strong></p>
+      <div class="tally"><span>${num(p.signatures)}</span><span class="track"><span class="fill" style="display:block;width:${pct}%"></span></span><span class="v">${pct}% of ${num(p.needed)}</span></div></li>`);
+  }
+  return `<ol class="list">${rows.join('')}</ol>`;
+}
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -100,7 +122,7 @@ async function renderPolls(vote, groupIds, now) {
       })
       .join('');
     cards.push(`<div class="card" id="dash-poll-${id}">
-      <p class="eyebrow">Poll ${id} · ${esc(status)} · ${esc(who)}</p>
+      <p class="eyebrow">Poll ${id} · ${esc(status)}${isOpen ? ` · ${countdown(p.end, 'closes ')}` : ''} · ${esc(who)}</p>
       <h3>${esc(q.title)}</h3>
       <p class="meta">${esc(ACTIONS[Number(p.action)] || 'Advisory')}</p>
       <div class="tally">${rows}</div>
@@ -126,11 +148,11 @@ async function renderCouncil() {
     const [p, s, approvals] = await c.proposal(id);
     const st = Number(s);
     if (st >= 1 && st <= 3) pending++;
-    const timing = st === 2 ? ` · can run from ${when(p.readyAt)}` : st === 3 ? ' · can run now' : '';
-    items.push(`<li><p class="eyebrow">#${id} · ${esc(COUNCIL_STATES[st])}${st >= 1 && st <= 3 ? ` · ${approvals} of ${threshold} approvals` : ''}${esc(timing)}</p>
+    const timing = st === 2 ? ` · can run from ${when(p.readyAt)} (${countdown(p.readyAt)})` : st === 3 ? ` · can run now (ready ${countdown(p.readyAt)})` : '';
+    items.push(`<li><p class="eyebrow">#${id} · ${esc(COUNCIL_STATES[st])}${st >= 1 && st <= 3 ? ` · ${approvals} of ${threshold} approvals` : ''}${timing}</p>
       <p><strong>${esc(describeCall(state.cfg, p.target, p.data))}</strong></p>
       ${p.description ? `<p class="meta">Reason given: ${esc(p.description)}</p>` : ''}
-      <p class="meta">Proposed ${esc(when(p.proposedAt))} by <span class="addr">${esc(short(p.proposer))}</span></p></li>`);
+      <p class="meta">Proposed ${esc(when(p.proposedAt))} (${countdown(p.proposedAt)}) by <span class="addr">${esc(short(p.proposer))}</span></p></li>`);
   }
   const hours = Number(delay) / 3600;
   box.innerHTML = `<p>${members.length} members · ${threshold} must approve each change · then a public wait of ${hours >= 1 ? `${hours} hour${hours === 1 ? '' : 's'}` : `${Math.round(Number(delay) / 60)} minutes`}</p>
@@ -165,7 +187,7 @@ async function renderMandates() {
     const locked = escrow !== ethers.ZeroAddress ? await new ethers.Contract(escrow, ['function lockedBalance() view returns (uint256)'], state.provider).lockedBalance() : 0n;
     held += locked;
     const label = overdue ? '▲ Overdue' : MANDATE_STATUS[st] || '';
-    items.push(`<li id="dash-mandate-${id}"><p class="eyebrow">Mandate ${id} · ${esc(label)} · due ${esc(day(m.deadline))}</p>
+    items.push(`<li id="dash-mandate-${id}"><p class="eyebrow">Mandate ${id} · ${esc(label)} · due ${esc(day(m.deadline))} (${countdown(m.deadline)})</p>
       <p><strong>${esc(goal.title)}</strong></p>
       <p class="meta">Responsible: <span class="addr">${link('address', m.responsible, short(m.responsible))}</span> · checks passed ${m.approvals} of ${m.threshold} · budget held: ${escrow !== ethers.ZeroAddress ? `${link('address', escrow, `${ethers.formatEther(locked)} ETH`)}` : 'none yet'}</p></li>`);
   }
@@ -213,7 +235,7 @@ async function renderBudget() {
       const share = Math.round((Number(votes[i]) / Number(max)) * 100);
       return `<span>${esc(t)} <span class="meta">$${num(costs[i])}${r.finalized ? (funded ? ' · ✓ funded' : ' · not funded') : ''}</span></span><span class="track" role="img" aria-label="${esc(t)}: ${votes[i]} votes"><span class="fill" style="display:block;width:${share}%"></span></span><span class="v">${num(votes[i])}</span>`;
     }).join('');
-    cards.push(`<div class="card"><p class="eyebrow">Round ${id} · ${r.finalized ? `closed · $${num(r.spent)} of $${num(r.budget)} allocated` : `open until ${esc(when(r.end))}`} · ${num(r.participants)} of ${num(r.electorate)} took part</p><h3>${esc(doc.title)}</h3><div class="tally">${rows}</div></div>`);
+    cards.push(`<div class="card"><p class="eyebrow">Round ${id} · ${r.finalized ? `closed · $${num(r.spent)} of $${num(r.budget)} allocated` : `open until ${esc(when(r.end))} (${countdown(r.end)})`} · ${num(r.participants)} of ${num(r.electorate)} took part</p><h3>${esc(doc.title)}</h3><div class="tally">${rows}</div></div>`);
   }
   box.innerHTML = cards.join('');
 }
@@ -286,6 +308,8 @@ async function refresh() {
     const [all, verified, full] = [await activeCount(identity, 0), await activeCount(identity, 1), await activeCount(identity, 2)];
     const [polls, pending, mandates] = [await renderPolls(vote, groupIds, now), await renderCouncil(), await renderMandates()];
     await renderBudget();
+    $('requested').innerHTML = await mostRequested().catch((e) => `<p class="muted">Could not load petitions: ${esc(e.message)}</p>`);
+    $('officials').innerHTML = await officialsDashboard(state.cfg, state.provider, esc).catch((e) => `<p class="muted">Could not load officials: ${esc(e.message)}</p>`);
     await renderSources(identity);
     const rules = await loadRules(state.cfg, state.provider).catch(() => []);
     $('rules').innerHTML = rules.length ? `<ul class="list">${rules.map((r) => `<li><strong>${esc(r.label)}</strong><br>${esc(r.shown)} <span class="meta">(limits: ${esc(r.range)})</span></li>`).join('')}</ul>` : '<p class="muted">No charter on this deployment.</p>';
@@ -322,6 +346,7 @@ async function boot() {
   }
   $('btn-refresh').onclick = refresh;
   await refresh();
+  startTicker(state.provider);
   setInterval(() => document.visibilityState === 'visible' && refresh(), 60_000);
 }
 

@@ -3,6 +3,38 @@ pragma solidity 0.8.24;
 
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
+interface ICouncilVote {
+    struct Poll {
+        uint256 groupId;
+        uint256 snapshotRoot;
+        uint256 electorate;
+        uint64 start;
+        uint64 end;
+        uint32 quorum;
+        uint8 options;
+        uint8 action;
+        bool finalized;
+        bool passed;
+        address proposer;
+        uint256 bond;
+        string questionCID;
+        bytes actionData;
+    }
+
+    function getPoll(uint256 id) external view returns (Poll memory);
+
+    function createPoll(
+        uint256 groupId,
+        uint64 duration,
+        uint32 quorum,
+        uint8 options,
+        uint8 action,
+        bytes calldata actionData,
+        string calldata questionCID,
+        uint256 bond
+    ) external returns (uint256);
+}
+
 /**
  * @title Council
  * @notice Multi-signature admin with a public waiting period. Holds the admin role on
@@ -23,6 +55,11 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
  * votes directly, without the council's approval: electing a member for a term, recalling
  * a member, or taking power away from anyone (revokeRole, removing a clerk). Members serve
  * fixed terms; when a term ends, the member's approvals stop counting.
+ *
+ * Ratify or it lapses: in an emergency, members can approve a change that runs at once,
+ * without the public wait, if they also give the call that undoes it. Running it opens a
+ * public ratification vote; unless residents ratify it within `ratifyWindow`, anyone can
+ * undo it. The council cannot use this lane on itself.
  *
  * Fast lane: proposals that only take power away (revokeRole, or setIssuer(..., false)
  * to remove a clerk) skip the wait once approved, so a compromised account can be
@@ -55,12 +92,22 @@ contract Council is ReentrancyGuard {
         bool fast;
         bool executed;
         bool cancelled;
+        bool emergency; // runs at once; must be ratified by the public or it is undone
+        address undoTarget;
+        bytes undoData;
+        uint256 ratifyPoll;
+        uint64 ratifyBy;
+        bool lapsed;
     }
 
     address[] private _members;
     mapping(address => bool) private _seated;
     /// @notice When each member's term ends (0: no end date).
     mapping(address => uint64) public termEnds;
+    /// @notice How long residents have to ratify an emergency change, and who votes on it.
+    uint64 public ratifyWindow;
+    uint256 public ratifyGroupId;
+
     /// @notice The public voting contract: carries out elections, recalls and removals of power.
     ///         Changed only by a council proposal (after the public wait), e.g. when voting is upgraded.
     address public electorate;
@@ -85,6 +132,9 @@ contract Council is ReentrancyGuard {
     event MemberRecalled(address indexed member);
     event PowerRemovedByVote(address indexed target, bytes data);
     event ElectorateChanged(address electorate);
+    event EmergencyProposed(uint256 indexed id, address undoTarget, bytes undoData);
+    event EmergencyRatificationOpened(uint256 indexed id, uint256 indexed pollId, uint64 ratifyBy);
+    event EmergencyLapsed(uint256 indexed id);
 
     error NotMember();
     error OnlyCouncil();
@@ -101,6 +151,10 @@ contract Council is ReentrancyGuard {
     error CallFailed(bytes reason);
     error OnlyElectorate();
     error NotARemoval();
+    error NotEmergency();
+    error AlreadyRatified();
+    error RatificationPending();
+    error NoRatificationVote();
 
     modifier onlyMember() {
         if (!isMember(msg.sender)) revert NotMember();
@@ -119,8 +173,18 @@ contract Council is ReentrancyGuard {
 
     /// @param termEnd_    when the founding members' terms end (0: no end date)
     /// @param electorate_ the public voting contract (address(0): no public elections or recalls)
-    constructor(address[] memory members_, uint256 threshold_, uint64 delay_, uint64 termEnd_, address electorate_) {
+    constructor(
+        address[] memory members_,
+        uint256 threshold_,
+        uint64 delay_,
+        uint64 termEnd_,
+        address electorate_,
+        uint256 ratifyGroupId_,
+        uint64 ratifyWindow_
+    ) {
         electorate = electorate_;
+        ratifyGroupId = ratifyGroupId_;
+        ratifyWindow = ratifyWindow_;
         for (uint256 i = 0; i < members_.length; i++) {
             _addMember(members_[i]);
             termEnds[members_[i]] = termEnd_;
@@ -145,6 +209,48 @@ contract Council is ReentrancyGuard {
         p.fast = value == 0 && _onlyRemovesPower(target, data);
         emit Proposed(id, msg.sender, target, value, data, description, p.fast);
         _approve(id, p);
+    }
+
+    /**
+     * @notice Propose an emergency change: once approved it runs at once, and a public
+     *         ratification vote opens. `undoTarget`/`undoData` is the call that reverses it
+     *         (e.g. revokeRole for a grantRole), run if residents don't ratify it in time.
+     *         `ref` is the notice-board text residents vote on.
+     */
+    function proposeEmergency(address target, bytes calldata data, address undoTarget, bytes calldata undoData, string calldata ref)
+        external
+        onlyMember
+        returns (uint256 id)
+    {
+        if (target == address(0) || target == address(this) || undoTarget == address(0) || undoTarget == address(this) || electorate == address(0)) revert BadMember();
+        id = ++proposalCount;
+        Proposal storage p = _proposals[id];
+        p.target = target;
+        p.data = data;
+        p.description = ref;
+        p.proposer = msg.sender;
+        p.proposedAt = uint64(block.timestamp);
+        p.fast = true; // no public wait: the public ratifies afterwards instead
+        p.emergency = true;
+        p.undoTarget = undoTarget;
+        p.undoData = undoData;
+        emit Proposed(id, msg.sender, target, 0, data, ref, true);
+        emit EmergencyProposed(id, undoTarget, undoData);
+        _approve(id, p);
+    }
+
+    /// @notice Undo an emergency change that residents did not ratify in time. Anyone may call.
+    function lapse(uint256 id) external nonReentrant {
+        Proposal storage p = _get(id);
+        if (!p.emergency || !p.executed || p.lapsed) revert NotEmergency();
+        if (p.ratifyPoll == 0) revert NoRatificationVote();
+        ICouncilVote.Poll memory poll = ICouncilVote(electorate).getPoll(p.ratifyPoll);
+        if (poll.finalized && poll.passed) revert AlreadyRatified();
+        if (!poll.finalized && block.timestamp <= p.ratifyBy) revert RatificationPending();
+        p.lapsed = true;
+        (bool ok, bytes memory ret) = p.undoTarget.call(p.undoData);
+        if (!ok) revert CallFailed(ret);
+        emit EmergencyLapsed(id);
     }
 
     function approve(uint256 id) external onlyMember {
@@ -175,6 +281,11 @@ contract Council is ReentrancyGuard {
         (bool ok, bytes memory ret) = p.target.call{value: p.value}(p.data);
         if (!ok) revert CallFailed(ret);
         emit Executed(id);
+        if (p.emergency) {
+            p.ratifyBy = uint64(block.timestamp) + ratifyWindow;
+            p.ratifyPoll = ICouncilVote(electorate).createPoll(ratifyGroupId, ratifyWindow, 1, 2, 0, "", p.description, 0);
+            emit EmergencyRatificationOpened(id, p.ratifyPoll, p.ratifyBy);
+        }
     }
 
     /// @notice Safety brake: any member can stop a proposal that hasn't run yet.

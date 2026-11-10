@@ -4,6 +4,7 @@
  */
 
 import { ethers } from 'ethers';
+import { countdown } from './time.js';
 
 export const COUNCIL_ABI = [
   'function isMember(address) view returns (bool)',
@@ -14,7 +15,12 @@ export const COUNCIL_ABI = [
   'function delay() view returns (uint64)',
   'function proposalCount() view returns (uint256)',
   'function hasApproved(uint256, address) view returns (bool)',
-  'function proposal(uint256) view returns (tuple(address target, uint256 value, bytes data, string description, address proposer, uint64 proposedAt, uint64 readyAt, bool fast, bool executed, bool cancelled) p, uint8 s, uint256 approvals)',
+  'function proposal(uint256) view returns (tuple(address target, uint256 value, bytes data, string description, address proposer, uint64 proposedAt, uint64 readyAt, bool fast, bool executed, bool cancelled, bool emergency, address undoTarget, bytes undoData, uint256 ratifyPoll, uint64 ratifyBy, bool lapsed) p, uint8 s, uint256 approvals)',
+  'function proposeEmergency(address target, bytes data, address undoTarget, bytes undoData, string ref) returns (uint256)',
+  'function lapse(uint256)',
+  'function ratifyWindow() view returns (uint64)',
+  'error RatificationPending()',
+  'error AlreadyRatified()',
   'function propose(address target, uint256 value, bytes data, string description) returns (uint256)',
   'function approve(uint256)',
   'function execute(uint256) payable',
@@ -127,10 +133,25 @@ export function wireCouncil(ctx, { addressKey = 'councilAddress', prefix = 'coun
         CallFailed: 'The change itself failed when run (for example, it was already done).',
         WrongState: 'This proposal can no longer be changed.',
         NotMember: 'This account is not on the council.',
+        RatificationPending: 'Residents can still ratify this; it can be undone only after the window ends.',
+        AlreadyRatified: 'Residents ratified this, so it stays.',
       }[name];
       status(el, `${label} failed: ${friendly || e.shortMessage || e.message}`, 'error');
       return null;
     }
+  }
+
+  /** Propose an emergency change (runs at once; residents ratify it or it is undone). */
+  async function proposeEmergency(el, target, data, undoData, text) {
+    const { postDoc } = await import('./notices.js');
+    status(el, 'Publishing the ratification question…');
+    const ref = await postDoc(state.config, ctx.activeSigner(), { title: `Ratify the council's emergency change: ${text}`, body: 'The council made this change at once, without the usual public wait. It is undone unless residents ratify it.', options: ['Yes', 'No'] });
+    const rc = await send(el, 'Propose emergency change', (c) => c.proposeEmergency(target, data, target, undoData, ref));
+    if (!rc) return false;
+    const days = Number(await council().ratifyWindow()) / 86_400;
+    status(el, `Emergency change proposed. Once approved it runs at once, and residents get ${days} days to ratify it, or it is undone.`, 'ok');
+    await render();
+    return true;
   }
 
   /** Propose a change; returns true when sent. */
@@ -164,7 +185,10 @@ export function wireCouncil(ctx, { addressKey = 'councilAddress', prefix = 'coun
       const [[p, s, approvals], approvedByMe] = await Promise.all([c.proposal(id), mine ? c.hasApproved(id, me) : false]);
       const st = Number(s);
       const active = st >= 1 && st <= 3;
-      const when = st === 2 ? ` · can run from ${new Date(Number(p.readyAt) * 1000).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}` : '';
+      const fmt = (t) => new Date(Number(t) * 1000).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+      const approvedAt = Number(p.readyAt) ? Number(p.readyAt) - (p.fast ? 0 : Number(delay)) : 0;
+      const when = st === 2 ? ` · can run from ${fmt(p.readyAt)}` : '';
+      const timing = `<p class="muted">Proposed ${esc(fmt(p.proposedAt))} (${countdown(p.proposedAt)})${approvedAt ? ` · approved ${esc(fmt(approvedAt))} (${countdown(approvedAt)})` : ''}${st === 2 ? ` · <strong>can run ${countdown(p.readyAt)}</strong>` : ''}${st === 3 && Number(p.readyAt) ? ` · ready since ${countdown(p.readyAt)}` : ''}</p>`;
       const card = document.createElement('div');
       card.className = 'card stack';
       card.id = `${prefix}-${id}`;
@@ -172,6 +196,8 @@ export function wireCouncil(ctx, { addressKey = 'councilAddress', prefix = 'coun
         <p class="big" style="font-size:1.05rem">${esc(describeCall(state.config, p.target, p.data))}</p>
         ${p.description ? `<p>${esc(p.description)}</p>` : ''}
         <p class="muted">Proposed by ${esc(short(p.proposer))}</p>
+        ${timing}
+        ${p.emergency ? `<p class="warn"><strong>Emergency change.</strong> ${p.lapsed ? 'Undone: residents did not ratify it.' : p.executed ? `In effect; residents vote on it in poll ${p.ratifyPoll}. Undone unless ratified by ${esc(new Date(Number(p.ratifyBy) * 1000).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }))} (${countdown(p.ratifyBy)}).` : 'Runs at once once approved, then residents must ratify it.'}</p>` : ''}
         <div class="row"></div><p class="status" role="status"></p>`;
       const row = card.querySelector('.row');
       const el = card.querySelector('.status');
@@ -189,6 +215,7 @@ export function wireCouncil(ctx, { addressKey = 'councilAddress', prefix = 'coun
       if (active && mine && !approvedByMe) button('Approve', () => send(el, 'Approve', (k) => k.approve(id)), true);
       if (st === 3) button('Run it now', () => send(el, 'Run', (k) => k.execute(id)), true);
       if (active && mine) button('Cancel', () => send(el, 'Cancel', (k) => k.cancel(id)));
+      if (p.emergency && p.executed && !p.lapsed) button('Undo (not ratified)', () => send(el, 'Undo', (k) => k.lapse(id)));
       list.append(card);
     }
   }
@@ -203,5 +230,5 @@ export function wireCouncil(ctx, { addressKey = 'councilAddress', prefix = 'coun
     }
   }
   $('btn-council-refresh').onclick = () => safeRender();
-  return { isMember, propose, render: safeRender };
+  return { isMember, propose, proposeEmergency, render: safeRender };
 }

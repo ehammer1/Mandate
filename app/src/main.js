@@ -24,6 +24,8 @@ import { wireBudget } from './budget.js';
 import { wireFeedback } from './feedback.js';
 import { renderExplainer } from './explain.js';
 import { informedHtml } from './informed.js';
+import { wireOfficials } from './officials.js';
+import { countdown, startTicker } from './time.js';
 
 const VOTE_ABI = [
   'function castBallot(uint256 id, tuple(uint256 merkleTreeDepth, uint256 merkleTreeRoot, uint256 nullifier, uint256 message, uint256 scope, uint256[8] points) b)',
@@ -70,6 +72,7 @@ async function loadConfig() {
   const cfg = await res.json();
   state.config = cfg;
   state.provider = new ethers.JsonRpcProvider(cfg.rpcUrl, undefined, { staticNetwork: true, cacheTimeout: -1 });
+  startTicker(state.provider);
   state.vote = new ethers.Contract(cfg.voteAddress, VOTE_ABI, state.provider);
   state.registry = new ethers.Contract(cfg.identityAddress, IDENTITY_ABI, state.provider);
 }
@@ -640,7 +643,7 @@ async function refreshPolls() {
       const results = labels.map((l, i) => `<li><span>${esc(l)}</span><span>${tally[i] ?? 0n}</span></li>`).join('');
       const buttons = labels.map((l, i) => `<button class="choice" data-poll="${id}" data-option="${i}">${esc(l)}</button>`).join('');
       cards.push(`<article class="card poll" id="poll-${id}">
-        <p class="eyebrow">${open ? `Open until ${esc(when(p.end))}` : p.finalized ? (ck.disputed ? 'Closed · contested' : p.passed ? 'Closed · passed' : 'Closed · did not pass') : 'Voting ended · awaiting result'} · ${esc(who)}</p>
+        <p class="eyebrow">${open ? `Open until ${esc(when(p.end))} · ${countdown(p.end, 'closes ')}` : p.finalized ? (ck.disputed ? 'Closed · contested' : p.passed ? 'Closed · passed' : 'Closed · did not pass') : 'Voting ended · awaiting result'} · ${esc(who)}</p>
         <h3>${esc(q.title)}</h3>
         ${q.body ? `<p>${esc(q.body)}</p>` : ''}
         ${(() => {
@@ -658,6 +661,7 @@ async function refreshPolls() {
         ${voted ? '<p class="ok">Your vote is recorded. Nobody can see which way you voted.</p>' : ''}
         <p class="status" id="poll-status-${id}" role="status"></p>
         <details><summary>Current count (${total} of ${p.electorate} eligible, quorum ${p.quorum})</summary><ul class="tally">${results}</ul></details>
+        <div class="officials-box" data-id="${id}" data-canvote="${open && !voted && eligibleTier && Number(p.options) === 2 ? 1 : 0}"></div>
         <div class="explain-box" data-id="${id}"></div>
         <div class="thread-box" data-kind="poll" data-id="${id}"></div>
       </article>`);
@@ -678,6 +682,9 @@ async function refreshPolls() {
     list.innerHTML = (banner ? `<div class="card">${banner}</div>` : '') + (cards.join('') || '<p class="muted">No polls yet.</p>') + `<details class="card"><summary><strong>Stay informed</strong></summary><div class="stack">${informedHtml(state.config)}</div></details>`;
     for (const b of list.querySelectorAll('button.choice')) b.onclick = () => castVote(BigInt(b.dataset.poll), Number(b.dataset.option), b);
     for (const box of list.querySelectorAll('.thread-box')) state.feedback.thread(box, box.dataset.kind, Number(box.dataset.id)).catch(() => {});
+    for (const box of list.querySelectorAll('.officials-box')) {
+      state.officials.pollSection(box, Number(box.dataset.id), box.dataset.canvote === '1', (option, btn) => castVote(BigInt(box.dataset.id), option, btn)).catch(() => {});
+    }
     for (const box of list.querySelectorAll('.explain-box')) renderExplainer({ state, esc, status }, box, 'poll', Number(box.dataset.id)).catch(() => {});
     // Anyone may record a finished poll's result (and so trigger a binding action).
     for (const b of list.querySelectorAll('button.finalize')) {
@@ -892,14 +899,19 @@ async function myRoles(address) {
     state.council ? state.council.isMember(address) : false,
   ]);
   const budgetProposer = state.budget ? await state.budget.canOpen(address).catch(() => false) : false;
-  return { admin: voteAdmin || idAdmin, voteAdmin, idAdmin, proposer, issuer, councilMember, budgetProposer };
+  let official = false;
+  if (state.config.officialsAddress) {
+    const o = new ethers.Contract(state.config.officialsAddress, ['function idOf(address) view returns (uint256)', 'function hasRole(bytes32, address) view returns (bool)'], state.provider);
+    official = (await o.idOf(address).catch(() => 0n)) > 0n || (await o.hasRole(ethers.id('REGISTRAR_ROLE'), address).catch(() => false));
+  }
+  return { admin: voteAdmin || idAdmin, voteAdmin, idAdmin, proposer, issuer, councilMember, budgetProposer, official };
 }
 
 async function refreshAdminNav() {
   try {
     const r = await myRoles(activeAddress());
     state.roles = r;
-    $('nav-admin').hidden = !(r.admin || r.proposer || r.issuer || r.councilMember || r.budgetProposer);
+    $('nav-admin').hidden = !(r.admin || r.proposer || r.issuer || r.councilMember || r.budgetProposer || r.official);
     $('nav-clerk').hidden = !r.issuer;
   } catch {
     $('nav-admin').hidden = true;
@@ -924,11 +936,13 @@ async function refreshAdmin() {
   const viaCouncil = !r.admin && r.councilMember;
   $('roles-note').hidden = !viaCouncil;
   $('btn-grant').textContent = viaCouncil ? 'Propose to the council' : 'Submit';
+  $('grant-emergency-row').hidden = !viaCouncil;
   $('admin-credits').hidden = true;
   if (state.config.councilAddress) {
     const credits = new ethers.Contract(state.config.creditsAddress, ['function owner() view returns (address)'], state.provider);
     $('admin-credits').hidden = (await credits.owner()).toLowerCase() !== address.toLowerCase();
     await state.council.render();
+    await state.officials.admin().catch(() => {});
     if (state.config.previousCouncilAddress) await state.prevCouncil.render();
   }
 }
@@ -1110,7 +1124,11 @@ function wireAdmin() {
     }
     const viaCouncil = !state.roles?.admin && state.roles?.councilMember;
     for (const [k, fn, args, label] of changes) {
-      const ok = viaCouncil
+      const emergency = viaCouncil && give && $('grant-emergency').checked && (fn === 'setIssuer' || fn === 'grantRole');
+      const undo = fn === 'setIssuer' ? k.interface.encodeFunctionData('setIssuer', [args[0], args[1], false, args[3]]) : fn === 'grantRole' ? k.interface.encodeFunctionData('revokeRole', args) : null;
+      const ok = emergency
+        ? await state.council.proposeEmergency(el, await k.getAddress(), k.interface.encodeFunctionData(fn, args), undo, `${label}: ${$('grant-reason').value.trim() || 'emergency change'}`)
+        : viaCouncil
         ? await state.council.propose(el, await k.getAddress(), k.interface.encodeFunctionData(fn, args), $('grant-reason').value.trim() || label)
         : await sendAdminTx(el, label, (s) => k.connect(s)[fn](...args));
       if (!ok) return;
@@ -1144,6 +1162,8 @@ async function boot() {
       box.innerHTML = `<p class="error">Could not load the rules: ${esc(e.shortMessage || e.message)}</p>`;
     }
   };
+  startTicker(state.provider);
+  state.officials = wireOfficials({ state, $, status, esc, activeSigner, activeAddress, sendTx: (el, label, fn) => sendAdminTx(el, label, () => fn()) });
   state.feedback = wireFeedback({ state, $, status, esc, show, nullifierFor, myTier: async () => {
     const m = await state.registry.members(state.identity.commitment);
     return m.active ? Number(m.tier) : -1;

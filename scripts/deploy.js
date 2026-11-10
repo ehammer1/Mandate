@@ -112,6 +112,11 @@ async function deployAll(signer, opts = {}) {
   }
 
   const contracts = { semaphore, verifier, identity, credits, registry, vote, market, charter, budget };
+  // Officials and public delegates: positions, anonymous delegation, emergency measures.
+  contracts.officials = await deploy(signer, 'Officials', {}, me, await vote.getAddress(), await identity.getAddress());
+  await send(vote.setDelegates(await contracts.officials.getAddress()));
+  await send(vote.grantRole(await vote.PROPOSER_ROLE(), await contracts.officials.getAddress())); // ratification polls for emergencies
+  await send(contracts.officials.grantRole(await contracts.officials.REGISTRAR_ROLE(), opts.registrar || me));
   // Residents' comments, ratings and petitions; a successful petition opens its poll itself.
   contracts.feedback = await deploy(signer, 'Feedback', {}, await identity.getAddress(), await vote.getAddress(), await charter.getAddress());
   await send(vote.grantRole(await vote.PROPOSER_ROLE(), await contracts.feedback.getAddress()));
@@ -119,7 +124,8 @@ async function deployAll(signer, opts = {}) {
     const { members, threshold = Math.floor(opts.council.members.length / 2) + 1, delaySeconds = 48 * 3600, termDays = 0 } = opts.council;
     const termEnd = termDays ? (await signer.provider.getBlock('latest')).timestamp + Math.round(termDays * 86_400) : 0;
     // The public vote elects and recalls members and can take power away, without the council.
-    contracts.council = await deploy(signer, 'Council', {}, members, threshold, delaySeconds, termEnd, await vote.getAddress());
+    contracts.council = await deploy(signer, 'Council', {}, members, threshold, delaySeconds, termEnd, await vote.getAddress(), await identity.groupId(2), Math.round((opts.council.ratifyDays ?? 7) * 86_400));
+    await send(vote.grantRole(await vote.PROPOSER_ROLE(), await contracts.council.getAddress())); // emergency ratification polls
     await handOver(signer, contracts, await contracts.council.getAddress(), { revoke: [opts.admin].filter(Boolean), log });
     log(`council of ${members.length} (${threshold} to approve, ${delaySeconds / 3600} h wait) now holds every admin power`);
   }
@@ -193,6 +199,7 @@ if (require.main === module) {
       charterAddress: addresses.charter,
       budgetAddress: addresses.budget,
       feedbackAddress: addresses.feedback,
+      officialsAddress: addresses.officials,
       escrowFactoryAddress: addresses.escrows,
       relayers: (process.env.RELAYERS || '').split(',').map((s) => s.trim()).filter(Boolean),
       ipfsGateway: process.env.IPFS_GATEWAY || 'https://gateway.pinata.cloud',
