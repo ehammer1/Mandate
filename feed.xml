@@ -1,0 +1,408 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>Mandate: public record</title>
+  <subtitle>Every poll, mandate, budget round, petition and change of power, from the public blockchain record.</subtitle>
+  <id>urn:mandate:feed</id>
+  <link href="https://ehammer1.github.io/Mandate/"/>
+  <updated>2026-11-10T13:35:37.000Z</updated>
+  <entry>
+    <id>urn:mandate:credential-expiry:expiry:Watchdog GitHub token (Render):30d:1794317737</id>
+    <title>Watchdog GitHub token (Render) expires on 2026-12-10, in 29 days: GitHub (ehammer1) &gt; Settings &gt; Developer settings &gt; Fine-grained tokens &gt; regenerate the watchdog token (only ehammer1/Mandate, Contents read and write), then paste it into GITHUB_TOKEN on Render&apos;s mandate-watchdog</title>
+    <updated>2026-11-10T13:35:37.000Z</updated>
+    <link href="https://ehammer1.github.io/Mandate/"/>
+    <category term="medium"/>
+    <summary>Watchdog GitHub token (Render) expires on 2026-12-10, in 29 days: GitHub (ehammer1) &gt; Settings &gt; Developer settings &gt; Fine-grained tokens &gt; regenerate the watchdog token (only ehammer1/Mandate, Contents read and write), then paste it into GITHUB_TOKEN on Render&apos;s mandate-watchdog</summary>
+  </entry>
+  <entry>
+    <id>urn:mandate:role-change:0xb1e299940ac5840b2bb72610846563b029a07f1abc30a8a3e8868cdc7216c8fe:1794316551</id>
+    <title>ADMIN role revoked from 0xC782…f834 on civic budget</title>
+    <updated>2026-11-10T13:15:51.000Z</updated>
+    <link href="https://sepolia.basescan.org/tx/0xb1e299940ac5840b2bb72610846563b029a07f1abc30a8a3e8868cdc7216c8fe"/>
+    <category term="high"/>
+    <summary>Urgent: ADMIN role revoked from 0xC782…f834 on civic budget</summary>
+  </entry>
+  <entry>
+    <id>urn:mandate:role-change:0x69277922a4b87668c07397efb3dc7d2c3b4cae15d63c20eaa5d69460bdc06ad5:1794316546</id>
+    <title>ADMIN role granted to 0xf868…42ad on civic budget</title>
+    <updated>2026-11-10T13:15:46.000Z</updated>
+    <link href="https://sepolia.basescan.org/tx/0x69277922a4b87668c07397efb3dc7d2c3b4cae15d63c20eaa5d69460bdc06ad5"/>
+    <category term="high"/>
+    <summary>Urgent: ADMIN role granted to 0xf868…42ad on civic budget</summary>
+  </entry>
+  <entry>
+    <id>urn:mandate:role-change:0xaacddb30618e2410012c3f6b8dc88da7ded97f1d33a19682aaaf43962914106f:1794316542</id>
+    <title>ADMIN role revoked from 0xC782…f834 on charter (voting rules)</title>
+    <updated>2026-11-10T13:15:42.000Z</updated>
+    <link href="https://sepolia.basescan.org/tx/0xaacddb30618e2410012c3f6b8dc88da7ded97f1d33a19682aaaf43962914106f"/>
+    <category term="high"/>
+    <summary>Urgent: ADMIN role revoked from 0xC782…f834 on charter (voting rules)</summary>
+  </entry>
+  <entry>
+    <id>urn:mandate:role-change:0x025d708992efa374df9fb50ee715572ca437ebcb6c50a227cc2efecf07ed1bec:1794316537</id>
+    <title>ADMIN role granted to 0xf868…42ad on charter (voting rules)</title>
+    <updated>2026-11-10T13:15:37.000Z</updated>
+    <link href="https://sepolia.basescan.org/tx/0x025d708992efa374df9fb50ee715572ca437ebcb6c50a227cc2efecf07ed1bec"/>
+    <category term="high"/>
+    <summary>Urgent: ADMIN role granted to 0xf868…42ad on charter (voting rules)</summary>
+  </entry>
+  <entry>
+    <id>urn:mandate:role-change:0x0f0cf162b77e0fc5df196ba368381b8debe0835224abdf85bfbd4793e218110a:1794316533</id>
+    <title>ADMIN role revoked from 0xC782…f834 on voting</title>
+    <updated>2026-11-10T13:15:33.000Z</updated>
+    <link href="https://sepolia.basescan.org/tx/0x0f0cf162b77e0fc5df196ba368381b8debe0835224abdf85bfbd4793e218110a"/>
+    <category term="high"/>
+    <summary>Urgent: ADMIN role revoked from 0xC782…f834 on voting</summary>
+  </entry>
+  <entry>
+    <id>urn:mandate:role-change:0x4c94e3b4ea5751391d98cd1accaa0000f55a0d30708236c0d6d510fe0eb94291:1794316529</id>
+    <title>ADMIN role granted to 0xf868…42ad on voting</title>
+    <updated>2026-11-10T13:15:29.000Z</updated>
+    <link href="https://sepolia.basescan.org/tx/0x4c94e3b4ea5751391d98cd1accaa0000f55a0d30708236c0d6d510fe0eb94291"/>
+    <category term="high"/>
+    <summary>Urgent: ADMIN role granted to 0xf868…42ad on voting</summary>
+  </entry>
+  <entry>
+    <id>urn:mandate:role-change:0xe996b4ba49a4b0965e639bd4664d0334f0d52751a303d7c3ec40cbcfcd63d42c:1794316524</id>
+    <title>ADMIN role revoked from 0xC782…f834 on decision markets</title>
+    <updated>2026-11-10T13:15:24.000Z</updated>
+    <link href="https://sepolia.basescan.org/tx/0xe996b4ba49a4b0965e639bd4664d0334f0d52751a303d7c3ec40cbcfcd63d42c"/>
+    <category term="high"/>
+    <summary>Urgent: ADMIN role revoked from 0xC782…f834 on decision markets</summary>
+  </entry>
+  <entry>
+    <id>urn:mandate:role-change:0x71a8c3b9e1ddac2d1acf29e93a72d7f9bbb989ce881ea12cbef3eccc39b03a2d:1794316520</id>
+    <title>ADMIN role granted to 0xf868…42ad on decision markets</title>
+    <updated>2026-11-10T13:15:20.000Z</updated>
+    <link href="https://sepolia.basescan.org/tx/0x71a8c3b9e1ddac2d1acf29e93a72d7f9bbb989ce881ea12cbef3eccc39b03a2d"/>
+    <category term="high"/>
+    <summary>Urgent: ADMIN role granted to 0xf868…42ad on decision markets</summary>
+  </entry>
+  <entry>
+    <id>urn:mandate:role-change:0x87a74bd36549f504767c3859a03158f957edba828f2c14da23533d92c0615856:1794316515</id>
+    <title>ADMIN role revoked from 0xC782…f834 on mandate registry</title>
+    <updated>2026-11-10T13:15:15.000Z</updated>
+    <link href="https://sepolia.basescan.org/tx/0x87a74bd36549f504767c3859a03158f957edba828f2c14da23533d92c0615856"/>
+    <category term="high"/>
+    <summary>Urgent: ADMIN role revoked from 0xC782…f834 on mandate registry</summary>
+  </entry>
+  <entry>
+    <id>urn:mandate:role-change:0x10b71776e43d96bd7f26c6451582c995e66ef54816286948befe472e36153731:1794316511</id>
+    <title>ADMIN role granted to 0xf868…42ad on mandate registry</title>
+    <updated>2026-11-10T13:15:11.000Z</updated>
+    <link href="https://sepolia.basescan.org/tx/0x10b71776e43d96bd7f26c6451582c995e66ef54816286948befe472e36153731"/>
+    <category term="high"/>
+    <summary>Urgent: ADMIN role granted to 0xf868…42ad on mandate registry</summary>
+  </entry>
+  <entry>
+    <id>urn:mandate:role-change:0x827ca0d7061e2ecc9ac9a73ea6c001dfe0af5b42caf2328e90a77883dd637b7f:1794316506</id>
+    <title>VERIFIER role granted to 0xb8e5…Cb71 on mandate registry</title>
+    <updated>2026-11-10T13:15:06.000Z</updated>
+    <link href="https://sepolia.basescan.org/tx/0x827ca0d7061e2ecc9ac9a73ea6c001dfe0af5b42caf2328e90a77883dd637b7f"/>
+    <category term="medium"/>
+    <summary>VERIFIER role granted to 0xb8e5…Cb71 on mandate registry</summary>
+  </entry>
+  <entry>
+    <id>urn:mandate:role-change:0xe2de97dd790d1ffa51393d2fdfc140c91e2c0f8cca2205bde85a5c0ff231c54f:1794316502</id>
+    <title>PROPOSER role granted to 0x433B…476F on civic budget</title>
+    <updated>2026-11-10T13:15:02.000Z</updated>
+    <link href="https://sepolia.basescan.org/tx/0xe2de97dd790d1ffa51393d2fdfc140c91e2c0f8cca2205bde85a5c0ff231c54f"/>
+    <category term="medium"/>
+    <summary>PROPOSER role granted to 0x433B…476F on civic budget</summary>
+  </entry>
+  <entry>
+    <id>urn:mandate:role-change:0x8f4c0927af724f0bde595a45c7c5da9661bf69bb1d58cca105e617d359e1a139:1794316497</id>
+    <title>PROPOSER role granted to 0xC782…f834 on civic budget</title>
+    <updated>2026-11-10T13:14:57.000Z</updated>
+    <link href="https://sepolia.basescan.org/tx/0x8f4c0927af724f0bde595a45c7c5da9661bf69bb1d58cca105e617d359e1a139"/>
+    <category term="medium"/>
+    <summary>PROPOSER role granted to 0xC782…f834 on civic budget</summary>
+  </entry>
+  <entry>
+    <id>urn:mandate:role-change:0x5b5d5a9fb31a15f35b461131d241f7a6b36215ce435559fa8a2b161d4634c62c:1794316492</id>
+    <title>PROPOSER role granted to 0x433B…476F on voting</title>
+    <updated>2026-11-10T13:14:52.000Z</updated>
+    <link href="https://sepolia.basescan.org/tx/0x5b5d5a9fb31a15f35b461131d241f7a6b36215ce435559fa8a2b161d4634c62c"/>
+    <category term="medium"/>
+    <summary>PROPOSER role granted to 0x433B…476F on voting</summary>
+  </entry>
+  <entry>
+    <id>urn:mandate:role-change:0x13b0bf4b661d539ef62dc63a31fa5f964ab06546f712e2a34f09bd9c3ea5f578:1794316488</id>
+    <title>PROPOSER role granted to 0x38Be…b8aA on voting</title>
+    <updated>2026-11-10T13:14:48.000Z</updated>
+    <link href="https://sepolia.basescan.org/tx/0x13b0bf4b661d539ef62dc63a31fa5f964ab06546f712e2a34f09bd9c3ea5f578"/>
+    <category term="medium"/>
+    <summary>PROPOSER role granted to 0x38Be…b8aA on voting</summary>
+  </entry>
+  <entry>
+    <id>urn:mandate:role-change:0xd170d0d697cb7388b1e2c6ff7ba745731e2bfd609af3bff73b34122a11f32704:1794316483</id>
+    <title>PROPOSER role granted to 0xC782…f834 on voting</title>
+    <updated>2026-11-10T13:14:43.000Z</updated>
+    <link href="https://sepolia.basescan.org/tx/0xd170d0d697cb7388b1e2c6ff7ba745731e2bfd609af3bff73b34122a11f32704"/>
+    <category term="medium"/>
+    <summary>PROPOSER role granted to 0xC782…f834 on voting</summary>
+  </entry>
+  <entry>
+    <id>urn:mandate:role-change:0xf6c94bd877105c18cd8843b19bc74c0204175a7894bcca97617397963760e5ec:1794316479</id>
+    <title>GOVERNOR role granted to 0xf107…c291 on charter (voting rules)</title>
+    <updated>2026-11-10T13:14:39.000Z</updated>
+    <link href="https://sepolia.basescan.org/tx/0xf6c94bd877105c18cd8843b19bc74c0204175a7894bcca97617397963760e5ec"/>
+    <category term="high"/>
+    <summary>Urgent: GOVERNOR role granted to 0xf107…c291 on charter (voting rules)</summary>
+  </entry>
+  <entry>
+    <id>urn:mandate:role-change:0x787456dcc9b7b4a08c8a8a9c23c05d5664942d98637e07eb64eff228e787ec48:1794316474</id>
+    <title>VETO role granted to 0xf107…c291 on decision markets</title>
+    <updated>2026-11-10T13:14:34.000Z</updated>
+    <link href="https://sepolia.basescan.org/tx/0x787456dcc9b7b4a08c8a8a9c23c05d5664942d98637e07eb64eff228e787ec48"/>
+    <category term="medium"/>
+    <summary>VETO role granted to 0xf107…c291 on decision markets</summary>
+  </entry>
+  <entry>
+    <id>urn:mandate:role-change:0xadb509647a0ada87b0292aeeca58f27cab4d155978bd952e7c71f5fe701acba5:1794316470</id>
+    <title>GOVERNOR role granted to 0x8CB1…17F0 on mandate registry</title>
+    <updated>2026-11-10T13:14:30.000Z</updated>
+    <link href="https://sepolia.basescan.org/tx/0xadb509647a0ada87b0292aeeca58f27cab4d155978bd952e7c71f5fe701acba5"/>
+    <category term="medium"/>
+    <summary>GOVERNOR role granted to 0x8CB1…17F0 on mandate registry</summary>
+  </entry>
+  <entry>
+    <id>urn:mandate:role-change:0x5228faec6f01af939e9e942292c81457be0977e43c0bfe66bb909001f9e829fa:1794316465</id>
+    <title>GOVERNOR role granted to 0xf107…c291 on mandate registry</title>
+    <updated>2026-11-10T13:14:25.000Z</updated>
+    <link href="https://sepolia.basescan.org/tx/0x5228faec6f01af939e9e942292c81457be0977e43c0bfe66bb909001f9e829fa"/>
+    <category term="medium"/>
+    <summary>GOVERNOR role granted to 0xf107…c291 on mandate registry</summary>
+  </entry>
+  <entry>
+    <id>urn:mandate:role-change:0xea236b0774322fef144b7603d4f4a61112f6bfc7bde83b279a140302ae90c79c:1794316452</id>
+    <title>ADMIN role granted to 0xC782…f834 on civic budget</title>
+    <updated>2026-11-10T13:14:12.000Z</updated>
+    <link href="https://sepolia.basescan.org/tx/0xea236b0774322fef144b7603d4f4a61112f6bfc7bde83b279a140302ae90c79c"/>
+    <category term="high"/>
+    <summary>Urgent: ADMIN role granted to 0xC782…f834 on civic budget</summary>
+  </entry>
+  <entry>
+    <id>urn:mandate:role-change:0x8d34c2935f11be3fbd0a3986e0dcf9b0cfb72308f97647a5d3cd374145566a11:1794316447</id>
+    <title>ADMIN role granted to 0xC782…f834 on decision markets</title>
+    <updated>2026-11-10T13:14:07.000Z</updated>
+    <link href="https://sepolia.basescan.org/tx/0x8d34c2935f11be3fbd0a3986e0dcf9b0cfb72308f97647a5d3cd374145566a11"/>
+    <category term="high"/>
+    <summary>Urgent: ADMIN role granted to 0xC782…f834 on decision markets</summary>
+  </entry>
+  <entry>
+    <id>urn:mandate:role-change:0x8b80113927ef2004f08695049ca9bb3372f2d7a6f72d9d8f956c311eab5c40f9:1794316443</id>
+    <title>ADMIN role granted to 0xC782…f834 on mandate registry</title>
+    <updated>2026-11-10T13:14:03.000Z</updated>
+    <link href="https://sepolia.basescan.org/tx/0x8b80113927ef2004f08695049ca9bb3372f2d7a6f72d9d8f956c311eab5c40f9"/>
+    <category term="high"/>
+    <summary>Urgent: ADMIN role granted to 0xC782…f834 on mandate registry</summary>
+  </entry>
+  <entry>
+    <id>urn:mandate:role-change:0x8d43721e763a9cf6fbf64d25cc807b3f47a9c715cbc16331fe61a29251b22a02:1794316438</id>
+    <title>ADMIN role granted to 0xC782…f834 on voting</title>
+    <updated>2026-11-10T13:13:58.000Z</updated>
+    <link href="https://sepolia.basescan.org/tx/0x8d43721e763a9cf6fbf64d25cc807b3f47a9c715cbc16331fe61a29251b22a02"/>
+    <category term="high"/>
+    <summary>Urgent: ADMIN role granted to 0xC782…f834 on voting</summary>
+  </entry>
+  <entry>
+    <id>urn:mandate:role-change:0x3a17fc473e4439e209e4ce5ecb6a10a9d48b4df284225ca4ae22e3e533bc0d88:1794316434</id>
+    <title>ADMIN role granted to 0xC782…f834 on charter (voting rules)</title>
+    <updated>2026-11-10T13:13:54.000Z</updated>
+    <link href="https://sepolia.basescan.org/tx/0x3a17fc473e4439e209e4ce5ecb6a10a9d48b4df284225ca4ae22e3e533bc0d88"/>
+    <category term="high"/>
+    <summary>Urgent: ADMIN role granted to 0xC782…f834 on charter (voting rules)</summary>
+  </entry>
+  <entry>
+    <id>urn:mandate:council-settings:0x16d02060251104e99410cf10bf0c2c3ae09bbc572f96caeed7b25a9bf741dc63:1794316429</id>
+    <title>The council waiting period is now 1 hours</title>
+    <updated>2026-11-10T13:13:49.000Z</updated>
+    <link href="https://sepolia.basescan.org/tx/0x16d02060251104e99410cf10bf0c2c3ae09bbc572f96caeed7b25a9bf741dc63"/>
+    <category term="high"/>
+    <summary>Urgent: The council waiting period is now 1 hours</summary>
+  </entry>
+  <entry>
+    <id>urn:mandate:council-settings:0x16d02060251104e99410cf10bf0c2c3ae09bbc572f96caeed7b25a9bf741dc63:1794316429</id>
+    <title>The council now needs 2 approvals per change</title>
+    <updated>2026-11-10T13:13:49.000Z</updated>
+    <link href="https://sepolia.basescan.org/tx/0x16d02060251104e99410cf10bf0c2c3ae09bbc572f96caeed7b25a9bf741dc63"/>
+    <category term="high"/>
+    <summary>Urgent: The council now needs 2 approvals per change</summary>
+  </entry>
+  <entry>
+    <id>urn:mandate:council-membership:0x16d02060251104e99410cf10bf0c2c3ae09bbc572f96caeed7b25a9bf741dc63:1794316429</id>
+    <title>0xC782…f834 joined the council</title>
+    <updated>2026-11-10T13:13:49.000Z</updated>
+    <link href="https://sepolia.basescan.org/tx/0x16d02060251104e99410cf10bf0c2c3ae09bbc572f96caeed7b25a9bf741dc63"/>
+    <category term="high"/>
+    <summary>Urgent: 0xC782…f834 joined the council</summary>
+  </entry>
+  <entry>
+    <id>urn:mandate:council-membership:0x16d02060251104e99410cf10bf0c2c3ae09bbc572f96caeed7b25a9bf741dc63:1794316429</id>
+    <title>0xb8e5…Cb71 joined the council</title>
+    <updated>2026-11-10T13:13:49.000Z</updated>
+    <link href="https://sepolia.basescan.org/tx/0x16d02060251104e99410cf10bf0c2c3ae09bbc572f96caeed7b25a9bf741dc63"/>
+    <category term="high"/>
+    <summary>Urgent: 0xb8e5…Cb71 joined the council</summary>
+  </entry>
+  <entry>
+    <id>urn:mandate:council-membership:0x16d02060251104e99410cf10bf0c2c3ae09bbc572f96caeed7b25a9bf741dc63:1794316429</id>
+    <title>0x433B…476F joined the council</title>
+    <updated>2026-11-10T13:13:49.000Z</updated>
+    <link href="https://sepolia.basescan.org/tx/0x16d02060251104e99410cf10bf0c2c3ae09bbc572f96caeed7b25a9bf741dc63"/>
+    <category term="high"/>
+    <summary>Urgent: 0x433B…476F joined the council</summary>
+  </entry>
+  <entry>
+    <id>urn:mandate:role-change:0x624a2600af26ffd602c452d55151a3dd0b2862c4eadce52eadb9f894189fced9:1794283562</id>
+    <title>ADMIN role revoked from 0xC782…f834 on identity registry</title>
+    <updated>2026-11-10T04:06:02.000Z</updated>
+    <link href="https://sepolia.basescan.org/tx/0x624a2600af26ffd602c452d55151a3dd0b2862c4eadce52eadb9f894189fced9"/>
+    <category term="high"/>
+    <summary>Urgent: ADMIN role revoked from 0xC782…f834 on identity registry</summary>
+  </entry>
+  <entry>
+    <id>urn:mandate:role-change:0xa44502fb187635d366afe163aa45aed1df7ce7ce22668a8f6b47ba169092004f:1794283534</id>
+    <title>ADMIN role revoked from 0xb8e5…Cb71 on identity registry</title>
+    <updated>2026-11-10T04:05:34.000Z</updated>
+    <link href="https://sepolia.basescan.org/tx/0xa44502fb187635d366afe163aa45aed1df7ce7ce22668a8f6b47ba169092004f"/>
+    <category term="high"/>
+    <summary>Urgent: ADMIN role revoked from 0xb8e5…Cb71 on identity registry</summary>
+  </entry>
+  <entry>
+    <id>urn:mandate:role-change:0xa5e92981993ec45bd3813ec2d83926e9280993b44e718d7d88b6d55101500d04:1794283529</id>
+    <title>ADMIN role revoked from 0x433B…476F on identity registry</title>
+    <updated>2026-11-10T04:05:29.000Z</updated>
+    <link href="https://sepolia.basescan.org/tx/0xa5e92981993ec45bd3813ec2d83926e9280993b44e718d7d88b6d55101500d04"/>
+    <category term="high"/>
+    <summary>Urgent: ADMIN role revoked from 0x433B…476F on identity registry</summary>
+  </entry>
+  <entry>
+    <id>urn:mandate:role-change:0x724f1a41f9987295090ade3fa19d58f176fa1f38527cf24190f9bebd79e0ba96:1794283510</id>
+    <title>ADMIN role granted to 0x4c0e…797F on identity registry</title>
+    <updated>2026-11-10T04:05:10.000Z</updated>
+    <link href="https://sepolia.basescan.org/tx/0x724f1a41f9987295090ade3fa19d58f176fa1f38527cf24190f9bebd79e0ba96"/>
+    <category term="high"/>
+    <summary>Urgent: ADMIN role granted to 0x4c0e…797F on identity registry</summary>
+  </entry>
+  <entry>
+    <id>urn:mandate:identity-source:0x844b351cabe509b23195b7fbfab48f5aab15259154d58b3782a772b6989bb6ef:1794222508</id>
+    <title>Identity source &quot;Mandate app admin (key deleted)&quot; (0xd868…6fD0) removed</title>
+    <updated>2026-11-09T11:08:28.000Z</updated>
+    <link href="https://sepolia.basescan.org/tx/0x844b351cabe509b23195b7fbfab48f5aab15259154d58b3782a772b6989bb6ef"/>
+    <category term="high"/>
+    <summary>Urgent: Identity source &quot;Mandate app admin (key deleted)&quot; (0xd868…6fD0) removed</summary>
+  </entry>
+  <entry>
+    <id>urn:mandate:role-change:0x844b351cabe509b23195b7fbfab48f5aab15259154d58b3782a772b6989bb6ef:1794222508</id>
+    <title>ISSUER role revoked from 0xd868…6fD0 on identity registry</title>
+    <updated>2026-11-09T11:08:28.000Z</updated>
+    <link href="https://sepolia.basescan.org/tx/0x844b351cabe509b23195b7fbfab48f5aab15259154d58b3782a772b6989bb6ef"/>
+    <category term="medium"/>
+    <summary>ISSUER role revoked from 0xd868…6fD0 on identity registry</summary>
+  </entry>
+  <entry>
+    <id>urn:mandate:role-change:0xecf45d48a73b5bb364498300a543eb67bc118850eb45211fd1a5b8548136b038:1794222483</id>
+    <title>ADMIN role revoked from 0xd868…6fD0 on identity registry</title>
+    <updated>2026-11-09T11:08:03.000Z</updated>
+    <link href="https://sepolia.basescan.org/tx/0xecf45d48a73b5bb364498300a543eb67bc118850eb45211fd1a5b8548136b038"/>
+    <category term="high"/>
+    <summary>Urgent: ADMIN role revoked from 0xd868…6fD0 on identity registry</summary>
+  </entry>
+  <entry>
+    <id>urn:mandate:identity-source:0x22fc700e416d549524841175433e1c538f7f37c4d1ceb3dafdd2c87350e7e304:1794222478</id>
+    <title>Identity source &quot;Mandate app admin&quot; (0x433B…476F) approved, up to verified tier</title>
+    <updated>2026-11-09T11:07:58.000Z</updated>
+    <link href="https://sepolia.basescan.org/tx/0x22fc700e416d549524841175433e1c538f7f37c4d1ceb3dafdd2c87350e7e304"/>
+    <category term="high"/>
+    <summary>Urgent: Identity source &quot;Mandate app admin&quot; (0x433B…476F) approved, up to verified tier</summary>
+  </entry>
+  <entry>
+    <id>urn:mandate:role-change:0x22fc700e416d549524841175433e1c538f7f37c4d1ceb3dafdd2c87350e7e304:1794222478</id>
+    <title>ISSUER role granted to 0x433B…476F on identity registry</title>
+    <updated>2026-11-09T11:07:58.000Z</updated>
+    <link href="https://sepolia.basescan.org/tx/0x22fc700e416d549524841175433e1c538f7f37c4d1ceb3dafdd2c87350e7e304"/>
+    <category term="medium"/>
+    <summary>ISSUER role granted to 0x433B…476F on identity registry</summary>
+  </entry>
+  <entry>
+    <id>urn:mandate:role-change:0x5cd5064e37d3f4a5bf8920c1a7e8fdebc0f6c93307d7d30fef503bc58a66762d:1794222446</id>
+    <title>ADMIN role granted to 0x433B…476F on identity registry</title>
+    <updated>2026-11-09T11:07:26.000Z</updated>
+    <link href="https://sepolia.basescan.org/tx/0x5cd5064e37d3f4a5bf8920c1a7e8fdebc0f6c93307d7d30fef503bc58a66762d"/>
+    <category term="high"/>
+    <summary>Urgent: ADMIN role granted to 0x433B…476F on identity registry</summary>
+  </entry>
+  <entry>
+    <id>urn:mandate:identity-source:0x1bda85dfef650525aa8b3ab3fee5bbc57046888cd48d70f7844400b69604fbbc:1794206693</id>
+    <title>Identity source &quot;Online sign-up&quot; (0x7b12…2889) approved, up to basic tier</title>
+    <updated>2026-11-09T06:44:53.000Z</updated>
+    <link href="https://sepolia.basescan.org/tx/0x1bda85dfef650525aa8b3ab3fee5bbc57046888cd48d70f7844400b69604fbbc"/>
+    <category term="high"/>
+    <summary>Urgent: Identity source &quot;Online sign-up&quot; (0x7b12…2889) approved, up to basic tier</summary>
+  </entry>
+  <entry>
+    <id>urn:mandate:role-change:0x1bda85dfef650525aa8b3ab3fee5bbc57046888cd48d70f7844400b69604fbbc:1794206693</id>
+    <title>ISSUER role granted to 0x7b12…2889 on identity registry</title>
+    <updated>2026-11-09T06:44:53.000Z</updated>
+    <link href="https://sepolia.basescan.org/tx/0x1bda85dfef650525aa8b3ab3fee5bbc57046888cd48d70f7844400b69604fbbc"/>
+    <category term="medium"/>
+    <summary>ISSUER role granted to 0x7b12…2889 on identity registry</summary>
+  </entry>
+  <entry>
+    <id>urn:mandate:identity-source:0xb224404933ff35d39c1b1a4a3bc1862700251f9bef745ea1abd8424a1cf9608e:1794205142</id>
+    <title>Identity source &quot;Mandate app admin&quot; (0xd868…6fD0) approved, up to verified tier</title>
+    <updated>2026-11-09T06:19:02.000Z</updated>
+    <link href="https://sepolia.basescan.org/tx/0xb224404933ff35d39c1b1a4a3bc1862700251f9bef745ea1abd8424a1cf9608e"/>
+    <category term="high"/>
+    <summary>Urgent: Identity source &quot;Mandate app admin&quot; (0xd868…6fD0) approved, up to verified tier</summary>
+  </entry>
+  <entry>
+    <id>urn:mandate:role-change:0xb224404933ff35d39c1b1a4a3bc1862700251f9bef745ea1abd8424a1cf9608e:1794205142</id>
+    <title>ISSUER role granted to 0xd868…6fD0 on identity registry</title>
+    <updated>2026-11-09T06:19:02.000Z</updated>
+    <link href="https://sepolia.basescan.org/tx/0xb224404933ff35d39c1b1a4a3bc1862700251f9bef745ea1abd8424a1cf9608e"/>
+    <category term="medium"/>
+    <summary>ISSUER role granted to 0xd868…6fD0 on identity registry</summary>
+  </entry>
+  <entry>
+    <id>urn:mandate:role-change:0x563abf0c63d6505750d807262e6641ffe3e4162866f4d436f3a19a09e8fbca63:1794205141</id>
+    <title>ADMIN role granted to 0xd868…6fD0 on identity registry</title>
+    <updated>2026-11-09T06:19:01.000Z</updated>
+    <link href="https://sepolia.basescan.org/tx/0x563abf0c63d6505750d807262e6641ffe3e4162866f4d436f3a19a09e8fbca63"/>
+    <category term="high"/>
+    <summary>Urgent: ADMIN role granted to 0xd868…6fD0 on identity registry</summary>
+  </entry>
+  <entry>
+    <id>urn:mandate:identity-source:0x8b091413d720b7e143bd11cf049965e3b7c611ada84a58d2df0e60f306cff774:1794204947</id>
+    <title>Identity source &quot;Testnet demo clerk&quot; (0xC782…f834) approved, up to verified tier</title>
+    <updated>2026-11-09T06:15:47.000Z</updated>
+    <link href="https://sepolia.basescan.org/tx/0x8b091413d720b7e143bd11cf049965e3b7c611ada84a58d2df0e60f306cff774"/>
+    <category term="high"/>
+    <summary>Urgent: Identity source &quot;Testnet demo clerk&quot; (0xC782…f834) approved, up to verified tier</summary>
+  </entry>
+  <entry>
+    <id>urn:mandate:role-change:0x8b091413d720b7e143bd11cf049965e3b7c611ada84a58d2df0e60f306cff774:1794204947</id>
+    <title>ISSUER role granted to 0xC782…f834 on identity registry</title>
+    <updated>2026-11-09T06:15:47.000Z</updated>
+    <link href="https://sepolia.basescan.org/tx/0x8b091413d720b7e143bd11cf049965e3b7c611ada84a58d2df0e60f306cff774"/>
+    <category term="medium"/>
+    <summary>ISSUER role granted to 0xC782…f834 on identity registry</summary>
+  </entry>
+  <entry>
+    <id>urn:mandate:role-change:0x24962d930ebea509061ebd32ddbc391681c3ea64cd906fc880faf1c2493d7943:1794204920</id>
+    <title>ADMIN role granted to 0xb8e5…Cb71 on identity registry</title>
+    <updated>2026-11-09T06:15:20.000Z</updated>
+    <link href="https://sepolia.basescan.org/tx/0x24962d930ebea509061ebd32ddbc391681c3ea64cd906fc880faf1c2493d7943"/>
+    <category term="high"/>
+    <summary>Urgent: ADMIN role granted to 0xb8e5…Cb71 on identity registry</summary>
+  </entry>
+  <entry>
+    <id>urn:mandate:role-change:0x4d69b5a43a6a64304476f5c8ce76a6b901b2975a9ae3674722993964b87447c3:1794204880</id>
+    <title>ADMIN role granted to 0xC782…f834 on identity registry</title>
+    <updated>2026-11-09T06:14:40.000Z</updated>
+    <link href="https://sepolia.basescan.org/tx/0x4d69b5a43a6a64304476f5c8ce76a6b901b2975a9ae3674722993964b87447c3"/>
+    <category term="high"/>
+    <summary>Urgent: ADMIN role granted to 0xC782…f834 on identity registry</summary>
+  </entry>
+</feed>
