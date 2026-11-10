@@ -15,7 +15,8 @@
     "council": "0x4c0eC8820a4514DdB8aA3D98dEf878c6e296797F",
     "notices": "0xAC12845D280E5cC0aBa10B84A6FBfA2074e5CF94",
     "escrows": "0x9E10C0C4cE19095a0d88235E545f9534b1bA2b95",
-    "charter": "0x96Fc9E0277B1a848C9c2FDcF19b6a0B4fd438eff"
+    "charter": "0x96Fc9E0277B1a848C9c2FDcF19b6a0B4fd438eff",
+    "budget": "0xb48599404dFcad89aa572567320071e2667162aa"
   },
   "startBlock": 56415036,
   "previousVotes": [
