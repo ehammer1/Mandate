@@ -188,6 +188,15 @@ export function wireCouncil(ctx) {
     }
   }
 
-  $('btn-council-refresh').onclick = () => render().catch((e) => status($('council-status'), e.message, 'error'));
-  return { isMember, propose, render };
+  // Never hide the council because the network hiccuped: show the section with a way to retry.
+  async function safeRender() {
+    try {
+      await render();
+    } catch (e) {
+      $('admin-council').hidden = !state.config.councilAddress;
+      status($('council-status'), `Could not load the council right now (${e.shortMessage || e.message}). Tap Refresh.`, 'error');
+    }
+  }
+  $('btn-council-refresh').onclick = () => safeRender();
+  return { isMember, propose, render: safeRender };
 }
