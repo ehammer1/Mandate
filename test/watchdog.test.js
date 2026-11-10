@@ -161,3 +161,34 @@ test('credential expiry: warns at 30 days, again at 7, and once expired, each on
   clock = Date.parse('2028-11-09T00:00:00Z');
   assert.match((await expiry())[0]?.title || '', /expired on 2028-11-08/);
 });
+
+test('council: every proposed, scheduled, cancelled and carried-out admin change is announced', async () => {
+  const [m1, m2, m3] = [admin, clerk, stranger];
+  const desk = ethers.Wallet.createRandom().address;
+  const { contracts: k } = await deployAll(admin, { council: { members: [m1.address, m2.address, m3.address], threshold: 2, delaySeconds: 3600 } });
+  const from = (await provider.getBlockNumber()) + 1;
+  const cdog = createWatchdog({ provider, addresses: { identity: await k.identity.getAddress(), vote: await k.vote.getAddress(), council: await k.council.getAddress() }, startBlock: from, log: () => {} });
+  const idOf = async (p) => k.council.interface.parseLog((await (await p).wait()).logs.find((l) => l.topics[0] === k.council.interface.getEvent('Proposed').topicHash)).args.id;
+
+  const grant = await idOf(k.council.connect(m1).propose(await k.identity.getAddress(), 0, k.identity.interface.encodeFunctionData('setIssuer', [desk, 1, true, 'Night desk']), 'New desk'));
+  await wait(k.council.connect(m2).approve(grant));
+  const sneaky = await idOf(k.council.connect(m2).propose(await k.identity.getAddress(), 0, k.identity.interface.encodeFunctionData('grantRole', [ethers.ZeroHash, desk]), 'routine maintenance'));
+  await wait(k.council.connect(m3).cancel(sneaky));
+  let raised = await cdog.scanOnce();
+  const titles = raised.filter((a) => a.rule.startsWith('council')).map((a) => `${a.severity}:${a.title}`);
+  assert.ok(titles.some((t) => /^high:Council change #1 proposed by .*approve 0x.* as identity source "Night desk" \(up to verified tier\)/.test(t)), titles.join('\n'));
+  assert.ok(titles.some((t) => /^high:Council change #1 approved: it can run from .* UTC \(approve/.test(t)));
+  // The description says "routine maintenance"; the alert says what the call really does.
+  assert.ok(titles.some((t) => /^high:Council change #2 proposed .*grant ADMIN to 0x.* on identity registry/.test(t)));
+  assert.ok(titles.some((t) => /^medium:Council change #2 cancelled by/.test(t)));
+
+  // Scheduled runs restart from saved state and still name the change when it is carried out.
+  const st = JSON.parse(JSON.stringify(cdog.exportState(), (_k, v) => (typeof v === 'bigint' ? v.toString() : v)));
+  const next = createWatchdog({ provider, addresses: { identity: await k.identity.getAddress(), council: await k.council.getAddress() }, startBlock: 0, log: () => {} });
+  next.importState(st);
+  await provider.send('evm_increaseTime', [3601]);
+  await provider.send('evm_mine', []);
+  await wait(k.council.execute(grant));
+  raised = await next.scanOnce();
+  assert.ok(raised.some((a) => a.rule === 'council-executed' && /Council change #1 carried out: approve .* "Night desk"/.test(a.title)), raised.map((a) => a.title).join('\n'));
+});

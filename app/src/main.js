@@ -16,6 +16,7 @@ import { enrolStartUrl, ownershipProof } from '../../client/enrol.js';
 import { voterCodeQr } from '../../client/clerk.js';
 import QRCode from 'qrcode';
 import { wireClerk } from './clerk.js';
+import { wireCouncil } from './council.js';
 
 const VOTE_ABI = [
   'function castBallot(uint256 id, tuple(uint256 merkleTreeDepth, uint256 merkleTreeRoot, uint256 nullifier, uint256 message, uint256 scope, uint256[8] points) b)',
@@ -663,20 +664,21 @@ const ROLE_ISSUER = ethers.id('ISSUER_ROLE');
 async function myRoles(address) {
   const vote = new ethers.Contract(state.config.voteAddress, ADMIN_ABI, state.provider);
   const reg = new ethers.Contract(state.config.identityAddress, ADMIN_ABI, state.provider);
-  const [voteAdmin, idAdmin, proposer, issuer] = await Promise.all([
+  const [voteAdmin, idAdmin, proposer, issuer, councilMember] = await Promise.all([
     vote.hasRole(ROLE_ADMIN, address),
     reg.hasRole(ROLE_ADMIN, address),
     vote.hasRole(ROLE_PROPOSER, address),
     reg.hasRole(ROLE_ISSUER, address),
+    state.council ? state.council.isMember(address) : false,
   ]);
-  return { admin: voteAdmin || idAdmin, voteAdmin, idAdmin, proposer, issuer };
+  return { admin: voteAdmin || idAdmin, voteAdmin, idAdmin, proposer, issuer, councilMember };
 }
 
 async function refreshAdminNav() {
   try {
     const r = await myRoles(activeAddress());
     state.roles = r;
-    $('nav-admin').hidden = !(r.admin || r.proposer || r.issuer);
+    $('nav-admin').hidden = !(r.admin || r.proposer || r.issuer || r.councilMember);
     $('nav-clerk').hidden = !r.issuer;
   } catch {
     $('nav-admin').hidden = true;
@@ -685,17 +687,27 @@ async function refreshAdminNav() {
 }
 
 async function refreshAdmin() {
-  for (const id of ['poll-status', 'finalize-status', 'grant-status']) status($(id), '');
+  for (const id of ['poll-status', 'finalize-status', 'grant-status', 'credits-status', 'council-status']) status($(id), '');
   const address = activeAddress();
   const r = await myRoles(address);
   state.roles = r;
   const eth = await state.provider.getBalance(address);
-  const roles = [r.admin && 'admin', r.proposer && 'can open polls', r.issuer && 'can enrol voters'].filter(Boolean);
+  const roles = [r.admin && 'admin', r.councilMember && 'council member', r.proposer && 'can open polls', r.issuer && 'can enrol voters'].filter(Boolean);
   $('admin-who').innerHTML = `<p class="code" id="admin-address">${esc(address)}</p><p>${esc(roles.join(' · ') || 'no roles')}</p>
     <p class="${eth === 0n ? 'warn' : 'muted'}">${Number(ethers.formatEther(eth)).toFixed(6)} test ETH for fees${eth === 0n ? ': this account needs a little test ETH before it can act.' : ''}</p>`;
   addCopyButton($('admin-address'));
   $('admin-poll').hidden = !r.proposer;
-  $('admin-roles').hidden = !r.admin;
+  $('admin-roles').hidden = !(r.admin || r.councilMember);
+  // With a council, role changes are proposals (unless this account is still a direct admin).
+  const viaCouncil = !r.admin && r.councilMember;
+  $('roles-note').hidden = !viaCouncil;
+  $('btn-grant').textContent = viaCouncil ? 'Propose to the council' : 'Submit';
+  $('admin-credits').hidden = true;
+  if (state.config.councilAddress) {
+    const credits = new ethers.Contract(state.config.creditsAddress, ['function owner() view returns (address)'], state.provider);
+    $('admin-credits').hidden = (await credits.owner()).toLowerCase() !== address.toLowerCase();
+    await state.council.render();
+  }
 }
 
 async function sendAdminTx(statusEl, label, build) {
@@ -746,16 +758,34 @@ function wireAdmin() {
     if (!ethers.isAddress(who)) return status(el, 'That is not a valid address.', 'error');
     const target = ethers.getAddress(who);
     const kind = $('grant-kind').value;
-    const vote = new ethers.Contract(state.config.voteAddress, ADMIN_ABI, state.provider);
-    const reg = new ethers.Contract(state.config.identityAddress, [...ADMIN_ABI, 'function setIssuer(address,uint8,bool,string)'], state.provider);
-    if (kind === 'admin') {
-      await sendAdminTx(el, 'Grant admin (identity)', (s) => reg.connect(s).grantRole(ROLE_ADMIN, target)) &&
-        (await sendAdminTx(el, 'Grant admin (voting)', (s) => vote.connect(s).grantRole(ROLE_ADMIN, target)));
-    } else if (kind === 'proposer') {
-      await sendAdminTx(el, 'Allow opening polls', (s) => vote.connect(s).grantRole(ROLE_PROPOSER, target));
-    } else if (kind === 'issuer') {
-      await sendAdminTx(el, 'Approve as clerk', (s) => reg.connect(s).setIssuer(target, 1, true, $('grant-name').value.trim() || 'Clerk'));
+    const give = $('grant-action').value === 'give';
+    const cfg = state.config;
+    const vote = new ethers.Contract(cfg.voteAddress, ADMIN_ABI, state.provider);
+    const reg = new ethers.Contract(cfg.identityAddress, [...ADMIN_ABI, 'function setIssuer(address,uint8,bool,string)', 'function issuers(address) view returns (uint8,bool,string)'], state.provider);
+    const name = $('grant-name').value.trim() || (give ? 'Clerk' : (await reg.issuers(target))[2] || 'Clerk');
+    // Each change as (contract, call); admin means council membership when there is a council.
+    const changes = [];
+    if (kind === 'issuer') changes.push([reg, 'setIssuer', [target, 1, give, name], give ? 'Approve as clerk' : 'Remove clerk']);
+    else if (kind === 'proposer') changes.push([vote, give ? 'grantRole' : 'revokeRole', [ROLE_PROPOSER, target], give ? 'Allow opening polls' : 'Stop opening polls']);
+    else if (state.roles?.councilMember && !state.roles?.admin) {
+      const council = new ethers.Contract(cfg.councilAddress, ['function addMember(address)', 'function removeMember(address)'], state.provider);
+      changes.push([council, give ? 'addMember' : 'removeMember', [target], give ? 'Add council member' : 'Remove council member']);
+    } else {
+      for (const [k, where] of [[reg, 'identity'], [vote, 'voting']]) changes.push([k, give ? 'grantRole' : 'revokeRole', [ROLE_ADMIN, target], `${give ? 'Grant' : 'Remove'} admin (${where})`]);
     }
+    const viaCouncil = !state.roles?.admin && state.roles?.councilMember;
+    for (const [k, fn, args, label] of changes) {
+      const ok = viaCouncil
+        ? await state.council.propose(el, await k.getAddress(), k.interface.encodeFunctionData(fn, args), $('grant-reason').value.trim() || label)
+        : await sendAdminTx(el, label, (s) => k.connect(s)[fn](...args));
+      if (!ok) return;
+    }
+    $('grant-reason').value = '';
+  };
+
+  $('btn-credits-handover').onclick = async () => {
+    const credits = new ethers.Contract(state.config.creditsAddress, ['function transferOwnership(address)'], state.provider);
+    if (await sendAdminTx($('credits-status'), 'Hand play credits to the council', (s) => credits.connect(s).transferOwnership(state.config.councilAddress))) $('admin-credits').hidden = true;
   };
 }
 
@@ -765,6 +795,7 @@ async function boot() {
   wireSignIn();
   wireAccount();
   wireAdmin();
+  state.council = wireCouncil({ state, $, status, esc, activeSigner, activeAddress });
   state.clerk = wireClerk({ state, $, status, esc, show, activeSigner, activeAddress });
   $('nav-polls').onclick = async () => {
     show('screen-home');

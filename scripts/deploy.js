@@ -19,9 +19,13 @@
  *   ARTIFACTS_BASE     URL of Semaphore proving files for the app (default: download on demand)
  *   WALLETCONNECT_PROJECT_ID  free project id from cloud.reown.com; enables any mobile wallet
  *   IDENTITY_SERVICE   URL of the sign-in identity service (services/identity)
+ *   COUNCIL_MEMBERS    comma-separated addresses: deploy a Council (multi-signature admin
+ *                      with a waiting period) and hand it every admin power; no single key
+ *                      stays admin. COUNCIL_THRESHOLD (default: majority), COUNCIL_DELAY_HOURS
+ *                      (default 48)
  *
- * Writes deployments/<chainId>.json and app/config.json. The deployer is admin
- * of everything; hand admin roles to a timelock before any real use.
+ * Writes deployments/<chainId>.json and app/config.json. Without COUNCIL_MEMBERS the
+ * deployer (and ADMIN_ADDRESS) stay admins: fine for a demo, not for real use.
  */
 
 'use strict';
@@ -29,6 +33,7 @@
 const fs = require('fs');
 const path = require('path');
 const { ethers } = require('ethers');
+const { handOver } = require('./council-lib');
 
 const ROOT = path.join(__dirname, '..');
 const art = (n) => JSON.parse(fs.readFileSync(path.join(ROOT, 'build', `${n}.json`), 'utf8'));
@@ -89,7 +94,7 @@ async function deployAll(signer, opts = {}) {
   if (opts.admin) {
     for (const c of [identity, registry, vote, market]) await send(c.grantRole(ethers.ZeroHash, opts.admin)); // DEFAULT_ADMIN_ROLE
     await send(vote.grantRole(await vote.PROPOSER_ROLE(), opts.admin));
-    await send(credits.transferOwnership(opts.admin));
+    if (!opts.council) await send(credits.transferOwnership(opts.admin)); // with a council, the council gets it
     log(`admin roles also granted to ${opts.admin}`);
   }
   if (opts.demoIssuer) {
@@ -98,12 +103,18 @@ async function deployAll(signer, opts = {}) {
   }
 
   const contracts = { semaphore, verifier, identity, credits, registry, vote, market };
+  if (opts.council) {
+    const { members, threshold = Math.floor(opts.council.members.length / 2) + 1, delaySeconds = 48 * 3600 } = opts.council;
+    contracts.council = await deploy(signer, 'Council', {}, members, threshold, delaySeconds);
+    await handOver(signer, contracts, await contracts.council.getAddress(), { revoke: [opts.admin].filter(Boolean), log });
+    log(`council of ${members.length} (${threshold} to approve, ${delaySeconds / 3600} h wait) now holds every admin power`);
+  }
   const addresses = {};
   for (const [k, c] of Object.entries(contracts)) addresses[k] = await c.getAddress();
   return { contracts, addresses };
 }
 
-module.exports = { deployAll, link };
+module.exports = { deployAll, deploy, link };
 
 if (require.main === module) {
   require('dotenv').config();
@@ -126,6 +137,13 @@ if (require.main === module) {
       treasury: process.env.TREASURY,
       admin: process.env.ADMIN_ADDRESS ? ethers.getAddress(process.env.ADMIN_ADDRESS) : undefined,
       demoIssuer: process.env.DEMO_ISSUER === '1',
+      council: process.env.COUNCIL_MEMBERS
+        ? {
+            members: process.env.COUNCIL_MEMBERS.split(',').map((a) => ethers.getAddress(a.trim())),
+            threshold: process.env.COUNCIL_THRESHOLD ? Number(process.env.COUNCIL_THRESHOLD) : undefined,
+            delaySeconds: Math.round(Number(process.env.COUNCIL_DELAY_HOURS || 48) * 3600),
+          }
+        : undefined,
       nonceManager: true,
       log: (m) => console.log(`[deploy] ${m}`),
     });
@@ -149,6 +167,7 @@ if (require.main === module) {
       creditsAddress: addresses.credits,
       registryAddress: addresses.registry,
       marketAddress: addresses.market,
+      ...(addresses.council ? { councilAddress: addresses.council } : {}),
       relayers: (process.env.RELAYERS || '').split(',').map((s) => s.trim()).filter(Boolean),
       ipfsGateway: process.env.IPFS_GATEWAY || 'https://gateway.pinata.cloud',
       artifactsBase: process.env.ARTIFACTS_BASE || '',

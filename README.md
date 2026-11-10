@@ -56,6 +56,7 @@ Design rules:
 | `services/identity/` | Sign-in identity service: Google / Apple / Microsoft (basic) and identity-verified providers (verified) |
 | `docs/identity-service.md` | How the sign-in identity service works and how to set up Google sign-in |
 | `docs/clerk-desk.md` | The clerk desk: in-person ID checks for full voting rights, and what it stores |
+| `docs/council.md` | The council: multi-signature admin with a public waiting period, and how changes happen |
 | `services/watchdog/` | Independent auditor: rule-based alerts on every contract, AI-written reports |
 | `docs/watchdog.md` | What the watchdog flags, where it runs, and its limits |
 | `oracle/review.py` | AI verifier: judges evidence against the mandate's criteria, with quotes checked against the source |

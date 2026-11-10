@@ -64,6 +64,16 @@ const ABIS = {
     'function mandateCount() view returns (uint256)',
     'function isOverdue(uint256) view returns (bool)',
   ],
+  council: [
+    'event Proposed(uint256 indexed id, address indexed proposer, address target, uint256 value, bytes data, string description, bool fast)',
+    'event Queued(uint256 indexed id, uint64 readyAt)',
+    'event Executed(uint256 indexed id)',
+    'event Cancelled(uint256 indexed id, address indexed by)',
+    'event MemberAdded(address indexed member)',
+    'event MemberRemoved(address indexed member)',
+    'event ThresholdChanged(uint256 threshold)',
+    'event DelayChanged(uint64 delay)',
+  ],
   market: [
     'event Decided(uint256 indexed id, uint8 chosen, uint256 twapPass, uint256 twapFail, uint64 vetoEnd)',
     'event Vetoed(uint256 indexed id, address indexed by)',
@@ -74,7 +84,7 @@ const ROLE_EVENTS = [
   'event RoleGranted(bytes32 indexed role, address indexed account, address indexed sender)',
   'event RoleRevoked(bytes32 indexed role, address indexed account, address indexed sender)',
 ];
-const CONTRACT_LABEL = { identity: 'identity registry', vote: 'voting', registry: 'mandate registry', market: 'decision markets' };
+const CONTRACT_LABEL = { identity: 'identity registry', vote: 'voting', registry: 'mandate registry', market: 'decision markets', council: 'council' };
 
 /**
  * @param {object} o
@@ -94,6 +104,8 @@ function createWatchdog(o) {
     enrolWindows: new Map(),
     spikeFlagged: new Map(),
     issuerNames: new Map(),
+    proposals: new Map(), // council proposal id -> summary, to name it in later alerts
+    contractNames: Object.fromEntries(contracts.map(([k, a]) => [a.toLowerCase(), CONTRACT_LABEL[k] || k])),
   };
   const alerts = [];
   const flaggedOnce = new Set(); // periodic checks: alert once until the condition clears
@@ -285,6 +297,7 @@ function createWatchdog(o) {
       enrolWindows: [...ctx.enrolWindows],
       spikeFlagged: [...ctx.spikeFlagged],
       issuerNames: [...ctx.issuerNames],
+      proposals: [...ctx.proposals],
     };
   }
   function importState(st) {
@@ -296,6 +309,7 @@ function createWatchdog(o) {
     for (const [k, v] of st.enrolWindows || []) ctx.enrolWindows.set(k, v);
     for (const [k, v] of st.spikeFlagged || []) ctx.spikeFlagged.set(k, v);
     for (const [k, v] of st.issuerNames || []) ctx.issuerNames.set(k, v);
+    for (const [k, v] of st.proposals || []) ctx.proposals.set(k, v);
   }
 
   return { scanOnce, scanEvents, periodicChecks, buildReport, reportMarkdown, server, alerts, exportState, importState, get nextBlock() { return nextBlock; } };
@@ -318,7 +332,7 @@ if (require.main === module) {
     const startBlock = env('START_BLOCK') ? Number(env('START_BLOCK')) : cfg.startBlock ? Number(cfg.startBlock) : Math.max(0, head - Number(env('LOOKBACK_BLOCKS') || 43_200));
     const dog = createWatchdog({
       provider,
-      addresses: { identity: cfg.identityAddress, vote: cfg.voteAddress, registry: cfg.registryAddress, market: cfg.marketAddress },
+      addresses: { identity: cfg.identityAddress, vote: cfg.voteAddress, registry: cfg.registryAddress, market: cfg.marketAddress, council: cfg.councilAddress },
       startBlock,
       blockSpan: Number(env('LOG_BLOCK_SPAN') || 200),
       enrolPerHour: Number(env('ENROL_PER_HOUR') || 50),

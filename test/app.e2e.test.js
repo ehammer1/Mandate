@@ -49,7 +49,7 @@ const DAY = 86_400;
 const QUESTION_CID = 'bafy' + 'q'.repeat(55);
 const docHash = (s) => ethers.keccak256(ethers.toUtf8Bytes(`pepper:${s}`));
 
-let walletAccount, rpcUrlForPage, cdpMain, authIdMain;
+let walletAccount, rpcUrlForPage, cdpMain, authIdMain, appConfig;
 let chain, provider, admin, clerk, relayerSigner, c, relay, app, browser, page, appUrl;
 const servers = [];
 const shot = async (name) => process.env.APP_SCREENSHOT_DIR && page.screenshot({ path: `${process.env.APP_SCREENSHOT_DIR}/${name}.png`, fullPage: true });
@@ -106,6 +106,7 @@ before(async () => {
   servers.push(idService);
   appOpts.config.identityService = `http://127.0.0.1:${idPort}`;
 
+  appConfig = appOpts.config;
   app = createAppServer(appOpts); // reads appOpts on every request
   const appPort = await listen(app);
   appOpts.config.ipfsGateway = `http://localhost:${appPort}`; // the app's own server doubles as the IPFS gateway
@@ -337,6 +338,63 @@ test('admin from the passkey account, and from a connected wallet', async () => 
   await page.waitForFunction(() => /Done: enrolled/.test(document.querySelector('#clerk-result').textContent), null, { timeout: 60_000 });
   assert.equal((await c.identity.members(another.commitment)).issuer, walletAccount);
   await shot('5-admin');
+});
+
+test('council: one member proposes a new clerk, another approves, it runs after the public wait', async () => {
+  const { deploy } = require('../scripts/deploy');
+  await page.click('#nav-account');
+  await page.click('#btn-auto-wallet');
+  await page.waitForFunction(() => /automatic/i.test(document.querySelector('#account-status').textContent));
+  const auto = ethers.getAddress((await page.textContent('#account-address')).trim());
+  const council = await deploy(admin, 'Council', {}, [auto, walletAccount, admin.address], 2, 3600);
+  await (await c.identity.grantRole(ethers.ZeroHash, await council.getAddress())).wait();
+  appConfig.councilAddress = await council.getAddress();
+
+  // Reload to pick up the new setting; unlock with the passkey again, then use the wallet (a member, not an admin).
+  await page.reload();
+  await page.click('#btn-unlock');
+  await page.waitForSelector('#screen-home:not([hidden])');
+  await page.click('#nav-account');
+  await page.click('#wallet-list button[data-injected]');
+  await page.waitForFunction(() => /Connected: Test Wallet/.test(document.querySelector('#account-kind').textContent));
+  await page.click('#nav-admin');
+  await page.waitForFunction(() => /council member/.test(document.querySelector('#admin-who').textContent));
+  await page.waitForSelector('#admin-council:not([hidden]) >> text=No changes proposed yet');
+  assert.equal((await page.textContent('#btn-grant')).trim(), 'Propose to the council');
+
+  const desk = ethers.Wallet.createRandom().address;
+  await page.fill('#grant-address', desk);
+  await page.selectOption('#grant-action', 'give');
+  await page.selectOption('#grant-kind', 'issuer');
+  await page.fill('#grant-name', 'Council desk');
+  await page.fill('#grant-reason', 'Second desk at City Hall');
+  await page.click('#btn-grant');
+  await page.waitForFunction(() => /Proposed as council change #1\. It needs 1 more approval, then a public waiting period of 1 hour/.test(document.querySelector('#grant-status').textContent), null, { timeout: 60_000 });
+  await page.waitForSelector('#council-1 >> text=Collecting approvals');
+  assert.match(await page.textContent('#council-1'), /Approve 0x.* as clerk "Council desk" \(can give full voting rights\)/);
+  assert.match(await page.textContent('#council-1'), /Second desk at City Hall/);
+  assert.equal(await page.locator('#council-1 button', { hasText: 'Approve' }).count(), 0); // already approved by proposing
+  assert.equal((await c.identity.issuers(desk)).active, false); // nothing happens yet
+  await shot('7-council-proposed');
+
+  // The second member (the automatic account) approves: the public wait starts.
+  await page.click('#nav-account');
+  await page.click('#btn-auto-wallet');
+  await page.click('#nav-admin');
+  await page.click('#council-1 button:has-text("Approve")');
+  await page.waitForSelector('#council-1 >> text=Waiting period', { timeout: 60_000 });
+  assert.equal((await c.identity.issuers(desk)).active, false);
+
+  // An hour later anyone can run it.
+  await provider.send('evm_increaseTime', [3601]);
+  await provider.send('evm_mine', []);
+  await page.click('#btn-council-refresh');
+  await page.click('#council-1 button:has-text("Run it now")');
+  await page.waitForSelector('#council-1 >> text=Done', { timeout: 60_000 });
+  assert.equal((await c.identity.issuers(desk)).name, 'Council desk');
+  assert.equal((await c.identity.issuers(desk)).active, true);
+  await shot('8-council-done');
+  delete appConfig.councilAddress;
 });
 
 test('join online: sign in with a provider, come back enrolled', async () => {

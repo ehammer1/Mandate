@@ -6,6 +6,7 @@
  * (transaction, block, addresses), so anyone can check it independently.
  *
  *   high    power changed or something may be wrong: admin role granted/revoked,
+ *           a council change proposed, scheduled or carried out, council membership,
  *           identity source approved/removed, enrolment spike, failed binding action,
  *           operational account running out of funds
  *   medium  notable: other role changes, revocations, binding polls opened,
@@ -26,6 +27,52 @@ const ACTIONS = ['advisory', 'veto a market decision', 'create a mandate', 'repe
 const TIERS = ['basic', 'verified'];
 
 const short = (a) => `${String(a).slice(0, 6)}…${String(a).slice(-4)}`;
+const CALLS = new ethers.Interface([
+  'function setIssuer(address issuer, uint8 maxTier, bool active, string name)',
+  'function grantRole(bytes32 role, address account)',
+  'function revokeRole(bytes32 role, address account)',
+  'function addMember(address member)',
+  'function removeMember(address member)',
+  'function setThreshold(uint256 threshold)',
+  'function setDelay(uint64 delay)',
+  'function transferOwnership(address newOwner)',
+  'function setMinBond(uint256 amount)',
+]);
+const utc = (secs) => new Date(Number(secs) * 1000).toISOString().slice(0, 16).replace('T', ' ') + ' UTC';
+
+/** What a council proposal will do, decoded from its exact calldata. */
+function describeCall(target, data, names = {}) {
+  const where = names[String(target).toLowerCase()] || short(target);
+  let f;
+  try {
+    f = CALLS.parseTransaction({ data });
+  } catch {
+    return `an unrecognised call to ${where} (data ${String(data).slice(0, 10)}…)`;
+  }
+  const a = f.args;
+  switch (f.name) {
+    case 'setIssuer':
+      return a.active ? `approve ${short(a.issuer)} as identity source "${a.name}" (up to ${TIERS[Number(a.maxTier)] || a.maxTier} tier)` : `remove identity source ${short(a.issuer)} ("${a.name}")`;
+    case 'grantRole':
+      return `grant ${ROLE_NAMES[a.role] || a.role} to ${short(a.account)} on ${where}`;
+    case 'revokeRole':
+      return `revoke ${ROLE_NAMES[a.role] || a.role} from ${short(a.account)} on ${where}`;
+    case 'addMember':
+      return `add ${short(a.member)} to the council`;
+    case 'removeMember':
+      return `remove ${short(a.member)} from the council`;
+    case 'setThreshold':
+      return `require ${a.threshold} council approvals`;
+    case 'setDelay':
+      return `set the council waiting period to ${Number(a.delay) / 3600} hours`;
+    case 'transferOwnership':
+      return `hand ${where} to ${short(a.newOwner)}`;
+    case 'setMinBond':
+      return `set the poll bond to ${ethers.formatEther(a.amount)} credits`;
+    default:
+      return `${f.name} on ${where}`;
+  }
+}
 
 /**
  * Turn one decoded event into zero or more alerts.
@@ -107,6 +154,32 @@ function rulesForEvent(ev, ctx) {
       return [{ ...base, rule: 'market', severity: 'medium', title: `Market ${a.id}: the public vetoed the market's PASS decision`, facts: { market: String(a.id) } }];
     case 'MetricResolved':
       return [{ ...base, rule: 'market', severity: 'medium', title: `Market ${a.id}: metric resolved as ${a.met ? 'met' : 'not met'} (check the resolver's source)`, facts: { market: String(a.id), met: a.met } }];
+    case 'Proposed': {
+      const what = describeCall(a.target, a.data, ctx.contractNames);
+      ctx.proposals.set(String(a.id), what);
+      return [{
+        ...base,
+        rule: 'council-proposal',
+        severity: 'high',
+        title: `Council change #${a.id} proposed by ${short(a.proposer)}: ${what}${a.fast ? ' (removes power: can run as soon as approved)' : ''}`,
+        facts: { proposal: String(a.id), proposer: a.proposer, target: a.target, value: String(a.value), data: a.data, description: a.description, fast: a.fast },
+      }];
+    }
+    case 'Queued': {
+      const what = ctx.proposals.get(String(a.id)) || 'see the proposal';
+      return [{ ...base, rule: 'council-scheduled', severity: 'high', title: `Council change #${a.id} approved: it can run from ${utc(a.readyAt)} (${what}). Members can still cancel it until then.`, facts: { proposal: String(a.id), readyAt: Number(a.readyAt) } }];
+    }
+    case 'Executed':
+      return [{ ...base, rule: 'council-executed', severity: 'high', title: `Council change #${a.id} carried out: ${ctx.proposals.get(String(a.id)) || 'see the proposal'}`, facts: { proposal: String(a.id) } }];
+    case 'Cancelled':
+      return [{ ...base, rule: 'council-cancelled', severity: 'medium', title: `Council change #${a.id} cancelled by ${short(a.by)}: ${ctx.proposals.get(String(a.id)) || 'see the proposal'}`, facts: { proposal: String(a.id), by: a.by } }];
+    case 'MemberAdded':
+    case 'MemberRemoved':
+      return [{ ...base, rule: 'council-membership', severity: 'high', title: `${short(a.member)} ${ev.name === 'MemberAdded' ? 'joined' : 'left'} the council`, facts: { member: a.member } }];
+    case 'ThresholdChanged':
+      return [{ ...base, rule: 'council-settings', severity: 'high', title: `The council now needs ${a.threshold} approvals per change`, facts: { threshold: String(a.threshold) } }];
+    case 'DelayChanged':
+      return [{ ...base, rule: 'council-settings', severity: 'high', title: `The council waiting period is now ${Number(a.delay) / 3600} hours`, facts: { delay: Number(a.delay) } }];
     case 'Decided':
       return [{ ...base, rule: 'market', severity: 'info', title: `Market ${a.id} closed: ${Number(a.chosen) === 0 ? 'PASS' : 'FAIL'} recommended`, facts: { market: String(a.id) } }];
     default:
@@ -114,4 +187,4 @@ function rulesForEvent(ev, ctx) {
   }
 }
 
-module.exports = { rulesForEvent, ROLE_NAMES, short };
+module.exports = { rulesForEvent, ROLE_NAMES, short, describeCall };

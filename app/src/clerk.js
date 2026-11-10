@@ -261,6 +261,7 @@ export function wireClerk(ctx) {
       const link = state.config.explorer ? ` <a href="${esc(state.config.explorer)}/tx/${esc(tx.hash)}" target="_blank" rel="noopener">View record</a>` : '';
       $('clerk-id').hidden = true;
       $('clerk-person').innerHTML = '';
+      $('clerk-code').value = '';
       el.className = 'status';
       el.innerHTML = `<span class="ok">Done: ${isNew ? 'enrolled' : 'upgraded'} with full voting rights.</span> ${esc(when)}${link}`;
       state.clerkCount = (state.clerkCount || 0) + 1;

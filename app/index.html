@@ -53,6 +53,8 @@
     .choices { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin: 12px 0 4px; }
     .choice { font-weight: 600; }
     .choice.picked { background: var(--accent-soft); border-color: var(--accent); }
+    select { width: 100%; max-width: 100%; min-width: 0; text-overflow: ellipsis; }
+    .stack > * { min-width: 0; max-width: 100%; }
     input[type=text], input[type=email] { font: inherit; width: 100%; min-height: 48px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); }
     .code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 15px; word-break: break-all; background: var(--bg); border: 1px dashed var(--line); border-radius: 10px; padding: 12px; margin: 8px 0; }
     .status { min-height: 1.5em; margin: 8px 0 0; }
@@ -244,19 +246,41 @@
         <p class="status" id="finalize-status" role="status"></p>
       </div>
 
+      <div class="card stack" id="admin-council" hidden>
+        <h3>Council</h3>
+        <div id="council-summary"></div>
+        <div class="row"><button id="btn-council-refresh">Refresh</button><span class="status" id="council-status" role="status"></span></div>
+        <div id="council-list" class="stack"></div>
+      </div>
+
+      <div class="card stack" id="admin-credits" hidden>
+        <h3>Hand play credits to the council</h3>
+        <p class="note">This account still owns the play-credits contract. Hand it to the council so no single key can mint credits.</p>
+        <button class="primary" id="btn-credits-handover">Hand over</button>
+        <p class="status" id="credits-status" role="status"></p>
+      </div>
+
       <div class="card stack" id="admin-roles" hidden>
-        <h3>Give someone a role</h3>
+        <h3 id="roles-title">Give or remove a role</h3>
+        <p class="note" id="roles-note" hidden>Changes go to the council as a proposal: other members approve, then there is a public waiting period before they take effect. Removing a role needs approvals but no wait.</p>
+        <label for="grant-action">Action</label>
+        <select id="grant-action" style="min-height:48px;font:inherit;border-radius:10px;padding:8px">
+          <option value="give">Give</option>
+          <option value="remove">Remove</option>
+        </select>
         <label for="grant-address">Their address (0x…)</label>
         <input type="text" id="grant-address" autocomplete="off" spellcheck="false" />
         <label for="grant-kind">Role</label>
         <select id="grant-kind" style="min-height:48px;font:inherit;border-radius:10px;padding:8px">
           <option value="issuer">Clerk: can enrol voters</option>
           <option value="proposer">Can open polls</option>
-          <option value="admin">Admin: full control</option>
+          <option value="admin">Admin (council member, if there is a council)</option>
         </select>
         <label for="grant-name">Name (for clerks, shown to voters)</label>
         <input type="text" id="grant-name" placeholder="e.g. City Clerk, Main Library" />
-        <button class="primary" id="btn-grant">Grant role</button>
+        <label for="grant-reason">Reason (shown to the public with the proposal)</label>
+        <input type="text" id="grant-reason" placeholder="e.g. New desk at the Main Library" />
+        <button class="primary" id="btn-grant">Submit</button>
         <p class="status" id="grant-status" role="status"></p>
       </div>
     </section>
