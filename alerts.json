@@ -1,5 +1,331 @@
 [
  {
+  "tx": "0x7362b263579a7cebd1d5265640613dc2d8c069d1d2cfdbb753450efc0c5e3182",
+  "block": 56808537,
+  "time": 1794283576,
+  "contract": "decision markets",
+  "event": "RoleRevoked",
+  "rule": "role-change",
+  "severity": "high",
+  "title": "ADMIN role revoked from 0xC782…f834 on decision markets",
+  "facts": {
+   "role": "ADMIN",
+   "account": "0xC782e1690D4B6c4C2Aba21283a6271477690f834",
+   "by": "0xC782e1690D4B6c4C2Aba21283a6271477690f834"
+  },
+  "id": "role-change:0x7362b263579a7cebd1d5265640613dc2d8c069d1d2cfdbb753450efc0c5e3182:1794283576"
+ },
+ {
+  "tx": "0x76408507294f846c7f21b183d33137c82d5801378e07193d01bf2c5b497cbeda",
+  "block": 56808515,
+  "time": 1794283571,
+  "contract": "voting",
+  "event": "RoleRevoked",
+  "rule": "role-change",
+  "severity": "high",
+  "title": "ADMIN role revoked from 0xC782…f834 on voting",
+  "facts": {
+   "role": "ADMIN",
+   "account": "0xC782e1690D4B6c4C2Aba21283a6271477690f834",
+   "by": "0xC782e1690D4B6c4C2Aba21283a6271477690f834"
+  },
+  "id": "role-change:0x76408507294f846c7f21b183d33137c82d5801378e07193d01bf2c5b497cbeda:1794283571"
+ },
+ {
+  "tx": "0x1e9023ce1c7d6f0163974373dcc77170b84b052452b344787e3e35619973a9e3",
+  "block": 56808490,
+  "time": 1794283566,
+  "contract": "mandate registry",
+  "event": "RoleRevoked",
+  "rule": "role-change",
+  "severity": "high",
+  "title": "ADMIN role revoked from 0xC782…f834 on mandate registry",
+  "facts": {
+   "role": "ADMIN",
+   "account": "0xC782e1690D4B6c4C2Aba21283a6271477690f834",
+   "by": "0xC782e1690D4B6c4C2Aba21283a6271477690f834"
+  },
+  "id": "role-change:0x1e9023ce1c7d6f0163974373dcc77170b84b052452b344787e3e35619973a9e3:1794283566"
+ },
+ {
+  "tx": "0x624a2600af26ffd602c452d55151a3dd0b2862c4eadce52eadb9f894189fced9",
+  "block": 56808468,
+  "time": 1794283562,
+  "contract": "identity registry",
+  "event": "RoleRevoked",
+  "rule": "role-change",
+  "severity": "high",
+  "title": "ADMIN role revoked from 0xC782…f834 on identity registry",
+  "facts": {
+   "role": "ADMIN",
+   "account": "0xC782e1690D4B6c4C2Aba21283a6271477690f834",
+   "by": "0xC782e1690D4B6c4C2Aba21283a6271477690f834"
+  },
+  "id": "role-change:0x624a2600af26ffd602c452d55151a3dd0b2862c4eadce52eadb9f894189fced9:1794283562"
+ },
+ {
+  "tx": "0x4b7b061d5f7029b6f762bfa960781aae35c23eae452af486b45dcaec741c3ee2",
+  "block": 56808445,
+  "time": 1794283557,
+  "contract": "decision markets",
+  "event": "RoleRevoked",
+  "rule": "role-change",
+  "severity": "high",
+  "title": "ADMIN role revoked from 0xb8e5…Cb71 on decision markets",
+  "facts": {
+   "role": "ADMIN",
+   "account": "0xb8e5DA10ce9BE2A0dc3D86cB180c0E605491Cb71",
+   "by": "0xC782e1690D4B6c4C2Aba21283a6271477690f834"
+  },
+  "id": "role-change:0x4b7b061d5f7029b6f762bfa960781aae35c23eae452af486b45dcaec741c3ee2:1794283557"
+ },
+ {
+  "tx": "0x68b7f3cad62f0e88339064be790e1083f9d0ac953a144db9693d06ece362fe8e",
+  "block": 56808423,
+  "time": 1794283553,
+  "contract": "decision markets",
+  "event": "RoleRevoked",
+  "rule": "role-change",
+  "severity": "high",
+  "title": "ADMIN role revoked from 0x433B…476F on decision markets",
+  "facts": {
+   "role": "ADMIN",
+   "account": "0x433B8c945c9f4664870fFD3dA3Ea8d16dD41476F",
+   "by": "0xC782e1690D4B6c4C2Aba21283a6271477690f834"
+  },
+  "id": "role-change:0x68b7f3cad62f0e88339064be790e1083f9d0ac953a144db9693d06ece362fe8e:1794283553"
+ },
+ {
+  "tx": "0x9f1671e629e58aa60b95259bece34f0569874d09dc15dee50e2ded74171a7ec9",
+  "block": 56808400,
+  "time": 1794283548,
+  "contract": "voting",
+  "event": "RoleRevoked",
+  "rule": "role-change",
+  "severity": "high",
+  "title": "ADMIN role revoked from 0xb8e5…Cb71 on voting",
+  "facts": {
+   "role": "ADMIN",
+   "account": "0xb8e5DA10ce9BE2A0dc3D86cB180c0E605491Cb71",
+   "by": "0xC782e1690D4B6c4C2Aba21283a6271477690f834"
+  },
+  "id": "role-change:0x9f1671e629e58aa60b95259bece34f0569874d09dc15dee50e2ded74171a7ec9:1794283548"
+ },
+ {
+  "tx": "0x2c45e1056bb8f85bf09380df5a1ba630a73d16ce730c1650f81fa933d5c96ebf",
+  "block": 56808377,
+  "time": 1794283544,
+  "contract": "voting",
+  "event": "RoleRevoked",
+  "rule": "role-change",
+  "severity": "high",
+  "title": "ADMIN role revoked from 0x433B…476F on voting",
+  "facts": {
+   "role": "ADMIN",
+   "account": "0x433B8c945c9f4664870fFD3dA3Ea8d16dD41476F",
+   "by": "0xC782e1690D4B6c4C2Aba21283a6271477690f834"
+  },
+  "id": "role-change:0x2c45e1056bb8f85bf09380df5a1ba630a73d16ce730c1650f81fa933d5c96ebf:1794283544"
+ },
+ {
+  "tx": "0x18a2af64a5a424af7eec11ac876ecd8888eb3566efe0ca34115e2a3f8d8ecc58",
+  "block": 56808373,
+  "time": 1794283543,
+  "contract": "mandate registry",
+  "event": "RoleRevoked",
+  "rule": "role-change",
+  "severity": "high",
+  "title": "ADMIN role revoked from 0xb8e5…Cb71 on mandate registry",
+  "facts": {
+   "role": "ADMIN",
+   "account": "0xb8e5DA10ce9BE2A0dc3D86cB180c0E605491Cb71",
+   "by": "0xC782e1690D4B6c4C2Aba21283a6271477690f834"
+  },
+  "id": "role-change:0x18a2af64a5a424af7eec11ac876ecd8888eb3566efe0ca34115e2a3f8d8ecc58:1794283543"
+ },
+ {
+  "tx": "0x55cfebb6f16ab789bd1a09072dc6da112ac9a5be6ef42b49a5ce0c24292ffc48",
+  "block": 56808349,
+  "time": 1794283538,
+  "contract": "mandate registry",
+  "event": "RoleRevoked",
+  "rule": "role-change",
+  "severity": "high",
+  "title": "ADMIN role revoked from 0x433B…476F on mandate registry",
+  "facts": {
+   "role": "ADMIN",
+   "account": "0x433B8c945c9f4664870fFD3dA3Ea8d16dD41476F",
+   "by": "0xC782e1690D4B6c4C2Aba21283a6271477690f834"
+  },
+  "id": "role-change:0x55cfebb6f16ab789bd1a09072dc6da112ac9a5be6ef42b49a5ce0c24292ffc48:1794283538"
+ },
+ {
+  "tx": "0xa44502fb187635d366afe163aa45aed1df7ce7ce22668a8f6b47ba169092004f",
+  "block": 56808326,
+  "time": 1794283534,
+  "contract": "identity registry",
+  "event": "RoleRevoked",
+  "rule": "role-change",
+  "severity": "high",
+  "title": "ADMIN role revoked from 0xb8e5…Cb71 on identity registry",
+  "facts": {
+   "role": "ADMIN",
+   "account": "0xb8e5DA10ce9BE2A0dc3D86cB180c0E605491Cb71",
+   "by": "0xC782e1690D4B6c4C2Aba21283a6271477690f834"
+  },
+  "id": "role-change:0xa44502fb187635d366afe163aa45aed1df7ce7ce22668a8f6b47ba169092004f:1794283534"
+ },
+ {
+  "tx": "0xa5e92981993ec45bd3813ec2d83926e9280993b44e718d7d88b6d55101500d04",
+  "block": 56808301,
+  "time": 1794283529,
+  "contract": "identity registry",
+  "event": "RoleRevoked",
+  "rule": "role-change",
+  "severity": "high",
+  "title": "ADMIN role revoked from 0x433B…476F on identity registry",
+  "facts": {
+   "role": "ADMIN",
+   "account": "0x433B8c945c9f4664870fFD3dA3Ea8d16dD41476F",
+   "by": "0xC782e1690D4B6c4C2Aba21283a6271477690f834"
+  },
+  "id": "role-change:0xa5e92981993ec45bd3813ec2d83926e9280993b44e718d7d88b6d55101500d04:1794283529"
+ },
+ {
+  "tx": "0xb3e824d039b50199151c78c31b77e80c9002ae5d622ac8dfb14a27d9dd7ea4ac",
+  "block": 56808278,
+  "time": 1794283524,
+  "contract": "decision markets",
+  "event": "RoleGranted",
+  "rule": "role-change",
+  "severity": "high",
+  "title": "ADMIN role granted to 0x4c0e…797F on decision markets",
+  "facts": {
+   "role": "ADMIN",
+   "account": "0x4c0eC8820a4514DdB8aA3D98dEf878c6e296797F",
+   "by": "0xC782e1690D4B6c4C2Aba21283a6271477690f834"
+  },
+  "id": "role-change:0xb3e824d039b50199151c78c31b77e80c9002ae5d622ac8dfb14a27d9dd7ea4ac:1794283524"
+ },
+ {
+  "tx": "0x49f75ef07c9f2eb76983934e99e22a30458a6ef505622c7e532370e5eb3af2ef",
+  "block": 56808255,
+  "time": 1794283519,
+  "contract": "voting",
+  "event": "RoleGranted",
+  "rule": "role-change",
+  "severity": "high",
+  "title": "ADMIN role granted to 0x4c0e…797F on voting",
+  "facts": {
+   "role": "ADMIN",
+   "account": "0x4c0eC8820a4514DdB8aA3D98dEf878c6e296797F",
+   "by": "0xC782e1690D4B6c4C2Aba21283a6271477690f834"
+  },
+  "id": "role-change:0x49f75ef07c9f2eb76983934e99e22a30458a6ef505622c7e532370e5eb3af2ef:1794283519"
+ },
+ {
+  "tx": "0x482bf108363d75db12acec28f12b74fcbd2a93ed165f2a0e839925af9b7affc7",
+  "block": 56808232,
+  "time": 1794283515,
+  "contract": "mandate registry",
+  "event": "RoleGranted",
+  "rule": "role-change",
+  "severity": "high",
+  "title": "ADMIN role granted to 0x4c0e…797F on mandate registry",
+  "facts": {
+   "role": "ADMIN",
+   "account": "0x4c0eC8820a4514DdB8aA3D98dEf878c6e296797F",
+   "by": "0xC782e1690D4B6c4C2Aba21283a6271477690f834"
+  },
+  "id": "role-change:0x482bf108363d75db12acec28f12b74fcbd2a93ed165f2a0e839925af9b7affc7:1794283515"
+ },
+ {
+  "tx": "0x724f1a41f9987295090ade3fa19d58f176fa1f38527cf24190f9bebd79e0ba96",
+  "block": 56808210,
+  "time": 1794283510,
+  "contract": "identity registry",
+  "event": "RoleGranted",
+  "rule": "role-change",
+  "severity": "high",
+  "title": "ADMIN role granted to 0x4c0e…797F on identity registry",
+  "facts": {
+   "role": "ADMIN",
+   "account": "0x4c0eC8820a4514DdB8aA3D98dEf878c6e296797F",
+   "by": "0xC782e1690D4B6c4C2Aba21283a6271477690f834"
+  },
+  "id": "role-change:0x724f1a41f9987295090ade3fa19d58f176fa1f38527cf24190f9bebd79e0ba96:1794283510"
+ },
+ {
+  "tx": "0x7249bfb83ee3bc76561c068e44b49f4b012939685c0100435928f35ddd0a6f39",
+  "block": 56808184,
+  "time": 1794283505,
+  "contract": "council",
+  "event": "DelayChanged",
+  "rule": "council-settings",
+  "severity": "high",
+  "title": "The council waiting period is now 1 hours",
+  "facts": {
+   "delay": 3600
+  },
+  "id": "council-settings:0x7249bfb83ee3bc76561c068e44b49f4b012939685c0100435928f35ddd0a6f39:1794283505"
+ },
+ {
+  "tx": "0x7249bfb83ee3bc76561c068e44b49f4b012939685c0100435928f35ddd0a6f39",
+  "block": 56808184,
+  "time": 1794283505,
+  "contract": "council",
+  "event": "ThresholdChanged",
+  "rule": "council-settings",
+  "severity": "high",
+  "title": "The council now needs 2 approvals per change",
+  "facts": {
+   "threshold": "2"
+  },
+  "id": "council-settings:0x7249bfb83ee3bc76561c068e44b49f4b012939685c0100435928f35ddd0a6f39:1794283505"
+ },
+ {
+  "tx": "0x7249bfb83ee3bc76561c068e44b49f4b012939685c0100435928f35ddd0a6f39",
+  "block": 56808184,
+  "time": 1794283505,
+  "contract": "council",
+  "event": "MemberAdded",
+  "rule": "council-membership",
+  "severity": "high",
+  "title": "0xC782…f834 joined the council",
+  "facts": {
+   "member": "0xC782e1690D4B6c4C2Aba21283a6271477690f834"
+  },
+  "id": "council-membership:0x7249bfb83ee3bc76561c068e44b49f4b012939685c0100435928f35ddd0a6f39:1794283505"
+ },
+ {
+  "tx": "0x7249bfb83ee3bc76561c068e44b49f4b012939685c0100435928f35ddd0a6f39",
+  "block": 56808184,
+  "time": 1794283505,
+  "contract": "council",
+  "event": "MemberAdded",
+  "rule": "council-membership",
+  "severity": "high",
+  "title": "0xb8e5…Cb71 joined the council",
+  "facts": {
+   "member": "0xb8e5DA10ce9BE2A0dc3D86cB180c0E605491Cb71"
+  },
+  "id": "council-membership:0x7249bfb83ee3bc76561c068e44b49f4b012939685c0100435928f35ddd0a6f39:1794283505"
+ },
+ {
+  "tx": "0x7249bfb83ee3bc76561c068e44b49f4b012939685c0100435928f35ddd0a6f39",
+  "block": 56808184,
+  "time": 1794283505,
+  "contract": "council",
+  "event": "MemberAdded",
+  "rule": "council-membership",
+  "severity": "high",
+  "title": "0x433B…476F joined the council",
+  "facts": {
+   "member": "0x433B8c945c9f4664870fFD3dA3Ea8d16dD41476F"
+  },
+  "id": "council-membership:0x7249bfb83ee3bc76561c068e44b49f4b012939685c0100435928f35ddd0a6f39:1794283505"
+ },
+ {
   "tx": "0x844b351cabe509b23195b7fbfab48f5aab15259154d58b3782a772b6989bb6ef",
   "block": 56503200,
   "time": 1794222508,

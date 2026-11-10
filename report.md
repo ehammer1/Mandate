@@ -1,8 +1,8 @@
 # Mandate audit report
 
-Generated 2026-11-09T11:55:53.000Z · last 24 hours · 25 high, 13 medium, 1 info
+Generated 2026-11-10T04:27:07.000Z · last 24 hours · 46 high, 13 medium, 1 info
 
-25 alert(s) need attention.
+46 alert(s) need attention.
 - ADMIN role granted to 0xC782…f834 on identity registry
 - ADMIN role granted to 0xC782…f834 on mandate registry
 - ADMIN role granted to 0xC782…f834 on voting
@@ -28,6 +28,27 @@ Generated 2026-11-09T11:55:53.000Z · last 24 hours · 25 high, 13 medium, 1 inf
 - ADMIN role revoked from 0xd868…6fD0 on mandate registry
 - ADMIN role revoked from 0xd868…6fD0 on decision markets
 - Identity source "Mandate app admin (key deleted)" (0xd868…6fD0) removed
+- 0x433B…476F joined the council
+- 0xb8e5…Cb71 joined the council
+- 0xC782…f834 joined the council
+- The council now needs 2 approvals per change
+- The council waiting period is now 1 hours
+- ADMIN role granted to 0x4c0e…797F on identity registry
+- ADMIN role granted to 0x4c0e…797F on mandate registry
+- ADMIN role granted to 0x4c0e…797F on voting
+- ADMIN role granted to 0x4c0e…797F on decision markets
+- ADMIN role revoked from 0x433B…476F on identity registry
+- ADMIN role revoked from 0xb8e5…Cb71 on identity registry
+- ADMIN role revoked from 0x433B…476F on mandate registry
+- ADMIN role revoked from 0xb8e5…Cb71 on mandate registry
+- ADMIN role revoked from 0x433B…476F on voting
+- ADMIN role revoked from 0xb8e5…Cb71 on voting
+- ADMIN role revoked from 0x433B…476F on decision markets
+- ADMIN role revoked from 0xb8e5…Cb71 on decision markets
+- ADMIN role revoked from 0xC782…f834 on identity registry
+- ADMIN role revoked from 0xC782…f834 on mandate registry
+- ADMIN role revoked from 0xC782…f834 on voting
+- ADMIN role revoked from 0xC782…f834 on decision markets
 14 other event(s) were recorded (see the list).
 
 ## All alerts
@@ -71,5 +92,26 @@ Generated 2026-11-09T11:55:53.000Z · last 24 hours · 25 high, 13 medium, 1 inf
 - **medium** PROPOSER role revoked from 0xd868…6fD0 on voting ([tx](https://sepolia.basescan.org/tx/0xc5fa1d830499e10841398b33551d62c196bb793cf595781726ebf8e600acec2a))
 - **medium** ISSUER role revoked from 0xd868…6fD0 on identity registry ([tx](https://sepolia.basescan.org/tx/0x844b351cabe509b23195b7fbfab48f5aab15259154d58b3782a772b6989bb6ef))
 - **high** Identity source "Mandate app admin (key deleted)" (0xd868…6fD0) removed ([tx](https://sepolia.basescan.org/tx/0x844b351cabe509b23195b7fbfab48f5aab15259154d58b3782a772b6989bb6ef))
+- **high** 0x433B…476F joined the council ([tx](https://sepolia.basescan.org/tx/0x7249bfb83ee3bc76561c068e44b49f4b012939685c0100435928f35ddd0a6f39))
+- **high** 0xb8e5…Cb71 joined the council ([tx](https://sepolia.basescan.org/tx/0x7249bfb83ee3bc76561c068e44b49f4b012939685c0100435928f35ddd0a6f39))
+- **high** 0xC782…f834 joined the council ([tx](https://sepolia.basescan.org/tx/0x7249bfb83ee3bc76561c068e44b49f4b012939685c0100435928f35ddd0a6f39))
+- **high** The council now needs 2 approvals per change ([tx](https://sepolia.basescan.org/tx/0x7249bfb83ee3bc76561c068e44b49f4b012939685c0100435928f35ddd0a6f39))
+- **high** The council waiting period is now 1 hours ([tx](https://sepolia.basescan.org/tx/0x7249bfb83ee3bc76561c068e44b49f4b012939685c0100435928f35ddd0a6f39))
+- **high** ADMIN role granted to 0x4c0e…797F on identity registry ([tx](https://sepolia.basescan.org/tx/0x724f1a41f9987295090ade3fa19d58f176fa1f38527cf24190f9bebd79e0ba96))
+- **high** ADMIN role granted to 0x4c0e…797F on mandate registry ([tx](https://sepolia.basescan.org/tx/0x482bf108363d75db12acec28f12b74fcbd2a93ed165f2a0e839925af9b7affc7))
+- **high** ADMIN role granted to 0x4c0e…797F on voting ([tx](https://sepolia.basescan.org/tx/0x49f75ef07c9f2eb76983934e99e22a30458a6ef505622c7e532370e5eb3af2ef))
+- **high** ADMIN role granted to 0x4c0e…797F on decision markets ([tx](https://sepolia.basescan.org/tx/0xb3e824d039b50199151c78c31b77e80c9002ae5d622ac8dfb14a27d9dd7ea4ac))
+- **high** ADMIN role revoked from 0x433B…476F on identity registry ([tx](https://sepolia.basescan.org/tx/0xa5e92981993ec45bd3813ec2d83926e9280993b44e718d7d88b6d55101500d04))
+- **high** ADMIN role revoked from 0xb8e5…Cb71 on identity registry ([tx](https://sepolia.basescan.org/tx/0xa44502fb187635d366afe163aa45aed1df7ce7ce22668a8f6b47ba169092004f))
+- **high** ADMIN role revoked from 0x433B…476F on mandate registry ([tx](https://sepolia.basescan.org/tx/0x55cfebb6f16ab789bd1a09072dc6da112ac9a5be6ef42b49a5ce0c24292ffc48))
+- **high** ADMIN role revoked from 0xb8e5…Cb71 on mandate registry ([tx](https://sepolia.basescan.org/tx/0x18a2af64a5a424af7eec11ac876ecd8888eb3566efe0ca34115e2a3f8d8ecc58))
+- **high** ADMIN role revoked from 0x433B…476F on voting ([tx](https://sepolia.basescan.org/tx/0x2c45e1056bb8f85bf09380df5a1ba630a73d16ce730c1650f81fa933d5c96ebf))
+- **high** ADMIN role revoked from 0xb8e5…Cb71 on voting ([tx](https://sepolia.basescan.org/tx/0x9f1671e629e58aa60b95259bece34f0569874d09dc15dee50e2ded74171a7ec9))
+- **high** ADMIN role revoked from 0x433B…476F on decision markets ([tx](https://sepolia.basescan.org/tx/0x68b7f3cad62f0e88339064be790e1083f9d0ac953a144db9693d06ece362fe8e))
+- **high** ADMIN role revoked from 0xb8e5…Cb71 on decision markets ([tx](https://sepolia.basescan.org/tx/0x4b7b061d5f7029b6f762bfa960781aae35c23eae452af486b45dcaec741c3ee2))
+- **high** ADMIN role revoked from 0xC782…f834 on identity registry ([tx](https://sepolia.basescan.org/tx/0x624a2600af26ffd602c452d55151a3dd0b2862c4eadce52eadb9f894189fced9))
+- **high** ADMIN role revoked from 0xC782…f834 on mandate registry ([tx](https://sepolia.basescan.org/tx/0x1e9023ce1c7d6f0163974373dcc77170b84b052452b344787e3e35619973a9e3))
+- **high** ADMIN role revoked from 0xC782…f834 on voting ([tx](https://sepolia.basescan.org/tx/0x76408507294f846c7f21b183d33137c82d5801378e07193d01bf2c5b497cbeda))
+- **high** ADMIN role revoked from 0xC782…f834 on decision markets ([tx](https://sepolia.basescan.org/tx/0x7362b263579a7cebd1d5265640613dc2d8c069d1d2cfdbb753450efc0c5e3182))
 
 Summary written by: fixed rules.
