@@ -19,6 +19,7 @@ import { wireClerk } from './clerk.js';
 import { wireCouncil } from './council.js';
 import { readDoc, postDoc } from './notices.js';
 import { wireMandates } from './mandates.js';
+import { loadRules, describeRuleChange, RULE_ERRORS } from './rules.js';
 
 const VOTE_ABI = [
   'function castBallot(uint256 id, tuple(uint256 merkleTreeDepth, uint256 merkleTreeRoot, uint256 nullifier, uint256 message, uint256 scope, uint256[8] points) b)',
@@ -414,7 +415,9 @@ async function fetchQuestion(cid) {
   return readDoc(state.config, state.provider, cid);
 }
 
+const VOTE_ERRORS = new ethers.Interface(['error PollTooShort(uint64)', 'error QuorumTooLow(uint256)', 'error CrossCheckRequired()', 'error CheckTooSmall(uint256)', 'error RuleVotersNotEligible()', 'error OutOfBounds(bytes32,uint256,uint256,uint256)', 'error UnknownRule(bytes32)']);
 const MANDATE_ACTION = 2;
+const RULE_ACTION = 4;
 /** For a binding "create a mandate" poll: who, how long, how many checks. */
 function mandateTerms(p) {
   if (Number(p.action) !== MANDATE_ACTION) return null;
@@ -448,6 +451,7 @@ async function refreshPolls() {
     } catch {
       /* treat as not enrolled */
     }
+    state.rules = await loadRules(state.config, state.provider).catch(() => []);
     const cards = [];
     for (let id = count; id >= 1n && cards.length < 20; id--) {
       const [p, tally] = await Promise.all([state.vote.getPoll(id), state.vote.tally(id)]);
@@ -471,6 +475,7 @@ async function refreshPolls() {
         ${q.body ? `<p>${esc(q.body)}</p>` : ''}
         ${(() => {
           const t = mandateTerms(p);
+          if (Number(p.action) === RULE_ACTION) return `<p class="note"><strong>Rule change.</strong> If it passes, this will ${esc(describeRuleChange(state.rules || [], p.actionData))}. It needs a supermajority of Yes votes (set by the rules when it opened).</p>`;
           return t ? `<p class="note"><strong>Binding.</strong> If Yes wins, this becomes a mandate: <span class="code">${esc(t.responsible.slice(0, 6))}…${esc(t.responsible.slice(-4))}</span> is responsible for doing it within ${t.days} days, and ${t.checks} independent verifier${t.checks === 1 ? '' : 's'} must confirm it was done.</p>` : '';
         })()}
         ${ck.root ? `<p class="note"><strong>Cross-checked.</strong> Votes from ${esc(GROUP_LABEL[checkTier]?.toLowerCase() || 'ID-checked residents')} are also counted separately (Yes ${ckCounts[0]}, No ${ckCounts[1]}). If at least ${ck.quorum} of them vote and they choose the other side from everyone, the result is held for review.</p>` : ''}
@@ -746,7 +751,15 @@ async function sendAdminTx(statusEl, label, build) {
     statusEl.innerHTML = `<span class="ok">${esc(label)}: done.</span>${link}`;
     return true;
   } catch (e) {
-    status(statusEl, `${label} failed: ${e.revert?.name || e.shortMessage || e.message}`, 'error');
+    let name = e.revert?.name;
+    if (!name && e.data) {
+      try {
+        name = VOTE_ERRORS.parseError(e.data)?.name;
+      } catch {
+        /* not a rules error */
+      }
+    }
+    status(statusEl, `${label} failed: ${RULE_ERRORS[name] || name || e.shortMessage || e.message}`, 'error');
     return false;
   }
 }
@@ -758,8 +771,18 @@ function wireAdmin() {
   };
 
 
-  $('poll-kind').onchange = () => {
+  $('poll-kind').onchange = async () => {
     $('poll-mandate').hidden = $('poll-kind').value !== String(MANDATE_ACTION);
+    $('poll-rule').hidden = $('poll-kind').value !== String(RULE_ACTION);
+    if (!$('poll-rule').hidden) {
+      state.rules = await loadRules(state.config, state.provider).catch(() => []);
+      $('poll-rule-key').innerHTML = state.rules.map((r) => `<option value="${esc(r.key)}">${esc(r.label)} (now: ${esc(r.shown)})</option>`).join('');
+      $('poll-rule-key').onchange();
+    }
+  };
+  $('poll-rule-key').onchange = () => {
+    const r = (state.rules || []).find((x) => x.key === $('poll-rule-key').value);
+    $('poll-rule-hint').textContent = r ? `Allowed: ${r.range}. Type the new value in ${r.unit}.` : '';
   };
   $('btn-open-poll').onclick = async () => {
     const el = $('poll-status');
@@ -774,6 +797,13 @@ function wireAdmin() {
     if (!(days > 0) || !(quorum >= 1)) return status(el, 'Fill in the days and quorum.', 'error');
     let actionData = '0x';
     let mandate = null;
+    if (action === RULE_ACTION) {
+      const r = (state.rules || []).find((x) => x.key === $('poll-rule-key').value);
+      const v = $('poll-rule-value').value.trim();
+      if (!r || !/^\d+$/.test(v)) return status(el, 'Choose the rule and type its new value as a whole number.', 'error');
+      if (BigInt(v) < r.min || BigInt(v) > r.max) return status(el, `That value is outside the charter's limits (${r.range}).`, 'error');
+      actionData = ethers.AbiCoder.defaultAbiCoder().encode(['bytes32', 'uint256'], [r.key, BigInt(v)]);
+    }
     if (action === MANDATE_ACTION) {
       const who = $('poll-responsible').value.trim();
       const mdays = Number($('poll-mdays').value);
@@ -787,6 +817,37 @@ function wireAdmin() {
       }
       mandate = { responsible: ethers.getAddress(who), days: mdays, checks };
     }
+    // The voting contract below needs these before the question is published.
+    const groupId = await state.registry.groupId(tier);
+    const checkTier = Number($('poll-check').value);
+    const checkMin = Number($('poll-check-min').value);
+    if (checkTier >= 0 && (checkTier <= tier || !(checkMin >= 1))) return status(el, 'The cross-check must use a stricter group than who can vote, and need at least 1 checked vote.', 'error');
+    const vote = new ethers.Contract(state.config.voteAddress, ['function createPoll(uint256,uint64,uint32,uint8,uint8,bytes,string,uint256)', 'function createCheckedPoll(uint256,uint256,uint32,uint64,uint32,uint8,bytes,string,uint256)'], state.provider);
+    const dataFor = (r) =>
+      mandate
+        ? ethers.AbiCoder.defaultAbiCoder().encode(
+            ['address', 'address', 'uint64', 'uint16', 'bytes32', 'string'],
+            [state.config.registryAddress, mandate.responsible, mandate.days * 86_400, mandate.checks, ethers.id('general'), r],
+          )
+        : actionData;
+    const call = async (r) =>
+      checkTier >= 0
+        ? ['createCheckedPoll', [groupId, await state.registry.groupId(checkTier), checkMin, Math.round(days * 86_400), quorum, action, dataFor(r), r, 0]]
+        : ['createPoll', [groupId, Math.round(days * 86_400), quorum, 2, action, dataFor(r), r, 0]];
+    // Check the community's rules first (a simulation): if they forbid this poll, say which
+    // rule, and publish nothing.
+    try {
+      const [fn, args] = await call(existing || `nb:0x${'0'.repeat(64)}`);
+      await vote.connect(activeSigner())[fn].staticCall(...args);
+    } catch (e) {
+      let name = e.revert?.name;
+      try {
+        name ||= VOTE_ERRORS.parseError(e.data)?.name;
+      } catch {
+        /* not a rules error */
+      }
+      return status(el, `Open poll failed: ${RULE_ERRORS[name] || name || e.shortMessage || e.message}`, 'error');
+    }
     let ref = existing;
     if (title) {
       try {
@@ -796,21 +857,10 @@ function wireAdmin() {
         return status(el, `Could not publish the question: ${e.shortMessage || e.message}`, 'error');
       }
     }
-    if (mandate) {
-      actionData = ethers.AbiCoder.defaultAbiCoder().encode(
-        ['address', 'address', 'uint64', 'uint16', 'bytes32', 'string'],
-        [state.config.registryAddress, mandate.responsible, mandate.days * 86_400, mandate.checks, ethers.id('general'), ref],
-      );
-    }
-    const groupId = await state.registry.groupId(tier);
-    const checkTier = Number($('poll-check').value);
-    const checkMin = Number($('poll-check-min').value);
-    if (checkTier >= 0 && (checkTier <= tier || !(checkMin >= 1))) return status(el, 'The cross-check must use a stricter group than who can vote, and need at least 1 checked vote.', 'error');
-    const vote = new ethers.Contract(state.config.voteAddress, ['function createPoll(uint256,uint64,uint32,uint8,uint8,bytes,string,uint256)', 'function createCheckedPoll(uint256,uint256,uint32,uint64,uint32,uint8,bytes,string,uint256)'], state.provider);
-    const open = (signer) =>
-      checkTier >= 0
-        ? state.registry.groupId(checkTier).then((cg) => vote.connect(signer).createCheckedPoll(groupId, cg, checkMin, Math.round(days * 86_400), quorum, action, actionData, ref, 0))
-        : vote.connect(signer).createPoll(groupId, Math.round(days * 86_400), quorum, 2, action, actionData, ref, 0);
+    const open = async (signer) => {
+      const [fn, args] = await call(ref);
+      return vote.connect(signer)[fn](...args);
+    };
     if (await sendAdminTx(el, 'Open poll', open)) {
       for (const id of ['poll-title', 'poll-body', 'poll-question', 'poll-responsible']) $(id).value = '';
     }
@@ -869,6 +919,19 @@ async function boot() {
   wireAccount();
   wireAdmin();
   state.mandates = wireMandates({ state, $, status, esc, show, activeSigner, activeAddress, sendTx: (el, label, fn) => sendAdminTx(el, label, () => fn()) });
+  $('nav-rules').onclick = async () => {
+    show('screen-rules');
+    const box = $('rules-list');
+    box.innerHTML = '<p class="muted">Loading…</p>';
+    try {
+      const rules = await loadRules(state.config, state.provider);
+      box.innerHTML = rules.length
+        ? `<ul class="rules">${rules.map((r) => `<li><strong>${esc(r.label)}</strong><br>${esc(r.shown)} <span class="muted">(limits: ${esc(r.range)})</span></li>`).join('')}</ul>`
+        : '<p class="muted">This deployment has no charter yet.</p>';
+    } catch (e) {
+      box.innerHTML = `<p class="error">Could not load the rules: ${esc(e.shortMessage || e.message)}</p>`;
+    }
+  };
   state.council = wireCouncil({ state, $, status, esc, activeSigner, activeAddress });
   state.clerk = wireClerk({ state, $, status, esc, show, activeSigner, activeAddress });
   $('nav-polls').onclick = async () => {

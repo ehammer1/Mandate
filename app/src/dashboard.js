@@ -8,6 +8,7 @@
 import { ethers } from 'ethers';
 import { describeCall, COUNCIL_ABI } from './council.js';
 import { readDoc } from './notices.js';
+import { loadRules } from './rules.js';
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -238,6 +239,8 @@ async function refresh() {
     const [all, verified, full] = [await activeCount(identity, 0), await activeCount(identity, 1), await activeCount(identity, 2)];
     const [polls, pending, mandates] = [await renderPolls(vote, groupIds, now), await renderCouncil(), await renderMandates()];
     await renderSources(identity);
+    const rules = await loadRules(state.cfg, state.provider).catch(() => []);
+    $('rules').innerHTML = rules.length ? `<ul class="list">${rules.map((r) => `<li><strong>${esc(r.label)}</strong><br>${esc(r.shown)} <span class="meta">(limits: ${esc(r.range)})</span></li>`).join('')}</ul>` : '<p class="muted">No charter on this deployment.</p>';
     await loadAlerts();
     renderAlerts();
     const urgentDay = state.alerts.filter((a) => a.severity === 'high' && now - Number(a.time) < 86_400).length;

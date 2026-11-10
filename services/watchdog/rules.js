@@ -90,7 +90,7 @@ function rulesForEvent(ev, ctx) {
       return [{
         ...base,
         rule: 'role-change',
-        severity: role === 'ADMIN' ? 'high' : 'medium',
+        severity: role === 'ADMIN' || String(ev.contract).startsWith('charter') ? 'high' : 'medium', // who may set rules matters as much as admin
         title: `${role} role ${granted ? 'granted to' : 'revoked from'} ${short(a.account)} on ${ev.contract}`,
         facts: { role, account: a.account, by: a.sender },
       }];
@@ -142,6 +142,8 @@ function rulesForEvent(ev, ctx) {
     }
     case 'PollFinalized':
       return [{ ...base, rule: 'poll-closed', severity: 'info', title: `Poll ${a.id} closed: ${a.passed ? 'passed' : 'did not pass'} with ${a.totalBallots} ballots`, facts: { poll: String(a.id), passed: a.passed, ballots: String(a.totalBallots) } }];
+    case 'RuleChanged':
+      return [{ ...base, rule: 'rule-changed', severity: 'high', title: `Voting rule ${a.name} changed by public vote from ${a.oldValue} to ${a.newValue}`, facts: { rule: a.name, from: String(a.oldValue), to: String(a.newValue) } }];
     case 'PollCrossChecked':
       return [{ ...base, rule: 'poll-cross-checked', severity: 'info', title: `Poll ${a.id} is cross-checked: ID-checked voters are counted separately (a disagreement needs ${a.checkQuorum} of their votes)`, facts: { poll: String(a.id), checkQuorum: Number(a.checkQuorum) } }];
     case 'PollDisputed':

@@ -19,7 +19,7 @@ before(async () => {
   const g = ganache.provider({ logging: { quiet: true }, wallet: { totalAccounts: 5, defaultBalance: 100 }, chain: { hardfork: 'shanghai', allowUnlimitedContractSize: true } });
   provider = new ethers.BrowserProvider(g, undefined, { cacheTimeout: -1 });
   [admin, clerk, stranger] = await Promise.all([0, 1, 2].map((i) => provider.getSigner(i)));
-  ({ contracts: c } = await deployAll(admin, {}));
+  ({ contracts: c } = await deployAll(admin, { rules: { MIN_POLL_MINUTES: 10, BINDING_CHECK_REQUIRED: 0, BINDING_QUORUM_PCT: 0 } }));
   startBlock = (await provider.getBlockNumber()) + 1; // watch only what happens next
 
   hookHits = [];

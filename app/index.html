@@ -18,6 +18,7 @@
         <button data-go="screen-code">My voter code</button>
         <button id="nav-account">Account</button>
         <button id="nav-mandates">Mandates</button>
+        <button id="nav-rules">Rules</button>
         <button id="nav-clerk" hidden>Clerk desk</button>
         <button id="nav-admin" hidden>Admin</button>
         <button id="btn-signout">Sign out</button>
@@ -117,6 +118,13 @@
       <p class="note">Your voter key is separate from every account and wallet, so nothing links your money to your votes.</p>
     </section>
 
+    <!-- Rules -->
+    <section id="screen-rules" data-screen hidden>
+      <h1>The community's rules</h1>
+      <p>How voting works here, decided by the community itself. A rule changes only when a rule-change poll passes; the limits in brackets are fixed and no vote can go beyond them.</p>
+      <div id="rules-list" class="card"></div>
+    </section>
+
     <!-- Mandates -->
     <section id="screen-mandates" data-screen hidden>
       <h1>Mandates</h1>
@@ -185,7 +193,16 @@
         <select id="poll-kind">
           <option value="0">Advisory: records what the public wants</option>
           <option value="2">Binding: creates a mandate with a deadline</option>
+          <option value="4">Binding: changes one of the community's voting rules</option>
         </select>
+        <div id="poll-rule" class="stack" hidden>
+          <label for="poll-rule-key">Rule to change</label>
+          <select id="poll-rule-key"></select>
+          <label for="poll-rule-value">New value</label>
+          <input type="text" id="poll-rule-value" inputmode="numeric" autocomplete="off" />
+          <p class="note" id="poll-rule-hint"></p>
+          <p class="note">Rule changes follow the rules themselves: a longer poll, voters with the required level of trust, and a supermajority.</p>
+        </div>
         <div id="poll-mandate" class="stack" hidden>
           <label for="poll-responsible">Who is responsible (their account address, 0x…)</label>
           <input type="text" id="poll-responsible" autocomplete="off" spellcheck="false" />

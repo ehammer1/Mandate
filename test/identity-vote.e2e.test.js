@@ -74,7 +74,7 @@ before(async () => {
   semaphore = await deploy('Semaphore', { PoseidonT3: await poseidon.getAddress() }, await verifier.getAddress());
   identity = await deploy('IdentityRegistry', {}, admin.address, await semaphore.getAddress(), 30 * DAY);
   credits = await deploy('PlayCredits', {}, admin.address);
-  vote = await deploy('MandateVote', {}, admin.address, await identity.getAddress(), await verifier.getAddress(), await credits.getAddress(), treasury.address, E(100));
+  vote = await deploy('MandateVote', {}, admin.address, await identity.getAddress(), await verifier.getAddress(), await credits.getAddress(), treasury.address, E(100), ethers.ZeroAddress); // no charter: rules tested in charter.test.js
   registry = await deploy('MandateRegistry', {}, admin.address);
   await wait(registry.grantRole(await registry.GOVERNOR_ROLE(), await vote.getAddress()));
   await wait(registry.grantRole(await registry.VERIFIER_ROLE(), clerk.address));

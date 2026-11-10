@@ -68,6 +68,9 @@ const ABIS = {
     'function mandateCount() view returns (uint256)',
     'function isOverdue(uint256) view returns (bool)',
   ],
+  charter: [
+    'event RuleChanged(bytes32 indexed key, string name, uint256 oldValue, uint256 newValue)',
+  ],
   council: [
     'event Proposed(uint256 indexed id, address indexed proposer, address target, uint256 value, bytes data, string description, bool fast)',
     'event Queued(uint256 indexed id, uint64 readyAt)',
@@ -88,7 +91,7 @@ const ROLE_EVENTS = [
   'event RoleGranted(bytes32 indexed role, address indexed account, address indexed sender)',
   'event RoleRevoked(bytes32 indexed role, address indexed account, address indexed sender)',
 ];
-const CONTRACT_LABEL = { identity: 'identity registry', vote: 'voting', registry: 'mandate registry', market: 'decision markets', council: 'council' };
+const CONTRACT_LABEL = { identity: 'identity registry', vote: 'voting', registry: 'mandate registry', market: 'decision markets', council: 'council', charter: 'charter (voting rules)' };
 
 /**
  * @param {object} o
@@ -338,7 +341,7 @@ if (require.main === module) {
     const startBlock = env('START_BLOCK') ? Number(env('START_BLOCK')) : cfg.startBlock ? Number(cfg.startBlock) : Math.max(0, head - Number(env('LOOKBACK_BLOCKS') || 43_200));
     const dog = createWatchdog({
       provider,
-      addresses: { identity: cfg.identityAddress, vote: cfg.voteAddress, registry: cfg.registryAddress, market: cfg.marketAddress, council: cfg.councilAddress },
+      addresses: { identity: cfg.identityAddress, vote: cfg.voteAddress, registry: cfg.registryAddress, market: cfg.marketAddress, council: cfg.councilAddress, charter: cfg.charterAddress },
       startBlock,
       blockSpan: Number(env('LOG_BLOCK_SPAN') || 200),
       enrolPerHour: Number(env('ENROL_PER_HOUR') || 50),

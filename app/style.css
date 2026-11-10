@@ -56,3 +56,4 @@ ul.tally li { display: flex; justify-content: space-between; padding: 6px 0; bor
 .note { font-size: 14px; color: var(--muted); }
 [hidden] { display: none !important; }
 .copy-btn { min-height: 36px; padding: 4px 12px; font-size: 14px; margin: 0 0 8px; }
+ul.rules { list-style: none; padding: 0; margin: 0; } ul.rules li { padding: 10px 0; border-top: 1px solid var(--line); } ul.rules li:first-child { border-top: 0; }

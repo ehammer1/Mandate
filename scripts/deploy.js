@@ -20,6 +20,7 @@
  *   WALLETCONNECT_PROJECT_ID  free project id from cloud.reown.com; enables any mobile wallet
  *   IDENTITY_SERVICE   URL of the sign-in identity service (services/identity)
  *   WATCHDOG_ALERTS_URL  the watchdog's published alerts.json, shown on the public dashboard
+ *   RULES              starting voting rules as JSON, e.g. {"MIN_POLL_MINUTES":10} (see Charter.sol)
  *   COUNCIL_MEMBERS    comma-separated addresses: deploy a Council (multi-signature admin
  *                      with a waiting period) and hand it every admin power; no single key
  *                      stays admin. COUNCIL_THRESHOLD (default: majority), COUNCIL_DELAY_HOURS
@@ -81,7 +82,10 @@ async function deployAll(signer, opts = {}) {
   const identity = await deploy(signer, 'IdentityRegistry', {}, me, await semaphore.getAddress(), seasoning);
   const credits = await deploy(signer, 'PlayCredits', {}, me);
   const registry = await deploy(signer, 'MandateRegistry', {}, me);
-  const vote = await deploy(signer, 'MandateVote', {}, me, await identity.getAddress(), await verifier.getAddress(), await credits.getAddress(), treasury, minBond);
+  // The community's voting rules; starting values that differ from the defaults go in opts.rules.
+  const rules = Object.entries(opts.rules || {});
+  const charter = await deploy(signer, 'Charter', {}, me, rules.map(([k]) => ethers.id(k)), rules.map(([, v]) => v));
+  const vote = await deploy(signer, 'MandateVote', {}, me, await identity.getAddress(), await verifier.getAddress(), await credits.getAddress(), treasury, minBond, await charter.getAddress());
   const market = await deploy(signer, 'DecisionMarket', {}, me, await credits.getAddress(), await registry.getAddress());
   log('mandate contracts deployed');
 
@@ -90,10 +94,11 @@ async function deployAll(signer, opts = {}) {
   await send(registry.grantRole(await registry.GOVERNOR_ROLE(), await market.getAddress()));
   await send(market.grantRole(await market.VETO_ROLE(), await vote.getAddress()));
   await send(vote.grantRole(await vote.PROPOSER_ROLE(), me));
+  await send(charter.grantRole(await charter.GOVERNOR_ROLE(), await vote.getAddress())); // only a passed vote changes a rule
   log('roles granted');
 
   if (opts.admin) {
-    for (const c of [identity, registry, vote, market]) await send(c.grantRole(ethers.ZeroHash, opts.admin)); // DEFAULT_ADMIN_ROLE
+    for (const c of [identity, registry, vote, market, charter]) await send(c.grantRole(ethers.ZeroHash, opts.admin)); // DEFAULT_ADMIN_ROLE
     await send(vote.grantRole(await vote.PROPOSER_ROLE(), opts.admin));
     if (!opts.council) await send(credits.transferOwnership(opts.admin)); // with a council, the council gets it
     log(`admin roles also granted to ${opts.admin}`);
@@ -103,7 +108,7 @@ async function deployAll(signer, opts = {}) {
     log('deployer registered as the testnet demo clerk');
   }
 
-  const contracts = { semaphore, verifier, identity, credits, registry, vote, market };
+  const contracts = { semaphore, verifier, identity, credits, registry, vote, market, charter };
   if (opts.council) {
     const { members, threshold = Math.floor(opts.council.members.length / 2) + 1, delaySeconds = 48 * 3600 } = opts.council;
     contracts.council = await deploy(signer, 'Council', {}, members, threshold, delaySeconds);
@@ -144,6 +149,7 @@ if (require.main === module) {
       treasury: process.env.TREASURY,
       admin: process.env.ADMIN_ADDRESS ? ethers.getAddress(process.env.ADMIN_ADDRESS) : undefined,
       demoIssuer: process.env.DEMO_ISSUER === '1',
+      rules: process.env.RULES ? JSON.parse(process.env.RULES) : undefined,
       council: process.env.COUNCIL_MEMBERS
         ? {
             members: process.env.COUNCIL_MEMBERS.split(',').map((a) => ethers.getAddress(a.trim())),
@@ -176,6 +182,7 @@ if (require.main === module) {
       marketAddress: addresses.market,
       ...(addresses.council ? { councilAddress: addresses.council } : {}),
       noticeBoardAddress: addresses.notices,
+      charterAddress: addresses.charter,
       escrowFactoryAddress: addresses.escrows,
       relayers: (process.env.RELAYERS || '').split(',').map((s) => s.trim()).filter(Boolean),
       ipfsGateway: process.env.IPFS_GATEWAY || 'https://gateway.pinata.cloud',

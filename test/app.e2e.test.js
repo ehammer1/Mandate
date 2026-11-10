@@ -63,7 +63,7 @@ before(async () => {
   provider = new ethers.JsonRpcProvider(rpcUrl, undefined, { cacheTimeout: -1, pollingInterval: 100 });
   [admin, clerk, relayerSigner] = await Promise.all([0, 1, 2].map((i) => provider.getSigner(i)));
 
-  ({ contracts: c } = await deployAll(admin, { seasoningDays: 30 }));
+  ({ contracts: c } = await deployAll(admin, { seasoningDays: 30, rules: { MIN_POLL_MINUTES: 10, BINDING_QUORUM_PCT: 0, BINDING_CHECK_REQUIRED: 0, CHECK_MIN_VOTES: 1, RULE_CHANGE_MIN_MINUTES: 1440 } }));
   await (await c.identity.setIssuer(clerk.address, 1, true, 'Example City Clerk')).wait();
 
   relay = createRelayer({ provider, signer: relayerSigner, voteAddress: await c.vote.getAddress(), log: () => {} });
@@ -79,6 +79,7 @@ before(async () => {
       creditsAddress: await c.credits.getAddress(),
       registryAddress: await c.registry.getAddress(),
       noticeBoardAddress: await c.notices.getAddress(),
+      charterAddress: await c.charter.getAddress(),
       escrowFactoryAddress: await c.escrows.getAddress(),
       relayers: ['http://127.0.0.1:1', `http://127.0.0.1:${relayPort}`], // the first is down: tests fail-over
       artifactsBase: '/artifacts',
@@ -779,4 +780,48 @@ test('cross-checked poll: online sign-ups outvote ID-checked residents, so the r
   assert.match(await page.textContent(`#poll-${pollId}`), /Contested\. ID-checked voters chose the other side/);
   assert.equal((await c.vote.getPoll(pollId)).passed, false);
   await shot('11-contested');
+});
+
+test('rules: the community changes its own voting rules by vote, within the charter\'s limits', async () => {
+  await page.click('#nav-rules');
+  await page.waitForSelector('#rules-list >> text=Shortest time a poll stays open');
+  assert.match(await page.textContent('#rules-list'), /How much an ID-checked vote counts in a cross-checked poll\s*1×/);
+
+  // A rule-change poll, written in the app: make ID-checked votes count 1.5×.
+  await page.click('#nav-admin');
+  await page.fill('#poll-title', 'Make ID-checked votes count 1.5 times in cross-checked polls?');
+  await page.selectOption('#poll-kind', '4');
+  await page.waitForSelector('#poll-rule-key option', { state: 'attached' });
+  await page.selectOption('#poll-rule-key', ethers.id('VERIFIED_WEIGHT_PCT'));
+  assert.match(await page.textContent('#poll-rule-hint'), /Allowed: 1× to 3×/);
+  await page.fill('#poll-rule-value', '500');
+  await page.click('#btn-open-poll');
+  await page.waitForFunction(() => /outside the charter's limits/.test(document.querySelector('#poll-status').textContent));
+  await page.fill('#poll-rule-value', '150');
+  await page.selectOption('#poll-group', '2');
+  await page.selectOption('#poll-check', '-1');
+  await page.fill('#poll-days', '0.5'); // the rules say rule changes stay open at least a day
+  await page.click('#btn-open-poll');
+  await page.waitForFunction(() => /shorter than the community's rules allow/.test(document.querySelector('#poll-status').textContent), null, { timeout: 60_000 });
+  assert.equal(await page.inputValue('#poll-title'), 'Make ID-checked votes count 1.5 times in cross-checked polls?'); // nothing was published or cleared
+  await page.fill('#poll-days', '1');
+  await page.fill('#poll-quorum', '1');
+  await page.click('#btn-open-poll');
+  await page.waitForFunction(() => /Open poll: done/.test(document.querySelector('#poll-status').textContent), null, { timeout: 60_000 });
+  const pollId = await c.vote.pollCount();
+
+  await page.click('#nav-polls');
+  await page.waitForSelector(`#poll-${pollId} >> text=Rule change.`);
+  assert.match(await page.textContent(`#poll-${pollId}`), /change "How much an ID-checked vote counts in a cross-checked poll" from 1× to 1\.5×/);
+  await page.click(`#poll-${pollId} button.choice >> text=Yes`);
+  await page.waitForFunction((id) => /Your vote is recorded/.test(document.querySelector(`#poll-status-${id}`).textContent), pollId.toString(), { timeout: 120_000 });
+  await provider.send('evm_increaseTime', [DAY + 60]);
+  await provider.send('evm_mine', []);
+  await page.click('#btn-refresh');
+  await page.click(`#poll-${pollId} button.finalize`);
+  await page.waitForSelector(`#poll-${pollId} >> text=Closed · passed`, { timeout: 60_000 });
+  assert.equal(await c.charter.rule(ethers.id('VERIFIED_WEIGHT_PCT')), 150n);
+  await page.click('#nav-rules');
+  await page.waitForSelector('#rules-list >> text=1.5×');
+  await shot('12-rules');
 });

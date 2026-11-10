@@ -15,6 +15,13 @@ interface ISemaphoreGroupsView {
 interface IIdentityGroups {
     function semaphore() external view returns (address);
     function isGroup(uint256 id) external view returns (bool);
+    function groupId(uint8 tier) external view returns (uint256);
+}
+
+interface ICharter {
+    function rule(bytes32 key) external view returns (uint256);
+    function check(bytes32 key, uint256 value) external view;
+    function setRule(bytes32 key, uint256 value) external;
 }
 
 interface IVetoable {
@@ -71,7 +78,8 @@ contract MandateVote is AccessControl, ReentrancyGuard {
         Advisory,
         VetoMarket,
         CreateMandate,
-        CancelMandate
+        CancelMandate,
+        SetRule // change one of the community's voting rules (Charter): abi.encode(bytes32 key, uint256 value)
     }
 
     struct Poll {
@@ -98,6 +106,7 @@ contract MandateVote is AccessControl, ReentrancyGuard {
         uint256 electorate;
         uint32 quorum; // checked ballots needed before a disagreement counts
         bool disputed;
+        uint16 weightPct; // how much a checked ballot counts (100 = the same as any other), fixed at creation
     }
 
     struct Ballot {
@@ -121,6 +130,10 @@ contract MandateVote is AccessControl, ReentrancyGuard {
     mapping(uint256 => uint256[MAX_OPTIONS]) private _tally;
     mapping(uint256 => mapping(uint256 => bool)) public nullifierUsed;
     mapping(uint256 => Check) private _checks;
+    /// @notice Rule-change polls: the supermajority (percent of weighted votes) fixed at creation.
+    mapping(uint256 => uint16) public supermajorityPct;
+    /// @notice The community's voting rules (address(0): none enforced).
+    ICharter public immutable charter;
     mapping(uint256 => mapping(uint256 => uint256)) private _checkTally; // poll -> option (YES, NO) -> checked ballots
 
     event PollCreated(
@@ -152,8 +165,14 @@ contract MandateVote is AccessControl, ReentrancyGuard {
     error BadDepth();
     error NullifierUsed();
     error InvalidProof();
+    error PollTooShort(uint64 minSeconds);
+    error QuorumTooLow(uint256 minQuorum);
+    error CrossCheckRequired();
+    error CheckTooSmall(uint256 minChecked);
+    error RuleVotersNotEligible();
+    error NoCharter();
 
-    constructor(address admin, address identity_, address verifier_, address bondToken_, address treasury_, uint256 minBond_) {
+    constructor(address admin, address identity_, address verifier_, address bondToken_, address treasury_, uint256 minBond_, address charter_) {
         if (admin == address(0) || identity_ == address(0) || verifier_ == address(0) || bondToken_ == address(0) || treasury_ == address(0)) {
             revert ZeroAddress();
         }
@@ -163,6 +182,7 @@ contract MandateVote is AccessControl, ReentrancyGuard {
         bondToken = IERC20(bondToken_);
         treasury = treasury_;
         minBond = minBond_;
+        charter = ICharter(charter_);
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
     }
 
@@ -193,7 +213,9 @@ contract MandateVote is AccessControl, ReentrancyGuard {
         string calldata questionCID,
         uint256 bond
     ) external nonReentrant returns (uint256 id) {
+        _applyRules(groupId, false, 0, duration, quorum, action, actionData);
         id = _create(groupId, duration, quorum, options, action, actionData, questionCID, bond);
+        _afterCreate(id, action);
     }
 
     /**
@@ -220,12 +242,15 @@ contract MandateVote is AccessControl, ReentrancyGuard {
         if (checkGroupId == groupId || !identity.isGroup(checkGroupId) || checkQuorum == 0) revert InvalidParams();
         uint256 size = groups.getMerkleTreeSize(checkGroupId);
         if (size == 0) revert EmptyGroup();
+        _applyRules(groupId, true, checkQuorum, duration, quorum, action, actionData);
         id = _create(groupId, duration, quorum, 2, action, actionData, questionCID, bond);
+        _afterCreate(id, action);
         Check storage ck = _checks[id];
         ck.groupId = checkGroupId;
         ck.root = groups.getMerkleTreeRoot(checkGroupId);
         ck.electorate = size;
         ck.quorum = checkQuorum;
+        ck.weightPct = address(charter) == address(0) ? 100 : uint16(charter.rule(keccak256("VERIFIED_WEIGHT_PCT")));
         emit PollCrossChecked(id, checkGroupId, ck.root, checkQuorum);
     }
 
@@ -315,6 +340,19 @@ contract MandateVote is AccessControl, ReentrancyGuard {
         }
 
         Check storage ck = _checks[id];
+        // ID-checked ballots may count for more (a charter rule fixed when the poll opened).
+        uint256 yesW = _tally[id][YES] * 100;
+        uint256 noW = _tally[id][NO] * 100;
+        if (ck.root != 0 && ck.weightPct > 100) {
+            yesW += _checkTally[id][YES] * (ck.weightPct - 100);
+            noW += _checkTally[id][NO] * (ck.weightPct - 100);
+        }
+        if (p.options == 2) {
+            p.passed = quorumMet && yesW > noW;
+            // Changing a rule needs a supermajority, not just more Yes than No.
+            uint16 sm = supermajorityPct[id];
+            if (sm > 0 && p.passed) p.passed = yesW * 100 >= (yesW + noW) * sm;
+        }
         if (ck.root != 0 && quorumMet) {
             uint256 cy = _checkTally[id][YES];
             uint256 cn = _checkTally[id][NO];
@@ -340,6 +378,50 @@ contract MandateVote is AccessControl, ReentrancyGuard {
 
         if (p.passed && p.action != Action.Advisory) _execute(id, p);
         emit PollFinalized(id, p.passed, total);
+    }
+
+    // ------------------------------------------------------------------ rules
+
+    function _rule(string memory name) private view returns (uint256) {
+        return charter.rule(keccak256(bytes(name)));
+    }
+
+    /// @dev Enforce the community's Charter when a poll is opened.
+    function _applyRules(
+        uint256 groupId,
+        bool checked,
+        uint32 checkQuorum,
+        uint64 duration,
+        uint32 quorum,
+        Action action,
+        bytes calldata actionData
+    ) private view {
+        if (address(charter) == address(0)) {
+            if (action == Action.SetRule) revert NoCharter();
+            return;
+        }
+        if (duration < _rule("MIN_POLL_MINUTES") * 60) revert PollTooShort(uint64(_rule("MIN_POLL_MINUTES") * 60));
+        if (checked && checkQuorum < _rule("CHECK_MIN_VOTES")) revert CheckTooSmall(_rule("CHECK_MIN_VOTES"));
+        if (action == Action.Advisory) return;
+
+        uint256 size = groups.getMerkleTreeSize(groupId);
+        uint256 minQuorum = (size * _rule("BINDING_QUORUM_PCT") + 99) / 100;
+        if (quorum < minQuorum) revert QuorumTooLow(minQuorum);
+        if (!checked && _rule("BINDING_CHECK_REQUIRED") == 1 && groupId == identity.groupId(0)) revert CrossCheckRequired();
+
+        if (action == Action.SetRule) {
+            (bytes32 key, uint256 value) = abi.decode(actionData, (bytes32, uint256));
+            charter.check(key, value);
+            if (duration < _rule("RULE_CHANGE_MIN_MINUTES") * 60) revert PollTooShort(uint64(_rule("RULE_CHANGE_MIN_MINUTES") * 60));
+            // Only voters at least as trusted as the charter requires (and no wider group) decide rules.
+            bool eligible;
+            for (uint8 t = uint8(_rule("RULE_CHANGE_VOTER_TIER")); t <= 2; t++) if (groupId == identity.groupId(t)) eligible = true;
+            if (!eligible || checked) revert RuleVotersNotEligible();
+        }
+    }
+
+    function _afterCreate(uint256 id, Action action) private {
+        if (action == Action.SetRule) supermajorityPct[id] = uint16(_rule("RULE_CHANGE_SUPERMAJORITY_PCT"));
     }
 
     // ------------------------------------------------------------------ views
@@ -394,6 +476,13 @@ contract MandateVote is AccessControl, ReentrancyGuard {
             returns (uint256 mandateId) {
                 ok = true;
                 emit MandateCreatedByVote(id, mandateId);
+            } catch (bytes memory r) {
+                reason = r;
+            }
+        } else if (p.action == Action.SetRule) {
+            (bytes32 key, uint256 value) = abi.decode(p.actionData, (bytes32, uint256));
+            try charter.setRule(key, value) {
+                ok = true;
             } catch (bytes memory r) {
                 reason = r;
             }
