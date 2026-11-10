@@ -1,7 +1,7 @@
 {
   "chainId": 84532,
   "rpcUrl": "https://sepolia.base.org",
-  "voteAddress": "0xe332a9a3D1243F46ed5E61DB11Fb343E175CAa3a",
+  "voteAddress": "0x74eE8AAE2d5b98186571Ac5DCbD6FcEB69E612c6",
   "identityAddress": "0x47501C8558349aeB6a7139ADaF8Eb88f2A6BB9B4",
   "creditsAddress": "0x0fd384570c082ABb8eb1Da5f7994d1246872AA52",
   "relayers": [
@@ -20,5 +20,6 @@
   "watchdogAlertsUrl": "https://raw.githubusercontent.com/ehammer1/Mandate/watchdog/alerts.json",
   "noticeBoardAddress": "0xAC12845D280E5cC0aBa10B84A6FBfA2074e5CF94",
   "escrowFactoryAddress": "0x9E10C0C4cE19095a0d88235E545f9534b1bA2b95",
-  "previousVoteAddress": "0x87325d0Adc1950AB89891b5CaA57eD10438Bab5c"
+  "previousVoteAddress": "0xe332a9a3D1243F46ed5E61DB11Fb343E175CAa3a",
+  "charterAddress": "0x96Fc9E0277B1a848C9c2FDcF19b6a0B4fd438eff"
 }
