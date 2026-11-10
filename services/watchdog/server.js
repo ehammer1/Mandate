@@ -337,7 +337,50 @@ function createWatchdog(o) {
   return { scanOnce, scanEvents, periodicChecks, buildReport, reportMarkdown, server, alerts, exportState, importState, get nextBlock() { return nextBlock; } };
 }
 
-module.exports = { createWatchdog };
+/**
+ * Plain-language explanations of polls and mandates (services/explainer), one per item,
+ * published with the audit history so everyone sees the same one. At most `limit` new
+ * ones per run. Returns how many were written.
+ */
+async function writeExplanations(dir, cfg, provider, limit, explainFn) {
+  const fs = require('fs');
+  const path = require('path');
+  const explain = explainFn || require('../explainer/explain').explain;
+  const { readDoc, effectOf, commentsOf } = require('../explainer/source');
+  const out = path.join(dir, 'explanations');
+  fs.mkdirSync(out, { recursive: true });
+  let made = 0;
+  const vote = new ethers.Contract(cfg.voteAddress, ['function pollCount() view returns (uint256)', 'function getPoll(uint256) view returns (tuple(uint256 groupId, uint256 snapshotRoot, uint256 electorate, uint64 start, uint64 end, uint32 quorum, uint8 options, uint8 action, bool finalized, bool passed, address proposer, uint256 bond, string questionCID, bytes actionData))'], provider);
+  const n = Number(await vote.pollCount());
+  for (let id = n; id >= Math.max(1, n - 19) && made < limit; id--) {
+    const file = path.join(out, `poll-${cfg.voteAddress.toLowerCase()}-${id}.json`);
+    if (fs.existsSync(file)) continue;
+    const p = await vote.getPoll(id);
+    const doc = await readDoc(cfg, provider, p.questionCID);
+    if (!doc) continue;
+    const e = await explain({ ...doc, effect: await effectOf(cfg, provider, p), comments: await commentsOf(cfg, provider, 'poll', id) });
+    fs.writeFileSync(file, JSON.stringify({ kind: 'poll', id, source: p.questionCID, ...e }, null, 1) + '\n');
+    made++;
+  }
+  if (cfg.registryAddress) {
+    const reg = new ethers.Contract(cfg.registryAddress, ['function mandateCount() view returns (uint256)', 'function getMandate(uint256) view returns (tuple(address responsible, uint64 createdAt, uint64 deadline, uint64 settledAt, uint16 threshold, uint8 status, uint32 round, uint32 approvals, uint32 rejections, bytes32 category, string specCID, string evidenceCID, uint64 pausedAt))'], provider);
+    const m = Number(await reg.mandateCount());
+    for (let id = m; id >= Math.max(1, m - 19) && made < limit; id--) {
+      const file = path.join(out, `mandate-${cfg.registryAddress.toLowerCase()}-${id}.json`);
+      if (fs.existsSync(file)) continue;
+      const md = await reg.getMandate(id);
+      const doc = await readDoc(cfg, provider, md.specCID);
+      if (!doc) continue;
+      const effect = `A mandate: ${md.responsible} must do this by ${new Date(Number(md.deadline) * 1000).toISOString().slice(0, 10)}; ${md.threshold} independent check(s) confirm it.`;
+      const e = await explain({ ...doc, effect, comments: await commentsOf(cfg, provider, 'mandate', id) });
+      fs.writeFileSync(file, JSON.stringify({ kind: 'mandate', id, source: md.specCID, ...e }, null, 1) + '\n');
+      made++;
+    }
+  }
+  return made;
+}
+
+module.exports = { createWatchdog, writeExplanations };
 
 if (require.main === module) {
   const fs = require('fs');
@@ -396,6 +439,14 @@ if (require.main === module) {
       fs.writeFileSync(path.join(dir, 'alerts.json'), JSON.stringify(dog.alerts.slice(0, 500), (_k, v) => (typeof v === 'bigint' ? v.toString() : v), 1));
       fs.writeFileSync(path.join(dir, 'report.md'), dog.reportMarkdown(report) + '\n');
       console.log(`[watchdog] scanned to block ${dog.nextBlock - 1}; ${raised.length} new alert(s); report ${needSummary ? 'updated' : 'unchanged'}`);
+      if (env('ANTHROPIC_API_KEY')) {
+        try {
+          const made = await writeExplanations(dir, cfg, provider, Number(env('EXPLAIN_PER_RUN') || 3));
+          if (made) console.log(`[watchdog] wrote ${made} plain-language explanation(s)`);
+        } catch (e) {
+          console.error(`[watchdog] explanations skipped: ${e.message}`);
+        }
+      }
       if (scanError) {
         console.error(`[watchdog] scan stopped early (${scanError.shortMessage || scanError.message}); progress saved`);
         process.exitCode = 1;

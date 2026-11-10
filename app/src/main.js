@@ -22,6 +22,7 @@ import { wireMandates } from './mandates.js';
 import { loadRules, describeRuleChange, RULE_ERRORS } from './rules.js';
 import { wireBudget } from './budget.js';
 import { wireFeedback } from './feedback.js';
+import { renderExplainer } from './explain.js';
 
 const VOTE_ABI = [
   'function castBallot(uint256 id, tuple(uint256 merkleTreeDepth, uint256 merkleTreeRoot, uint256 nullifier, uint256 message, uint256 scope, uint256[8] points) b)',
@@ -654,12 +655,14 @@ async function refreshPolls() {
         ${voted ? '<p class="ok">Your vote is recorded. Nobody can see which way you voted.</p>' : ''}
         <p class="status" id="poll-status-${id}" role="status"></p>
         <details><summary>Current count (${total} of ${p.electorate} eligible, quorum ${p.quorum})</summary><ul class="tally">${results}</ul></details>
+        <div class="explain-box" data-id="${id}"></div>
         <div class="thread-box" data-kind="poll" data-id="${id}"></div>
       </article>`);
     }
     list.innerHTML = cards.join('') || '<p class="muted">No polls yet.</p>';
     for (const b of list.querySelectorAll('button.choice')) b.onclick = () => castVote(BigInt(b.dataset.poll), Number(b.dataset.option), b);
     for (const box of list.querySelectorAll('.thread-box')) state.feedback.thread(box, box.dataset.kind, Number(box.dataset.id)).catch(() => {});
+    for (const box of list.querySelectorAll('.explain-box')) renderExplainer({ state, esc, status }, box, 'poll', Number(box.dataset.id)).catch(() => {});
     // Anyone may record a finished poll's result (and so trigger a binding action).
     for (const b of list.querySelectorAll('button.finalize')) {
       b.onclick = async () => {

@@ -13,6 +13,7 @@
 
 import { ethers } from 'ethers';
 import { readDoc, postDoc } from './notices.js';
+import { renderExplainer } from './explain.js';
 
 const REGISTRY_ABI = [
   'function mandateCount() view returns (uint256)',
@@ -98,12 +99,13 @@ export function wireMandates(ctx) {
       if (e && overdue && canDecay) acts.push(`<button data-act="decay" data-id="${id}">Apply the lateness penalty now</button>`);
       if (myShare > 0n) parts.push(`<p class="muted">You backed it with ${esc(eth(myShare))}.</p>`);
       cards.push(`<article class="card stack" id="mandate-${id}">${parts.join('')}${acts.join('')}<p class="status" id="mandate-status-${id}" role="status"></p>
-        ${st === 3 || st === 4 ? `<div class="rating-box" data-id="${id}"></div>` : ''}<div class="thread-box" data-id="${id}"></div></article>`);
+        ${st === 3 || st === 4 ? `<div class="rating-box" data-id="${id}"></div>` : ''}<div class="explain-box" data-id="${id}"></div><div class="thread-box" data-id="${id}"></div></article>`);
     }
     list.innerHTML = cards.join('') || '<p class="muted">No mandates yet. A mandate is created when a binding poll passes.</p>';
     for (const b of list.querySelectorAll('button[data-act]')) b.onclick = () => act(b, Number(b.dataset.id), b.dataset.act);
     for (const box of list.querySelectorAll('.thread-box')) state.feedback?.thread(box, 'mandate', Number(box.dataset.id)).catch(() => {});
     for (const box of list.querySelectorAll('.rating-box')) state.feedback?.rating(box, 'mandate', Number(box.dataset.id)).catch(() => {});
+    for (const box of list.querySelectorAll('.explain-box')) renderExplainer({ state, esc, status }, box, 'mandate', Number(box.dataset.id)).catch(() => {});
   }
 
   async function act(button, id, kind) {

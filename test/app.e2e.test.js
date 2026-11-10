@@ -114,6 +114,9 @@ before(async () => {
     emailPolicy: createEmailPolicy({ allow: 'reputable' }),
     allowInsecure: true,
     clerkAnchor: () => appOpts.config.clerkAnchor || 'id',
+    appConfig: () => appOpts.config,
+    askEnabled: true,
+    answerQuestion: async (item, q) => ({ answer: `Asked "${q}" about "${item.title}".`, answered_by_text: !/parking/i.test(q), quotes: ['within 30 days'], model: 'claude-opus-5-5' }),
     roll: () => appRoll,
     rollKey: ROLL_KEY,
     mailer: postbox,
@@ -1012,4 +1015,34 @@ test('residents speak between votes: comments, a petition that opens its own pol
   await page.click('#mandate-1 .rating-box button[data-score="4"]');
   await page.waitForSelector('#mandate-1 .rating-box >> text=4.0 of 5 from 1 resident', { timeout: 120_000 });
   await shot('16-feedback');
+});
+
+test('explained in plain language: the published AI summary, labelled, and answers from the text', async () => {
+  const vote = (await c.vote.getAddress()).toLowerCase();
+  appIpfs[`poll-${vote}-1.json`] = JSON.stringify({
+    kind: 'poll', id: 1, summary: 'The city would publish its full budget online.', changes: [{ before: 'Only totals are published', after: 'Every line item above $10,000' }],
+    affected: ['Residents', 'Finance department'], cost: 'Not stated in the text.', timeline: 'Within 30 days of adoption', arguments_for: ['Transparency'], arguments_against: ['Staff time'],
+    quotes: ['within 30 days'], unanswered: ['Who maintains the spreadsheet?'], check: { quotesKept: 1, quotesRemoved: 1 }, model: 'claude-opus-5-5', label: 'AI summary: read the full text before you decide',
+  });
+  appConfig.explanationsUrl = `${appUrl}ipfs/`;
+  await page.reload();
+  await page.click('#btn-device');
+  await page.waitForSelector('#screen-home:not([hidden])');
+  await page.click('#nav-polls');
+  await page.waitForSelector('#poll-1 .explain-box summary');
+  await page.click('#poll-1 .explain-box summary');
+  const text = await page.textContent('#poll-1 .explain-box');
+  assert.match(text, /The city would publish its full budget online\./);
+  assert.match(text, /Now:\s*Only totals are published/);
+  assert.match(text, /Not answered by the text\s*Who maintains the spreadsheet\?/);
+  assert.match(text, /AI summary: read the full text before you decide/);
+  assert.match(text, /1 quote\(s\) that didn't match the text were removed/);
+
+  await page.fill('#ask-poll-1', 'When does it start?');
+  await page.click('#poll-1 .explain-box button[data-ask]');
+  await page.waitForSelector('#poll-1 .explain-box .answer >> text=Asked "When does it start?" about "Publish the FY2027 line-item budget?"');
+  await page.fill('#ask-poll-1', 'What about parking?');
+  await page.click('#poll-1 .explain-box button[data-ask]');
+  await page.waitForSelector("#poll-1 .explain-box .answer >> text=The text doesn't answer this.");
+  await shot('17-explained');
 });

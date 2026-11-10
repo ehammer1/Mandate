@@ -122,6 +122,8 @@ async function appleClientSecret(apple, clientId) {
  * @param {number} [o.emailCodesPerIpHour]   sign-up codes per IP per hour (default 10)
  * @param {number} [o.mailPerIpHour]       letter requests per IP per hour (default 3)
  * @param {object} [o.mailer]              mail.js mailer: verification codes by post to registered addresses (voter-roll cities)
+ * @param {() => object} [o.appConfig]     the published app config (for "ask a question" about polls and mandates)
+ * @param {boolean} [o.askEnabled]          answer residents' questions with Claude (needs ANTHROPIC_API_KEY)
  * @param {object} [o.mdl]                 createMdlVerifier(...): sign-up with a state mobile ID (verified tier)
  * @param {() => object} [o.roll]           the voter roll file (scripts/roll-import.js), or null
  * @param {string} [o.rollKey]               the key its fingerprints were made with (ROLL_KEY)
@@ -559,6 +561,48 @@ function createIdentityService(o) {
     return enrolVerified(c.commitment, c.docHash, `mailed code (${c.state} voter roll)`);
   }
 
+  // POST /ask { kind: 'poll' | 'mandate', id, question } -> { answer, answered_by_text, quotes, model }
+  // Answers from the published text only, with quotes checked against it.
+  const askHits = new Map();
+  const askCache = new Map();
+  async function askQuestion(body, ip) {
+    if (!o.askEnabled || !o.appConfig) return [503, { error: 'Questions are not available right now.' }];
+    if (recentCount(askHits, ip, 3600_000).length >= (o.askPerIpHour ?? 10)) return [429, { error: 'Too many questions this hour. Please try again later.' }];
+    askHits.get(ip).push(Date.now());
+    const question = String(body.question || '').trim();
+    const id = Number(body.id);
+    if (question.length < 3 || question.length > 500 || !['poll', 'mandate'].includes(body.kind) || !Number.isInteger(id) || id < 1) return [400, { error: 'Ask a question of 3 to 500 characters.' }];
+    const key = `${body.kind}:${id}:${question.toLowerCase().replace(/\s+/g, ' ')}`;
+    if (askCache.has(key)) return [200, askCache.get(key)];
+    const cfg = o.appConfig();
+    const provider = o.signer.provider;
+    const { readDoc, effectOf } = require('../explainer/source');
+    let doc;
+    let effect = '';
+    if (body.kind === 'poll') {
+      const vote = new ethers.Contract(cfg.voteAddress, ['function getPoll(uint256) view returns (tuple(uint256 groupId, uint256 snapshotRoot, uint256 electorate, uint64 start, uint64 end, uint32 quorum, uint8 options, uint8 action, bool finalized, bool passed, address proposer, uint256 bond, string questionCID, bytes actionData))'], provider);
+      const p = await vote.getPoll(id).catch(() => null);
+      if (!p) return [404, { error: 'No such poll.' }];
+      doc = await readDoc(cfg, provider, p.questionCID);
+      effect = await effectOf(cfg, provider, p);
+    } else {
+      const reg = new ethers.Contract(cfg.registryAddress, ['function getMandate(uint256) view returns (tuple(address responsible, uint64 createdAt, uint64 deadline, uint64 settledAt, uint16 threshold, uint8 status, uint32 round, uint32 approvals, uint32 rejections, bytes32 category, string specCID, string evidenceCID, uint64 pausedAt))'], provider);
+      const m = await reg.getMandate(id).catch(() => null);
+      if (!m) return [404, { error: 'No such mandate.' }];
+      doc = await readDoc(cfg, provider, m.specCID);
+    }
+    if (!doc) return [404, { error: 'The text of this item could not be read.' }];
+    try {
+      const out = await (o.answerQuestion || require('../explainer/explain').answer)({ ...doc, effect }, question);
+      if (askCache.size > 500) askCache.clear();
+      askCache.set(key, out);
+      return [200, out];
+    } catch (e) {
+      log(`question not answered: ${e.message}`);
+      return [502, { error: e.refusal ? 'This question could not be answered.' : 'The assistant is unavailable right now. Please try again later.' }];
+    }
+  }
+
   async function emailStart(body, ip) {
     if (!o.emailSender) return [503, { error: 'Email sign-up is not available right now.' }];
     let commitment;
@@ -665,7 +709,7 @@ function createIdentityService(o) {
         if (o.mailer && o.roll && o.roll() && (o.clerkAnchor ? o.clerkAnchor() : 'id') === 'roll') list.push({ id: 'mail', name: 'Code by mail', tier: 1, kind: 'mail' });
         return res.end(JSON.stringify(list));
       }
-      if (url.pathname.startsWith('/email/') || url.pathname.startsWith('/clerk/') || url.pathname.startsWith('/mdl/') || url.pathname.startsWith('/roll/')) {
+      if (url.pathname.startsWith('/email/') || url.pathname.startsWith('/clerk/') || url.pathname.startsWith('/mdl/') || url.pathname.startsWith('/roll/') || url.pathname === '/ask') {
         // Called from the voter app's page: allow its origin only.
         const origin = req.headers.origin || '';
         const cors = o.allowedReturnOrigins.includes(origin) ? { 'Access-Control-Allow-Origin': origin, Vary: 'Origin' } : {};
@@ -686,7 +730,7 @@ function createIdentityService(o) {
         } catch {
           return json(400, { error: 'Invalid request.' });
         }
-        const route = { '/email/start': () => emailStart(body, ip), '/email/verify': () => emailVerify(body), '/clerk/doc-hash': () => clerkDocHash(body), '/clerk/roll-match': () => clerkRollMatch(body), '/mdl/start': () => mdlStart(body), '/mdl/finish': () => mdlFinish(body, origin), '/roll/mail/start': () => rollMailStart(body, ip), '/roll/mail/verify': () => rollMailVerify(body) }[url.pathname];
+        const route = { '/email/start': () => emailStart(body, ip), '/email/verify': () => emailVerify(body), '/clerk/doc-hash': () => clerkDocHash(body), '/clerk/roll-match': () => clerkRollMatch(body), '/mdl/start': () => mdlStart(body), '/mdl/finish': () => mdlFinish(body, origin), '/roll/mail/start': () => rollMailStart(body, ip), '/roll/mail/verify': () => rollMailVerify(body), '/ask': () => askQuestion(body, ip) }[url.pathname];
         const [status, out] = route ? await route() : [404, { error: 'Not found' }];
         return json(status, out);
       }
@@ -727,9 +771,12 @@ if (require.main === module) {
     let rpcUrl = clean(process.env.RPC_URL);
     // The clerk-desk anchor follows the published app config (re-read every 5 minutes), unless set here.
     let anchor = clean(process.env.CLERK_ANCHOR) || 'id';
+    let appCfg = null;
     if (process.env.CONFIG_URL) {
       const load = async () => (await fetch(`${clean(process.env.CONFIG_URL)}?t=${Date.now()}`, { cache: 'no-store' })).json();
       const cfg = await load();
+      appCfg = cfg;
+      setInterval(() => load().then((c) => (appCfg = c)).catch(() => {}), 5 * 60_000).unref();
       identityAddress ||= cfg.identityAddress;
       rpcUrl ||= cfg.rpcUrl;
       if (!clean(process.env.CLERK_ANCHOR)) {
@@ -771,6 +818,8 @@ if (require.main === module) {
       emailPolicy: createEmailPolicy({ allow: process.env.EMAIL_DOMAINS_ALLOW, block: process.env.EMAIL_DOMAINS_BLOCK }),
       emailSender: senderFromEnv(),
       clerkAnchor: () => anchor,
+      appConfig: () => appCfg,
+      askEnabled: !!clean(process.env.ANTHROPIC_API_KEY),
       mdl: await mdlFromEnv(),
       mailer: require('./mail').mailerFromEnv(),
       roll: () => roll,

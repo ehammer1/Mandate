@@ -47,6 +47,9 @@ services:
         sync: false
       - key: EMAIL_FROM            # sender address, e.g. "Mandate <signup@yourdomain.org>"
         sync: false
+      # Residents' questions about polls and mandates, answered by Claude from the published text.
+      - key: ANTHROPIC_API_KEY
+        sync: false
       # Mobile ID sign-up (state mobile driver's licences): off until trusted issuer roots are set.
       - key: MDL_IACA_URL
         sync: false          # a PEM bundle of the states' IACA root certificates (e.g. from AAMVA's Digital Trust Service)
