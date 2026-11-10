@@ -13,6 +13,9 @@ import * as keys from './keys.js';
 import { poseidon2 } from 'poseidon-lite/poseidon2';
 import { buildBallot } from '../../client/ballot.js';
 import { enrolStartUrl, ownershipProof } from '../../client/enrol.js';
+import { voterCodeQr } from '../../client/clerk.js';
+import QRCode from 'qrcode';
+import { wireClerk } from './clerk.js';
 
 const VOTE_ABI = [
   'function castBallot(uint256 id, tuple(uint256 merkleTreeDepth, uint256 merkleTreeRoot, uint256 nullifier, uint256 message, uint256 scope, uint256[8] points) b)',
@@ -69,6 +72,7 @@ async function signedIn(k, backupCode) {
   state.identity = new Identity(k.votingKey);
   state.wallet = new ethers.Wallet(k.accountKeyHex);
   $('voter-code').textContent = state.identity.commitment.toString();
+  QRCode.toCanvas($('voter-qr'), voterCodeQr(state.identity.commitment), { errorCorrectionLevel: 'M', margin: 1, width: 240 }).catch(() => {});
   $('signin-method').textContent =
     k.method === 'passkey' ? 'Unlocked with your passkey' : k.method === 'public' ? 'Shared computer: nothing is saved here. You will be signed out after 5 minutes without activity.' : 'Using a key saved in this browser';
   state.publicMode = k.method === 'public';
@@ -160,11 +164,13 @@ function wireSignIn() {
   $('btn-restore').onclick = () => trySignIn(() => keys.restoreFromBackup($('restore-code').value), s);
   $('btn-signout').onclick = () => signOut();
   function signOut(reason) {
-    Object.assign(state, { keys: null, identity: null, wallet: null, external: null, roles: null, publicMode: false });
+    Object.assign(state, { keys: null, identity: null, wallet: null, external: null, roles: null, publicMode: false, clerkSession: null, clerkCount: 0 });
+    state.clerk?.nextPerson();
     clearTimeout(idleTimer);
     for (const id of ['voter-code', 'account-address', 'admin-who', 'poll-list', 'membership']) $(id).textContent = '';
     if (reason) status($('signin-status'), reason, 'warn');
     $('nav-admin').hidden = true;
+    $('nav-clerk').hidden = true;
     $('nav').hidden = true;
     show('screen-signin');
   }
@@ -671,13 +677,15 @@ async function refreshAdminNav() {
     const r = await myRoles(activeAddress());
     state.roles = r;
     $('nav-admin').hidden = !(r.admin || r.proposer || r.issuer);
+    $('nav-clerk').hidden = !r.issuer;
   } catch {
     $('nav-admin').hidden = true;
+    $('nav-clerk').hidden = true;
   }
 }
 
 async function refreshAdmin() {
-  for (const id of ['enrol-status', 'poll-status', 'finalize-status', 'grant-status']) status($(id), '');
+  for (const id of ['poll-status', 'finalize-status', 'grant-status']) status($(id), '');
   const address = activeAddress();
   const r = await myRoles(address);
   state.roles = r;
@@ -686,7 +694,6 @@ async function refreshAdmin() {
   $('admin-who').innerHTML = `<p class="code" id="admin-address">${esc(address)}</p><p>${esc(roles.join(' · ') || 'no roles')}</p>
     <p class="${eth === 0n ? 'warn' : 'muted'}">${Number(ethers.formatEther(eth)).toFixed(6)} test ETH for fees${eth === 0n ? ': this account needs a little test ETH before it can act.' : ''}</p>`;
   addCopyButton($('admin-address'));
-  $('admin-enrol').hidden = !r.issuer;
   $('admin-poll').hidden = !r.proposer;
   $('admin-roles').hidden = !r.admin;
 }
@@ -712,30 +719,6 @@ function wireAdmin() {
     await refreshAdmin();
   };
 
-  $('btn-enrol').onclick = async () => {
-    const el = $('enrol-status');
-    let commitment;
-    try {
-      commitment = BigInt($('enrol-code').value.trim());
-    } catch {
-      return status(el, 'That voter code is not valid.', 'error');
-    }
-    const newResident = $('enrol-new').checked;
-    const doc = $('enrol-doc').value.trim();
-    const issuer = activeAddress();
-    // Testnet stand-in for HMAC(document number, issuer's secret pepper); a real clerk desk
-    // keeps the pepper off the device. Without a document number, the code itself is used.
-    const docHash = ethers.keccak256(ethers.toUtf8Bytes(doc ? `doc:${issuer}:${doc.toUpperCase()}` : `testnet-demo:${commitment}`));
-    const block = await state.provider.getBlock('latest');
-    const residentSince = newResident ? 0 : block.timestamp - 5 * 365 * 86_400;
-    const reg = new ethers.Contract(state.config.identityAddress, ['function enroll(uint256,uint8,bytes32,uint64)'], state.provider);
-    if (await sendAdminTx(el, 'Enrol voter', (signer) => reg.connect(signer).enroll(commitment, 1, docHash, residentSince))) {
-      // Clear everything so one person's details never carry over to the next.
-      $('enrol-code').value = '';
-      $('enrol-doc').value = '';
-      $('enrol-new').checked = false;
-    }
-  };
 
   $('btn-open-poll').onclick = async () => {
     const el = $('poll-status');
@@ -782,6 +765,7 @@ async function boot() {
   wireSignIn();
   wireAccount();
   wireAdmin();
+  state.clerk = wireClerk({ state, $, status, esc, show, activeSigner, activeAddress });
   $('nav-polls').onclick = async () => {
     show('screen-home');
     await Promise.all([refreshStatus(), refreshPolls(), refreshAdminNav()]);

@@ -19,6 +19,31 @@ const { createMemorySender } = require('../services/identity/senders');
 const { createEmailPolicy } = require('../services/identity/email-policy');
 const mail = createMemorySender();
 const net = require('node:net');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+const QRCode = require('qrcode');
+const jsQR = require('jsqr');
+const { voterCodeQr, parseVoterCode } = require('../client/clerk');
+
+// A person at the clerk desk whose phone shows their voter-code QR to the desk's camera.
+const scanned = new Identity('scanned-at-the-desk');
+
+/** A fake camera feed (Y4M video) showing a QR code, for Chromium's fake capture device. */
+function qrVideo(text) {
+  const qr = QRCode.create(text, { errorCorrectionLevel: 'M' });
+  const W = 480, H = 480, n = qr.modules.size, scale = Math.floor((W - 80) / n), off = Math.floor((W - n * scale) / 2);
+  const Y = Buffer.alloc(W * H, 235);
+  for (let r = 0; r < n; r++) for (let col = 0; col < n; col++) {
+    if (!qr.modules.get(r, col)) continue;
+    for (let y = 0; y < scale; y++) Y.fill(16, (off + r * scale + y) * W + off + col * scale, (off + r * scale + y) * W + off + (col + 1) * scale);
+  }
+  const UV = Buffer.alloc((W / 2) * (H / 2), 128);
+  const frame = Buffer.concat([Buffer.from('FRAME\n'), Y, UV, UV]);
+  const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'mandate-cam-')), 'qr.y4m');
+  fs.writeFileSync(file, Buffer.concat([Buffer.from(`YUV4MPEG2 W${W} H${H} F10:1 Ip A1:1 C420jpeg\n`), frame, frame]));
+  return file;
+}
 
 const DAY = 86_400;
 const QUESTION_CID = 'bafy' + 'q'.repeat(55);
@@ -87,8 +112,9 @@ before(async () => {
   appUrl = `http://localhost:${appPort}/`; // passkeys need a domain name, not an IP
   returnOrigins.push(`http://localhost:${appPort}`);
 
-  browser = await chromium.launch();
+  browser = await chromium.launch({ args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream', `--use-file-for-fake-video-capture=${qrVideo(voterCodeQr(scanned.commitment))}`] });
   const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  await context.grantPermissions(['camera'], { origin: appUrl.replace(/\/$/, '') });
   page = await context.newPage();
   // A stand-in browser wallet that announces itself the standard way (EIP-6963) and
   // forwards requests to the local chain, signing as an unlocked test account.
@@ -103,6 +129,8 @@ before(async () => {
       request: async ({ method, params }) => {
         if (method === 'eth_requestAccounts' || method === 'eth_accounts') return [account];
         if (method === 'wallet_switchEthereumChain' || method === 'wallet_addEthereumChain') return null;
+        // Real wallets sign messages with personal_sign; the local chain offers the equivalent eth_sign.
+        if (method === 'personal_sign') return send('eth_sign', [params[1], params[0]]);
         return send(method, params);
       },
       on() {},
@@ -142,6 +170,12 @@ test('passkey sign-up, enrolment, anonymous vote through relayer fail-over, same
   await page.click('[data-go="screen-code"]');
   const commitment = BigInt((await page.textContent('#voter-code')).trim());
   assert.ok(commitment > 0n);
+  // The QR code on screen carries exactly this voter code.
+  const img = await page.evaluate(() => {
+    const cv = document.querySelector('#voter-qr');
+    return { w: cv.width, h: cv.height, data: Array.from(cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data) };
+  });
+  assert.equal(parseVoterCode(jsQR(Uint8ClampedArray.from(img.data), img.w, img.h).data), commitment);
 
   // The clerk checks ID at the desk and enrols the voter code (a long-time resident: full rights at once),
   // plus two neighbours so the voter list is bigger than one.
@@ -194,19 +228,74 @@ test('admin from the passkey account, and from a connected wallet', async () => 
   await page.click('#nav-admin');
   await page.waitForFunction(() => /can enrol voters/.test(document.querySelector('#admin-who').textContent));
 
-  // Enrol a newcomer by voter code from the app.
+  // The clerk desk: open it once (signs a desk session), then serve people one by one.
+  await page.waitForSelector('#nav-clerk:not([hidden])');
+  await page.click('#nav-clerk');
+  await page.waitForSelector('text=Main Library desk');
+  await page.click('#btn-clerk-open');
+  await page.waitForSelector('#clerk-steps:not([hidden])');
+
+  // A newcomer, code pasted: enrolled with full rights after a new-resident wait.
   const newcomer = new Identity('library-visitor');
-  await page.fill('#enrol-code', newcomer.commitment.toString());
-  await page.fill('#enrol-doc', 'D1234567');
-  await page.check('#enrol-new');
-  await page.click('#btn-enrol');
-  await page.waitForFunction(() => /Enrol voter: done/.test(document.querySelector('#enrol-status').textContent), null, { timeout: 60_000 });
+  await page.fill('#clerk-code', newcomer.commitment.toString());
+  await page.click('#btn-clerk-lookup');
+  await page.waitForSelector('#clerk-person >> text=Not on the voter list yet');
+  await page.fill('#clerk-doc-region', 'ca');
+  await page.fill('#clerk-doc-number', 'D1234567');
+  await page.check('#clerk-new-resident');
+  await page.click('#btn-clerk-submit');
+  await page.waitForFunction(() => /Done: enrolled/.test(document.querySelector('#clerk-result').textContent), null, { timeout: 60_000 });
+  assert.match(await page.textContent('#clerk-result'), /from .* \(new-resident waiting period\)/);
   const m = await c.identity.members(newcomer.commitment);
   assert.equal(m.active, true);
   assert.equal(m.issuer, auto);
   assert.equal(m.tier, 1n); // new resident: verified, waiting out seasoning
+  assert.notEqual(m.docHash, ethers.keccak256(ethers.toUtf8Bytes('D1234567'))); // keyed fingerprint, not a plain hash
+  await shot('5-clerk-done');
+
+  // Next person: everything about the last one is gone from the screen.
+  await page.click('#btn-clerk-next');
+  for (const id of ['#clerk-code', '#clerk-doc-region', '#clerk-doc-number']) assert.equal(await page.inputValue(id), '');
+  assert.equal(await page.textContent('#clerk-result'), '');
+
+  // Same ID, written differently, for a second voter code: refused before anything is sent.
+  const twice = new Identity('same-id-again');
+  await page.fill('#clerk-code', twice.commitment.toString());
+  await page.click('#btn-clerk-lookup');
+  await page.waitForSelector('#clerk-person >> text=Not on the voter list yet');
+  await page.fill('#clerk-doc-region', 'CA');
+  await page.fill('#clerk-doc-number', 'd-123 4567');
+  await page.check('#clerk-new-resident');
+  await page.click('#btn-clerk-submit');
+  await page.waitForFunction(() => /already linked to another voter code/.test(document.querySelector('#clerk-result').textContent), null, { timeout: 30_000 });
+  assert.equal((await c.identity.members(twice.commitment)).active, false);
+
+  // A basic member who joined online, QR scanned with the camera: upgraded, long-time resident.
+  await page.click('#btn-clerk-next');
+  await (await c.identity.connect(await provider.getSigner(3)).enroll(scanned.commitment, 0, ethers.ZeroHash, 0)).wait();
+  await page.click('#btn-clerk-scan');
+  await page.waitForSelector('#clerk-person >> text=Basic member', { timeout: 30_000 });
+  assert.equal(await page.inputValue('#clerk-code'), scanned.commitment.toString());
+  assert.equal(await page.isVisible('#clerk-video'), false); // camera off once scanned
+  await page.selectOption('#clerk-doc-kind', 'passport');
+  await page.fill('#clerk-doc-region', 'US');
+  await page.fill('#clerk-doc-number', 'P9876543');
+  await page.fill('#clerk-since', '2019-05');
+  await page.click('#btn-clerk-submit');
+  await page.waitForFunction(() => /Done: upgraded/.test(document.querySelector('#clerk-result').textContent), null, { timeout: 60_000 });
+  assert.match(await page.textContent('#clerk-result'), /can vote in full-rights polls now/);
+  assert.equal((await c.identity.members(scanned.commitment)).tier, 2n); // long-time resident: full rights at once
+
+  // Already verified: the desk says so and offers nothing to do.
+  await page.click('#btn-clerk-next');
+  await page.fill('#clerk-code', voterCodeQr(scanned.commitment));
+  await page.click('#btn-clerk-lookup');
+  await page.waitForSelector('#clerk-person >> text=Nothing to do');
+  assert.equal(await page.isVisible('#clerk-id'), false);
+  await page.click('#btn-clerk-next');
 
   // Open a poll from the app.
+  await page.click('#nav-admin');
   const before = await c.vote.pollCount();
   await page.fill('#poll-question', QUESTION_CID);
   await page.click('#btn-open-poll');
@@ -231,11 +320,21 @@ test('admin from the passkey account, and from a connected wallet', async () => 
   assert.equal(ethers.getAddress((await page.textContent('#account-address')).trim()), walletAccount);
   await page.click('#nav-admin');
   await page.waitForFunction(() => /can enrol voters/.test(document.querySelector('#admin-who').textContent));
-  assert.equal(await page.textContent('#enrol-status'), ''); // old results cleared
+  // The wallet's own clerk desk: a different account needs its own desk session.
+  await page.click('#nav-clerk');
+  await page.waitForSelector('text=Test Wallet clerk');
+  await page.click('#btn-clerk-open');
+  await page.waitForSelector('#clerk-steps:not([hidden])');
+  assert.equal(await page.textContent('#clerk-result'), ''); // old results cleared
   const another = new Identity('wallet-enrolled');
-  await page.fill('#enrol-code', another.commitment.toString());
-  await page.click('#btn-enrol');
-  await page.waitForFunction(() => /Enrol voter: done/.test(document.querySelector('#enrol-status').textContent), null, { timeout: 60_000 });
+  await page.fill('#clerk-code', another.commitment.toString());
+  await page.click('#btn-clerk-lookup');
+  await page.waitForSelector('#clerk-person >> text=Not on the voter list yet');
+  await page.fill('#clerk-doc-region', 'NY');
+  await page.fill('#clerk-doc-number', '123456789');
+  await page.fill('#clerk-since', '2015-01');
+  await page.click('#btn-clerk-submit');
+  await page.waitForFunction(() => /Done: enrolled/.test(document.querySelector('#clerk-result').textContent), null, { timeout: 60_000 });
   assert.equal((await c.identity.members(another.commitment)).issuer, walletAccount);
   await shot('5-admin');
 });

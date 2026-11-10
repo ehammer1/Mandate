@@ -55,6 +55,7 @@ Design rules:
 | `docs/testnet.md` | Base testnet deployment: contracts, hosted voter app, relayer, admin commands |
 | `services/identity/` | Sign-in identity service: Google / Apple / Microsoft (basic) and identity-verified providers (verified) |
 | `docs/identity-service.md` | How the sign-in identity service works and how to set up Google sign-in |
+| `docs/clerk-desk.md` | The clerk desk: in-person ID checks for full voting rights, and what it stores |
 | `services/watchdog/` | Independent auditor: rule-based alerts on every contract, AI-written reports |
 | `docs/watchdog.md` | What the watchdog flags, where it runs, and its limits |
 | `oracle/review.py` | AI verifier: judges evidence against the mandate's criteria, with quotes checked against the source |

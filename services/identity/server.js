@@ -24,6 +24,7 @@
  * there is only the voter code and an unlinkable fingerprint.
  *
  * Endpoints: GET /providers · GET /start · GET|POST /callback · GET /health
+ *            POST /email/start · POST /email/verify · POST /clerk/doc-hash
  * Configuration: environment variables, see docs/identity-service.md.
  */
 
@@ -36,6 +37,7 @@ const crypto = require('crypto');
 const { ethers } = require('ethers');
 const client = require('openid-client');
 const { Identity } = require('@semaphore-protocol/identity');
+const { canonicalDoc, clerkSessionMessage, CLERK_SESSION_MAX_MS } = require('../../client/clerk.js');
 
 const TTL_MS = 10 * 60 * 1000;
 const MAX_BODY = 64 * 1024;
@@ -347,6 +349,45 @@ function createIdentityService(o) {
   };
   const maskEmail = (e) => e.replace(/^(.)[^@]*(@.*)$/, (_m, a, d) => `${a}•••${d}`);
 
+  // POST /clerk/doc-hash { session: { address, expires, signature }, doc: { kind, region, number } }
+  //   -> { docHash, alreadyUsed }
+  //
+  // The clerk desk never holds the pepper: it asks here, so every desk gets the same
+  // fingerprint for the same document, and the number itself is never published. Only
+  // accounts that are active clerks (issuers allowed to verify) on the registry may ask.
+  const clerkHits = new Map(); // clerk address -> [timestamps]
+
+  async function clerkDocHash(body) {
+    const sess = body.session || {};
+    const expires = Number(sess.expires);
+    if (!ethers.isAddress(sess.address) || !Number.isFinite(expires)) return [400, { error: 'Open the clerk desk again.' }];
+    if (expires < Date.now() || expires - Date.now() > CLERK_SESSION_MAX_MS) return [401, { error: 'The desk session has expired. Tap "Open the desk" again.' }];
+    let signer;
+    try {
+      signer = ethers.verifyMessage(clerkSessionMessage({ serviceUrl: o.publicUrl, address: ethers.getAddress(sess.address), expires }), String(sess.signature || ''));
+    } catch {
+      signer = null;
+    }
+    if (!signer || signer !== ethers.getAddress(sess.address)) return [401, { error: 'Could not confirm the desk session. Tap "Open the desk" again.' }];
+    const iss = await registry.issuers(signer);
+    if (!iss.active || Number(iss.maxTier) < 1) return [403, { error: 'This account is not an approved clerk.' }];
+
+    const recent = recentCount(clerkHits, signer, 3600_000);
+    if (recent.length >= (o.clerkLookupsPerHour ?? 120)) return [429, { error: 'Too many ID checks this hour from this desk. Please wait a few minutes.' }];
+    recent.push(Date.now());
+
+    let canonical;
+    try {
+      canonical = canonicalDoc(body.doc || {});
+    } catch (e) {
+      return [400, { error: e.message }];
+    }
+    const docHash = hmac(canonical);
+    const usedBy = await registry.commitmentOfDoc(docHash);
+    log(`document fingerprint for clerk ${signer}`);
+    return [200, { docHash, alreadyUsed: usedBy !== 0n }];
+  }
+
   async function emailStart(body, ip) {
     if (!o.emailSender) return [503, { error: 'Email sign-up is not available right now.' }];
     let commitment;
@@ -445,7 +486,7 @@ function createIdentityService(o) {
         if (o.emailSender) list.push({ id: 'email', name: 'Email', tier: 0, kind: 'email' });
         return res.end(JSON.stringify(list));
       }
-      if (url.pathname.startsWith('/email/')) {
+      if (url.pathname.startsWith('/email/') || url.pathname.startsWith('/clerk/')) {
         // Called from the voter app's page: allow its origin only.
         const origin = req.headers.origin || '';
         const cors = o.allowedReturnOrigins.includes(origin) ? { 'Access-Control-Allow-Origin': origin, Vary: 'Origin' } : {};
@@ -466,7 +507,8 @@ function createIdentityService(o) {
         } catch {
           return json(400, { error: 'Invalid request.' });
         }
-        const [status, out] = url.pathname === '/email/start' ? await emailStart(body, ip) : url.pathname === '/email/verify' ? await emailVerify(body) : [404, { error: 'Not found' }];
+        const route = { '/email/start': () => emailStart(body, ip), '/email/verify': () => emailVerify(body), '/clerk/doc-hash': () => clerkDocHash(body) }[url.pathname];
+        const [status, out] = route ? await route() : [404, { error: 'Not found' }];
         return json(status, out);
       }
       if (limited(ip)) return fail(res, 429, 'Too many attempts. Please wait a minute.');

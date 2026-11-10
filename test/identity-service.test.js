@@ -252,3 +252,55 @@ test('Microsoft sign-in: Outlook accounts join; same mailbox as email sign-up co
   msft.setUser({ sub: 'ms-temp', email: 'z@yopmail.com' });
   assert.match((await signIn(new Identity('ms-temp'), 'microsoft')).enroll_error, /temporary-email/);
 });
+
+test('clerk desk: ID fingerprints only for approved clerks, same for every desk, never the plain number', async () => {
+  const { clerkSessionMessage, canonicalDoc, parseVoterCode, voterCodeQr } = require('../client/clerk');
+  const admin = await provider.getSigner(0);
+  const desk1 = ethers.Wallet.createRandom();
+  const desk2 = ethers.Wallet.createRandom();
+  const stranger = ethers.Wallet.createRandom();
+  await (await c.identity.connect(admin).setIssuer(desk1.address, 1, true, 'City Hall desk')).wait();
+  await (await c.identity.connect(admin).setIssuer(desk2.address, 1, true, 'Library desk')).wait();
+  const session = async (w, { expires = Date.now() + 3600_000, url = serviceUrl } = {}) => ({ address: w.address, expires, signature: await w.signMessage(clerkSessionMessage({ serviceUrl: url, address: w.address, expires })) });
+  const ask = (sess, doc, origin = new URL(APP).origin) =>
+    fetch(`${serviceUrl}/clerk/doc-hash`, { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: origin }, body: JSON.stringify({ session: sess, doc }) }).then(async (r) => ({ status: r.status, ...(await r.json()) }));
+  const doc = { kind: 'state', region: 'ca', number: 'D123-4567' };
+
+  const a = await ask(await session(desk1), doc);
+  assert.equal(a.status, 200);
+  assert.match(a.docHash, /^0x[0-9a-f]{64}$/);
+  assert.equal(a.alreadyUsed, false);
+  // Another desk, the number written differently: the same fingerprint.
+  const b = await ask(await session(desk2), { kind: 'state', region: 'CA ', number: 'd 1234567' });
+  assert.equal(b.docHash, a.docHash);
+  // Keyed: not a plain hash anyone could recompute from a list of ID numbers.
+  assert.notEqual(a.docHash, ethers.keccak256(ethers.toUtf8Bytes(canonicalDoc(doc))));
+  // A passport is a different document.
+  assert.notEqual((await ask(await session(desk1), { kind: 'passport', region: 'US', number: 'D1234567' })).docHash, a.docHash);
+
+  // Once used on-chain, the desk is told before it tries again.
+  await (await c.identity.connect(admin).setIssuer(issuerKey.address, 1, true, 'Sign-in service')).wait();
+  await (await c.identity.connect(issuerKey).enroll(new Identity('desk-person').commitment, 1, a.docHash, 0)).wait();
+  assert.equal((await ask(await session(desk2), doc)).alreadyUsed, true);
+
+  // Refused: not a clerk, a removed clerk, expired or too-long sessions, forged or replayed-elsewhere signatures, other sites.
+  assert.equal((await ask(await session(stranger), doc)).status, 403);
+  await (await c.identity.connect(admin).setIssuer(desk2.address, 1, false, 'Library desk')).wait();
+  assert.equal((await ask(await session(desk2), doc)).status, 403);
+  assert.equal((await ask(await session(desk1, { expires: Date.now() - 1000 }), doc)).status, 401);
+  assert.equal((await ask(await session(desk1, { expires: Date.now() + 13 * 3600_000 }), doc)).status, 401);
+  assert.equal((await ask({ ...(await session(stranger)), address: desk1.address }, doc)).status, 401);
+  assert.equal((await ask(await session(desk1, { url: 'https://other-service.example' }), doc)).status, 401);
+  assert.equal((await ask(await session(desk1), doc, 'https://evil.example')).status, 403);
+  // Nonsense IDs are refused with a message for the clerk.
+  const bad = await ask(await session(desk1), { kind: 'state', region: 'C', number: '12' });
+  assert.equal(bad.status, 400);
+  assert.match(bad.error, /state that issued/);
+
+  // Voter-code QR text round-trips; junk is refused.
+  const id = new Identity('qr');
+  assert.equal(parseVoterCode(voterCodeQr(id.commitment)), id.commitment);
+  assert.equal(parseVoterCode(` ${id.commitment}\n`), id.commitment);
+  assert.throws(() => parseVoterCode('https://example.com'), /isn't a Mandate voter code/);
+  assert.throws(() => parseVoterCode('0'), /isn't a valid voter code/);
+});

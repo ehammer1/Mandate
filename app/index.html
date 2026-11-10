@@ -74,6 +74,7 @@
         <button id="nav-polls">Polls</button>
         <button data-go="screen-code">My voter code</button>
         <button id="nav-account">Account</button>
+        <button id="nav-clerk" hidden>Clerk desk</button>
         <button id="nav-admin" hidden>Admin</button>
         <button id="btn-signout">Sign out</button>
       </nav>
@@ -147,7 +148,8 @@
     <!-- Voter code -->
     <section id="screen-code" data-screen hidden>
       <h1>Your voter code</h1>
-      <p>Show this to the city clerk, a library desk, or an approved online check to enrol. It lets you join the voter list without revealing how you vote.</p>
+      <p>To get full voting rights, show this QR code at the city clerk or a library desk, with a photo ID. It lets you join the voter list without revealing how you vote.</p>
+      <canvas id="voter-qr" role="img" aria-label="QR code of your voter code" style="display:block;margin:12px auto;background:#fff;padding:8px;border-radius:12px;max-width:100%"></canvas>
       <p class="code" id="voter-code" aria-label="Voter code"></p>
       <div class="row"><button id="btn-copy">Copy code</button><span class="status" id="copy-status" role="status"></span></div>
       <p class="note">Enrolment checks your ID once. The clerk records only this code and a scrambled fingerprint of your ID number, never your name.</p>
@@ -171,22 +173,55 @@
       <p class="note">Your voter key is separate from every account and wallet, so nothing links your money to your votes.</p>
     </section>
 
+    <!-- Clerk desk (shown only to approved clerks) -->
+    <section id="screen-clerk" data-screen hidden>
+      <h1>Clerk desk</h1>
+      <div class="card" id="clerk-who"></div>
+      <div class="card stack" id="clerk-open" hidden>
+        <p>Open the desk once per shift. Your account signs a short message so the ID service knows this is an approved desk. Nothing is stored on this device.</p>
+        <button class="primary" id="btn-clerk-open">Open the desk</button>
+        <p class="status" id="clerk-open-status" role="status"></p>
+      </div>
+      <div id="clerk-steps" hidden>
+        <div class="card stack">
+          <h3>1. Voter code</h3>
+          <p class="note">Ask the person to open "My voter code" in the Mandate app and show you the QR code.</p>
+          <div class="row"><button class="primary" id="btn-clerk-scan">Scan QR code</button></div>
+          <video id="clerk-video" playsinline muted hidden style="width:100%;max-height:320px;border-radius:12px;background:#000"></video>
+          <label for="clerk-code">Or paste the code</label>
+          <div class="row"><input type="text" id="clerk-code" inputmode="numeric" autocomplete="off" spellcheck="false" style="flex:1" /><button id="btn-clerk-lookup">Look up</button></div>
+          <p class="status" id="clerk-lookup-status" role="status"></p>
+          <div id="clerk-person"></div>
+        </div>
+        <div class="card stack" id="clerk-id" hidden>
+          <h3>2. Check their ID</h3>
+          <ul class="note" style="margin:0;padding-left:20px">
+            <li>The photo matches the person in front of you.</li>
+            <li>The ID has not expired.</li>
+            <li>The address on the ID, or a proof of address (utility bill, lease, voter card), is in the city.</li>
+          </ul>
+          <label for="clerk-doc-kind">Type of ID</label>
+          <select id="clerk-doc-kind" style="min-height:48px;font:inherit;border-radius:10px;padding:8px"></select>
+          <label for="clerk-doc-region" id="clerk-region-label">Issuing state (2 letters)</label>
+          <input type="text" id="clerk-doc-region" maxlength="3" autocomplete="off" spellcheck="false" autocapitalize="characters" style="width:110px" />
+          <label for="clerk-doc-number">ID number</label>
+          <input type="text" id="clerk-doc-number" autocomplete="off" spellcheck="false" autocapitalize="characters" />
+          <p class="note">Only a scrambled fingerprint of the number is kept, so the same ID can't be used for two voter codes. The number itself is never stored or published.</p>
+          <label for="clerk-since">Living in the city since (from their ID or proof of address)</label>
+          <input type="month" id="clerk-since" style="min-height:48px;font:inherit;border-radius:10px;padding:8px;width:200px" />
+          <label class="row"><input type="checkbox" id="clerk-new-resident" /> New resident or can't tell (30-day wait before full-rights polls)</label>
+          <button class="primary" id="btn-clerk-submit">Enrol with full voting rights</button>
+        </div>
+        <p class="status" id="clerk-result" role="status"></p>
+        <div class="row"><button id="btn-clerk-next">Next person</button><span class="muted" id="clerk-count"></span></div>
+        <p class="note">"Next person" clears this screen. It also clears itself after 2 minutes without activity.</p>
+      </div>
+    </section>
+
     <!-- Admin (shown only to accounts with a role) -->
     <section id="screen-admin" data-screen hidden>
       <h1>Admin</h1>
       <div class="card" id="admin-who"></div>
-
-      <div class="card stack" id="admin-enrol" hidden>
-        <h3>Enrol a voter</h3>
-        <p class="note">After checking the person's ID, paste the voter code from their app.</p>
-        <label for="enrol-code">Voter code</label>
-        <input type="text" id="enrol-code" inputmode="numeric" autocomplete="off" spellcheck="false" />
-        <label for="enrol-doc">ID document number (optional; only a scrambled fingerprint is stored)</label>
-        <input type="text" id="enrol-doc" autocomplete="off" spellcheck="false" />
-        <label class="row"><input type="checkbox" id="enrol-new" /> New resident (30-day wait for full voting rights)</label>
-        <button class="primary" id="btn-enrol">Enrol</button>
-        <p class="status" id="enrol-status" role="status"></p>
-      </div>
 
       <div class="card stack" id="admin-poll" hidden>
         <h3>Open a poll</h3>
