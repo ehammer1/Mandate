@@ -78,6 +78,8 @@ before(async () => {
       identityAddress: await c.identity.getAddress(),
       creditsAddress: await c.credits.getAddress(),
       registryAddress: await c.registry.getAddress(),
+      noticeBoardAddress: await c.notices.getAddress(),
+      escrowFactoryAddress: await c.escrows.getAddress(),
       relayers: ['http://127.0.0.1:1', `http://127.0.0.1:${relayPort}`], // the first is down: tests fail-over
       artifactsBase: '/artifacts',
       chainId: Number((await provider.getNetwork()).chainId),
@@ -300,7 +302,8 @@ test('admin from the passkey account, and from a connected wallet', async () => 
   // Open a poll from the app.
   await page.click('#nav-admin');
   const before = await c.vote.pollCount();
-  await page.fill('#poll-question', QUESTION_CID);
+  await page.fill('#poll-title', 'Open the library on Sundays?');
+  await page.fill('#poll-body', 'From January, 10am to 4pm.');
   await page.click('#btn-open-poll');
   await page.waitForFunction(() => /Open poll: done/.test(document.querySelector('#poll-status').textContent), null, { timeout: 60_000 });
   assert.equal(await c.vote.pollCount(), before + 1n);
@@ -589,4 +592,102 @@ test('public dashboard: voter list, polls with counts, clerks and watchdog alert
   await dash.screenshot({ path: process.env.APP_SCREENSHOT_DIR ? `${process.env.APP_SCREENSHOT_DIR}/9-dashboard.png` : require('node:os').tmpdir() + '/dash.png', fullPage: true });
   assert.deepEqual(errors, []);
   await dash.close();
+});
+
+test('mandate lifecycle: binding poll, vote, mandate, budget, evidence, verification, payout', async () => {
+  page.removeAllListeners('dialog');
+  await page.goto(appUrl);
+  await page.evaluate(() => localStorage.clear());
+  await page.reload();
+  await page.click('#device-option summary');
+  await page.click('#btn-device');
+  await page.waitForSelector('#screen-home:not([hidden])');
+  await page.click('[data-go="screen-code"]');
+  const voter = BigInt((await page.textContent('#voter-code')).trim());
+  await page.click('#nav-account');
+  const me = ethers.getAddress((await page.textContent('#account-address')).trim());
+
+  // Setup by the (test) admins: this person can open polls, has fee money and is on the voter list;
+  // the admin is an independent verifier, so mandates can be checked.
+  await (await admin.sendTransaction({ to: me, value: ethers.parseEther('2') })).wait();
+  await (await c.vote.grantRole(await c.vote.PROPOSER_ROLE(), me)).wait();
+  await (await c.registry.grantRole(await c.registry.VERIFIER_ROLE(), admin.address)).wait();
+  const longAgo = (await provider.getBlock('latest')).timestamp - 3 * 365 * DAY;
+  await (await c.identity.connect(clerk).enroll(voter, 1, docHash('DL-lifecycle'), longAgo)).wait();
+
+  // A binding poll, written in the app: if Yes wins, this person must get it done within 30 days.
+  await page.click('#nav-polls');
+  await page.waitForSelector('#nav-admin:not([hidden])');
+  await page.click('#nav-admin');
+  await page.fill('#poll-title', 'Fix the Elm Street crossing');
+  await page.fill('#poll-body', 'Raised crossing with flashing lights, done within 30 days.');
+  await page.selectOption('#poll-kind', '2');
+  await page.fill('#poll-responsible', me);
+  await page.fill('#poll-mdays', '30');
+  await page.fill('#poll-checks', '1');
+  await page.selectOption('#poll-group', '0');
+  await page.fill('#poll-days', '0.01');
+  await page.fill('#poll-quorum', '1');
+  await page.click('#btn-open-poll');
+  await page.waitForFunction(() => /Open poll: done/.test(document.querySelector('#poll-status').textContent), null, { timeout: 60_000 });
+  const pollId = await c.vote.pollCount();
+  const poll = await c.vote.getPoll(pollId);
+  assert.match(poll.questionCID, /^nb:0x[0-9a-f]{64}$/);
+  assert.match(await c.notices.read(poll.questionCID.slice(3)), /Fix the Elm Street crossing/);
+
+  // Vote Yes privately, then once voting ends anyone can record the result: the mandate is created.
+  await page.click('#nav-polls');
+  await page.waitForSelector(`#poll-${pollId} >> text=Binding.`);
+  assert.match(await page.textContent(`#poll-${pollId}`), /is responsible for doing it within 30 days, and 1 independent verifier must confirm/);
+  await page.click(`#poll-${pollId} button.choice >> text=Yes`);
+  await page.waitForFunction((id) => /Your vote is recorded/.test(document.querySelector(`#poll-status-${id}`).textContent), pollId.toString(), { timeout: 120_000 });
+  await provider.send('evm_increaseTime', [3600]);
+  await provider.send('evm_mine', []);
+  await page.click('#btn-refresh');
+  await page.click(`#poll-${pollId} button.finalize`);
+  await page.waitForFunction(() => (document.querySelector('#poll-list')?.textContent || '').includes('Closed · passed'), null, { timeout: 60_000 });
+  assert.equal(await c.registry.mandateCount(), 1n);
+
+  // Mandates screen: the goal, then back it with 0.5 ETH (its escrow is created on the way).
+  await page.click('#nav-mandates');
+  await page.waitForSelector('#mandate-1 >> text=Fix the Elm Street crossing');
+  assert.match(await page.textContent('#mandate-1'), /nobody has backed it yet/);
+  await page.fill('#back-1', '0.5');
+  await page.click('#mandate-1 button[data-act="back"]');
+  await page.waitForFunction(() => /Back this mandate: done/.test(document.querySelector('#mandate-status-1')?.textContent || ''), null, { timeout: 60_000 });
+  const escrow = new ethers.Contract(await c.escrows.escrowOf(1), ['function lockedBalance() view returns (uint256)', 'function settlement() view returns (uint8)'], provider);
+  assert.equal(await escrow.lockedBalance(), ethers.parseEther('0.5'));
+  assert.match(await page.textContent('#mandate-1'), /0\.5 ETH held/);
+
+  // The responsible party (this person) submits evidence; the verifier approves; the budget is paid out.
+  await page.fill('#evidence-1', 'Installed on 3 March. Photos: example.org/elm');
+  await page.click('#mandate-1 button[data-act="evidence"]');
+  await page.waitForSelector('#mandate-1 >> text=Evidence under review', { timeout: 60_000 });
+  assert.match(await page.textContent('#mandate-1'), /Installed on 3 March/);
+  await (await c.registry.attest(1, true, '')).wait();
+  await page.click('#btn-mandates-refresh');
+  await page.waitForSelector('#mandate-1 button[data-act="release"]');
+  const before = await provider.getBalance(me);
+  await page.click('#mandate-1 button[data-act="release"]');
+  await page.waitForFunction(() => /Pay the budget: done/.test(document.querySelector('#mandate-status-1')?.textContent || ''), null, { timeout: 60_000 });
+  assert.equal(await escrow.lockedBalance(), 0n);
+  assert.ok((await provider.getBalance(me)) - before > ethers.parseEther('0.49'));
+  assert.match(await page.textContent('#mandate-1'), /Done and verified/);
+  await shot('10-mandate-paid');
+
+  // As a verifier in the app: approve someone else's evidence, with published reasons.
+  await (await c.registry.grantRole(await c.registry.VERIFIER_ROLE(), me)).wait();
+  await (await c.registry.grantRole(await c.registry.GOVERNOR_ROLE(), admin.address)).wait();
+  const now = (await provider.getBlock('latest')).timestamp;
+  await (await c.notices.post(JSON.stringify({ title: 'Publish bus timetables as open data', body: '' }))).wait();
+  const spec = 'nb:' + ethers.keccak256(ethers.toUtf8Bytes(JSON.stringify({ title: 'Publish bus timetables as open data', body: '' })));
+  await (await c.registry.createMandate(admin.address, now + 30 * DAY, 1, ethers.id('general'), spec)).wait();
+  await (await c.registry.submitEvidence(2, spec)).wait();
+  await page.click('#btn-mandates-refresh');
+  await page.waitForSelector('#mandate-2 button[data-act="approve"]');
+  assert.equal(await page.locator('#mandate-1 button[data-act="approve"]').count(), 0); // can't check your own
+  await page.fill('#reason-2', 'Files are live at example.org/gtfs and match the published schedule.');
+  await page.click('#mandate-2 button[data-act="approve"]');
+  await page.waitForFunction(() => /Approve: done/.test(document.querySelector('#mandate-status-2')?.textContent || ''), null, { timeout: 60_000 });
+  assert.equal((await c.registry.getMandate(2)).status, 3n);
 });

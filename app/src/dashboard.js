@@ -7,6 +7,7 @@
 
 import { ethers } from 'ethers';
 import { describeCall, COUNCIL_ABI } from './council.js';
+import { readDoc } from './notices.js';
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -49,14 +50,8 @@ function link(kind, value, label) {
 }
 
 async function question(cid) {
-  try {
-    const res = await fetch(`${state.cfg.ipfsGateway.replace(/\/+$/, '')}/ipfs/${cid}`);
-    if (!res.ok) throw new Error();
-    const q = await res.json();
-    return { title: String(q.title || 'Untitled question'), options: Array.isArray(q.options) ? q.options.map(String) : null };
-  } catch {
-    return { title: `Question ${cid.slice(0, 12)}…`, options: null };
-  }
+  const d = await readDoc(state.cfg, state.provider, cid);
+  return d.missing ? { title: `Question ${cid.slice(0, 12)}…`, options: null } : d;
 }
 
 /** Active members per group, from the registry's leaf mirror (removed members excluded). */
@@ -143,25 +138,33 @@ async function renderMandates() {
   const box = $('mandates');
   if (!state.cfg.registryAddress) {
     box.innerHTML = '<p class="muted">Not deployed.</p>';
-    return { active: 0, total: 0 };
+    return { active: 0, total: 0, held: 0n };
   }
   const r = new ethers.Contract(state.cfg.registryAddress, REGISTRY_ABI, state.provider);
   const count = Number(await r.mandateCount());
   if (!count) {
     box.innerHTML = '<p class="muted">No mandates yet. A mandate is created when a binding poll passes or a decision market chooses one.</p>';
-    return { active: 0, total: 0 };
+    return { active: 0, total: 0, held: 0n };
   }
   let active = 0;
-  const rows = [];
+  let held = 0n;
+  const f = state.cfg.escrowFactoryAddress ? new ethers.Contract(state.cfg.escrowFactoryAddress, ['function escrowOf(uint256) view returns (address)'], state.provider) : null;
+  const items = [];
   for (let id = count; id >= Math.max(1, count - 19); id--) {
     const [m, overdue] = await Promise.all([r.getMandate(id), r.isOverdue(id)]);
+    const goal = await readDoc(state.cfg, state.provider, m.specCID);
     const st = Number(m.status);
     if (st === 1 || st === 2) active++;
+    const escrow = f ? await f.escrowOf(id) : ethers.ZeroAddress;
+    const locked = escrow !== ethers.ZeroAddress ? await new ethers.Contract(escrow, ['function lockedBalance() view returns (uint256)'], state.provider).lockedBalance() : 0n;
+    held += locked;
     const label = overdue ? '▲ Overdue' : MANDATE_STATUS[st] || '';
-    rows.push(`<tr><td>${id}</td><td class="addr">${link('address', m.responsible, short(m.responsible))}</td><td>${esc(day(m.deadline))}</td><td>${esc(label)}</td><td class="num">${m.approvals} / ${m.threshold}</td></tr>`);
+    items.push(`<li id="dash-mandate-${id}"><p class="eyebrow">Mandate ${id} · ${esc(label)} · due ${esc(day(m.deadline))}</p>
+      <p><strong>${esc(goal.title)}</strong></p>
+      <p class="meta">Responsible: <span class="addr">${link('address', m.responsible, short(m.responsible))}</span> · checks passed ${m.approvals} of ${m.threshold} · budget held: ${escrow !== ethers.ZeroAddress ? `${link('address', escrow, `${ethers.formatEther(locked)} ETH`)}` : 'none yet'}</p></li>`);
   }
-  box.innerHTML = `<table class="data"><thead><tr><th>#</th><th>Responsible</th><th>Deadline</th><th>Status</th><th class="num">Checks passed</th></tr></thead><tbody>${rows.join('')}</tbody></table>`;
-  return { active, total: count };
+  box.innerHTML = `<ul class="list">${items.join('')}</ul>`;
+  return { active, total: count, held };
 }
 
 async function renderSources(identity) {
@@ -238,7 +241,7 @@ async function refresh() {
     $('tiles').innerHTML = [
       tile(num(all), 'people on the voter list', `${num(full)} with full voting rights · ${num(verified - full)} in their new-resident wait · ${num(all - verified)} basic`),
       tile(num(polls.open), polls.open === 1 ? 'poll open now' : 'polls open now', `${num(polls.total)} in total`),
-      tile(num(mandates.active), mandates.active === 1 ? 'mandate in progress' : 'mandates in progress', `${num(mandates.total)} in total`),
+      tile(num(mandates.active), mandates.active === 1 ? 'mandate in progress' : 'mandates in progress', `${num(mandates.total)} in total · ${Number(ethers.formatEther(mandates.held)).toLocaleString(undefined, { maximumFractionDigits: 6 })} ETH held in their budgets`),
       tile(num(pending), pending === 1 ? 'council change pending' : 'council changes pending', 'proposed, not yet run'),
       tile(num(urgentDay), 'urgent watchdog alerts', 'in the last 24 hours'),
     ].join('');

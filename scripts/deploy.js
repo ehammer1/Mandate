@@ -110,6 +110,12 @@ async function deployAll(signer, opts = {}) {
     await handOver(signer, contracts, await contracts.council.getAddress(), { revoke: [opts.admin].filter(Boolean), log });
     log(`council of ${members.length} (${threshold} to approve, ${delaySeconds / 3600} h wait) now holds every admin power`);
   }
+  // Public text (questions, goals, evidence) and per-mandate budget escrows. Neither has an
+  // admin. Overdue budgets drain to the council when there is one, else the treasury.
+  contracts.notices = await deploy(signer, 'NoticeBoard', {});
+  const escrowTreasury = contracts.council ? await contracts.council.getAddress() : treasury;
+  contracts.escrows = await deploy(signer, 'EscrowFactory', {}, await registry.getAddress(), escrowTreasury, opts.escrowDecayBps ?? 1000, Math.round((opts.escrowDecayDays ?? 7) * 86_400));
+  log('notice board and escrow factory deployed');
   const addresses = {};
   for (const [k, c] of Object.entries(contracts)) addresses[k] = await c.getAddress();
   return { contracts, addresses };
@@ -169,6 +175,8 @@ if (require.main === module) {
       registryAddress: addresses.registry,
       marketAddress: addresses.market,
       ...(addresses.council ? { councilAddress: addresses.council } : {}),
+      noticeBoardAddress: addresses.notices,
+      escrowFactoryAddress: addresses.escrows,
       relayers: (process.env.RELAYERS || '').split(',').map((s) => s.trim()).filter(Boolean),
       ipfsGateway: process.env.IPFS_GATEWAY || 'https://gateway.pinata.cloud',
       artifactsBase: process.env.ARTIFACTS_BASE || '',

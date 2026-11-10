@@ -17,6 +17,7 @@
         <button id="nav-polls">Polls</button>
         <button data-go="screen-code">My voter code</button>
         <button id="nav-account">Account</button>
+        <button id="nav-mandates">Mandates</button>
         <button id="nav-clerk" hidden>Clerk desk</button>
         <button id="nav-admin" hidden>Admin</button>
         <button id="btn-signout">Sign out</button>
@@ -116,6 +117,14 @@
       <p class="note">Your voter key is separate from every account and wallet, so nothing links your money to your votes.</p>
     </section>
 
+    <!-- Mandates -->
+    <section id="screen-mandates" data-screen hidden>
+      <h1>Mandates</h1>
+      <p>Goals the public voted for, with a deadline. Independent verifiers confirm when each is done; money backing it is paid out only then.</p>
+      <div class="row"><button id="btn-mandates-refresh">Refresh</button></div>
+      <div id="mandate-list" class="stack"></div>
+    </section>
+
     <!-- Clerk desk (shown only to approved clerks) -->
     <section id="screen-clerk" data-screen hidden>
       <h1>Clerk desk</h1>
@@ -168,8 +177,28 @@
 
       <div class="card stack" id="admin-poll" hidden>
         <h3>Open a poll</h3>
-        <label for="poll-question">Question id (a file under ipfs/ on this site, or an IPFS CID)</label>
-        <input type="text" id="poll-question" value="demo-1" autocomplete="off" spellcheck="false" />
+        <label for="poll-title">Question</label>
+        <input type="text" id="poll-title" placeholder="e.g. Fix the Elm Street crossing this year?" />
+        <label for="poll-body">Details: what exactly, by when, what it costs</label>
+        <textarea id="poll-body" rows="4"></textarea>
+        <label for="poll-kind">What a Yes does</label>
+        <select id="poll-kind">
+          <option value="0">Advisory: records what the public wants</option>
+          <option value="2">Binding: creates a mandate with a deadline</option>
+        </select>
+        <div id="poll-mandate" class="stack" hidden>
+          <label for="poll-responsible">Who is responsible (their account address, 0x…)</label>
+          <input type="text" id="poll-responsible" autocomplete="off" spellcheck="false" />
+          <div class="row">
+            <label>Days to complete <input type="text" id="poll-mdays" value="90" inputmode="numeric" style="width:90px" /></label>
+            <label>Checks needed <input type="text" id="poll-checks" value="1" inputmode="numeric" style="width:90px" /></label>
+          </div>
+          <p class="note">If Yes wins, the mandate starts when the result is recorded. Approved verifiers confirm it was done; anyone can back it with funds that are paid out only then.</p>
+        </div>
+        <details><summary>Use an existing question reference instead</summary>
+          <label for="poll-question">Question reference</label>
+          <input type="text" id="poll-question" autocomplete="off" spellcheck="false" />
+        </details>
         <label for="poll-group">Who can vote</label>
         <select id="poll-group" style="min-height:48px;font:inherit;border-radius:10px;padding:8px">
           <option value="2">Residents with full voting rights</option>

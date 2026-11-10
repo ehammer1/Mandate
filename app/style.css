@@ -45,7 +45,7 @@ nav button { min-height: 40px; padding: 6px 12px; font-size: 15px; }
 .choice.picked { background: var(--accent-soft); border-color: var(--accent); }
 select { width: 100%; max-width: 100%; min-width: 0; text-overflow: ellipsis; }
 .stack > * { min-width: 0; max-width: 100%; }
-input[type=text], input[type=email] { font: inherit; width: 100%; min-height: 48px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); }
+input[type=text], input[type=email], textarea { font: inherit; width: 100%; min-height: 48px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); }
 .code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 15px; word-break: break-all; background: var(--bg); border: 1px dashed var(--line); border-radius: 10px; padding: 12px; margin: 8px 0; }
 .status { min-height: 1.5em; margin: 8px 0 0; }
 .ok { color: var(--ok); } .warn { color: var(--warn); } .error { color: var(--error); }

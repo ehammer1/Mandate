@@ -17,6 +17,8 @@ import { voterCodeQr } from '../../client/clerk.js';
 import QRCode from 'qrcode';
 import { wireClerk } from './clerk.js';
 import { wireCouncil } from './council.js';
+import { readDoc, postDoc } from './notices.js';
+import { wireMandates } from './mandates.js';
 
 const VOTE_ABI = [
   'function castBallot(uint256 id, tuple(uint256 merkleTreeDepth, uint256 merkleTreeRoot, uint256 nullifier, uint256 message, uint256 scope, uint256[8] points) b)',
@@ -408,13 +410,18 @@ async function handleReturn() {
 // -------------------------------------------------------------------- polls
 
 async function fetchQuestion(cid) {
+  return readDoc(state.config, state.provider, cid);
+}
+
+const MANDATE_ACTION = 2;
+/** For a binding "create a mandate" poll: who, how long, how many checks. */
+function mandateTerms(p) {
+  if (Number(p.action) !== MANDATE_ACTION) return null;
   try {
-    const res = await fetch(`${state.config.ipfsGateway.replace(/\/+$/, '')}/ipfs/${cid}`);
-    if (!res.ok) throw new Error();
-    const q = await res.json();
-    return { title: String(q.title || 'Untitled question'), body: String(q.body || ''), options: Array.isArray(q.options) ? q.options.map(String) : null };
+    const [, responsible, duration, threshold] = ethers.AbiCoder.defaultAbiCoder().decode(['address', 'address', 'uint64', 'uint16', 'bytes32', 'string'], p.actionData);
+    return { responsible, days: Math.round(Number(duration) / 86_400), checks: Number(threshold) };
   } catch {
-    return { title: 'Question details unavailable', body: `Reference: ${cid}`, options: null };
+    return null;
   }
 }
 
@@ -459,6 +466,11 @@ async function refreshPolls() {
         <p class="eyebrow">${open ? `Open until ${esc(when(p.end))}` : p.finalized ? (p.passed ? 'Closed · passed' : 'Closed · did not pass') : 'Voting ended · awaiting result'} · ${esc(who)}</p>
         <h3>${esc(q.title)}</h3>
         ${q.body ? `<p>${esc(q.body)}</p>` : ''}
+        ${(() => {
+          const t = mandateTerms(p);
+          return t ? `<p class="note"><strong>Binding.</strong> If Yes wins, this becomes a mandate: <span class="code">${esc(t.responsible.slice(0, 6))}…${esc(t.responsible.slice(-4))}</span> is responsible for doing it within ${t.days} days, and ${t.checks} independent verifier${t.checks === 1 ? '' : 's'} must confirm it was done.</p>` : '';
+        })()}
+        ${!open && !p.finalized ? `<button class="finalize" data-poll="${id}">Record the result</button>` : ''}
         ${open && !voted && eligibleTier ? `<div class="choices">${buttons}</div>` : ''}
         ${open && !voted && !eligibleTier ? `<p class="note">${myTier < 0 ? 'Join first to vote in polls.' : `Only ${esc(who.toLowerCase())} can vote in this poll. ${pollTier === 2 ? 'Verify your ID with the city clerk, a library desk or a mobile ID to get full voting rights.' : 'Verify your ID to vote in it.'}`}</p>` : ''}
         ${voted ? '<p class="ok">Your vote is recorded. Nobody can see which way you voted.</p>' : ''}
@@ -468,6 +480,15 @@ async function refreshPolls() {
     }
     list.innerHTML = cards.join('') || '<p class="muted">No polls yet.</p>';
     for (const b of list.querySelectorAll('button.choice')) b.onclick = () => castVote(BigInt(b.dataset.poll), Number(b.dataset.option), b);
+    // Anyone may record a finished poll's result (and so trigger a binding action).
+    for (const b of list.querySelectorAll('button.finalize')) {
+      b.onclick = async () => {
+        b.disabled = true;
+        const vote = new ethers.Contract(state.config.voteAddress, ['function finalize(uint256)'], state.provider);
+        if (await sendAdminTx($(`poll-status-${b.dataset.poll}`), 'Record the result', (signer) => vote.connect(signer).finalize(BigInt(b.dataset.poll)))) setTimeout(refreshPolls, 1000);
+        else b.disabled = false;
+      };
+    }
   } catch (e) {
     list.innerHTML = `<p class="error">Could not load polls: ${esc(e.shortMessage || e.message)}</p>`;
   }
@@ -732,17 +753,57 @@ function wireAdmin() {
   };
 
 
+  $('poll-kind').onchange = () => {
+    $('poll-mandate').hidden = $('poll-kind').value !== String(MANDATE_ACTION);
+  };
   $('btn-open-poll').onclick = async () => {
     const el = $('poll-status');
-    const question = $('poll-question').value.trim();
+    const title = $('poll-title').value.trim();
+    const body = $('poll-body').value.trim();
+    const existing = $('poll-question').value.trim();
     const days = Number($('poll-days').value);
     const quorum = Number($('poll-quorum').value);
     const tier = Number($('poll-group').value);
-    if (!question || !(days > 0) || !(quorum >= 1)) return status(el, 'Fill in the question id, days and quorum.', 'error');
+    const action = Number($('poll-kind').value);
+    if (!title && !existing) return status(el, 'Write the question.', 'error');
+    if (!(days > 0) || !(quorum >= 1)) return status(el, 'Fill in the days and quorum.', 'error');
+    let actionData = '0x';
+    let mandate = null;
+    if (action === MANDATE_ACTION) {
+      const who = $('poll-responsible').value.trim();
+      const mdays = Number($('poll-mdays').value);
+      const checks = Number($('poll-checks').value);
+      if (!ethers.isAddress(who)) return status(el, 'Enter the address of whoever will be responsible.', 'error');
+      if (!(mdays >= 1) || !(checks >= 1)) return status(el, 'Fill in the days to complete and the number of checks.', 'error');
+      const reg = new ethers.Contract(state.config.registryAddress, ['function getRoleMemberCount(bytes32) view returns (uint256)'], state.provider);
+      const verifiers = Number(await reg.getRoleMemberCount(ethers.id('VERIFIER_ROLE')));
+      if (checks > verifiers) {
+        return status(el, verifiers ? `Only ${verifiers} verifier${verifiers === 1 ? ' is' : 's are'} approved, so a mandate can need at most ${verifiers} check${verifiers === 1 ? '' : 's'}.` : 'No verifiers are approved yet. The council must approve at least one before a vote can create a mandate.', 'error');
+      }
+      mandate = { responsible: ethers.getAddress(who), days: mdays, checks };
+    }
+    let ref = existing;
+    if (title) {
+      try {
+        status(el, 'Publishing the question: confirm if asked…');
+        ref = await postDoc(state.config, activeSigner(), { title, body, options: ['Yes', 'No'], ...(mandate ? { mandate } : {}) });
+      } catch (e) {
+        return status(el, `Could not publish the question: ${e.shortMessage || e.message}`, 'error');
+      }
+    }
+    if (mandate) {
+      actionData = ethers.AbiCoder.defaultAbiCoder().encode(
+        ['address', 'address', 'uint64', 'uint16', 'bytes32', 'string'],
+        [state.config.registryAddress, mandate.responsible, mandate.days * 86_400, mandate.checks, ethers.id('general'), ref],
+      );
+    }
     const groupId = await state.registry.groupId(tier);
     const vote = new ethers.Contract(state.config.voteAddress, ['function createPoll(uint256,uint64,uint32,uint8,uint8,bytes,string,uint256)'], state.provider);
-    await sendAdminTx(el, 'Open poll', (signer) => vote.connect(signer).createPoll(groupId, Math.round(days * 86_400), quorum, 2, 0, '0x', question, 0));
+    if (await sendAdminTx(el, 'Open poll', (signer) => vote.connect(signer).createPoll(groupId, Math.round(days * 86_400), quorum, 2, action, actionData, ref, 0))) {
+      for (const id of ['poll-title', 'poll-body', 'poll-question', 'poll-responsible']) $(id).value = '';
+    }
   };
+
 
   $('btn-finalize').onclick = async () => {
     const el = $('finalize-status');
@@ -795,6 +856,7 @@ async function boot() {
   wireSignIn();
   wireAccount();
   wireAdmin();
+  state.mandates = wireMandates({ state, $, status, esc, show, activeSigner, activeAddress, sendTx: (el, label, fn) => sendAdminTx(el, label, () => fn()) });
   state.council = wireCouncil({ state, $, status, esc, activeSigner, activeAddress });
   state.clerk = wireClerk({ state, $, status, esc, show, activeSigner, activeAddress });
   $('nav-polls').onclick = async () => {
