@@ -1,8 +1,8 @@
 # Mandate audit report
 
-Generated 2026-11-10T07:15:50.000Z · last 24 hours · 33 high, 6 medium, 0 info
+Generated 2026-11-10T07:35:23.000Z · last 24 hours · 41 high, 9 medium, 0 info
 
-33 alert(s) need attention.
+41 alert(s) need attention.
 - ADMIN role granted to 0x433B…476F on identity registry
 - ADMIN role granted to 0x433B…476F on mandate registry
 - ADMIN role granted to 0x433B…476F on decision markets
@@ -29,14 +29,22 @@ Generated 2026-11-10T07:15:50.000Z · last 24 hours · 33 high, 6 medium, 0 info
 - ADMIN role revoked from 0xC782…f834 on mandate registry
 - ADMIN role revoked from 0xC782…f834 on decision markets
 - Council change #1 proposed by 0xC782…f834: grant VERIFIER to 0xb8e5…Cb71 on mandate registry
-- ADMIN role granted to 0xC782…f834 on voting
-- ADMIN role granted to 0x4c0e…797F on voting
-- ADMIN role revoked from 0xC782…f834 on voting
 - Council change #2 proposed by 0xC782…f834: grant GOVERNOR to 0xe332…Aa3a on mandate registry
 - Council change #3 proposed by 0xC782…f834: grant VETO to 0xe332…Aa3a on decision markets
 - Council change #4 proposed by 0xC782…f834: revoke GOVERNOR from 0x8732…ab5c on mandate registry (removes power: can run as soon as approved)
 - Council change #5 proposed by 0xC782…f834: revoke VETO from 0x8732…ab5c on decision markets (removes power: can run as soon as approved)
-6 other event(s) were recorded (see the list).
+- ADMIN role granted to 0xC782…f834 on charter (voting rules)
+- ADMIN role granted to 0xC782…f834 on voting
+- ADMIN role granted to 0x4c0e…797F on voting
+- GOVERNOR role granted to 0x74eE…12c6 on charter (voting rules)
+- ADMIN role granted to 0x4c0e…797F on charter (voting rules)
+- ADMIN role revoked from 0xC782…f834 on charter (voting rules)
+- ADMIN role revoked from 0xC782…f834 on voting
+- Council change #6 proposed by 0xC782…f834: grant GOVERNOR to 0x74eE…12c6 on mandate registry
+- Council change #7 proposed by 0xC782…f834: grant VETO to 0x74eE…12c6 on decision markets
+- Council change #8 proposed by 0xC782…f834: revoke GOVERNOR from 0x8732…ab5c on mandate registry (removes power: can run as soon as approved)
+- Council change #9 proposed by 0xC782…f834: revoke VETO from 0x8732…ab5c on decision markets (removes power: can run as soon as approved)
+9 other event(s) were recorded (see the list).
 
 ## All alerts
 
@@ -68,16 +76,27 @@ Generated 2026-11-10T07:15:50.000Z · last 24 hours · 33 high, 6 medium, 0 info
 - **high** ADMIN role revoked from 0xC782…f834 on mandate registry ([tx](https://sepolia.basescan.org/tx/0x1e9023ce1c7d6f0163974373dcc77170b84b052452b344787e3e35619973a9e3))
 - **high** ADMIN role revoked from 0xC782…f834 on decision markets ([tx](https://sepolia.basescan.org/tx/0x7362b263579a7cebd1d5265640613dc2d8c069d1d2cfdbb753450efc0c5e3182))
 - **high** Council change #1 proposed by 0xC782…f834: grant VERIFIER to 0xb8e5…Cb71 on mandate registry ([tx](https://sepolia.basescan.org/tx/0x91b9f1f3b3d71d8233ef0cab43d295570ba1c20a37f9460d6e270a1992bdd777))
-- **high** ADMIN role granted to 0xC782…f834 on voting ([tx](https://sepolia.basescan.org/tx/0x1f80e66a6de8baa419a8be07f1b955d345a6f6c5357cdc54eba0a39f97519310))
-- **medium** PROPOSER role granted to 0xC782…f834 on voting ([tx](https://sepolia.basescan.org/tx/0x05bd379a97110c1d445f25655e1d29daf0ed5265e0f93cd001292b0e39b25bc3))
-- **medium** PROPOSER role granted to 0x433B…476F on voting ([tx](https://sepolia.basescan.org/tx/0x21153cbe38051602031d2408e9b7d85436efb05df95a5cf46a120232902f1a5d))
-- **high** ADMIN role granted to 0x4c0e…797F on voting ([tx](https://sepolia.basescan.org/tx/0xbefaef3d827da69953b255a45712b23040e41b1654017f949f1c5ee943280e72))
-- **high** ADMIN role revoked from 0xC782…f834 on voting ([tx](https://sepolia.basescan.org/tx/0x80046b342e71bbab399641bda2523636ea22ad5188bb4f8c16f55c93ba50eb4b))
 - **high** Council change #2 proposed by 0xC782…f834: grant GOVERNOR to 0xe332…Aa3a on mandate registry ([tx](https://sepolia.basescan.org/tx/0xca890f8cbb4ba8e4688736154ab91e159b417c9c87dea4795c0fe6c7261ad736))
 - **high** Council change #3 proposed by 0xC782…f834: grant VETO to 0xe332…Aa3a on decision markets ([tx](https://sepolia.basescan.org/tx/0xe7ed683ea8387428642783ca7924cc68fb4b5c15a60575b56ec9a557b8b7578e))
 - **high** Council change #4 proposed by 0xC782…f834: revoke GOVERNOR from 0x8732…ab5c on mandate registry (removes power: can run as soon as approved) ([tx](https://sepolia.basescan.org/tx/0x3cefc7c64a76a87c65d3a864257cb95ee53a61c61b998afabd880bfad26889e9))
 - **high** Council change #5 proposed by 0xC782…f834: revoke VETO from 0x8732…ab5c on decision markets (removes power: can run as soon as approved) ([tx](https://sepolia.basescan.org/tx/0xb3758443ea48b13db64bcedce82fc2d96d1e48f796b1466805d9da71830c4ba1))
-- **medium** Watchdog GitHub token (Render) expires on 2026-12-10, in 29 days: GitHub (ehammer1) > Settings > Developer settings > Fine-grained tokens > regenerate the watchdog token (only ehammer1/Mandate, Contents read and write), then paste it into GITHUB_TOKEN on Render's mandate-watchdog
 - **medium** Council change #2 cancelled by 0xC782…f834: grant GOVERNOR to 0xe332…Aa3a on mandate registry ([tx](https://sepolia.basescan.org/tx/0xff6a3752781549dc0706cd0ce63a7d18477dd500d4b9fb2650e119be38ced385))
+- **medium** Council change #3 cancelled by 0xC782…f834: grant VETO to 0xe332…Aa3a on decision markets ([tx](https://sepolia.basescan.org/tx/0xaa63c529874f8e99a1210bf726ea59524b8d5c7e677563c20f6c6a5c09c6ae47))
+- **medium** Council change #4 cancelled by 0xC782…f834: revoke GOVERNOR from 0x8732…ab5c on mandate registry ([tx](https://sepolia.basescan.org/tx/0x187a9b1250c35e131a7d67fe1176e30fef9a02860651c319d922117c94ed0c8d))
+- **medium** Council change #5 cancelled by 0xC782…f834: revoke VETO from 0x8732…ab5c on decision markets ([tx](https://sepolia.basescan.org/tx/0x25b4bf9bce6eacb84c5f26956fc5fb220f53cf1dda9657f1f16733a0b45134e4))
+- **high** ADMIN role granted to 0xC782…f834 on charter (voting rules) ([tx](https://sepolia.basescan.org/tx/0x45818327ae8b71a742fdc876e7582e79600bb6d606002992aa1b11bee43c2f89))
+- **high** ADMIN role granted to 0xC782…f834 on voting ([tx](https://sepolia.basescan.org/tx/0xd18546d7ac9bdf2d324ed33af4b32068ba2f6d7e5392eec76a770060ccf58367))
+- **medium** PROPOSER role granted to 0xC782…f834 on voting ([tx](https://sepolia.basescan.org/tx/0x934319d65a13c2c9b20b9db1d880d70a7dd3cffd19ffa609fd6239fa278ea9bb))
+- **medium** PROPOSER role granted to 0x433B…476F on voting ([tx](https://sepolia.basescan.org/tx/0x53f22ae1aba63aba0ad82d94795f25df862a308369c0f30a9fd3764b75c384d9))
+- **high** ADMIN role granted to 0x4c0e…797F on voting ([tx](https://sepolia.basescan.org/tx/0x43bf9e1098662159e1c0c9491b01cb326dda22d8ab007927c999fc747aba6289))
+- **high** GOVERNOR role granted to 0x74eE…12c6 on charter (voting rules) ([tx](https://sepolia.basescan.org/tx/0xa3a6b30db2269938d8a19f7949c023a62d85d9af301fcc926d81b0f819b73f59))
+- **high** ADMIN role granted to 0x4c0e…797F on charter (voting rules) ([tx](https://sepolia.basescan.org/tx/0x56fac155a688cd65e630e57ed8682112582e852d3955e9d99f98b7ec721beae5))
+- **high** ADMIN role revoked from 0xC782…f834 on charter (voting rules) ([tx](https://sepolia.basescan.org/tx/0x5e57ecd30195a1acbc7e3ea97109f8004b692de905b480ee6ff0f6c9f0efa4d1))
+- **high** ADMIN role revoked from 0xC782…f834 on voting ([tx](https://sepolia.basescan.org/tx/0x9362cb48fffc024bdc8d8dca2551b5b93302bf312cc0663f2372dd6778a3f3b8))
+- **high** Council change #6 proposed by 0xC782…f834: grant GOVERNOR to 0x74eE…12c6 on mandate registry ([tx](https://sepolia.basescan.org/tx/0xcae432e083e9ff6013d2a863598f56a58f4cd8478cd7b715e6342055c2ca6df2))
+- **high** Council change #7 proposed by 0xC782…f834: grant VETO to 0x74eE…12c6 on decision markets ([tx](https://sepolia.basescan.org/tx/0x1ec5e91d2c4ce8cdce57dc0fcf59cdf5fff4b6c054fd7a68aea152a0d1df3f0b))
+- **high** Council change #8 proposed by 0xC782…f834: revoke GOVERNOR from 0x8732…ab5c on mandate registry (removes power: can run as soon as approved) ([tx](https://sepolia.basescan.org/tx/0x7b9fb835e85453decf2cbaad63064c25093adab4166b274084a4689782d427f5))
+- **high** Council change #9 proposed by 0xC782…f834: revoke VETO from 0x8732…ab5c on decision markets (removes power: can run as soon as approved) ([tx](https://sepolia.basescan.org/tx/0x5e2bc7e6cdbc324555c9021da3ad1737152d5dcb94ce28c3fa9a3983e65c920d))
+- **medium** Watchdog GitHub token (Render) expires on 2026-12-10, in 29 days: GitHub (ehammer1) > Settings > Developer settings > Fine-grained tokens > regenerate the watchdog token (only ehammer1/Mandate, Contents read and write), then paste it into GITHUB_TOKEN on Render's mandate-watchdog
 
 Summary written by: fixed rules.

@@ -1,5 +1,287 @@
 [
  {
+  "rule": "credential-expiry",
+  "severity": "medium",
+  "key": "expiry:Watchdog GitHub token (Render):30d",
+  "time": 1794296123,
+  "title": "Watchdog GitHub token (Render) expires on 2026-12-10, in 29 days: GitHub (ehammer1) > Settings > Developer settings > Fine-grained tokens > regenerate the watchdog token (only ehammer1/Mandate, Contents read and write), then paste it into GITHUB_TOKEN on Render's mandate-watchdog",
+  "facts": {
+   "label": "Watchdog GitHub token (Render)",
+   "expires": "2026-12-10",
+   "daysLeft": 29
+  },
+  "id": "credential-expiry:expiry:Watchdog GitHub token (Render):30d:1794296123"
+ },
+ {
+  "tx": "0x5e2bc7e6cdbc324555c9021da3ad1737152d5dcb94ce28c3fa9a3983e65c920d",
+  "block": 56865848,
+  "time": 1794295038,
+  "contract": "council",
+  "event": "Proposed",
+  "rule": "council-proposal",
+  "severity": "high",
+  "title": "Council change #9 proposed by 0xC782…f834: revoke VETO from 0x8732…ab5c on decision markets (removes power: can run as soon as approved)",
+  "facts": {
+   "proposal": "9",
+   "proposer": "0xC782e1690D4B6c4C2Aba21283a6271477690f834",
+   "target": "0xbf760Bd9b13cf541954074dF2beb5b8448F94a6E",
+   "value": "0",
+   "data": "0xd547741f18d7d437a2d7905ef3353a5b94dadd41c37b2e3c79053f87c83493c081d7315a00000000000000000000000087325d0adc1950ab89891b5caa57ed10438bab5c",
+   "description": "Retire the old voting contract 0x87325d0Adc1950AB89891b5CaA57eD10438Bab5c: it can no longer veto market decisions",
+   "fast": true
+  },
+  "id": "council-proposal:0x5e2bc7e6cdbc324555c9021da3ad1737152d5dcb94ce28c3fa9a3983e65c920d:1794295038"
+ },
+ {
+  "tx": "0x7b9fb835e85453decf2cbaad63064c25093adab4166b274084a4689782d427f5",
+  "block": 56865826,
+  "time": 1794295034,
+  "contract": "council",
+  "event": "Proposed",
+  "rule": "council-proposal",
+  "severity": "high",
+  "title": "Council change #8 proposed by 0xC782…f834: revoke GOVERNOR from 0x8732…ab5c on mandate registry (removes power: can run as soon as approved)",
+  "facts": {
+   "proposal": "8",
+   "proposer": "0xC782e1690D4B6c4C2Aba21283a6271477690f834",
+   "target": "0xf5ad5AfF071C6685290E7e9985AC85bFAa3b0C74",
+   "value": "0",
+   "data": "0xd547741f7935bd0ae54bc31f548c14dba4d37c5c64b3f8ca900cb468fb8abd54d5894f5500000000000000000000000087325d0adc1950ab89891b5caa57ed10438bab5c",
+   "description": "Retire the old voting contract 0x87325d0Adc1950AB89891b5CaA57eD10438Bab5c: it can no longer create or repeal mandates",
+   "fast": true
+  },
+  "id": "council-proposal:0x7b9fb835e85453decf2cbaad63064c25093adab4166b274084a4689782d427f5:1794295034"
+ },
+ {
+  "tx": "0x1ec5e91d2c4ce8cdce57dc0fcf59cdf5fff4b6c054fd7a68aea152a0d1df3f0b",
+  "block": 56865803,
+  "time": 1794295029,
+  "contract": "council",
+  "event": "Proposed",
+  "rule": "council-proposal",
+  "severity": "high",
+  "title": "Council change #7 proposed by 0xC782…f834: grant VETO to 0x74eE…12c6 on decision markets",
+  "facts": {
+   "proposal": "7",
+   "proposer": "0xC782e1690D4B6c4C2Aba21283a6271477690f834",
+   "target": "0xbf760Bd9b13cf541954074dF2beb5b8448F94a6E",
+   "value": "0",
+   "data": "0x2f2ff15d18d7d437a2d7905ef3353a5b94dadd41c37b2e3c79053f87c83493c081d7315a00000000000000000000000074ee8aae2d5b98186571ac5dcbd6fceb69e612c6",
+   "description": "Let the new voting contract carry out public vetoes of market decisions",
+   "fast": false
+  },
+  "id": "council-proposal:0x1ec5e91d2c4ce8cdce57dc0fcf59cdf5fff4b6c054fd7a68aea152a0d1df3f0b:1794295029"
+ },
+ {
+  "tx": "0xcae432e083e9ff6013d2a863598f56a58f4cd8478cd7b715e6342055c2ca6df2",
+  "block": 56865781,
+  "time": 1794295025,
+  "contract": "council",
+  "event": "Proposed",
+  "rule": "council-proposal",
+  "severity": "high",
+  "title": "Council change #6 proposed by 0xC782…f834: grant GOVERNOR to 0x74eE…12c6 on mandate registry",
+  "facts": {
+   "proposal": "6",
+   "proposer": "0xC782e1690D4B6c4C2Aba21283a6271477690f834",
+   "target": "0xf5ad5AfF071C6685290E7e9985AC85bFAa3b0C74",
+   "value": "0",
+   "data": "0x2f2ff15d7935bd0ae54bc31f548c14dba4d37c5c64b3f8ca900cb468fb8abd54d5894f5500000000000000000000000074ee8aae2d5b98186571ac5dcbd6fceb69e612c6",
+   "description": "Let the new voting contract (community rules, cross-checked polls) create and repeal mandates when a binding poll passes",
+   "fast": false
+  },
+  "id": "council-proposal:0xcae432e083e9ff6013d2a863598f56a58f4cd8478cd7b715e6342055c2ca6df2:1794295025"
+ },
+ {
+  "tx": "0x9362cb48fffc024bdc8d8dca2551b5b93302bf312cc0663f2372dd6778a3f3b8",
+  "block": 56865757,
+  "time": 1794295020,
+  "contract": "voting",
+  "event": "RoleRevoked",
+  "rule": "role-change",
+  "severity": "high",
+  "title": "ADMIN role revoked from 0xC782…f834 on voting",
+  "facts": {
+   "role": "ADMIN",
+   "account": "0xC782e1690D4B6c4C2Aba21283a6271477690f834",
+   "by": "0xC782e1690D4B6c4C2Aba21283a6271477690f834"
+  },
+  "id": "role-change:0x9362cb48fffc024bdc8d8dca2551b5b93302bf312cc0663f2372dd6778a3f3b8:1794295020"
+ },
+ {
+  "tx": "0x5e57ecd30195a1acbc7e3ea97109f8004b692de905b480ee6ff0f6c9f0efa4d1",
+  "block": 56865735,
+  "time": 1794295015,
+  "contract": "charter (voting rules)",
+  "event": "RoleRevoked",
+  "rule": "role-change",
+  "severity": "high",
+  "title": "ADMIN role revoked from 0xC782…f834 on charter (voting rules)",
+  "facts": {
+   "role": "ADMIN",
+   "account": "0xC782e1690D4B6c4C2Aba21283a6271477690f834",
+   "by": "0xC782e1690D4B6c4C2Aba21283a6271477690f834"
+  },
+  "id": "role-change:0x5e57ecd30195a1acbc7e3ea97109f8004b692de905b480ee6ff0f6c9f0efa4d1:1794295015"
+ },
+ {
+  "tx": "0x56fac155a688cd65e630e57ed8682112582e852d3955e9d99f98b7ec721beae5",
+  "block": 56865712,
+  "time": 1794295011,
+  "contract": "charter (voting rules)",
+  "event": "RoleGranted",
+  "rule": "role-change",
+  "severity": "high",
+  "title": "ADMIN role granted to 0x4c0e…797F on charter (voting rules)",
+  "facts": {
+   "role": "ADMIN",
+   "account": "0x4c0eC8820a4514DdB8aA3D98dEf878c6e296797F",
+   "by": "0xC782e1690D4B6c4C2Aba21283a6271477690f834"
+  },
+  "id": "role-change:0x56fac155a688cd65e630e57ed8682112582e852d3955e9d99f98b7ec721beae5:1794295011"
+ },
+ {
+  "tx": "0xa3a6b30db2269938d8a19f7949c023a62d85d9af301fcc926d81b0f819b73f59",
+  "block": 56865690,
+  "time": 1794295006,
+  "contract": "charter (voting rules)",
+  "event": "RoleGranted",
+  "rule": "role-change",
+  "severity": "high",
+  "title": "GOVERNOR role granted to 0x74eE…12c6 on charter (voting rules)",
+  "facts": {
+   "role": "GOVERNOR",
+   "account": "0x74eE8AAE2d5b98186571Ac5DCbD6FcEB69E612c6",
+   "by": "0xC782e1690D4B6c4C2Aba21283a6271477690f834"
+  },
+  "id": "role-change:0xa3a6b30db2269938d8a19f7949c023a62d85d9af301fcc926d81b0f819b73f59:1794295006"
+ },
+ {
+  "tx": "0x43bf9e1098662159e1c0c9491b01cb326dda22d8ab007927c999fc747aba6289",
+  "block": 56865667,
+  "time": 1794295002,
+  "contract": "voting",
+  "event": "RoleGranted",
+  "rule": "role-change",
+  "severity": "high",
+  "title": "ADMIN role granted to 0x4c0e…797F on voting",
+  "facts": {
+   "role": "ADMIN",
+   "account": "0x4c0eC8820a4514DdB8aA3D98dEf878c6e296797F",
+   "by": "0xC782e1690D4B6c4C2Aba21283a6271477690f834"
+  },
+  "id": "role-change:0x43bf9e1098662159e1c0c9491b01cb326dda22d8ab007927c999fc747aba6289:1794295002"
+ },
+ {
+  "tx": "0x53f22ae1aba63aba0ad82d94795f25df862a308369c0f30a9fd3764b75c384d9",
+  "block": 56865645,
+  "time": 1794294997,
+  "contract": "voting",
+  "event": "RoleGranted",
+  "rule": "role-change",
+  "severity": "medium",
+  "title": "PROPOSER role granted to 0x433B…476F on voting",
+  "facts": {
+   "role": "PROPOSER",
+   "account": "0x433B8c945c9f4664870fFD3dA3Ea8d16dD41476F",
+   "by": "0xC782e1690D4B6c4C2Aba21283a6271477690f834"
+  },
+  "id": "role-change:0x53f22ae1aba63aba0ad82d94795f25df862a308369c0f30a9fd3764b75c384d9:1794294997"
+ },
+ {
+  "tx": "0x934319d65a13c2c9b20b9db1d880d70a7dd3cffd19ffa609fd6239fa278ea9bb",
+  "block": 56865622,
+  "time": 1794294993,
+  "contract": "voting",
+  "event": "RoleGranted",
+  "rule": "role-change",
+  "severity": "medium",
+  "title": "PROPOSER role granted to 0xC782…f834 on voting",
+  "facts": {
+   "role": "PROPOSER",
+   "account": "0xC782e1690D4B6c4C2Aba21283a6271477690f834",
+   "by": "0xC782e1690D4B6c4C2Aba21283a6271477690f834"
+  },
+  "id": "role-change:0x934319d65a13c2c9b20b9db1d880d70a7dd3cffd19ffa609fd6239fa278ea9bb:1794294993"
+ },
+ {
+  "tx": "0xd18546d7ac9bdf2d324ed33af4b32068ba2f6d7e5392eec76a770060ccf58367",
+  "block": 56865600,
+  "time": 1794294988,
+  "contract": "voting",
+  "event": "RoleGranted",
+  "rule": "role-change",
+  "severity": "high",
+  "title": "ADMIN role granted to 0xC782…f834 on voting",
+  "facts": {
+   "role": "ADMIN",
+   "account": "0xC782e1690D4B6c4C2Aba21283a6271477690f834",
+   "by": "0xC782e1690D4B6c4C2Aba21283a6271477690f834"
+  },
+  "id": "role-change:0xd18546d7ac9bdf2d324ed33af4b32068ba2f6d7e5392eec76a770060ccf58367:1794294988"
+ },
+ {
+  "tx": "0x45818327ae8b71a742fdc876e7582e79600bb6d606002992aa1b11bee43c2f89",
+  "block": 56865577,
+  "time": 1794294984,
+  "contract": "charter (voting rules)",
+  "event": "RoleGranted",
+  "rule": "role-change",
+  "severity": "high",
+  "title": "ADMIN role granted to 0xC782…f834 on charter (voting rules)",
+  "facts": {
+   "role": "ADMIN",
+   "account": "0xC782e1690D4B6c4C2Aba21283a6271477690f834",
+   "by": "0xC782e1690D4B6c4C2Aba21283a6271477690f834"
+  },
+  "id": "role-change:0x45818327ae8b71a742fdc876e7582e79600bb6d606002992aa1b11bee43c2f89:1794294984"
+ },
+ {
+  "tx": "0x25b4bf9bce6eacb84c5f26956fc5fb220f53cf1dda9657f1f16733a0b45134e4",
+  "block": 56865457,
+  "time": 1794294960,
+  "contract": "council",
+  "event": "Cancelled",
+  "rule": "council-cancelled",
+  "severity": "medium",
+  "title": "Council change #5 cancelled by 0xC782…f834: revoke VETO from 0x8732…ab5c on decision markets",
+  "facts": {
+   "proposal": "5",
+   "by": "0xC782e1690D4B6c4C2Aba21283a6271477690f834"
+  },
+  "id": "council-cancelled:0x25b4bf9bce6eacb84c5f26956fc5fb220f53cf1dda9657f1f16733a0b45134e4:1794294960"
+ },
+ {
+  "tx": "0x187a9b1250c35e131a7d67fe1176e30fef9a02860651c319d922117c94ed0c8d",
+  "block": 56865431,
+  "time": 1794294955,
+  "contract": "council",
+  "event": "Cancelled",
+  "rule": "council-cancelled",
+  "severity": "medium",
+  "title": "Council change #4 cancelled by 0xC782…f834: revoke GOVERNOR from 0x8732…ab5c on mandate registry",
+  "facts": {
+   "proposal": "4",
+   "by": "0xC782e1690D4B6c4C2Aba21283a6271477690f834"
+  },
+  "id": "council-cancelled:0x187a9b1250c35e131a7d67fe1176e30fef9a02860651c319d922117c94ed0c8d:1794294955"
+ },
+ {
+  "tx": "0xaa63c529874f8e99a1210bf726ea59524b8d5c7e677563c20f6c6a5c09c6ae47",
+  "block": 56865405,
+  "time": 1794294949,
+  "contract": "council",
+  "event": "Cancelled",
+  "rule": "council-cancelled",
+  "severity": "medium",
+  "title": "Council change #3 cancelled by 0xC782…f834: grant VETO to 0xe332…Aa3a on decision markets",
+  "facts": {
+   "proposal": "3",
+   "by": "0xC782e1690D4B6c4C2Aba21283a6271477690f834"
+  },
+  "id": "council-cancelled:0xaa63c529874f8e99a1210bf726ea59524b8d5c7e677563c20f6c6a5c09c6ae47:1794294949"
+ },
+ {
   "tx": "0xff6a3752781549dc0706cd0ce63a7d18477dd500d4b9fb2650e119be38ced385",
   "block": 56865379,
   "time": 1794294944,
@@ -13,19 +295,6 @@
    "by": "0xC782e1690D4B6c4C2Aba21283a6271477690f834"
   },
   "id": "council-cancelled:0xff6a3752781549dc0706cd0ce63a7d18477dd500d4b9fb2650e119be38ced385:1794294944"
- },
- {
-  "rule": "credential-expiry",
-  "severity": "medium",
-  "key": "expiry:Watchdog GitHub token (Render):30d",
-  "time": 1794290683,
-  "title": "Watchdog GitHub token (Render) expires on 2026-12-10, in 29 days: GitHub (ehammer1) > Settings > Developer settings > Fine-grained tokens > regenerate the watchdog token (only ehammer1/Mandate, Contents read and write), then paste it into GITHUB_TOKEN on Render's mandate-watchdog",
-  "facts": {
-   "label": "Watchdog GitHub token (Render)",
-   "expires": "2026-12-10",
-   "daysLeft": 29
-  },
-  "id": "credential-expiry:expiry:Watchdog GitHub token (Render):30d:1794290683"
  },
  {
   "tx": "0xb3758443ea48b13db64bcedce82fc2d96d1e48f796b1466805d9da71830c4ba1",
@@ -106,86 +375,6 @@
    "fast": false
   },
   "id": "council-proposal:0xca890f8cbb4ba8e4688736154ab91e159b417c9c87dea4795c0fe6c7261ad736:1794289770"
- },
- {
-  "tx": "0x80046b342e71bbab399641bda2523636ea22ad5188bb4f8c16f55c93ba50eb4b",
-  "block": 56839484,
-  "time": 1794289765,
-  "contract": "voting",
-  "event": "RoleRevoked",
-  "rule": "role-change",
-  "severity": "high",
-  "title": "ADMIN role revoked from 0xC782…f834 on voting",
-  "facts": {
-   "role": "ADMIN",
-   "account": "0xC782e1690D4B6c4C2Aba21283a6271477690f834",
-   "by": "0xC782e1690D4B6c4C2Aba21283a6271477690f834"
-  },
-  "id": "role-change:0x80046b342e71bbab399641bda2523636ea22ad5188bb4f8c16f55c93ba50eb4b:1794289765"
- },
- {
-  "tx": "0xbefaef3d827da69953b255a45712b23040e41b1654017f949f1c5ee943280e72",
-  "block": 56839462,
-  "time": 1794289761,
-  "contract": "voting",
-  "event": "RoleGranted",
-  "rule": "role-change",
-  "severity": "high",
-  "title": "ADMIN role granted to 0x4c0e…797F on voting",
-  "facts": {
-   "role": "ADMIN",
-   "account": "0x4c0eC8820a4514DdB8aA3D98dEf878c6e296797F",
-   "by": "0xC782e1690D4B6c4C2Aba21283a6271477690f834"
-  },
-  "id": "role-change:0xbefaef3d827da69953b255a45712b23040e41b1654017f949f1c5ee943280e72:1794289761"
- },
- {
-  "tx": "0x21153cbe38051602031d2408e9b7d85436efb05df95a5cf46a120232902f1a5d",
-  "block": 56839439,
-  "time": 1794289756,
-  "contract": "voting",
-  "event": "RoleGranted",
-  "rule": "role-change",
-  "severity": "medium",
-  "title": "PROPOSER role granted to 0x433B…476F on voting",
-  "facts": {
-   "role": "PROPOSER",
-   "account": "0x433B8c945c9f4664870fFD3dA3Ea8d16dD41476F",
-   "by": "0xC782e1690D4B6c4C2Aba21283a6271477690f834"
-  },
-  "id": "role-change:0x21153cbe38051602031d2408e9b7d85436efb05df95a5cf46a120232902f1a5d:1794289756"
- },
- {
-  "tx": "0x05bd379a97110c1d445f25655e1d29daf0ed5265e0f93cd001292b0e39b25bc3",
-  "block": 56839417,
-  "time": 1794289752,
-  "contract": "voting",
-  "event": "RoleGranted",
-  "rule": "role-change",
-  "severity": "medium",
-  "title": "PROPOSER role granted to 0xC782…f834 on voting",
-  "facts": {
-   "role": "PROPOSER",
-   "account": "0xC782e1690D4B6c4C2Aba21283a6271477690f834",
-   "by": "0xC782e1690D4B6c4C2Aba21283a6271477690f834"
-  },
-  "id": "role-change:0x05bd379a97110c1d445f25655e1d29daf0ed5265e0f93cd001292b0e39b25bc3:1794289752"
- },
- {
-  "tx": "0x1f80e66a6de8baa419a8be07f1b955d345a6f6c5357cdc54eba0a39f97519310",
-  "block": 56839395,
-  "time": 1794289747,
-  "contract": "voting",
-  "event": "RoleGranted",
-  "rule": "role-change",
-  "severity": "high",
-  "title": "ADMIN role granted to 0xC782…f834 on voting",
-  "facts": {
-   "role": "ADMIN",
-   "account": "0xC782e1690D4B6c4C2Aba21283a6271477690f834",
-   "by": "0xC782e1690D4B6c4C2Aba21283a6271477690f834"
-  },
-  "id": "role-change:0x1f80e66a6de8baa419a8be07f1b955d345a6f6c5357cdc54eba0a39f97519310:1794289747"
  },
  {
   "tx": "0x91b9f1f3b3d71d8233ef0cab43d295570ba1c20a37f9460d6e270a1992bdd777",
