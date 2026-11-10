@@ -58,6 +58,8 @@ const ABIS = {
     'event PollCreated(uint256 indexed id, uint256 indexed groupId, uint256 snapshotRoot, uint8 action, uint64 end, string questionCID)',
     'event PollFinalized(uint256 indexed id, bool passed, uint256 totalBallots)',
     'event ActionFailed(uint256 indexed id, uint8 action, bytes reason)',
+    'event PollCrossChecked(uint256 indexed id, uint256 indexed checkGroupId, uint256 checkRoot, uint32 checkQuorum)',
+    'event PollDisputed(uint256 indexed id, uint256 yes, uint256 no, uint256 checkYes, uint256 checkNo)',
   ],
   registry: [
     'event MandateCreated(uint256 indexed id, address indexed responsible, bytes32 indexed category, uint64 deadline, uint16 threshold, string specCID)',

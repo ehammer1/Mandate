@@ -142,6 +142,16 @@ function rulesForEvent(ev, ctx) {
     }
     case 'PollFinalized':
       return [{ ...base, rule: 'poll-closed', severity: 'info', title: `Poll ${a.id} closed: ${a.passed ? 'passed' : 'did not pass'} with ${a.totalBallots} ballots`, facts: { poll: String(a.id), passed: a.passed, ballots: String(a.totalBallots) } }];
+    case 'PollCrossChecked':
+      return [{ ...base, rule: 'poll-cross-checked', severity: 'info', title: `Poll ${a.id} is cross-checked: ID-checked voters are counted separately (a disagreement needs ${a.checkQuorum} of their votes)`, facts: { poll: String(a.id), checkQuorum: Number(a.checkQuorum) } }];
+    case 'PollDisputed':
+      return [{
+        ...base,
+        rule: 'poll-contested',
+        severity: 'high',
+        title: `Poll ${a.id} is contested: everyone voted ${a.yes} Yes / ${a.no} No, but ID-checked voters voted ${a.checkYes} Yes / ${a.checkNo} No. The result was held and its binding action did not run; a re-vote among ID-checked residents is recommended.`,
+        facts: { poll: String(a.id), yes: String(a.yes), no: String(a.no), checkYes: String(a.checkYes), checkNo: String(a.checkNo) },
+      }];
     case 'ActionFailed':
       return [{ ...base, rule: 'action-failed', severity: 'high', title: `Poll ${a.id} passed but its binding action failed (${ACTIONS[Number(a.action)] || a.action})`, facts: { poll: String(a.id) } }];
     case 'MandateCreated':

@@ -291,3 +291,58 @@ test('identity: a sign-in account can enrol only one person (basic tier)', async
   // Without an account fingerprint, basic enrolment still works (e.g. a phone check).
   await wait(identity.connect(phoneCheck).enroll(b.commitment, 0, ethers.ZeroHash, 0));
 });
+
+test('vote: cross-checked poll - when ID-checked residents disagree with everyone, the result is held', async () => {
+  // Four people who only signed up online (basic tier) and the ID-checked residents vote in one poll.
+  const online = Array.from({ length: 4 }, (_, i) => new Identity(`online-only-${i}`));
+  for (const [i, o] of online.entries()) await wait(identity.connect(phoneCheck).enroll(o.commitment, 0, docHash(`account-${i}`), 0));
+  const everyone = await identity.groupId(0);
+  const checked = await identity.groupId(1);
+  const data = ethers.AbiCoder.defaultAbiCoder().encode(
+    ['address', 'address', 'uint64', 'uint16', 'bytes32', 'string'],
+    [await registry.getAddress(), agency.address, 60 * DAY, 1, ethers.id('parks'), 'bafyParksSpec'],
+  );
+  await reverts(() => vote.createCheckedPoll.staticCall(everyone, everyone, 2, 7 * DAY, 3, 2, data, 'bafyCheckedQ', 0), 'InvalidParams');
+  const mandatesBefore = await registry.mandateCount();
+  await wait(vote.createCheckedPoll(everyone, checked, 2, 7 * DAY, 3, 2, data, 'bafyCheckedQ', 0));
+  const pollId = await vote.pollCount();
+  const [ck] = await vote.getCheck(pollId);
+  assert.equal(ck.groupId, checked);
+
+  // Online-only members vote Yes; three ID-checked residents vote No. Each person votes once.
+  for (const o of online) assert.equal((await post('/ballot', { pollId: pollId.toString(), ballot: await buildBallot({ provider, vote, pollId, identity: o, option: 0 }) })).status, 200);
+  for (const r of residents.slice(0, 3)) assert.equal((await post('/ballot', { pollId: pollId.toString(), ballot: await buildBallot({ provider, vote, pollId, identity: r, option: 1 }) })).status, 200);
+  // A checked resident can't vote a second time through the wider list: same person, same nullifier.
+  const { generateProof } = require('@semaphore-protocol/proof');
+  const wide = new Group();
+  for (let i = 0; i < Number((await vote.getPoll(pollId)).electorate); i++) {
+    const [[cm]] = await identity.leaves(0, i, 1);
+    wide.addMember(cm);
+  }
+  const dir = process.env.SEMAPHORE_ARTIFACTS_DIR;
+  const depth = Math.max(wide.depth, 1);
+  const twice = await generateProof(residents[0], wide, 0, await vote.scopeOf(pollId), depth, { wasm: `${dir}/semaphore-${depth}.wasm`, zkey: `${dir}/semaphore-${depth}.zkey` });
+  assert.equal((await post('/ballot', { pollId: pollId.toString(), ballot: twice })).status, 409);
+
+  assert.deepEqual((await vote.tally(pollId)).map(Number), [4, 3]); // Yes would win overall
+  const [, counts] = await vote.getCheck(pollId);
+  assert.deepEqual(counts.map(Number), [0, 3]); // ...but every ID-checked voter said No
+
+  await advance(8 * DAY);
+  const rc = await wait(vote.finalize(pollId));
+  const disputed = rc.logs.map((l) => { try { return vote.interface.parseLog(l); } catch { return null; } }).find((e) => e?.name === 'PollDisputed');
+  assert.deepEqual([disputed.args.yes, disputed.args.no, disputed.args.checkYes, disputed.args.checkNo].map(Number), [4, 3, 0, 3]);
+  assert.equal((await vote.getPoll(pollId)).passed, false);
+  assert.equal((await vote.getCheck(pollId))[0].disputed, true);
+  assert.equal(await registry.mandateCount(), mandatesBefore); // the binding action did not run
+
+  // When both agree, a cross-checked poll passes and acts as usual.
+  await wait(vote.createCheckedPoll(everyone, checked, 2, 7 * DAY, 3, 2, data, 'bafyCheckedQ2', 0));
+  const agreed = await vote.pollCount();
+  for (const v of [...online.slice(0, 2), ...residents.slice(0, 3)]) await post('/ballot', { pollId: agreed.toString(), ballot: await buildBallot({ provider, vote, pollId: agreed, identity: v, option: 0 }) });
+  await advance(8 * DAY);
+  await wait(vote.finalize(agreed));
+  assert.equal((await vote.getPoll(agreed)).passed, true);
+  assert.equal((await vote.getCheck(agreed))[0].disputed, false);
+  assert.equal(await registry.mandateCount(), mandatesBefore + 1n);
+});

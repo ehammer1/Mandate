@@ -91,6 +91,15 @@ contract MandateVote is AccessControl, ReentrancyGuard {
         bytes actionData;
     }
 
+    /// @notice Optional cross-check: a stricter group (e.g. ID-checked residents) counted separately.
+    struct Check {
+        uint256 groupId;
+        uint256 root; // snapshot of the check group at poll creation (0: no cross-check)
+        uint256 electorate;
+        uint32 quorum; // checked ballots needed before a disagreement counts
+        bool disputed;
+    }
+
     struct Ballot {
         uint256 merkleTreeDepth;
         uint256 merkleTreeRoot;
@@ -111,11 +120,15 @@ contract MandateVote is AccessControl, ReentrancyGuard {
     mapping(uint256 => Poll) private _polls;
     mapping(uint256 => uint256[MAX_OPTIONS]) private _tally;
     mapping(uint256 => mapping(uint256 => bool)) public nullifierUsed;
+    mapping(uint256 => Check) private _checks;
+    mapping(uint256 => mapping(uint256 => uint256)) private _checkTally; // poll -> option (YES, NO) -> checked ballots
 
     event PollCreated(
         uint256 indexed id, uint256 indexed groupId, uint256 snapshotRoot, Action action, uint64 end, string questionCID
     );
     event BallotCast(uint256 indexed id, uint256 option, uint256 nullifier);
+    event PollCrossChecked(uint256 indexed id, uint256 indexed checkGroupId, uint256 checkRoot, uint32 checkQuorum);
+    event PollDisputed(uint256 indexed id, uint256 yes, uint256 no, uint256 checkYes, uint256 checkNo);
     event PollFinalized(uint256 indexed id, bool passed, uint256 totalBallots);
     event BondReturned(uint256 indexed id, address indexed proposer, uint256 amount);
     event BondForfeited(uint256 indexed id, uint256 amount);
@@ -180,6 +193,52 @@ contract MandateVote is AccessControl, ReentrancyGuard {
         string calldata questionCID,
         uint256 bond
     ) external nonReentrant returns (uint256 id) {
+        id = _create(groupId, duration, quorum, options, action, actionData, questionCID, bond);
+    }
+
+    /**
+     * @notice A yes/no poll open to `groupId` (e.g. everyone, including online sign-ups),
+     *         cross-checked against `checkGroupId` (e.g. ID-checked residents). Voters in the
+     *         check group prove membership of it, so their ballots are also counted
+     *         separately; every person still votes once (one nullifier per poll).
+     *         If at least `checkQuorum` checked ballots were cast and they chose the other
+     *         side from the overall result, the poll is disputed: it does not pass, its
+     *         binding action does not run, and PollDisputed is emitted so a re-vote among
+     *         checked voters can be called.
+     */
+    function createCheckedPoll(
+        uint256 groupId,
+        uint256 checkGroupId,
+        uint32 checkQuorum,
+        uint64 duration,
+        uint32 quorum,
+        Action action,
+        bytes calldata actionData,
+        string calldata questionCID,
+        uint256 bond
+    ) external nonReentrant returns (uint256 id) {
+        if (checkGroupId == groupId || !identity.isGroup(checkGroupId) || checkQuorum == 0) revert InvalidParams();
+        uint256 size = groups.getMerkleTreeSize(checkGroupId);
+        if (size == 0) revert EmptyGroup();
+        id = _create(groupId, duration, quorum, 2, action, actionData, questionCID, bond);
+        Check storage ck = _checks[id];
+        ck.groupId = checkGroupId;
+        ck.root = groups.getMerkleTreeRoot(checkGroupId);
+        ck.electorate = size;
+        ck.quorum = checkQuorum;
+        emit PollCrossChecked(id, checkGroupId, ck.root, checkQuorum);
+    }
+
+    function _create(
+        uint256 groupId,
+        uint64 duration,
+        uint32 quorum,
+        uint8 options,
+        Action action,
+        bytes calldata actionData,
+        string calldata questionCID,
+        uint256 bond
+    ) private returns (uint256 id) {
         if (duration == 0 || quorum == 0 || options < 2 || options > MAX_OPTIONS || bytes(questionCID).length == 0) {
             revert InvalidParams();
         }
@@ -216,7 +275,9 @@ contract MandateVote is AccessControl, ReentrancyGuard {
     function castBallot(uint256 id, Ballot calldata b) external {
         Poll storage p = _get(id);
         if (block.timestamp >= p.end || p.finalized) revert NotOpen();
-        if (b.merkleTreeRoot != p.snapshotRoot) revert WrongRoot();
+        uint256 checkRoot = _checks[id].root;
+        bool checked = checkRoot != 0 && b.merkleTreeRoot == checkRoot;
+        if (b.merkleTreeRoot != p.snapshotRoot && !checked) revert WrongRoot();
         if (b.scope != scopeOf(id)) revert WrongScope();
         if (b.message >= p.options) revert BadOption();
         if (b.merkleTreeDepth < MIN_DEPTH || b.merkleTreeDepth > MAX_DEPTH) revert BadDepth();
@@ -233,6 +294,7 @@ contract MandateVote is AccessControl, ReentrancyGuard {
 
         nullifierUsed[id][b.nullifier] = true;
         _tally[id][b.message] += 1;
+        if (checked) _checkTally[id][b.message] += 1;
         emit BallotCast(id, b.message, b.nullifier);
     }
 
@@ -250,6 +312,18 @@ contract MandateVote is AccessControl, ReentrancyGuard {
         if (p.options > 2) {
             // Multi-choice advisory polls: "passed" means quorum was met.
             p.passed = quorumMet;
+        }
+
+        Check storage ck = _checks[id];
+        if (ck.root != 0 && quorumMet) {
+            uint256 cy = _checkTally[id][YES];
+            uint256 cn = _checkTally[id][NO];
+            // Checked voters clearly chose the other side from everyone: hold the result.
+            if (cy + cn >= ck.quorum && ((p.passed && cn > cy) || (!p.passed && cy > cn))) {
+                ck.disputed = true;
+                p.passed = false;
+                emit PollDisputed(id, _tally[id][YES], _tally[id][NO], cy, cn);
+            }
         }
 
         if (p.bond > 0) {
@@ -277,6 +351,13 @@ contract MandateVote is AccessControl, ReentrancyGuard {
 
     function getPoll(uint256 id) external view returns (Poll memory) {
         return _get(id);
+    }
+
+    /// @notice The cross-check of a poll (groupId 0 if it has none) and its separate count.
+    function getCheck(uint256 id) external view returns (Check memory ck, uint256[2] memory counts) {
+        _get(id);
+        ck = _checks[id];
+        counts = [_checkTally[id][YES], _checkTally[id][NO]];
     }
 
     function tally(uint256 id) external view returns (uint256[] memory counts) {

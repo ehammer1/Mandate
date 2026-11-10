@@ -29,6 +29,7 @@ const VOTE_ABI = [
   'function pollCount() view returns (uint256)',
   'function getPoll(uint256) view returns (tuple(uint256 groupId, uint256 snapshotRoot, uint256 electorate, uint64 start, uint64 end, uint32 quorum, uint8 options, uint8 action, bool finalized, bool passed, address proposer, uint256 bond, string questionCID, bytes actionData))',
   'function tally(uint256) view returns (uint256[])',
+  'function getCheck(uint256) view returns (tuple(uint256 groupId, uint256 root, uint256 electorate, uint32 quorum, bool disputed) ck, uint256[2] counts)',
 ];
 const REGISTRY_ABI = [
   'function mandateCount() view returns (uint256)',
@@ -80,13 +81,14 @@ async function renderPolls(vote, groupIds, now) {
   const cards = [];
   for (let id = count; id >= Math.max(1, count - 19); id--) {
     const [p, t] = await Promise.all([vote.getPoll(id), vote.tally(id)]);
+    const [ck, ckCounts] = await vote.getCheck(id).catch(() => [{ root: 0n }, [0n, 0n]]);
     const q = await question(p.questionCID);
     const n = Number(p.options);
     const labels = q.options?.length === n ? q.options : n === 2 ? ['Yes', 'No'] : Array.from({ length: n }, (_, i) => `Choice ${i + 1}`);
     const ballots = t.reduce((a, b) => a + Number(b), 0);
     const isOpen = !p.finalized && Number(p.end) > now;
     if (isOpen) open++;
-    const status = isOpen ? `Open until ${when(p.end)}` : p.finalized ? (p.passed ? 'Closed: passed' : 'Closed: did not pass') : 'Voting ended, result not yet recorded';
+    const status = isOpen ? `Open until ${when(p.end)}` : p.finalized ? (ck.disputed ? 'Closed: contested' : p.passed ? 'Closed: passed' : 'Closed: did not pass') : 'Voting ended, result not yet recorded';
     const who = GROUP_NAMES[groupIds.indexOf(String(p.groupId))] || 'Members';
     const rows = labels
       .map((label, i) => {
@@ -100,6 +102,7 @@ async function renderPolls(vote, groupIds, now) {
       <h3>${esc(q.title)}</h3>
       <p class="meta">${esc(ACTIONS[Number(p.action)] || 'Advisory')}</p>
       <div class="tally">${rows}</div>
+      ${ck.root ? `<p class="meta">Cross-check, ${esc(GROUP_NAMES[groupIds.indexOf(String(ck.groupId))] || 'ID-checked residents')} only: Yes ${num(ckCounts[0])}, No ${num(ckCounts[1])}${ck.disputed ? ' · <strong>▲ they chose the other side, so the result was held</strong>' : ''}</p>` : ''}
       <p class="meta">${num(ballots)} of ${num(p.electorate)} eligible voted (${pct(ballots, p.electorate)}% turnout) · needs ${num(p.quorum)} to count</p>
     </div>`);
   }

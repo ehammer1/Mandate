@@ -36,6 +36,8 @@ const PAGE = 500;
  * back. Removals record the change counter at which they happened, so we try
  * "removals up to counter s" for each candidate s until the root matches.
  */
+const CHECK_ABI = 'function getCheck(uint256) view returns (tuple(uint256 groupId, uint256 root, uint256 electorate, uint32 quorum, bool disputed) ck, uint256[2] counts)';
+
 async function groupAtSnapshot({ registry, groupId, electorate, snapshotRoot }) {
   let tier = -1;
   for (const t of [0, 1, 2]) if ((await registry.groupId(t)) === BigInt(groupId)) tier = t;
@@ -81,7 +83,20 @@ async function buildBallot({ provider, vote, pollId, identity, option, artifacts
   const poll = await vote.getPoll(pollId);
   const [identityAddr, scope] = await Promise.all([vote.identity(), vote.scopeOf(pollId)]);
   const registry = new ethers.Contract(identityAddr, REGISTRY_ABI, provider);
-  const group = await groupAtSnapshot({
+  // Cross-checked poll: members of the stricter check group prove membership of it, so their
+  // ballot also counts in the separate check tally (still one ballot per person).
+  let group = null;
+  try {
+    const checker = new ethers.Contract(await vote.getAddress(), [CHECK_ABI], provider);
+    const [ck] = await checker.getCheck(pollId);
+    if (ck.root !== 0n) {
+      const g = await groupAtSnapshot({ registry, groupId: ck.groupId, electorate: ck.electorate, snapshotRoot: ck.root });
+      if (g.indexOf(identity.commitment) !== -1) group = g;
+    }
+  } catch {
+    /* a deployment without cross-checks */
+  }
+  group ||= await groupAtSnapshot({
     registry,
     groupId: poll.groupId,
     electorate: poll.electorate,

@@ -29,6 +29,7 @@ const VOTE_ABI = [
   'function nullifierUsed(uint256 id, uint256 nullifier) view returns (bool)',
   'function tally(uint256 id) view returns (uint256[])',
   'function getPoll(uint256 id) view returns (tuple(uint256 groupId, uint256 snapshotRoot, uint256 electorate, uint64 start, uint64 end, uint32 quorum, uint8 options, uint8 action, bool finalized, bool passed, address proposer, uint256 bond, string questionCID, bytes actionData))',
+  'function getCheck(uint256 id) view returns (tuple(uint256 groupId, uint256 root, uint256 electorate, uint32 quorum, bool disputed) ck, uint256[2] counts)',
 ];
 const IDENTITY_ABI = [
   'function members(uint256) view returns (address issuer, uint8 tier, bool active, uint64 verifiedAt, uint64 residentSince, bytes32 docHash)',
@@ -450,6 +451,8 @@ async function refreshPolls() {
     const cards = [];
     for (let id = count; id >= 1n && cards.length < 20; id--) {
       const [p, tally] = await Promise.all([state.vote.getPoll(id), state.vote.tally(id)]);
+      const [ck, ckCounts] = await state.vote.getCheck(id).catch(() => [{ root: 0n }, [0n, 0n]]);
+      const checkTier = ck.root ? groups.findIndex((g) => g === ck.groupId) : -1;
       const q = await fetchQuestion(p.questionCID);
       const labels = optionLabels(p, q);
       const open = !p.finalized && now < p.end;
@@ -463,13 +466,15 @@ async function refreshPolls() {
       const results = labels.map((l, i) => `<li><span>${esc(l)}</span><span>${tally[i] ?? 0n}</span></li>`).join('');
       const buttons = labels.map((l, i) => `<button class="choice" data-poll="${id}" data-option="${i}">${esc(l)}</button>`).join('');
       cards.push(`<article class="card poll" id="poll-${id}">
-        <p class="eyebrow">${open ? `Open until ${esc(when(p.end))}` : p.finalized ? (p.passed ? 'Closed · passed' : 'Closed · did not pass') : 'Voting ended · awaiting result'} · ${esc(who)}</p>
+        <p class="eyebrow">${open ? `Open until ${esc(when(p.end))}` : p.finalized ? (ck.disputed ? 'Closed · contested' : p.passed ? 'Closed · passed' : 'Closed · did not pass') : 'Voting ended · awaiting result'} · ${esc(who)}</p>
         <h3>${esc(q.title)}</h3>
         ${q.body ? `<p>${esc(q.body)}</p>` : ''}
         ${(() => {
           const t = mandateTerms(p);
           return t ? `<p class="note"><strong>Binding.</strong> If Yes wins, this becomes a mandate: <span class="code">${esc(t.responsible.slice(0, 6))}…${esc(t.responsible.slice(-4))}</span> is responsible for doing it within ${t.days} days, and ${t.checks} independent verifier${t.checks === 1 ? '' : 's'} must confirm it was done.</p>` : '';
         })()}
+        ${ck.root ? `<p class="note"><strong>Cross-checked.</strong> Votes from ${esc(GROUP_LABEL[checkTier]?.toLowerCase() || 'ID-checked residents')} are also counted separately (Yes ${ckCounts[0]}, No ${ckCounts[1]}). If at least ${ck.quorum} of them vote and they choose the other side from everyone, the result is held for review.</p>` : ''}
+        ${ck.disputed ? '<p class="warn"><strong>Contested.</strong> ID-checked voters chose the other side from the overall count, so this result was held: its binding action did not run. A re-vote among ID-checked residents can settle it.</p>' : ''}
         ${!open && !p.finalized ? `<button class="finalize" data-poll="${id}">Record the result</button>` : ''}
         ${open && !voted && eligibleTier ? `<div class="choices">${buttons}</div>` : ''}
         ${open && !voted && !eligibleTier ? `<p class="note">${myTier < 0 ? 'Join first to vote in polls.' : `Only ${esc(who.toLowerCase())} can vote in this poll. ${pollTier === 2 ? 'Verify your ID with the city clerk, a library desk or a mobile ID to get full voting rights.' : 'Verify your ID to vote in it.'}`}</p>` : ''}
@@ -798,8 +803,15 @@ function wireAdmin() {
       );
     }
     const groupId = await state.registry.groupId(tier);
-    const vote = new ethers.Contract(state.config.voteAddress, ['function createPoll(uint256,uint64,uint32,uint8,uint8,bytes,string,uint256)'], state.provider);
-    if (await sendAdminTx(el, 'Open poll', (signer) => vote.connect(signer).createPoll(groupId, Math.round(days * 86_400), quorum, 2, action, actionData, ref, 0))) {
+    const checkTier = Number($('poll-check').value);
+    const checkMin = Number($('poll-check-min').value);
+    if (checkTier >= 0 && (checkTier <= tier || !(checkMin >= 1))) return status(el, 'The cross-check must use a stricter group than who can vote, and need at least 1 checked vote.', 'error');
+    const vote = new ethers.Contract(state.config.voteAddress, ['function createPoll(uint256,uint64,uint32,uint8,uint8,bytes,string,uint256)', 'function createCheckedPoll(uint256,uint256,uint32,uint64,uint32,uint8,bytes,string,uint256)'], state.provider);
+    const open = (signer) =>
+      checkTier >= 0
+        ? state.registry.groupId(checkTier).then((cg) => vote.connect(signer).createCheckedPoll(groupId, cg, checkMin, Math.round(days * 86_400), quorum, action, actionData, ref, 0))
+        : vote.connect(signer).createPoll(groupId, Math.round(days * 86_400), quorum, 2, action, actionData, ref, 0);
+    if (await sendAdminTx(el, 'Open poll', open)) {
       for (const id of ['poll-title', 'poll-body', 'poll-question', 'poll-responsible']) $(id).value = '';
     }
   };

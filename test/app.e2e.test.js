@@ -740,3 +740,43 @@ test('voter-roll city: the desk enrols by voter registration record, no photo ID
   await page.waitForFunction(() => /already linked to another voter code/.test(document.querySelector('#clerk-result').textContent), null, { timeout: 30_000 });
   delete appConfig.clerkAnchor;
 });
+
+test('cross-checked poll: online sign-ups outvote ID-checked residents, so the result is held as contested', async () => {
+  process.env.SEMAPHORE_ARTIFACTS_DIR ||= require('node:path').dirname(require.resolve('@zk-kit/semaphore-artifacts/package.json'));
+  const { buildBallot } = require('../client/ballot');
+  // Two people who only signed up online; this person (ID-checked, full rights) is the third voter.
+  const online = [new Identity('online-a'), new Identity('online-b')];
+  const signup = await provider.getSigner(3); // the online sign-up service
+  for (const [i, o] of online.entries()) await (await c.identity.connect(signup).enroll(o.commitment, 0, docHash(`acct-x${i}`), 0)).wait();
+
+  await page.click('#nav-admin');
+  await page.fill('#poll-title', 'Rename Central Park after the founder?');
+  await page.selectOption('#poll-kind', '0');
+  await page.selectOption('#poll-group', '0');
+  await page.selectOption('#poll-check', '1');
+  await page.fill('#poll-check-min', '1');
+  await page.fill('#poll-days', '0.01');
+  await page.fill('#poll-quorum', '2');
+  await page.click('#btn-open-poll');
+  await page.waitForFunction(() => /Open poll: done/.test(document.querySelector('#poll-status').textContent), null, { timeout: 60_000 });
+  const pollId = await c.vote.pollCount();
+
+  // This ID-checked person votes No in the app; the ballot proves the stricter list, so it counts in both tallies.
+  await page.click('#nav-polls');
+  await page.waitForSelector(`#poll-${pollId} >> text=Cross-checked.`);
+  await page.click(`#poll-${pollId} button.choice >> text=No`);
+  await page.waitForFunction((id) => /Your vote is recorded/.test(document.querySelector(`#poll-status-${id}`).textContent), pollId.toString(), { timeout: 120_000 });
+  // The two online-only members vote Yes (anyone may submit a ballot; no wallet needed).
+  for (const o of online) await (await c.vote.castBallot(pollId, await buildBallot({ provider, vote: c.vote, pollId, identity: o, option: 0 }))).wait();
+  assert.deepEqual((await c.vote.tally(pollId)).map(Number), [2, 1]);
+  assert.deepEqual((await c.vote.getCheck(pollId))[1].map(Number), [0, 1]);
+
+  await provider.send('evm_increaseTime', [3600]);
+  await provider.send('evm_mine', []);
+  await page.click('#btn-refresh');
+  await page.click(`#poll-${pollId} button.finalize`);
+  await page.waitForSelector(`#poll-${pollId} >> text=Closed · contested`, { timeout: 60_000 });
+  assert.match(await page.textContent(`#poll-${pollId}`), /Contested\. ID-checked voters chose the other side/);
+  assert.equal((await c.vote.getPoll(pollId)).passed, false);
+  await shot('11-contested');
+});
