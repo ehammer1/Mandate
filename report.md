@@ -1,20 +1,8 @@
 # Mandate audit report
 
-Generated 2026-11-10T06:04:44.000Z · last 24 hours · 45 high, 11 medium, 0 info
+Generated 2026-11-10T07:15:50.000Z · last 24 hours · 33 high, 6 medium, 0 info
 
-45 alert(s) need attention.
-- ADMIN role granted to 0xC782…f834 on identity registry
-- ADMIN role granted to 0xC782…f834 on mandate registry
-- ADMIN role granted to 0xC782…f834 on decision markets
-- ADMIN role granted to 0xb8e5…Cb71 on identity registry
-- ADMIN role granted to 0xb8e5…Cb71 on mandate registry
-- ADMIN role granted to 0xb8e5…Cb71 on decision markets
-- Identity source "Testnet demo clerk" (0xC782…f834) approved, up to verified tier
-- ADMIN role granted to 0xd868…6fD0 on identity registry
-- ADMIN role granted to 0xd868…6fD0 on mandate registry
-- ADMIN role granted to 0xd868…6fD0 on decision markets
-- Identity source "Mandate app admin" (0xd868…6fD0) approved, up to verified tier
-- Identity source "Online sign-up" (0x7b12…2889) approved, up to basic tier
+33 alert(s) need attention.
 - ADMIN role granted to 0x433B…476F on identity registry
 - ADMIN role granted to 0x433B…476F on mandate registry
 - ADMIN role granted to 0x433B…476F on decision markets
@@ -48,28 +36,10 @@ Generated 2026-11-10T06:04:44.000Z · last 24 hours · 45 high, 11 medium, 0 inf
 - Council change #3 proposed by 0xC782…f834: grant VETO to 0xe332…Aa3a on decision markets
 - Council change #4 proposed by 0xC782…f834: revoke GOVERNOR from 0x8732…ab5c on mandate registry (removes power: can run as soon as approved)
 - Council change #5 proposed by 0xC782…f834: revoke VETO from 0x8732…ab5c on decision markets (removes power: can run as soon as approved)
-11 other event(s) were recorded (see the list).
+6 other event(s) were recorded (see the list).
 
 ## All alerts
 
-- **high** ADMIN role granted to 0xC782…f834 on identity registry ([tx](https://sepolia.basescan.org/tx/0x4d69b5a43a6a64304476f5c8ce76a6b901b2975a9ae3674722993964b87447c3))
-- **high** ADMIN role granted to 0xC782…f834 on mandate registry ([tx](https://sepolia.basescan.org/tx/0x087d20e317d785b6f3ef55475ea0a00246c2c438f921569e5c71d410e03753b6))
-- **high** ADMIN role granted to 0xC782…f834 on decision markets ([tx](https://sepolia.basescan.org/tx/0x7715b4c71ba6a55f71d8962e357458efe1467e36f6cafd13dda51fc029ae7b46))
-- **medium** GOVERNOR role granted to 0x8732…ab5c on mandate registry ([tx](https://sepolia.basescan.org/tx/0x0c6aafd788009e98f52002ede2a62dd9b6ba0d35d12c99aedc5a35ca3e844e8a))
-- **medium** GOVERNOR role granted to 0xbf76…4a6E on mandate registry ([tx](https://sepolia.basescan.org/tx/0x3c082a1ee03190b2b841b617dcb5a86ab3bdc3c70dbaf92b8ee8cbc708f4348b))
-- **medium** VETO role granted to 0x8732…ab5c on decision markets ([tx](https://sepolia.basescan.org/tx/0x6c87fea549c51e779ed55de094a053f1a53d12fc85b83b9a70a10f3df329d3d6))
-- **high** ADMIN role granted to 0xb8e5…Cb71 on identity registry ([tx](https://sepolia.basescan.org/tx/0x24962d930ebea509061ebd32ddbc391681c3ea64cd906fc880faf1c2493d7943))
-- **high** ADMIN role granted to 0xb8e5…Cb71 on mandate registry ([tx](https://sepolia.basescan.org/tx/0x2cb7cd9f1d3611d32b384220c52d5d92294d2a3177f79bbdfdcc90f2ade31f22))
-- **high** ADMIN role granted to 0xb8e5…Cb71 on decision markets ([tx](https://sepolia.basescan.org/tx/0xdacf70d6a875fc5b36c6207cd8452ed0c042f1222080a4812be4cd8e9ff990ef))
-- **medium** ISSUER role granted to 0xC782…f834 on identity registry ([tx](https://sepolia.basescan.org/tx/0x8b091413d720b7e143bd11cf049965e3b7c611ada84a58d2df0e60f306cff774))
-- **high** Identity source "Testnet demo clerk" (0xC782…f834) approved, up to verified tier ([tx](https://sepolia.basescan.org/tx/0x8b091413d720b7e143bd11cf049965e3b7c611ada84a58d2df0e60f306cff774))
-- **high** ADMIN role granted to 0xd868…6fD0 on identity registry ([tx](https://sepolia.basescan.org/tx/0x563abf0c63d6505750d807262e6641ffe3e4162866f4d436f3a19a09e8fbca63))
-- **high** ADMIN role granted to 0xd868…6fD0 on mandate registry ([tx](https://sepolia.basescan.org/tx/0x165d7833ae451db64e645b6af46112dc6e61560c0259f4a36bf7d92ff6b57416))
-- **high** ADMIN role granted to 0xd868…6fD0 on decision markets ([tx](https://sepolia.basescan.org/tx/0xafaa8310551bb0ec056ddb6842d6966d857431ffcfbb429683cc1fded726b8a1))
-- **medium** ISSUER role granted to 0xd868…6fD0 on identity registry ([tx](https://sepolia.basescan.org/tx/0xb224404933ff35d39c1b1a4a3bc1862700251f9bef745ea1abd8424a1cf9608e))
-- **high** Identity source "Mandate app admin" (0xd868…6fD0) approved, up to verified tier ([tx](https://sepolia.basescan.org/tx/0xb224404933ff35d39c1b1a4a3bc1862700251f9bef745ea1abd8424a1cf9608e))
-- **medium** ISSUER role granted to 0x7b12…2889 on identity registry ([tx](https://sepolia.basescan.org/tx/0x1bda85dfef650525aa8b3ab3fee5bbc57046888cd48d70f7844400b69604fbbc))
-- **high** Identity source "Online sign-up" (0x7b12…2889) approved, up to basic tier ([tx](https://sepolia.basescan.org/tx/0x1bda85dfef650525aa8b3ab3fee5bbc57046888cd48d70f7844400b69604fbbc))
 - **high** ADMIN role granted to 0x433B…476F on identity registry ([tx](https://sepolia.basescan.org/tx/0x5cd5064e37d3f4a5bf8920c1a7e8fdebc0f6c93307d7d30fef503bc58a66762d))
 - **high** ADMIN role granted to 0x433B…476F on mandate registry ([tx](https://sepolia.basescan.org/tx/0x82bd15c713e63954d7af750bca56289931129c222c22678e2c364049f2648555))
 - **high** ADMIN role granted to 0x433B…476F on decision markets ([tx](https://sepolia.basescan.org/tx/0x695050b5a58fc04f29355b9efc401253559a43c6988bd1599ea990488395f093))
@@ -108,5 +78,6 @@ Generated 2026-11-10T06:04:44.000Z · last 24 hours · 45 high, 11 medium, 0 inf
 - **high** Council change #4 proposed by 0xC782…f834: revoke GOVERNOR from 0x8732…ab5c on mandate registry (removes power: can run as soon as approved) ([tx](https://sepolia.basescan.org/tx/0x3cefc7c64a76a87c65d3a864257cb95ee53a61c61b998afabd880bfad26889e9))
 - **high** Council change #5 proposed by 0xC782…f834: revoke VETO from 0x8732…ab5c on decision markets (removes power: can run as soon as approved) ([tx](https://sepolia.basescan.org/tx/0xb3758443ea48b13db64bcedce82fc2d96d1e48f796b1466805d9da71830c4ba1))
 - **medium** Watchdog GitHub token (Render) expires on 2026-12-10, in 29 days: GitHub (ehammer1) > Settings > Developer settings > Fine-grained tokens > regenerate the watchdog token (only ehammer1/Mandate, Contents read and write), then paste it into GITHUB_TOKEN on Render's mandate-watchdog
+- **medium** Council change #2 cancelled by 0xC782…f834: grant GOVERNOR to 0xe332…Aa3a on mandate registry ([tx](https://sepolia.basescan.org/tx/0xff6a3752781549dc0706cd0ce63a7d18477dd500d4b9fb2650e119be38ced385))
 
 Summary written by: fixed rules.

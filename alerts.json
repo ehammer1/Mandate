@@ -1,5 +1,20 @@
 [
  {
+  "tx": "0xff6a3752781549dc0706cd0ce63a7d18477dd500d4b9fb2650e119be38ced385",
+  "block": 56865379,
+  "time": 1794294944,
+  "contract": "council",
+  "event": "Cancelled",
+  "rule": "council-cancelled",
+  "severity": "medium",
+  "title": "Council change #2 cancelled by 0xC782…f834: grant GOVERNOR to 0xe332…Aa3a on mandate registry",
+  "facts": {
+   "proposal": "2",
+   "by": "0xC782e1690D4B6c4C2Aba21283a6271477690f834"
+  },
+  "id": "council-cancelled:0xff6a3752781549dc0706cd0ce63a7d18477dd500d4b9fb2650e119be38ced385:1794294944"
+ },
+ {
   "rule": "credential-expiry",
   "severity": "medium",
   "key": "expiry:Watchdog GitHub token (Render):30d",
