@@ -19,6 +19,7 @@ const { createMockOidc } = require('./helpers/mock-oidc');
 
 const APP = 'http://localhost:9999/app/';
 let provider, c, idp, gov, msft, service, serviceUrl, issuerKey;
+let anchor = 'id';
 const closers = [];
 
 const freePort = () => new Promise((r) => { const s = net.createServer().listen(0, '127.0.0.1', () => { const p = s.address().port; s.close(() => r(p)); }); });
@@ -54,6 +55,7 @@ before(async () => {
     emailSender: mail,
     rateLimitPerMin: 1000, // every test request comes from one address
     emailCodesPerIpHour: 1000,
+    clerkAnchor: () => anchor,
     allowInsecure: true,
     log: () => {},
   });
@@ -295,7 +297,7 @@ test('clerk desk: ID fingerprints only for approved clerks, same for every desk,
   // Nonsense IDs are refused with a message for the clerk.
   const bad = await ask(await session(desk1), { kind: 'state', region: 'C', number: '12' });
   assert.equal(bad.status, 400);
-  assert.match(bad.error, /state that issued/);
+  assert.match(bad.error, /Enter the state/);
 
   // Voter-code QR text round-trips; junk is refused.
   const id = new Identity('qr');
@@ -303,4 +305,29 @@ test('clerk desk: ID fingerprints only for approved clerks, same for every desk,
   assert.equal(parseVoterCode(` ${id.commitment}\n`), id.commitment);
   assert.throws(() => parseVoterCode('https://example.com'), /isn't a Mandate voter code/);
   assert.throws(() => parseVoterCode('0'), /isn't a valid voter code/);
+});
+
+test('clerk desk: the city picks one anchor, so nobody can enrol once by ID and again by voter roll', async () => {
+  const { clerkSessionMessage, canonicalDoc } = require('../client/clerk');
+  const admin = await provider.getSigner(0);
+  const desk = ethers.Wallet.createRandom();
+  await (await c.identity.connect(admin).setIssuer(desk.address, 1, true, 'Precinct desk')).wait();
+  const expires = Date.now() + 3600_000;
+  const session = { address: desk.address, expires, signature: await desk.signMessage(clerkSessionMessage({ serviceUrl, address: desk.address, expires })) };
+  const ask = (doc) => fetch(`${serviceUrl}/clerk/doc-hash`, { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: new URL(APP).origin }, body: JSON.stringify({ session, doc }) }).then(async (r) => ({ status: r.status, ...(await r.json()) }));
+  const roll = { kind: 'roll', region: 'OR', number: '000-555-123' };
+  const id = { kind: 'state', region: 'OR', number: '000555123' };
+
+  anchor = 'id';
+  assert.equal((await ask(id)).status, 200);
+  const r1 = await ask(roll);
+  assert.equal(r1.status, 400);
+  assert.match(r1.error, /by government photo ID/);
+  anchor = 'roll';
+  const r2 = await ask(roll);
+  assert.equal(r2.status, 200);
+  assert.match((await ask(id)).error, /by their voter registration record/);
+  // A roll record and an ID with the same number never share a fingerprint.
+  assert.notEqual(canonicalDoc(roll), canonicalDoc(id));
+  anchor = 'id';
 });

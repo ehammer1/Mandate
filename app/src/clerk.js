@@ -17,7 +17,7 @@
  */
 
 import { ethers } from 'ethers';
-import { parseVoterCode, DOC_KINDS, clerkSessionMessage } from '../../client/clerk.js';
+import { parseVoterCode, DOC_KINDS, kindsFor, RESIDENCE_PROOFS, clerkSessionMessage } from '../../client/clerk.js';
 
 const TIERS = ['Basic member', 'Verified resident', 'Full voting rights'];
 const REGISTRY_ABI = [
@@ -56,14 +56,28 @@ export function wireClerk(ctx) {
 
   const registry = () => new ethers.Contract(state.config.identityAddress, REGISTRY_ABI, state.provider);
 
-  for (const [k, label] of Object.entries(DOC_KINDS)) {
+  for (const [k, label] of Object.entries(RESIDENCE_PROOFS)) {
     const o = document.createElement('option');
     o.value = k;
     o.textContent = label;
-    $('clerk-doc-kind').append(o);
+    $('clerk-residence').append(o);
+  }
+  // The city's anchor decides which records count (set in config.json as "clerkAnchor").
+  const anchor = () => state.config?.clerkAnchor || 'id';
+  function setupKinds() {
+    const kinds = kindsFor(anchor());
+    $('clerk-doc-kind').innerHTML = kinds.map((k) => `<option value="${k}">${esc(DOC_KINDS[k])}</option>`).join('');
+    const roll = anchor() === 'roll';
+    $('clerk-id-title').textContent = roll ? '2. Find them in the voter roll' : '2. Check their ID';
+    $('clerk-checklist').innerHTML = roll
+      ? '<li>Find the person in the official voter roll by name and address.</li><li>Confirm their date of birth or signature matches the roll.</li><li>Confirm the address is in the city.</li><li>No photo ID is needed.</li>'
+      : '<li>The photo matches the person in front of you.</li><li>The ID has not expired.</li><li>Their address is in the city (on the ID or a proof of address).</li>';
+    $('clerk-number-label').textContent = roll ? 'Voter registration number (from the roll)' : 'ID number';
+    $('clerk-doc-kind').closest('.field').hidden = kinds.length === 1;
   }
   $('clerk-doc-kind').onchange = () => {
-    $('clerk-region-label').textContent = $('clerk-doc-kind').value === 'state' ? 'Issuing state (2 letters)' : 'Issuing country (e.g. US)';
+    const k = $('clerk-doc-kind').value;
+    $('clerk-region-label').textContent = k === 'state' || k === 'roll' ? 'State (2 letters)' : 'Issuing country (e.g. US)';
   };
   $('clerk-since').max = new Date().toISOString().slice(0, 7);
   $('clerk-new-resident').onchange = () => {
@@ -111,8 +125,9 @@ export function wireClerk(ctx) {
     stopScan();
     person = null;
     for (const id of ['clerk-code', 'clerk-doc-region', 'clerk-doc-number', 'clerk-since']) $(id).value = '';
-    $('clerk-doc-kind').value = 'state';
+    setupKinds();
     $('clerk-doc-kind').onchange();
+    $('clerk-residence').value = '';
     $('clerk-new-resident').checked = false;
     $('clerk-since').disabled = false;
     for (const id of ['clerk-lookup-status', 'clerk-result']) status($(id), '');
@@ -218,6 +233,7 @@ export function wireClerk(ctx) {
     const el = $('clerk-result');
     armIdleClear();
     if (!person) return status(el, 'Scan or paste the voter code first.', 'error');
+    if (!$('clerk-residence').value) return status(el, 'Choose how you confirmed they live in the city.', 'error');
     let residentSince = 0;
     if (!$('clerk-new-resident').checked) {
       const v = $('clerk-since').value; // "YYYY-MM"

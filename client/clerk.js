@@ -45,6 +45,29 @@ const DOC_KINDS = {
   state: "Driver's licence, state ID or mobile ID",
   passport: 'Passport or passport card',
   other: 'Other government photo ID',
+  roll: 'Voter registration record (no photo ID needed)',
+};
+
+/**
+ * What makes one person = one voter code, chosen once per city (config "clerkAnchor").
+ * Only one anchor may be active: if photo IDs and voter-roll records were both accepted,
+ * one person could enrol once with each.
+ *   id    a government photo ID (the default)
+ *   roll  the person's entry in the official voter roll, matched in person (name, address,
+ *         date of birth or signature), as poll workers do in states without voter ID
+ */
+const ANCHORS = { id: ['state', 'passport', 'other'], roll: ['roll'] };
+const kindsFor = (anchor) => ANCHORS[anchor] || ANCHORS.id;
+
+/** Ways the clerk confirmed the person lives in the city (recorded on the desk only as a checklist). */
+const RESIDENCE_PROOFS = {
+  id: 'Address on their ID',
+  roll: 'Address on the voter roll',
+  utility: 'Utility bill (last 3 months)',
+  lease: 'Lease or mortgage statement',
+  bank: 'Bank statement or paycheck',
+  government: 'Letter from a government agency',
+  other: 'Other document with name and address',
 };
 
 /**
@@ -55,10 +78,11 @@ const DOC_KINDS = {
 function canonicalDoc({ kind, region, number }) {
   if (!Object.hasOwn(DOC_KINDS, kind)) throw new Error('Choose the type of ID.');
   const r = String(region || '').toUpperCase().replace(/[^A-Z]/g, '');
-  if (r.length < 2 || r.length > 3) throw new Error(kind === 'state' ? 'Enter the state that issued the ID, e.g. CA.' : 'Enter the issuing country, e.g. US.');
+  if (r.length < 2 || r.length > 3) throw new Error(kind === 'state' || kind === 'roll' ? 'Enter the state, e.g. CA.' : 'Enter the issuing country, e.g. US.');
   const n = String(number || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
-  if (n.length < 4 || n.length > 30) throw new Error('Enter the ID number exactly as printed on the document.');
-  return `doc|v1|${kind}|${r}|${n}`;
+  if (n.length < 4 || n.length > 30) throw new Error(kind === 'roll' ? 'Enter the voter registration number exactly as shown in the roll.' : 'Enter the ID number exactly as printed on the document.');
+  // Voter-roll records get their own prefix: they can never collide with an ID document.
+  return kind === 'roll' ? `roll|v1|${r}|${n}` : `doc|v1|${kind}|${r}|${n}`;
 }
 
 /** What the clerk's account signs to open a desk session (no personal data in it). */
@@ -74,4 +98,4 @@ function clerkSessionMessage({ serviceUrl, address, expires }) {
 
 const CLERK_SESSION_MAX_MS = 12 * 3600 * 1000;
 
-module.exports = { FIELD, voterCodeQr, parseVoterCode, DOC_KINDS, canonicalDoc, clerkSessionMessage, CLERK_SESSION_MAX_MS };
+module.exports = { FIELD, voterCodeQr, parseVoterCode, DOC_KINDS, ANCHORS, kindsFor, RESIDENCE_PROOFS, canonicalDoc, clerkSessionMessage, CLERK_SESSION_MAX_MS };

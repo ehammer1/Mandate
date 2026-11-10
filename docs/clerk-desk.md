@@ -10,6 +10,22 @@ under **Admin → Give someone a role → Clerk**, with the desk's name (for exa
 2nd floor"). Voters can see which desk enrolled them. The desk account needs a little test
 ETH for transaction fees; the watchdog's balance checks can watch it.
 
+## One person, one voter code: the city's anchor
+
+Each city picks **one** record that ties a voter code to a real person, set as
+`clerkAnchor` in the app config (both the desk and the identity service follow it):
+
+| Anchor | At the desk | Fits |
+|---|---|---|
+| `id` (default) | Government photo ID: licence, state ID, mobile ID, passport | States with voter ID |
+| `roll` | The person's entry in the official voter roll, matched in person by name and address plus date of birth or signature. No photo ID. | States without voter ID, where identity is checked at registration (licence number or last 4 of the SSN) |
+
+Only one anchor is active at a time: if both were accepted, one person could enrol once
+by ID and again by voter-roll record. Proof of residence (utility bill, lease, bank
+statement, government letter, or the address on the ID or roll) is a separate checklist
+step; those documents show where someone lives, not who they are, so they never anchor a
+voter code on their own.
+
 ## At the desk
 
 1. **Open the desk** once per shift. The clerk's account signs a short message (silent with

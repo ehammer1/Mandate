@@ -37,7 +37,7 @@ const crypto = require('crypto');
 const { ethers } = require('ethers');
 const client = require('openid-client');
 const { Identity } = require('@semaphore-protocol/identity');
-const { canonicalDoc, clerkSessionMessage, CLERK_SESSION_MAX_MS } = require('../../client/clerk.js');
+const { canonicalDoc, clerkSessionMessage, CLERK_SESSION_MAX_MS, kindsFor } = require('../../client/clerk.js');
 
 const TTL_MS = 10 * 60 * 1000;
 const MAX_BODY = 64 * 1024;
@@ -118,6 +118,7 @@ async function appleClientSecret(apple, clientId) {
  * @param {object} [o.emailSender]           senders.js sender; enables email sign-up with one-time codes
  * @param {number} [o.rateLimitPerMin]       requests per IP per minute (default 20)
  * @param {number} [o.emailCodesPerIpHour]   sign-up codes per IP per hour (default 10)
+ * @param {() => string} [o.clerkAnchor]     the city's one-person-one-code anchor for clerk desks: 'id' (default) or 'roll'
  * @param {boolean} [o.allowInsecure]        http providers (tests only)
  */
 function createIdentityService(o) {
@@ -376,6 +377,10 @@ function createIdentityService(o) {
     if (recent.length >= (o.clerkLookupsPerHour ?? 120)) return [429, { error: 'Too many ID checks this hour from this desk. Please wait a few minutes.' }];
     recent.push(Date.now());
 
+    const anchor = (o.clerkAnchor && o.clerkAnchor()) || 'id';
+    if (!kindsFor(anchor).includes(body.doc?.kind)) {
+      return [400, { error: anchor === 'roll' ? 'This city enrols people by their voter registration record, not by ID document.' : 'This city enrols people by government photo ID, not by voter registration record.' }];
+    }
     let canonical;
     try {
       canonical = canonicalDoc(body.doc || {});
@@ -531,10 +536,17 @@ if (require.main === module) {
   (async () => {
     let identityAddress = clean(process.env.IDENTITY_ADDRESS);
     let rpcUrl = clean(process.env.RPC_URL);
+    // The clerk-desk anchor follows the published app config (re-read every 5 minutes), unless set here.
+    let anchor = clean(process.env.CLERK_ANCHOR) || 'id';
     if (process.env.CONFIG_URL) {
-      const cfg = await (await fetch(clean(process.env.CONFIG_URL), { cache: 'no-store' })).json();
+      const load = async () => (await fetch(`${clean(process.env.CONFIG_URL)}?t=${Date.now()}`, { cache: 'no-store' })).json();
+      const cfg = await load();
       identityAddress ||= cfg.identityAddress;
       rpcUrl ||= cfg.rpcUrl;
+      if (!clean(process.env.CLERK_ANCHOR)) {
+        anchor = cfg.clerkAnchor || 'id';
+        setInterval(() => load().then((c) => (anchor = c.clerkAnchor || 'id')).catch(() => {}), 5 * 60_000).unref();
+      }
     }
     if (!ethers.isAddress(identityAddress)) throw new Error('set IDENTITY_ADDRESS or CONFIG_URL');
     const provider = new ethers.JsonRpcProvider(rpcUrl);
@@ -558,6 +570,7 @@ if (require.main === module) {
       allowedReturnOrigins: need('ALLOWED_RETURN_ORIGINS').split(',').map((s) => s.trim()),
       emailPolicy: createEmailPolicy({ allow: process.env.EMAIL_DOMAINS_ALLOW, block: process.env.EMAIL_DOMAINS_BLOCK }),
       emailSender: senderFromEnv(),
+      clerkAnchor: () => anchor,
     });
     const port = Number(process.env.PORT || 8790);
     server.listen(port, () => console.log(`[identity] listening on :${port}; issuer ${signer.address}; providers: ${[...providers.map((p) => `${p.name}(${p.tier ? 'verified' : 'basic'})`), ...(process.env.EMAIL_PROVIDER ? [`Email via ${process.env.EMAIL_PROVIDER}(basic)`] : [])].join(', ')}`));

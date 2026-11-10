@@ -103,6 +103,7 @@ before(async () => {
     emailSender: mail,
     emailPolicy: createEmailPolicy({ allow: 'reputable' }),
     allowInsecure: true,
+    clerkAnchor: () => appOpts.config.clerkAnchor || 'id',
     log: () => {},
   });
   await new Promise((r) => idService.listen(idPort, '127.0.0.1', r));
@@ -248,6 +249,7 @@ test('admin from the passkey account, and from a connected wallet', async () => 
   await page.fill('#clerk-doc-region', 'ca');
   await page.fill('#clerk-doc-number', 'D1234567');
   await page.check('#clerk-new-resident');
+  await page.selectOption('#clerk-residence', 'id');
   await page.click('#btn-clerk-submit');
   await page.waitForFunction(() => /Done: enrolled/.test(document.querySelector('#clerk-result').textContent), null, { timeout: 60_000 });
   assert.match(await page.textContent('#clerk-result'), /from .* \(new-resident waiting period\)/);
@@ -271,6 +273,7 @@ test('admin from the passkey account, and from a connected wallet', async () => 
   await page.fill('#clerk-doc-region', 'CA');
   await page.fill('#clerk-doc-number', 'd-123 4567');
   await page.check('#clerk-new-resident');
+  await page.selectOption('#clerk-residence', 'id');
   await page.click('#btn-clerk-submit');
   await page.waitForFunction(() => /already linked to another voter code/.test(document.querySelector('#clerk-result').textContent), null, { timeout: 30_000 });
   assert.equal((await c.identity.members(twice.commitment)).active, false);
@@ -286,6 +289,7 @@ test('admin from the passkey account, and from a connected wallet', async () => 
   await page.fill('#clerk-doc-region', 'US');
   await page.fill('#clerk-doc-number', 'P9876543');
   await page.fill('#clerk-since', '2019-05');
+  await page.selectOption('#clerk-residence', 'id');
   await page.click('#btn-clerk-submit');
   await page.waitForFunction(() => /Done: upgraded/.test(document.querySelector('#clerk-result').textContent), null, { timeout: 60_000 });
   assert.match(await page.textContent('#clerk-result'), /can vote in full-rights polls now/);
@@ -339,6 +343,7 @@ test('admin from the passkey account, and from a connected wallet', async () => 
   await page.fill('#clerk-doc-region', 'NY');
   await page.fill('#clerk-doc-number', '123456789');
   await page.fill('#clerk-since', '2015-01');
+  await page.selectOption('#clerk-residence', 'id');
   await page.click('#btn-clerk-submit');
   await page.waitForFunction(() => /Done: enrolled/.test(document.querySelector('#clerk-result').textContent), null, { timeout: 60_000 });
   assert.equal((await c.identity.members(another.commitment)).issuer, walletAccount);
@@ -690,4 +695,48 @@ test('mandate lifecycle: binding poll, vote, mandate, budget, evidence, verifica
   await page.click('#mandate-2 button[data-act="approve"]');
   await page.waitForFunction(() => /Approve: done/.test(document.querySelector('#mandate-status-2')?.textContent || ''), null, { timeout: 60_000 });
   assert.equal((await c.registry.getMandate(2)).status, 3n);
+});
+
+test('voter-roll city: the desk enrols by voter registration record, no photo ID', async () => {
+  // The person from the previous test becomes a clerk; the city switches its anchor to the voter roll.
+  await page.click('#nav-account');
+  const me = ethers.getAddress((await page.textContent('#account-address')).trim());
+  await (await c.identity.setIssuer(me, 1, true, 'Precinct 4 desk')).wait();
+  appConfig.clerkAnchor = 'roll';
+  await page.reload();
+  await page.click('#btn-device');
+  await page.waitForSelector('#screen-home:not([hidden])');
+  await page.waitForSelector('#nav-clerk:not([hidden])');
+  await page.click('#nav-clerk');
+  await page.click('#btn-clerk-open');
+  await page.waitForSelector('#clerk-steps:not([hidden])');
+  const person = new Identity('no-photo-id');
+  await page.fill('#clerk-code', person.commitment.toString());
+  await page.click('#btn-clerk-lookup');
+  await page.waitForSelector('#clerk-person >> text=Not on the voter list yet');
+  assert.equal((await page.textContent('#clerk-id-title')).trim(), '2. Find them in the voter roll');
+  assert.match(await page.textContent('#clerk-checklist'), /No photo ID is needed/);
+  assert.equal(await page.isVisible('#clerk-doc-kind'), false); // only one kind of record in this city
+  assert.equal(await page.inputValue('#clerk-doc-kind'), 'roll');
+  await page.fill('#clerk-doc-region', 'OR');
+  await page.fill('#clerk-doc-number', '000-555-123');
+  await page.selectOption('#clerk-residence', 'roll');
+  await page.fill('#clerk-since', '2012-03');
+  await page.click('#btn-clerk-submit');
+  await page.waitForFunction(() => /Done: enrolled/.test(document.querySelector('#clerk-result').textContent), null, { timeout: 60_000 });
+  assert.equal((await c.identity.members(person.commitment)).tier, 2n);
+
+  // The same registration can't back a second code.
+  await page.click('#btn-clerk-next');
+  const again = new Identity('no-photo-id-again');
+  await page.fill('#clerk-code', again.commitment.toString());
+  await page.click('#btn-clerk-lookup');
+  await page.waitForSelector('#clerk-person >> text=Not on the voter list yet');
+  await page.fill('#clerk-doc-region', 'or');
+  await page.fill('#clerk-doc-number', '000555123');
+  await page.selectOption('#clerk-residence', 'utility');
+  await page.check('#clerk-new-resident');
+  await page.click('#btn-clerk-submit');
+  await page.waitForFunction(() => /already linked to another voter code/.test(document.querySelector('#clerk-result').textContent), null, { timeout: 30_000 });
+  delete appConfig.clerkAnchor;
 });

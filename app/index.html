@@ -146,19 +146,19 @@
           <div id="clerk-person"></div>
         </div>
         <div class="card stack" id="clerk-id" hidden>
-          <h3>2. Check their ID</h3>
-          <ul class="note" style="margin:0;padding-left:20px">
-            <li>The photo matches the person in front of you.</li>
-            <li>The ID has not expired.</li>
-            <li>The address on the ID, or a proof of address (utility bill, lease, voter card), is in the city.</li>
-          </ul>
-          <label for="clerk-doc-kind">Type of ID</label>
-          <select id="clerk-doc-kind" style="min-height:48px;font:inherit;border-radius:10px;padding:8px"></select>
+          <h3 id="clerk-id-title">2. Check their ID</h3>
+          <ul class="note" id="clerk-checklist" style="margin:0;padding-left:20px"></ul>
+          <div class="field stack">
+            <label for="clerk-doc-kind">Type of record</label>
+            <select id="clerk-doc-kind"></select>
+          </div>
           <label for="clerk-doc-region" id="clerk-region-label">Issuing state (2 letters)</label>
           <input type="text" id="clerk-doc-region" maxlength="3" autocomplete="off" spellcheck="false" autocapitalize="characters" style="width:110px" />
-          <label for="clerk-doc-number">ID number</label>
+          <label for="clerk-doc-number" id="clerk-number-label">ID number</label>
           <input type="text" id="clerk-doc-number" autocomplete="off" spellcheck="false" autocapitalize="characters" />
-          <p class="note">Only a scrambled fingerprint of the number is kept, so the same ID can't be used for two voter codes. The number itself is never stored or published.</p>
+          <p class="note">Only a scrambled fingerprint of the number is kept, so the same person can't get two voter codes. The number itself is never stored or published.</p>
+          <label for="clerk-residence">How you confirmed they live in the city</label>
+          <select id="clerk-residence"><option value="">Choose…</option></select>
           <label for="clerk-since">Living in the city since (from their ID or proof of address)</label>
           <input type="month" id="clerk-since" style="min-height:48px;font:inherit;border-radius:10px;padding:8px;width:200px" />
           <label class="row"><input type="checkbox" id="clerk-new-resident" /> New resident or can't tell (30-day wait before full-rights polls)</label>
