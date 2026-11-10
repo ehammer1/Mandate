@@ -1,8 +1,8 @@
 # Mandate audit report
 
-Generated 2026-11-10T12:45:37.000Z · last 24 hours · 43 high, 11 medium, 0 info
+Generated 2026-11-10T13:16:01.000Z · last 24 hours · 44 high, 14 medium, 0 info
 
-43 alert(s) need attention.
+44 alert(s) need attention.
 - 0x433B…476F joined the council
 - 0xb8e5…Cb71 joined the council
 - 0xC782…f834 joined the council
@@ -46,7 +46,8 @@ Generated 2026-11-10T12:45:37.000Z · last 24 hours · 43 high, 11 medium, 0 inf
 - Council change #8 carried out: revoke GOVERNOR from 0x8732…ab5c on mandate registry
 - Council change #9 approved: it can run from 2026-11-10 12:45 UTC (revoke VETO from 0x8732…ab5c on decision markets). Members can still cancel it until then.
 - Council change #9 carried out: revoke VETO from 0x8732…ab5c on decision markets
-11 other event(s) were recorded (see the list).
+- Council change #10 proposed by 0xC782…f834: grant ADMIN to 0xf868…42ad on identity registry
+14 other event(s) were recorded (see the list).
 
 ## All alerts
 
@@ -104,5 +105,9 @@ Generated 2026-11-10T12:45:37.000Z · last 24 hours · 43 high, 11 medium, 0 inf
 - **high** Council change #9 approved: it can run from 2026-11-10 12:45 UTC (revoke VETO from 0x8732…ab5c on decision markets). Members can still cancel it until then. ([tx](https://sepolia.basescan.org/tx/0xeed1778399ec22c77e5cc25c0ccdc8fb07e0141993da3e85535984a6e05f2617))
 - **medium** VETO role revoked from 0x8732…ab5c on decision markets ([tx](https://sepolia.basescan.org/tx/0xb031e00aa60401a654c6360f11ff9b16f970e304bc4ee705df7543733fa05ced))
 - **high** Council change #9 carried out: revoke VETO from 0x8732…ab5c on decision markets ([tx](https://sepolia.basescan.org/tx/0xb031e00aa60401a654c6360f11ff9b16f970e304bc4ee705df7543733fa05ced))
+- **medium** Council change #1 cancelled by 0xC782…f834: grant VERIFIER to 0xb8e5…Cb71 on mandate registry ([tx](https://sepolia.basescan.org/tx/0xae44e50e112b406fba8c3e6c571ee1efe776fde450e1a6288c36ddd5a7da6024))
+- **medium** Council change #6 cancelled by 0xC782…f834: grant GOVERNOR to 0x74eE…12c6 on mandate registry ([tx](https://sepolia.basescan.org/tx/0x4e989c6e04d6999a9406cb2327752b4f46b225ce1611482a2c817a80e55651dd))
+- **medium** Council change #7 cancelled by 0xC782…f834: grant VETO to 0x74eE…12c6 on decision markets ([tx](https://sepolia.basescan.org/tx/0xfc3e3ac0f5d3cf48b7853958708c320032b86b3359962eade999763d87317528))
+- **high** Council change #10 proposed by 0xC782…f834: grant ADMIN to 0xf868…42ad on identity registry ([tx](https://sepolia.basescan.org/tx/0x585f45149c750f357dfea8f5fc866a6d14af3551a08be32387a665711fa6375e))
 
 Summary written by: fixed rules.

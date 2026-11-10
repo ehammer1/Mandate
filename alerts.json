@@ -1,5 +1,70 @@
 [
  {
+  "tx": "0x585f45149c750f357dfea8f5fc866a6d14af3551a08be32387a665711fa6375e",
+  "block": 56973435,
+  "time": 1794316555,
+  "contract": "council",
+  "event": "Proposed",
+  "rule": "council-proposal",
+  "severity": "high",
+  "title": "Council change #10 proposed by 0xC782…f834: grant ADMIN to 0xf868…42ad on identity registry",
+  "facts": {
+   "proposal": "10",
+   "proposer": "0xC782e1690D4B6c4C2Aba21283a6271477690f834",
+   "target": "0x47501C8558349aeB6a7139ADaF8Eb88f2A6BB9B4",
+   "value": "0",
+   "data": "0x2f2ff15d0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000f8689d8b7b041a1e7664d703645508f8976342ad",
+   "description": "Move the voter list to the new council (with terms, answerable to public votes)",
+   "fast": false
+  },
+  "id": "council-proposal:0x585f45149c750f357dfea8f5fc866a6d14af3551a08be32387a665711fa6375e:1794316555"
+ },
+ {
+  "tx": "0xfc3e3ac0f5d3cf48b7853958708c320032b86b3359962eade999763d87317528",
+  "block": 56972777,
+  "time": 1794316424,
+  "contract": "council",
+  "event": "Cancelled",
+  "rule": "council-cancelled",
+  "severity": "medium",
+  "title": "Council change #7 cancelled by 0xC782…f834: grant VETO to 0x74eE…12c6 on decision markets",
+  "facts": {
+   "proposal": "7",
+   "by": "0xC782e1690D4B6c4C2Aba21283a6271477690f834"
+  },
+  "id": "council-cancelled:0xfc3e3ac0f5d3cf48b7853958708c320032b86b3359962eade999763d87317528:1794316424"
+ },
+ {
+  "tx": "0x4e989c6e04d6999a9406cb2327752b4f46b225ce1611482a2c817a80e55651dd",
+  "block": 56972752,
+  "time": 1794316419,
+  "contract": "council",
+  "event": "Cancelled",
+  "rule": "council-cancelled",
+  "severity": "medium",
+  "title": "Council change #6 cancelled by 0xC782…f834: grant GOVERNOR to 0x74eE…12c6 on mandate registry",
+  "facts": {
+   "proposal": "6",
+   "by": "0xC782e1690D4B6c4C2Aba21283a6271477690f834"
+  },
+  "id": "council-cancelled:0x4e989c6e04d6999a9406cb2327752b4f46b225ce1611482a2c817a80e55651dd:1794316419"
+ },
+ {
+  "tx": "0xae44e50e112b406fba8c3e6c571ee1efe776fde450e1a6288c36ddd5a7da6024",
+  "block": 56972726,
+  "time": 1794316414,
+  "contract": "council",
+  "event": "Cancelled",
+  "rule": "council-cancelled",
+  "severity": "medium",
+  "title": "Council change #1 cancelled by 0xC782…f834: grant VERIFIER to 0xb8e5…Cb71 on mandate registry",
+  "facts": {
+   "proposal": "1",
+   "by": "0xC782e1690D4B6c4C2Aba21283a6271477690f834"
+  },
+  "id": "council-cancelled:0xae44e50e112b406fba8c3e6c571ee1efe776fde450e1a6288c36ddd5a7da6024:1794316414"
+ },
+ {
   "tx": "0xb031e00aa60401a654c6360f11ff9b16f970e304bc4ee705df7543733fa05ced",
   "block": 56964230,
   "time": 1794314714,
