@@ -300,31 +300,39 @@ if (require.main === module) {
     }
     voteAddress = ethers.getAddress(voteAddress);
     console.log(`[relayer] paying fees from ${signer.address}`);
-    const server = createRelayer({
-      provider,
-      signer,
-      voteAddress,
-      budgetAddress: ethers.isAddress(budgetAddress) ? ethers.getAddress(budgetAddress) : undefined,
-      rateLimitPerMin: Number(process.env.RATE_LIMIT_PER_MIN || 30),
-      corsOrigin: process.env.CORS_ORIGIN || '*',
-      confirmations: Number(process.env.CONFIRMATIONS || 1),
-      log: (m) => console.log(`${new Date().toISOString()} [relayer] ${m}`),
-    });
+    const build = (vote, budget) =>
+      createRelayer({
+        provider,
+        signer,
+        voteAddress: vote,
+        budgetAddress: ethers.isAddress(budget || '') ? ethers.getAddress(budget) : undefined,
+        rateLimitPerMin: Number(process.env.RATE_LIMIT_PER_MIN || 30),
+        corsOrigin: process.env.CORS_ORIGIN || '*',
+        confirmations: Number(process.env.CONFIRMATIONS || 1),
+        log: (m) => console.log(`${new Date().toISOString()} [relayer] ${m}`),
+      });
+    const server = build(voteAddress, budgetAddress);
     const port = Number(process.env.PORT || 8787);
     server.listen(port, () => console.log(`[relayer] listening on :${port} for ${voteAddress}`));
 
     if (configUrl) {
-      // Restart (the host brings it back up) when the published contract address changes.
+      // Follow the published contract addresses without restarting (a restart looks like a
+      // crash to the host): swap in a relayer for the new addresses on the same server.
       setInterval(async () => {
         try {
           const cfg = await loadConfig();
-          const budgetMoved = ethers.isAddress(cfg.budgetAddress || '') && ethers.getAddress(cfg.budgetAddress) !== (ethers.isAddress(budgetAddress) ? ethers.getAddress(budgetAddress) : '');
-          if ((ethers.isAddress(cfg.voteAddress) && ethers.getAddress(cfg.voteAddress) !== voteAddress) || budgetMoved) {
-            console.log(`[relayer] contracts moved to ${cfg.voteAddress}; restarting to follow them`);
-            process.exit(0);
-          }
+          const v = ethers.isAddress(cfg.voteAddress) ? ethers.getAddress(cfg.voteAddress) : voteAddress;
+          const b = ethers.isAddress(cfg.budgetAddress || '') ? ethers.getAddress(cfg.budgetAddress) : '';
+          const current = ethers.isAddress(budgetAddress || '') ? ethers.getAddress(budgetAddress) : '';
+          if (v === voteAddress && b === current) return;
+          const next = build(v, b).listeners('request')[0];
+          server.removeAllListeners('request');
+          server.on('request', next);
+          console.log(`[relayer] now serving voting ${v}${b ? ` and civic budget ${b}` : ''}`);
+          voteAddress = v;
+          budgetAddress = b;
         } catch {
-          /* keep running on the current address */
+          /* keep serving the current addresses */
         }
       }, 5 * 60 * 1000).unref();
     }
