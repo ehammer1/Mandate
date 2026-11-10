@@ -45,6 +45,7 @@ const MAX_BODY = 64 * 1024;
 
 const IDENTITY_ABI = [
   'function enroll(uint256 commitment, uint8 tier, bytes32 docHash, uint64 residentSince)',
+  'function upgrade(uint256 commitment, bytes32 docHash, uint64 residentSince)',
   'function members(uint256) view returns (address issuer, uint8 tier, bool active, uint64 verifiedAt, uint64 residentSince, bytes32 docHash, bytes32 accountHash)',
   'function commitmentOfAccount(bytes32) view returns (uint256)',
   'function commitmentOfDoc(bytes32) view returns (uint256)',
@@ -119,6 +120,7 @@ async function appleClientSecret(apple, clientId) {
  * @param {object} [o.emailSender]           senders.js sender; enables email sign-up with one-time codes
  * @param {number} [o.rateLimitPerMin]       requests per IP per minute (default 20)
  * @param {number} [o.emailCodesPerIpHour]   sign-up codes per IP per hour (default 10)
+ * @param {object} [o.mdl]                 createMdlVerifier(...): sign-up with a state mobile ID (verified tier)
  * @param {() => object} [o.roll]           the voter roll file (scripts/roll-import.js), or null
  * @param {string} [o.rollKey]               the key its fingerprints were made with (ROLL_KEY)
  * @param {() => string} [o.clerkAnchor]     the city's one-person-one-code anchor for clerk desks: 'id' (default) or 'roll'
@@ -425,6 +427,54 @@ function createIdentityService(o) {
     return [200, out];
   }
 
+  // POST /mdl/start  { commitment, ts, proof }        -> { session, request } for navigator.credentials.get
+  // POST /mdl/finish { session, response, origin }    -> { enrolled: 'verified', tx }
+  // The phone's wallet checks its owner is present and shares only the requested fields,
+  // signed by the issuing state. The document becomes the same fingerprint a clerk desk
+  // makes for a licence, so one person still gets one voter code.
+  async function mdlStart(body) {
+    if (!o.mdl) return [503, { error: 'Mobile ID sign-up is not available here.' }];
+    let commitment;
+    try {
+      commitment = verifyOwnership(body.commitment, body.ts, body.proof);
+    } catch {
+      return [400, { error: 'Could not confirm this voter code belongs to you. Please try again.' }];
+    }
+    const me = await registry.issuers(await o.signer.getAddress());
+    if (!me.active || Number(me.maxTier) < 1) return [503, { error: 'Mobile ID sign-up is waiting for the council to approve this service for ID checks.' }];
+    return [200, await o.mdl.start(commitment)];
+  }
+
+  async function mdlFinish(body, origin) {
+    if (!o.mdl) return [503, { error: 'Mobile ID sign-up is not available here.' }];
+    let r;
+    try {
+      r = await o.mdl.finish(body.session, body.response, origin);
+    } catch (e) {
+      log(`mobile ID refused: ${e.message}`);
+      return [400, { error: e.userMessage || 'This mobile ID could not be verified.' }];
+    }
+    const docHash = hmac(canonicalDoc({ kind: r.jurisdiction.length === 2 ? 'state' : 'other', region: r.jurisdiction, number: r.documentNumber }));
+    if ((await registry.commitmentOfDoc(docHash)) !== 0n) return [409, { error: 'This ID has already been used to enrol someone. If you lost your phone, ask the clerk to remove your old voter code.' }];
+    const m = await registry.members(r.commitment);
+    if (m.active && Number(m.tier) >= 1) return [409, { error: 'This voter code already has its ID checked.' }];
+    if (m.issuer !== ethers.ZeroAddress && !m.active) return [409, { error: 'This voter code was removed. Please make a new one.' }];
+    try {
+      const run = queue.then(async () => {
+        const tx = m.active ? await registry.upgrade(r.commitment, docHash, 0) : await registry.enroll(r.commitment, 1, docHash, 0);
+        await tx.wait();
+        return tx.hash;
+      });
+      queue = run.catch(() => {});
+      const tx = await run;
+      log(`enrolled a voter via mobile ID (${r.jurisdiction}) tx=${tx}`);
+      return [200, { enrolled: 'verified', tx }];
+    } catch (e) {
+      log(`mobile ID enrol failed: ${e.revert?.name || e.shortMessage || e.message}`);
+      return [e.revert?.name === 'DocumentAlreadyUsed' ? 409 : 502, { error: e.revert?.name === 'DocumentAlreadyUsed' ? 'This ID has already been used to enrol someone.' : 'Enrolment failed on the network. Please try again later.' }];
+    }
+  }
+
   async function emailStart(body, ip) {
     if (!o.emailSender) return [503, { error: 'Email sign-up is not available right now.' }];
     let commitment;
@@ -527,9 +577,10 @@ function createIdentityService(o) {
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-store' });
         const list = [...providers.values()].map((p) => ({ id: p.id, name: p.name, tier: p.tier }));
         if (o.emailSender) list.push({ id: 'email', name: 'Email', tier: 0, kind: 'email' });
+        if (o.mdl) list.push({ id: 'mdl', name: 'Mobile ID', tier: 1, kind: 'mdl' });
         return res.end(JSON.stringify(list));
       }
-      if (url.pathname.startsWith('/email/') || url.pathname.startsWith('/clerk/')) {
+      if (url.pathname.startsWith('/email/') || url.pathname.startsWith('/clerk/') || url.pathname.startsWith('/mdl/')) {
         // Called from the voter app's page: allow its origin only.
         const origin = req.headers.origin || '';
         const cors = o.allowedReturnOrigins.includes(origin) ? { 'Access-Control-Allow-Origin': origin, Vary: 'Origin' } : {};
@@ -550,7 +601,7 @@ function createIdentityService(o) {
         } catch {
           return json(400, { error: 'Invalid request.' });
         }
-        const route = { '/email/start': () => emailStart(body, ip), '/email/verify': () => emailVerify(body), '/clerk/doc-hash': () => clerkDocHash(body), '/clerk/roll-match': () => clerkRollMatch(body) }[url.pathname];
+        const route = { '/email/start': () => emailStart(body, ip), '/email/verify': () => emailVerify(body), '/clerk/doc-hash': () => clerkDocHash(body), '/clerk/roll-match': () => clerkRollMatch(body), '/mdl/start': () => mdlStart(body), '/mdl/finish': () => mdlFinish(body, origin) }[url.pathname];
         const [status, out] = route ? await route() : [404, { error: 'Not found' }];
         return json(status, out);
       }
@@ -566,7 +617,22 @@ function createIdentityService(o) {
   return server;
 }
 
-module.exports = { createIdentityService, providersFromEnv, enrolMessage, encodeProof };
+/**
+ * Mobile ID sign-up from the environment: MDL_IACA_ROOTS (PEM certificates, pasted) or
+ * MDL_IACA_URL (a PEM bundle to download); MDL_ZIPS (comma-separated ZIP codes or prefixes)
+ * and/or MDL_CITY limit it to residents. Off unless roots are given.
+ */
+async function mdlFromEnv(env = process.env) {
+  let pem = String(env.MDL_IACA_ROOTS || '');
+  if (!pem.trim() && env.MDL_IACA_URL) pem = await (await fetch(String(env.MDL_IACA_URL).trim())).text();
+  const roots = pem.match(/-----BEGIN CERTIFICATE-----[\s\S]+?-----END CERTIFICATE-----/g) || [];
+  if (!roots.length) return undefined;
+  const { createMdlVerifier } = require('./mdl');
+  console.log(`[identity] mobile ID sign-up on: ${roots.length} trusted issuing authorit${roots.length === 1 ? 'y' : 'ies'}`);
+  return createMdlVerifier({ roots, zips: String(env.MDL_ZIPS || '').split(',').map((z) => z.trim()).filter(Boolean), city: String(env.MDL_CITY || '').trim() || undefined });
+}
+
+module.exports = { createIdentityService, providersFromEnv, enrolMessage, encodeProof, mdlFromEnv };
 
 if (require.main === module) {
   const clean = (v) => String(v || '').trim().replace(/^['"]|['"]$/g, '');
@@ -620,6 +686,7 @@ if (require.main === module) {
       emailPolicy: createEmailPolicy({ allow: process.env.EMAIL_DOMAINS_ALLOW, block: process.env.EMAIL_DOMAINS_BLOCK }),
       emailSender: senderFromEnv(),
       clerkAnchor: () => anchor,
+      mdl: await mdlFromEnv(),
       roll: () => roll,
       rollKey: clean(process.env.ROLL_KEY) || undefined,
     });

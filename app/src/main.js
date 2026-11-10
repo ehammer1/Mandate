@@ -250,7 +250,8 @@ async function refreshStatus() {
       const at = await state.registry.seasonedAt(c);
       extra = `<p>Full voting rights from <strong>${esc(when(at))}</strong> (new residents wait 30 days).</p>`;
     }
-    el.innerHTML = `<p class="big">${esc(TIER[tier])}</p><p>Enrolled by ${esc(iss.name || 'an approved source')}.</p>${extra}`;
+    el.innerHTML = `<p class="big">${esc(TIER[tier])}</p><p>Enrolled by ${esc(iss.name || 'an approved source')}.</p>${extra}${tier === 0 ? '<div id="mdl-upgrade"></div>' : ''}`;
+    if (tier === 0) await renderMdlOption($('mdl-upgrade'), 'Get full voting rights with your mobile ID');
   } catch (e) {
     el.innerHTML = `<p class="error">Could not reach the network: ${esc(e.shortMessage || e.message)}</p>`;
   }
@@ -276,10 +277,12 @@ async function renderJoinOnline() {
   }
   if (!providers.length) return;
   const basic = providers.filter((p) => p.tier === 0 && p.kind !== 'email');
-  const verified = providers.filter((p) => p.tier === 1);
+  const verified = providers.filter((p) => p.tier === 1 && p.kind !== 'mdl');
+  const hasMdl = providers.some((p) => p.kind === 'mdl');
   const hasEmail = providers.some((p) => p.kind === 'email');
   const btn = (p) => `<button data-join="${esc(p.id)}">Continue with ${esc(p.name)}</button>`;
   box.innerHTML = `
+    ${hasMdl ? '<div id="mdl-join"></div>' : ''}
     ${verified.length ? `<p><strong>Join as a verified resident</strong></p><div class="stack">${verified.map(btn).join('')}</div>` : ''}
     ${basic.length || hasEmail ? `<p style="margin-top:12px"><strong>Join online</strong> <span class="note">(basic membership: advisory polls and proposals)</span></p>` : ''}
     ${basic.length ? `<div class="stack">${basic.map(btn).join('')}</div>` : ''}
@@ -294,6 +297,7 @@ async function renderJoinOnline() {
         </div>
         <p class="status" id="email-status" role="status"></p>
       </div>` : ''}`;
+  if (hasMdl) await renderMdlOption($('mdl-join'), 'Join as a verified resident with your mobile ID');
   if (hasEmail) {
     wireEmailJoin(url);
     if (state.wantEmailJoin) {
@@ -314,6 +318,64 @@ async function renderJoinOnline() {
       }
       location.href = enrolStartUrl({ serviceUrl: url, providerId: b.dataset.join, identity: state.identity, returnUrl: location.origin + location.pathname });
     };
+  }
+}
+
+// ------------------------------------------------------------- mobile ID
+//
+// A state mobile ID (mobile driver's licence) in Apple Wallet, Google Wallet or a state
+// app. The phone checks that its owner is present (Face ID, fingerprint or passcode) and
+// shares only what the service asks for, signed by the state: never a photo or name.
+
+const mdlSupported = () => typeof window !== 'undefined' && 'DigitalCredential' in window && !!navigator.credentials?.get;
+
+async function renderMdlOption(box, label) {
+  const url = state.config.identityService;
+  if (!box || !url) return;
+  let providers = [];
+  try {
+    providers = await (await fetch(`${url.replace(/\/+$/, '')}/providers`, { cache: 'no-store' })).json();
+  } catch {
+    return;
+  }
+  if (!providers.some((p) => p.kind === 'mdl')) return;
+  if (!mdlSupported()) {
+    box.innerHTML = `<p class="note">${esc(label)}: your browser can't share a mobile ID yet. On an iPhone use Safari (iOS 26 or later); on Android use Chrome. Or verify in person at the clerk.</p>`;
+    return;
+  }
+  box.innerHTML = `<div class="stack"><button class="primary" id="btn-mdl">${esc(label)}</button>
+    <p class="note">Your phone asks for Face ID or your fingerprint and shows exactly what is shared: your ID number, issuing state, ZIP code and that you are over 18. Never your photo or name. Only a scrambled fingerprint of the ID number is kept.</p>
+    <p class="status" id="mdl-status" role="status"></p></div>`;
+  $('btn-mdl').onclick = () => verifyWithMobileId(url).catch((e) => status($('mdl-status'), e.message, 'error'));
+}
+
+async function verifyWithMobileId(serviceUrl) {
+  const el = $('mdl-status');
+  const base = serviceUrl.replace(/\/+$/, '');
+  const post = async (path, body) => {
+    const res = await fetch(`${base}${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const out = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(out.error || `The service answered ${res.status}.`);
+    return out;
+  };
+  $('btn-mdl').disabled = true;
+  try {
+    status(el, 'Preparing the request…');
+    const { session, request } = await post('/mdl/start', ownershipProof({ serviceUrl, identity: state.identity }));
+    status(el, 'Confirm on your phone…');
+    let credential;
+    try {
+      credential = await navigator.credentials.get({ mediation: 'required', digital: { requests: [request] } });
+    } catch (e) {
+      throw new Error(e.name === 'NotAllowedError' ? 'Cancelled. Nothing was shared.' : `Your phone could not share the mobile ID: ${e.message}`);
+    }
+    status(el, 'Checking with the issuing state…');
+    const data = typeof credential.data === 'string' ? JSON.parse(credential.data) : credential.data;
+    await post('/mdl/finish', { session, response: data, origin: location.origin });
+    status(el, 'Verified: you are now an ID-checked resident.', 'ok');
+    setTimeout(refreshStatus, 800);
+  } finally {
+    if ($('btn-mdl')) $('btn-mdl').disabled = false;
   }
 }
 

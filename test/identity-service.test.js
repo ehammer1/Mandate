@@ -20,6 +20,7 @@ const { createMockOidc } = require('./helpers/mock-oidc');
 const APP = 'http://localhost:9999/app/';
 let provider, c, idp, gov, msft, service, serviceUrl, issuerKey;
 let anchor = 'id';
+let mdlIssuer;
 const ROLL_KEY = 'r'.repeat(48);
 const ROLL_CSV = [
   'VOTER_ID,FIRST_NAME,LAST_NAME,BIRTH_DATE,RES_ADDRESS,ZIP_CODE',
@@ -40,6 +41,7 @@ before(async () => {
   ({ contracts: c } = await deployAll(admin, {}));
   await (await c.identity.setIssuer(issuerKey.address, 1, true, 'Sign-in service')).wait();
 
+  mdlIssuer = await require('./helpers/mock-wallet').createIssuer('Oregon DMV (test)');
   idp = await createMockOidc({ clientId: 'mandate-test', clientSecret: 's3cret' });
   gov = await createMockOidc({ clientId: 'mandate-gov', clientSecret: 'g0v' });
   msft = await createMockOidc({ clientId: 'mandate-ms', clientSecret: 'm5' });
@@ -65,6 +67,7 @@ before(async () => {
     emailCodesPerIpHour: 1000,
     clerkAnchor: () => anchor,
     roll: () => testRoll,
+    mdl: require('../services/identity/mdl').createMdlVerifier({ roots: [mdlIssuer.rootPem], zips: ['972'] }),
     rollKey: ROLL_KEY,
     allowInsecure: true,
     log: () => {},
@@ -137,7 +140,7 @@ test('identity-proofed provider enrols at the verified tier only with the requir
   assert.notEqual(m.docHash, ethers.ZeroHash);
 
   const providers = await (await fetch(`${serviceUrl}/providers`)).json();
-  assert.deepEqual(providers.map((p) => [p.id, p.tier]), [['testlogin', 0], ['govid', 1], ['microsoft', 0], ['email', 0]]);
+  assert.deepEqual(providers.map((p) => [p.id, p.tier]), [['testlogin', 0], ['govid', 1], ['microsoft', 0], ['email', 0], ['mdl', 1]]);
 });
 
 test('email policy: reputable providers, .gov/.edu and listed domains in; throwaway and unknown domains out', async () => {
@@ -381,4 +384,54 @@ test('voter-roll check: clerks find people in the roll from name, birth date and
   const stranger = ethers.Wallet.createRandom();
   const s2 = { address: stranger.address, expires, signature: await stranger.signMessage(clerkSessionMessage({ serviceUrl, address: stranger.address, expires })) };
   assert.equal((await post('/clerk/roll-match', { person: { first: 'Bob', last: 'Lopez', dob: '1980-04-12', house: '123b', zip: '97201' } }, s2)).status, 403);
+});
+
+test('mobile ID: a state mobile licence makes a verified resident, with the same one-person fingerprint as the clerk desk', async () => {
+  const { issueLicence, answer } = require('./helpers/mock-wallet');
+  const { ownershipProof } = require('../client/enrol');
+  const { clerkSessionMessage } = require('../client/clerk');
+  const origin = new URL(APP).origin;
+  const post = (path, body, o = origin) => fetch(`${serviceUrl}${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: o }, body: JSON.stringify(body) }).then(async (r) => ({ status: r.status, ...(await r.json()) }));
+  const licence = await issueLicence(mdlIssuer, { document_number: 'M7654321', issuing_jurisdiction: 'US-OR', issuing_country: 'US', expiry_date: '2031-01-01', age_over_18: true, resident_postal_code: '97209', resident_city: 'Portland' });
+  const providers = await (await fetch(`${serviceUrl}/providers`)).json();
+  assert.ok(providers.some((p) => p.kind === 'mdl' && p.tier === 1));
+
+  const person = new Identity('mobile-id-person');
+  const start = await post('/mdl/start', ownershipProof({ serviceUrl, identity: person }));
+  assert.equal(start.request.protocol, 'org-iso-mdoc');
+  const done = await post('/mdl/finish', { session: start.session, response: await answer(licence, start.request, origin) });
+  assert.equal(done.enrolled, 'verified', JSON.stringify(done));
+  const m = await c.identity.members(person.commitment);
+  assert.equal(m.tier >= 1n, true);
+
+  // The same fingerprint a clerk desk makes from this licence: one person, one voter code.
+  const admin = await provider.getSigner(0);
+  const desk = ethers.Wallet.createRandom();
+  await (await c.identity.connect(admin).setIssuer(desk.address, 1, true, 'Desk')).wait();
+  const expires = Date.now() + 3600_000;
+  const session = { address: desk.address, expires, signature: await desk.signMessage(clerkSessionMessage({ serviceUrl, address: desk.address, expires })) };
+  anchor = 'id';
+  const atDesk = await post('/clerk/doc-hash', { session, doc: { kind: 'state', region: 'OR', number: 'M7654321' } });
+  assert.equal(atDesk.docHash, m.docHash);
+  assert.equal(atDesk.alreadyUsed, true);
+
+  // A second voter code with the same licence is refused.
+  const second = new Identity('mobile-id-second-phone');
+  const s2 = await post('/mdl/start', ownershipProof({ serviceUrl, identity: second }));
+  const r2 = await post('/mdl/finish', { session: s2.session, response: await answer(licence, s2.request, origin) });
+  assert.equal(r2.status, 409);
+  assert.match(r2.error, /already been used/);
+
+  // A basic member (joined online) is upgraded rather than enrolled again.
+  const basic = new Identity('mobile-id-basic-member');
+  await (await c.identity.connect(issuerKey).enroll(basic.commitment, 0, ethers.id('acct-mobile'), 0)).wait();
+  const other = await issueLicence(mdlIssuer, { document_number: 'M1111111', issuing_jurisdiction: 'US-OR', issuing_country: 'US', expiry_date: '2031-01-01', age_over_18: true, resident_postal_code: '97201', resident_city: 'Portland' });
+  const s3 = await post('/mdl/start', ownershipProof({ serviceUrl, identity: basic }));
+  assert.equal((await post('/mdl/finish', { session: s3.session, response: await answer(other, s3.request, origin) })).enrolled, 'verified');
+  assert.equal((await c.identity.members(basic.commitment)).tier >= 1n, true);
+
+  // Only from the voter app's own website: an answer bound to another origin is refused.
+  const s4 = await post('/mdl/start', ownershipProof({ serviceUrl, identity: new Identity('mobile-id-phished') }));
+  const r4 = await post('/mdl/finish', { session: s4.session, response: await answer(other, s4.request, 'https://phish.example') });
+  assert.equal(r4.status, 400);
 });

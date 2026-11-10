@@ -47,6 +47,11 @@ services:
         sync: false
       - key: EMAIL_FROM            # sender address, e.g. "Mandate <signup@yourdomain.org>"
         sync: false
+      # Mobile ID sign-up (state mobile driver's licences): off until trusted issuer roots are set.
+      - key: MDL_IACA_URL
+        sync: false          # a PEM bundle of the states' IACA root certificates (e.g. from AAMVA's Digital Trust Service)
+      - key: MDL_ZIPS
+        sync: false          # comma-separated ZIP codes or prefixes of the community, e.g. 972
       # Voter roll for clerk-desk lookups (scripts/roll-import.js). TESTNET DEMO: a fictional roll
       # whose key is public on purpose (demo/README.md). For a real roll, set ROLL_KEY as a
       # secret in the dashboard instead (sync: false) and never commit it.
