@@ -26,6 +26,31 @@ statement, government letter, or the address on the ID or roll) is a separate ch
 step; those documents show where someone lives, not who they are, so they never anchor a
 voter code on their own.
 
+## Automatic voter-roll check
+
+The desk can look people up in the official voter roll from their name, date of birth and
+address, so in a voter-roll city the clerk never types a registration number.
+
+1. The city exports its roll as CSV (registration number, first name, surname, date of
+   birth, house number or street address, ZIP) and, on its own computer, runs
+   `ROLL_KEY=<secret> node scripts/roll-import.js roll.csv --state OR --out roll.json`.
+2. `roll.json` holds only keyed fingerprints mapped to registration numbers: no names,
+   dates or addresses. It can be published anywhere (set its address as `ROLL_URL` on the
+   identity service, with the same `ROLL_KEY`). The service re-reads it every hour, and
+   `GET /roll` shows publicly which snapshot is in use (record count and digest).
+3. At the desk, a match on surname + first name + date of birth + ZIP, or surname + date of
+   birth + house number + ZIP, finds the registration. This tolerates nicknames, double
+   surnames, accents and moves within a ZIP. Details that fit two registrations (for
+   example twins at one address) are flagged for a manual check.
+4. In a voter-roll city the match gives the same one-person fingerprint as typing the
+   registration number, so one registration still backs only one voter code. In a
+   photo-ID city it only confirms the person is registered at an address in the city.
+
+Limits: a roll lookup checks that the details exist in the roll, not that the person in
+front of the clerk is that voter. That is the clerk's in-person check (signature, a
+document, questions), as at a polling place. Voter rolls are public records in many
+states, which is why lookups are only open to approved clerk desks, rate-limited and logged.
+
 ## At the desk
 
 1. **Open the desk** once per shift. The clerk's account signs a short message (silent with

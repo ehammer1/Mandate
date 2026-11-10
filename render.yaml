@@ -47,6 +47,10 @@ services:
         sync: false
       - key: EMAIL_FROM            # sender address, e.g. "Mandate <signup@yourdomain.org>"
         sync: false
+      - key: ROLL_URL
+        sync: false          # optional: the city's voter-roll file (scripts/roll-import.js), fingerprints only
+      - key: ROLL_KEY
+        sync: false          # optional: the secret that roll file was made with
       - key: GOOGLE_CLIENT_ID
         sync: false
       - key: GOOGLE_CLIENT_SECRET

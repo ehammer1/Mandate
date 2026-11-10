@@ -38,6 +38,7 @@ const { ethers } = require('ethers');
 const client = require('openid-client');
 const { Identity } = require('@semaphore-protocol/identity');
 const { canonicalDoc, clerkSessionMessage, CLERK_SESSION_MAX_MS, kindsFor } = require('../../client/clerk.js');
+const { lookUp } = require('../../client/roll.js');
 
 const TTL_MS = 10 * 60 * 1000;
 const MAX_BODY = 64 * 1024;
@@ -118,6 +119,8 @@ async function appleClientSecret(apple, clientId) {
  * @param {object} [o.emailSender]           senders.js sender; enables email sign-up with one-time codes
  * @param {number} [o.rateLimitPerMin]       requests per IP per minute (default 20)
  * @param {number} [o.emailCodesPerIpHour]   sign-up codes per IP per hour (default 10)
+ * @param {() => object} [o.roll]           the voter roll file (scripts/roll-import.js), or null
+ * @param {string} [o.rollKey]               the key its fingerprints were made with (ROLL_KEY)
  * @param {() => string} [o.clerkAnchor]     the city's one-person-one-code anchor for clerk desks: 'id' (default) or 'roll'
  * @param {boolean} [o.allowInsecure]        http providers (tests only)
  */
@@ -358,7 +361,8 @@ function createIdentityService(o) {
   // accounts that are active clerks (issuers allowed to verify) on the registry may ask.
   const clerkHits = new Map(); // clerk address -> [timestamps]
 
-  async function clerkDocHash(body) {
+  /** The approved clerk behind a desk session, or [status, error]. */
+  async function clerkFrom(body) {
     const sess = body.session || {};
     const expires = Number(sess.expires);
     if (!ethers.isAddress(sess.address) || !Number.isFinite(expires)) return [400, { error: 'Open the clerk desk again.' }];
@@ -376,6 +380,13 @@ function createIdentityService(o) {
     const recent = recentCount(clerkHits, signer, 3600_000);
     if (recent.length >= (o.clerkLookupsPerHour ?? 120)) return [429, { error: 'Too many ID checks this hour from this desk. Please wait a few minutes.' }];
     recent.push(Date.now());
+    return { signer };
+  }
+
+  async function clerkDocHash(body) {
+    const who = await clerkFrom(body);
+    if (Array.isArray(who)) return who;
+    const { signer } = who;
 
     const anchor = (o.clerkAnchor && o.clerkAnchor()) || 'id';
     if (!kindsFor(anchor).includes(body.doc?.kind)) {
@@ -391,6 +402,27 @@ function createIdentityService(o) {
     const usedBy = await registry.commitmentOfDoc(docHash);
     log(`document fingerprint for clerk ${signer}`);
     return [200, { docHash, alreadyUsed: usedBy !== 0n }];
+  }
+
+  // POST /clerk/roll-match { session, person: { first, last, dob, house, zip } }
+  //   -> { matched, ambiguous?, matchedOn?, registrationEnds?, docHash?, alreadyUsed? }
+  // Finds the person in the city's voter roll (keyed fingerprints only). In a voter-roll
+  // city the match also gives the one-person fingerprint for enrolling them.
+  async function clerkRollMatch(body) {
+    const who = await clerkFrom(body);
+    if (Array.isArray(who)) return who;
+    const roll = o.roll && o.roll();
+    if (!roll || !o.rollKey) return [503, { error: 'No voter roll is loaded on this service yet.' }];
+    const r = lookUp(roll, o.rollKey, body.person || {});
+    log(`roll lookup for clerk ${who.signer}: ${r.matched ? 'matched' : r.ambiguous ? 'ambiguous' : r.incomplete ? 'incomplete' : 'no match'}`);
+    if (r.incomplete) return [400, { error: 'Enter at least the surname, date of birth and ZIP code, plus the first name or house number.' }];
+    if (!r.matched) return [200, { matched: false, ambiguous: !!r.ambiguous }];
+    const out = { matched: true, matchedOn: r.matchedOn, registrationEnds: String(r.registration).slice(-3) };
+    if (((o.clerkAnchor && o.clerkAnchor()) || 'id') === 'roll') {
+      out.docHash = hmac(canonicalDoc({ kind: 'roll', region: roll.state, number: r.registration }));
+      out.alreadyUsed = (await registry.commitmentOfDoc(out.docHash)) !== 0n;
+    }
+    return [200, out];
   }
 
   async function emailStart(body, ip) {
@@ -485,6 +517,12 @@ function createIdentityService(o) {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         return res.end('{"ok":true}');
       }
+      if (url.pathname === '/roll') {
+        // Public: which roll snapshot is in use (no records), so anyone can audit it.
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-store' });
+        const roll = o.roll && o.roll();
+        return res.end(JSON.stringify(roll ? { loaded: true, state: roll.state, records: roll.records, createdAt: roll.createdAt, digest: roll.digest } : { loaded: false }));
+      }
       if (url.pathname === '/providers') {
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-store' });
         const list = [...providers.values()].map((p) => ({ id: p.id, name: p.name, tier: p.tier }));
@@ -512,7 +550,7 @@ function createIdentityService(o) {
         } catch {
           return json(400, { error: 'Invalid request.' });
         }
-        const route = { '/email/start': () => emailStart(body, ip), '/email/verify': () => emailVerify(body), '/clerk/doc-hash': () => clerkDocHash(body) }[url.pathname];
+        const route = { '/email/start': () => emailStart(body, ip), '/email/verify': () => emailVerify(body), '/clerk/doc-hash': () => clerkDocHash(body), '/clerk/roll-match': () => clerkRollMatch(body) }[url.pathname];
         const [status, out] = route ? await route() : [404, { error: 'Not found' }];
         return json(status, out);
       }
@@ -549,6 +587,17 @@ if (require.main === module) {
       }
     }
     if (!ethers.isAddress(identityAddress)) throw new Error('set IDENTITY_ADDRESS or CONFIG_URL');
+    // The voter roll (keyed fingerprints from scripts/roll-import.js), re-read hourly.
+    let roll = null;
+    const rollUrl = clean(process.env.ROLL_URL);
+    if (rollUrl) {
+      const loadRoll = async () => {
+        roll = await (await fetch(`${rollUrl}${rollUrl.includes('?') ? '&' : '?'}t=${Date.now()}`, { cache: 'no-store' })).json();
+        console.log(`[identity] voter roll loaded: ${roll.records} records (${roll.state}), digest ${roll.digest}`);
+      };
+      await loadRoll().catch((e) => console.error(`[identity] could not load the voter roll: ${e.message}`));
+      setInterval(() => loadRoll().catch(() => {}), 3600_000).unref();
+    }
     const provider = new ethers.JsonRpcProvider(rpcUrl);
     // ISSUER_SEED lets a host generate the secret itself (e.g. Render's generateValue): the key is
     // derived from it, so no private key is ever copied by hand. ISSUER_PRIVATE_KEY also works.
@@ -571,6 +620,8 @@ if (require.main === module) {
       emailPolicy: createEmailPolicy({ allow: process.env.EMAIL_DOMAINS_ALLOW, block: process.env.EMAIL_DOMAINS_BLOCK }),
       emailSender: senderFromEnv(),
       clerkAnchor: () => anchor,
+      roll: () => roll,
+      rollKey: clean(process.env.ROLL_KEY) || undefined,
     });
     const port = Number(process.env.PORT || 8790);
     server.listen(port, () => console.log(`[identity] listening on :${port}; issuer ${signer.address}; providers: ${[...providers.map((p) => `${p.name}(${p.tier ? 'verified' : 'basic'})`), ...(process.env.EMAIL_PROVIDER ? [`Email via ${process.env.EMAIL_PROVIDER}(basic)`] : [])].join(', ')}`));

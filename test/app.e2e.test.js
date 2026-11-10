@@ -28,6 +28,12 @@ const { voterCodeQr, parseVoterCode } = require('../client/clerk');
 
 // A person at the clerk desk whose phone shows their voter-code QR to the desk's camera.
 const scanned = new Identity('scanned-at-the-desk');
+// A made-up voter roll for the desk's roll lookups.
+const ROLL_KEY = 'r'.repeat(48);
+const appRoll = require('../scripts/roll-import').buildRoll(
+  ['VOTER_ID,FIRST_NAME,LAST_NAME,BIRTH_DATE,RES_ADDRESS,ZIP_CODE', 'OR2001,Maria,Okafor-Brown,1975-06-30,"88 River Rd",97205', 'OR2002,Sam,Lee,1990-02-14,12 Oak Ave,97206'].join('\n'),
+  { key: ROLL_KEY, state: 'OR' },
+);
 
 /** A fake camera feed (Y4M video) showing a QR code, for Chromium's fake capture device. */
 function qrVideo(text) {
@@ -105,6 +111,8 @@ before(async () => {
     emailPolicy: createEmailPolicy({ allow: 'reputable' }),
     allowInsecure: true,
     clerkAnchor: () => appOpts.config.clerkAnchor || 'id',
+    roll: () => appRoll,
+    rollKey: ROLL_KEY,
     log: () => {},
   });
   await new Promise((r) => idService.listen(idPort, '127.0.0.1', r));
@@ -824,4 +832,55 @@ test('rules: the community changes its own voting rules by vote, within the char
   await page.click('#nav-rules');
   await page.waitForSelector('#rules-list >> text=1.5×');
   await shot('12-rules');
+});
+
+test('voter-roll lookup at the desk: found by name, birth date and address, enrolled without typing a registration number', async () => {
+  appConfig.clerkAnchor = 'roll';
+  await page.reload();
+  await page.click('#btn-device');
+  await page.waitForSelector('#screen-home:not([hidden])');
+  await page.waitForSelector('#nav-clerk:not([hidden])');
+  await page.click('#nav-clerk');
+  await page.click('#btn-clerk-open');
+  await page.waitForSelector('#clerk-steps:not([hidden])');
+  const maria = new Identity('maria-at-the-desk');
+  await page.fill('#clerk-code', maria.commitment.toString());
+  await page.click('#btn-clerk-lookup');
+  await page.waitForSelector('#clerk-person >> text=Not on the voter list yet');
+  await page.waitForSelector('#clerk-roll:not([hidden])');
+  assert.match(await page.textContent('#clerk-roll-intro'), /OR voter roll \(2 records\)\. A match is all you need/);
+
+  // Not found first (wrong ZIP), then found with a nickname-free first name and half of the double surname.
+  await page.fill('#clerk-roll-first', 'Maria');
+  await page.fill('#clerk-roll-last', 'Brown');
+  await page.fill('#clerk-roll-dob', '1975-06-30');
+  await page.fill('#clerk-roll-house', '88');
+  await page.fill('#clerk-roll-zip', '97999');
+  await page.click('#btn-clerk-roll');
+  await page.waitForSelector('#clerk-roll-status >> text=Not found in the voter roll');
+  await page.fill('#clerk-roll-zip', '97205');
+  await page.click('#btn-clerk-roll');
+  await page.waitForSelector('#clerk-roll-status >> text=registration ending 001');
+  assert.equal(await page.isVisible('#clerk-manual'), false); // nothing to type
+  assert.equal(await page.inputValue('#clerk-roll-last'), ''); // details wiped once matched
+  assert.equal(await page.inputValue('#clerk-residence'), 'roll');
+  await page.fill('#clerk-since', '2001-09');
+  await page.click('#btn-clerk-submit');
+  await page.waitForFunction(() => /Done: enrolled/.test(document.querySelector('#clerk-result').textContent), null, { timeout: 60_000 });
+  assert.equal((await c.identity.members(maria.commitment)).tier, 2n);
+
+  // The same registration can't back a second code, however it is entered.
+  await page.click('#btn-clerk-next');
+  const again = new Identity('maria-second-phone');
+  await page.fill('#clerk-code', again.commitment.toString());
+  await page.click('#btn-clerk-lookup');
+  await page.waitForSelector('#clerk-person >> text=Not on the voter list yet');
+  await page.fill('#clerk-roll-first', 'Maria');
+  await page.fill('#clerk-roll-last', 'Okafor-Brown');
+  await page.fill('#clerk-roll-dob', '1975-06-30');
+  await page.fill('#clerk-roll-zip', '97205');
+  await page.click('#btn-clerk-roll');
+  await page.waitForSelector('#clerk-roll-status >> text=already linked to another voter code');
+  await shot('13-roll-lookup');
+  delete appConfig.clerkAnchor;
 });

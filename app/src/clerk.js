@@ -43,6 +43,7 @@ const FRIENDLY = {
   IssuerInactive: 'This desk account is not an approved clerk. Ask an admin.',
 };
 const IDLE_CLEAR_MS = 2 * 60 * 1000;
+const ROLL_FIELDS = ['clerk-roll-first', 'clerk-roll-last', 'clerk-roll-dob', 'clerk-roll-house', 'clerk-roll-zip'];
 const SESSION_MS = 8 * 3600 * 1000;
 
 /**
@@ -96,6 +97,17 @@ export function wireClerk(ctx) {
     $('clerk-who').innerHTML = ok
       ? `<p class="big">${esc(iss.name || 'Clerk desk')}</p><p class="muted">Gives full voting rights after an in-person ID check.</p>`
       : `<p class="big">Not an approved clerk</p><p class="muted">An admin can approve this account under Admin → Give someone a role → Clerk.</p>`;
+    // Is a voter roll loaded on the identity service? Then the desk can look people up in it.
+    state.rollInfo = null;
+    try {
+      state.rollInfo = await (await fetch(new URL('roll', state.config.identityService.replace(/\/?$/, '/')))).json();
+    } catch {
+      /* no roll lookups */
+    }
+    $('clerk-roll').hidden = !state.rollInfo?.loaded;
+    $('clerk-roll-intro').textContent = state.rollInfo?.loaded
+      ? `Look them up in the ${state.rollInfo.state} voter roll (${Number(state.rollInfo.records).toLocaleString()} records). ${(state.config.clerkAnchor || 'id') === 'roll' ? 'A match is all you need: no registration number to type.' : 'A match confirms they are registered at an address in the city.'}`
+      : '';
     const live = ok && state.clerkSession && state.clerkSession.address === address && state.clerkSession.expires > Date.now() + 60_000;
     $('clerk-open').hidden = !ok || live;
     $('clerk-steps').hidden = !live;
@@ -124,7 +136,9 @@ export function wireClerk(ctx) {
     clearTimeout(idle);
     stopScan();
     person = null;
-    for (const id of ['clerk-code', 'clerk-doc-region', 'clerk-doc-number', 'clerk-since']) $(id).value = '';
+    for (const id of ['clerk-code', 'clerk-doc-region', 'clerk-doc-number', 'clerk-since', ...ROLL_FIELDS]) $(id).value = '';
+    status($('clerk-roll-status'), '');
+    $('clerk-manual').hidden = false;
     setupKinds();
     $('clerk-doc-kind').onchange();
     $('clerk-residence').value = '';
@@ -229,6 +243,29 @@ export function wireClerk(ctx) {
 
   // --------------------------------------------------------------- step 2: the ID
 
+  async function checkRoll() {
+    const el = $('clerk-roll-status');
+    armIdleClear();
+    if (!person) return status(el, 'Scan or paste the voter code first.', 'error');
+    status(el, 'Checking the voter roll…');
+    const res = await fetch(new URL('clerk/roll-match', state.config.identityService.replace(/\/?$/, '/')), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ session: state.clerkSession, person: { first: $('clerk-roll-first').value, last: $('clerk-roll-last').value, dob: $('clerk-roll-dob').value, house: $('clerk-roll-house').value, zip: $('clerk-roll-zip').value } }),
+    });
+    const out = await res.json().catch(() => ({}));
+    person.roll = null;
+    if (!res.ok) return status(el, out.error || `The identity service answered ${res.status}.`, 'error');
+    if (out.ambiguous) return status(el, 'More than one registration fits these details (for example relatives at one address). Check the roll by hand and type the registration number below.', 'warn');
+    if (!out.matched) return status(el, 'Not found in the voter roll. Check the spelling and ZIP, or ask whether they registered at another address. They can still join as a basic member online.', 'error');
+    if (out.alreadyUsed) return status(el, FRIENDLY.DocumentAlreadyUsed, 'error');
+    person.roll = out;
+    for (const id of ROLL_FIELDS) $(id).value = ''; // matched: the details have done their job
+    if ((state.config.clerkAnchor || 'id') === 'roll') $('clerk-manual').hidden = true;
+    if (!$('clerk-residence').value) $('clerk-residence').value = 'roll';
+    status(el, `Found in the voter roll: registration ending ${out.registrationEnds}, matched on ${out.matchedOn}.`, 'ok');
+  }
+
   async function submit() {
     const el = $('clerk-result');
     armIdleClear();
@@ -245,11 +282,15 @@ export function wireClerk(ctx) {
     btn.disabled = true;
     try {
       status(el, 'Checking the ID…');
-      const res = await fetch(new URL('clerk/doc-hash', state.config.identityService.replace(/\/?$/, '/')), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ session: state.clerkSession, doc: { kind: $('clerk-doc-kind').value, region: $('clerk-doc-region').value, number: $('clerk-doc-number').value } }),
-      });
+      // A voter-roll match already carries the one-person fingerprint; otherwise ask for the typed record.
+      const fromRoll = person.roll?.docHash ? { ok: true, json: async () => ({ docHash: person.roll.docHash }) } : null;
+      const res =
+        fromRoll ||
+        (await fetch(new URL('clerk/doc-hash', state.config.identityService.replace(/\/?$/, '/')), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ session: state.clerkSession, doc: { kind: $('clerk-doc-kind').value, region: $('clerk-doc-region').value, number: $('clerk-doc-number').value } }),
+        }));
       const out = await res.json().catch(() => ({}));
       if (!res.ok) {
         if (res.status === 401) {
@@ -301,6 +342,7 @@ export function wireClerk(ctx) {
   $('btn-clerk-scan').onclick = () => startScan().catch((e) => status($('clerk-lookup-status'), e.message, 'error'));
   $('btn-clerk-lookup').onclick = () => lookUp($('clerk-code').value).catch((e) => status($('clerk-lookup-status'), e.shortMessage || e.message, 'error'));
   $('btn-clerk-submit').onclick = submit;
+  $('btn-clerk-roll').onclick = () => checkRoll().catch((e) => status($('clerk-roll-status'), e.message, 'error'));
   $('btn-clerk-next').onclick = nextPerson;
   // Leaving the desk screen turns the camera off.
   for (const b of document.querySelectorAll('#nav button')) if (b.id !== 'nav-clerk') b.addEventListener('click', stopScan);

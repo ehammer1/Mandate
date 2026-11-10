@@ -20,6 +20,14 @@ const { createMockOidc } = require('./helpers/mock-oidc');
 const APP = 'http://localhost:9999/app/';
 let provider, c, idp, gov, msft, service, serviceUrl, issuerKey;
 let anchor = 'id';
+const ROLL_KEY = 'r'.repeat(48);
+const ROLL_CSV = [
+  'VOTER_ID,FIRST_NAME,LAST_NAME,BIRTH_DATE,RES_ADDRESS,ZIP_CODE',
+  'OR1001,Robert,García-López,04/12/1980,"123B Main St, Apt 4",97201',
+  'OR1002,Ana,Twin,2000-01-01,5 Elm St,97202',
+  'OR1003,Eva,Twin,2000-01-01,5 Elm St,97202',
+].join('\n');
+const testRoll = require('../scripts/roll-import').buildRoll(ROLL_CSV, { key: ROLL_KEY, state: 'OR' });
 const closers = [];
 
 const freePort = () => new Promise((r) => { const s = net.createServer().listen(0, '127.0.0.1', () => { const p = s.address().port; s.close(() => r(p)); }); });
@@ -56,6 +64,8 @@ before(async () => {
     rateLimitPerMin: 1000, // every test request comes from one address
     emailCodesPerIpHour: 1000,
     clerkAnchor: () => anchor,
+    roll: () => testRoll,
+    rollKey: ROLL_KEY,
     allowInsecure: true,
     log: () => {},
   });
@@ -330,4 +340,45 @@ test('clerk desk: the city picks one anchor, so nobody can enrol once by ID and 
   // A roll record and an ID with the same number never share a fingerprint.
   assert.notEqual(canonicalDoc(roll), canonicalDoc(id));
   anchor = 'id';
+});
+
+test('voter-roll check: clerks find people in the roll from name, birth date and address, without a readable copy', async () => {
+  const { clerkSessionMessage } = require('../client/clerk');
+  const admin = await provider.getSigner(0);
+  const desk = ethers.Wallet.createRandom();
+  await (await c.identity.connect(admin).setIssuer(desk.address, 1, true, 'Roll desk')).wait();
+  const expires = Date.now() + 3600_000;
+  const session = { address: desk.address, expires, signature: await desk.signMessage(clerkSessionMessage({ serviceUrl, address: desk.address, expires })) };
+  const post = (path, body, s = session) => fetch(`${serviceUrl}${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: new URL(APP).origin }, body: JSON.stringify({ session: s, ...body }) }).then(async (r) => ({ status: r.status, ...(await r.json()) }));
+  const match = (person) => post('/clerk/roll-match', { person });
+
+  // The published roll file has no names, dates or addresses; the service says which snapshot it uses.
+  assert.doesNotMatch(JSON.stringify(testRoll), /Robert|Garc|Main|1980|97201/i);
+  const info = await (await fetch(`${serviceUrl}/roll`)).json();
+  assert.deepEqual([info.loaded, info.state, info.records, info.digest], [true, 'OR', 3, testRoll.digest]);
+
+  anchor = 'roll';
+  // A nickname and half of a double surname still match (surname + birth date + house number + ZIP).
+  const bob = await match({ first: 'Bob', last: 'Lopez', dob: '1980-04-12', house: '123b', zip: '97201' });
+  assert.equal(bob.matched, true);
+  assert.equal(bob.registrationEnds, '001');
+  // The same fingerprint a clerk gets by typing the registration number by hand.
+  const manual = await post('/clerk/doc-hash', { doc: { kind: 'roll', region: 'OR', number: 'OR1001' } });
+  assert.equal(bob.docHash, manual.docHash);
+  assert.equal(bob.alreadyUsed, false);
+  // Twins at one address: a full first name tells them apart, a wrong one is flagged as ambiguous.
+  assert.equal((await match({ first: 'Eva', last: 'Twin', dob: '2000-01-01', house: '5', zip: '97202' })).registrationEnds, '003');
+  assert.equal((await match({ first: 'Evie', last: 'Twin', dob: '2000-01-01', house: '5', zip: '97202' })).ambiguous, true);
+  // Not in the roll, or not enough details to match safely.
+  assert.equal((await match({ first: 'Robert', last: 'Smith', dob: '1980-04-12', house: '123', zip: '97201' })).matched, false);
+  assert.equal((await match({ first: 'Robert', last: 'Lopez', dob: '', house: '', zip: '97201' })).status, 400);
+  // In a photo-ID city the roll only confirms registration: no enrolment fingerprint is handed out.
+  anchor = 'id';
+  const inIdCity = await match({ first: 'Robert', last: 'Garcia Lopez', dob: '04/12/1980', house: '', zip: '97201' });
+  assert.equal(inIdCity.matched, true);
+  assert.equal(inIdCity.docHash, undefined);
+  // Only approved clerks may look people up.
+  const stranger = ethers.Wallet.createRandom();
+  const s2 = { address: stranger.address, expires, signature: await stranger.signMessage(clerkSessionMessage({ serviceUrl, address: stranger.address, expires })) };
+  assert.equal((await post('/clerk/roll-match', { person: { first: 'Bob', last: 'Lopez', dob: '1980-04-12', house: '123b', zip: '97201' } }, s2)).status, 403);
 });

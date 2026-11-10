@@ -14,6 +14,7 @@
     "deploy": "node scripts/deploy.js",
     "test": "node scripts/compile.js && node scripts/build-app.js && node --test --test-force-exit test/contracts.test.js test/attestor.e2e.test.js test/identity-vote.e2e.test.js test/app.e2e.test.js test/identity-service.test.js test/watchdog.test.js test/backup-code.test.mjs test/council.test.js test/mandate-tools.test.js test/charter.test.js && python3 -m unittest discover -s test -p 'test_*.py'",
     "upload": "node broker/upload.js",
+    "roll:import": "node scripts/roll-import.js",
     "attestor": "node broker/attestor.js",
     "relayer": "node broker/relayer.js",
     "identity": "node services/identity/server.js",
