@@ -22,6 +22,11 @@
       "label": "Microsoft sign-in secret",
       "expires": "2028-11-08",
       "fix": "Entra admin center > App registrations > Mandate > Certificates & secrets > New client secret, then paste its Value into MICROSOFT_CLIENT_SECRET on Render"
+    },
+    {
+      "label": "Watchdog GitHub token (Render)",
+      "expires": "2026-12-31",
+      "fix": "GitHub (ehammer1) > Settings > Developer settings > Fine-grained tokens > regenerate the watchdog token (only ehammer1/Mandate, Contents read and write), then paste it into GITHUB_TOKEN on Render's mandate-watchdog"
     }
   ]
 }
