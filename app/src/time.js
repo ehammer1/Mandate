@@ -18,6 +18,14 @@ function span(secs) {
 // Seconds the blockchain's clock is ahead of this device's (block times are what the contracts use).
 let offset = 0;
 const nowSecs = () => Date.now() / 1000 + offset;
+/** Seconds the chain's clock is ahead of this device. */
+export const clockOffset = () => offset;
+/** Colour a countdown by how close it is: under a day "soon", under an hour "urgent". */
+function mark(el, at, now) {
+  const left = Number(at) - now;
+  el.classList.toggle('urgent', left > 0 && left < 3600);
+  el.classList.toggle('soon', left >= 3600 && left < 86_400);
+}
 
 /** "in 2d 3h 05m" before the moment, "4m 10s ago" after it. */
 export function relative(at, now = nowSecs()) {
@@ -45,6 +53,9 @@ export function startTicker(provider) {
   if (timer) return;
   timer = setInterval(() => {
     const now = nowSecs();
-    for (const el of document.querySelectorAll('[data-countdown]')) el.textContent = `${el.dataset.prefix || ''}${relative(el.dataset.countdown, now)}`;
+    for (const el of document.querySelectorAll('[data-countdown]')) {
+      el.textContent = `${el.dataset.prefix || ''}${relative(el.dataset.countdown, now)}`;
+      mark(el, el.dataset.countdown, now);
+    }
   }, 1000);
 }

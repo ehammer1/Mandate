@@ -1052,6 +1052,22 @@ test('most requested petitions are ranked, and times count down live', async () 
   assert.deepEqual([...levels].sort((a, b) => rank[a] - rank[b]), levels, 'more urgent items come first');
   await page.waitForSelector('#attention-filters button[data-cat="all"][aria-pressed="true"]');
 
+  // Countdown alerts: follow an item, put it on the calendar with alerts, and get an alert in the app.
+  await page.click('#attention li:first-child [data-follow]');
+  await page.waitForSelector('#attention li:first-child [data-follow][aria-pressed="true"]');
+  const href = await page.getAttribute('#attention li:first-child a[download]', 'href');
+  const ics = decodeURIComponent(href.replace(/^data:text\/calendar;charset=utf-8,/, ''));
+  assert.match(ics, /TRIGGER;RELATED=END:-P1D[\s\S]*TRIGGER;RELATED=END:-PT8H[\s\S]*TRIGGER;RELATED=END:-PT1H/);
+  await page.click('#attention-card details:has(#reminder-settings) summary');
+  await page.click('#reminder-settings [data-off="604800"]'); // add "1 week before"
+  await page.waitForSelector('#reminder-settings [data-off="604800"][aria-pressed="true"]');
+  await page.selectOption('#remind-scope', 'all');
+  await page.click('#btn-refresh');
+  await page.waitForSelector('#toasts .toast', { timeout: 60_000 });
+  assert.match(await page.textContent('#toasts .toast'), /left: /);
+  await shot('18-attention');
+  for (const b of await page.$$('#toasts .toast button')) await b.click();
+
   const dash = await browser.newPage({ viewport: { width: 390, height: 844 } });
   const errors = [];
   dash.on('pageerror', (e) => errors.push(e.message));
@@ -1077,6 +1093,23 @@ test('government bodies: set up from a template, public agenda with notice, roll
   await page.waitForSelector('#nav-admin:not([hidden])', { timeout: 60_000 });
   await page.click('#nav-admin');
   await page.waitForSelector('#admin-bodies:not([hidden])', { timeout: 60_000 });
+
+  // A whole organization from a template: a state gets a House and a Senate, in that order.
+  await page.click('#org-setup summary');
+  await page.selectOption('#org-type', 'state');
+  await page.fill('#org-name', 'Example State');
+  const plan = await page.textContent('#org-bodies');
+  assert.match(plan, /Example State House of Representatives[\s\S]*Then: Example State Senate[\s\S]*Example State Senate[\s\S]*Governor's account/);
+  assert.match(await page.textContent('#org-rules'), /Signatures that force a vote/);
+  const before = await c.bodies.bodyCount();
+  await page.click('#btn-org-create');
+  await page.waitForFunction((q) => /Created|failed/.test(document.querySelector(q).textContent), '#org-status', { timeout: 120_000 });
+  assert.match(await page.textContent('#org-status'), /Created Example State House of Representatives, Example State Senate/);
+  assert.equal(await c.bodies.bodyCount(), before + 2n);
+  const senateId = before + 2n;
+  const [senate] = await c.bodies.getBody(senateId);
+  assert.deepEqual([senate.name, Number(senate.seats), senate.passOfSeats], ['Example State Senate', 40, true]);
+
   await page.selectOption('#body-template', 'city');
   assert.equal(await page.inputValue('#body-seats'), '7');
   await page.fill('#body-name', 'Example City Council');
@@ -1133,12 +1166,24 @@ test('government bodies: set up from a template, public agenda with notice, roll
   await page.waitForSelector(`#motion-${motionId} >> text=Adopted`, { timeout: 60_000 });
   assert.match(await page.textContent(`#motion-${motionId}`), /Long overdue/);
 
+  // An adopted item goes on to the next body, with a link back.
+  await (await c.bodies.seat(senateId, auto, 'Seat 1')).wait();
+  await page.click('#nav-bodies');
+  await page.waitForSelector(`#motion-${motionId} [data-forward]`, { state: 'attached', timeout: 60_000 });
+  await page.click(`#motion-${motionId} details:has([data-forward]) summary`);
+  await page.selectOption(`#motion-${motionId} [data-f="target"]`, String(senateId));
+  await page.click(`#motion-${motionId} [data-forward]`);
+  const next = motionId + 1n;
+  await page.waitForSelector(`#motion-${next} >> text=Comes from Example City Council, which adopted it 2–0`, { timeout: 60_000 });
+  assert.equal((await c.bodies.getMotion(next)).m.bodyId, senateId);
+
   const dash = await browser.newPage({ viewport: { width: 390, height: 844 } });
   const errors = [];
   dash.on('pageerror', (e) => errors.push(e.message));
   await dash.goto(`${appUrl}dashboard.html`);
   await dash.waitForSelector('#bodies >> text=Example City Council', { timeout: 60_000 });
   assert.match(await dash.textContent('#bodies'), /Repave Elm Street in 2027[\s\S]*2 Yes · 0 No/);
+  assert.match(await dash.textContent('#bodies'), /Example State Senate/);
   assert.deepEqual(errors, []);
   await dash.close();
   await shot('17-bodies');

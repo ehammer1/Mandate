@@ -94,6 +94,7 @@
         <p class="note">Everything open, ranked by how soon it closes and how much it can change.</p>
         <div class="filters" id="attention-filters" role="group" aria-label="Show topic"></div>
         <div id="attention"><p class="muted">Loading…</p></div>
+        <details><summary><strong>⏰ Reminders</strong></summary><div id="reminder-settings" class="stack"></div></details>
       </section>
       <div class="row"><h2 style="flex:1">Polls</h2><button id="btn-refresh">Refresh</button></div>
       <div id="poll-list"></div>
@@ -378,7 +379,18 @@
 
       <div class="card stack" id="admin-bodies" hidden>
         <h3>Government bodies and boards</h3>
-        <p class="note">Each body sets its own rules. Start from a template and change anything; later changes never affect items already on the agenda.</p>
+        <details class="card" id="org-setup"><summary><strong>Set up a whole organization</strong></summary>
+          <div class="stack">
+            <p class="note">Pick what kind of organization this is: it suggests the bodies it needs, how an item moves between them, who signs, and voting rules that suit it. Change anything before you create it.</p>
+            <label for="org-type">Kind of organization</label><select id="org-type"></select>
+            <p id="org-about" class="muted"></p>
+            <label for="org-name">Its name</label><input type="text" id="org-name" placeholder="e.g. Springfield" />
+            <div id="org-bodies" class="stack"></div>
+            <div id="org-rules"></div>
+            <button class="primary" id="btn-org-create">Create these bodies</button><p class="status" id="org-status" role="status"></p>
+          </div>
+        </details>
+        <p class="note">Or set up one body at a time. Each body sets its own rules; later changes never affect items already on the agenda.</p>
         <label for="body-edit">Body</label><select id="body-edit"><option value="0">A new body</option></select>
         <div id="body-template-row" class="stack"><label for="body-template">Start from</label><select id="body-template"></select></div>
         <label for="body-name">Name</label><input type="text" id="body-name" placeholder="e.g. Example City Council" />
@@ -475,6 +487,7 @@
       </div>
     </section>
   </main>
+  <div id="toasts" aria-live="assertive"></div>
   <footer style="text-align:center;margin:24px 16px;font-size:.85rem"><a href="dashboard.html">Live dashboard</a> · <a href="privacy.html">Privacy</a> · <a href="terms.html">Terms</a> · <a href="https://github.com/ehammer1/Mandate">Source code</a></footer>
 
   <script type="module" src="dist/main.js"></script>

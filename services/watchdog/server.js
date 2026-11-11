@@ -464,7 +464,7 @@ if (require.main === module) {
         const feeds = require('./feeds');
         const appUrl = env('APP_URL') || 'https://ehammer1.github.io/Mandate/';
         fs.writeFileSync(path.join(dir, 'feed.xml'), feeds.atom(dog.alerts, { appUrl, explorer: cfg.explorer }));
-        fs.writeFileSync(path.join(dir, 'calendar.ics'), feeds.calendar(await feeds.deadlines(cfg, provider, require('../explainer/source').readDoc), { appUrl }));
+        fs.writeFileSync(path.join(dir, 'calendar.ics'), feeds.calendar(await feeds.deadlines(cfg, provider, require('../explainer/source').readDoc), { appUrl, alarms: (process.env.ALARM_HOURS || '24,8,1').split(',').map((h) => Math.round(Number(h) * 3600)).filter((s) => s > 0) }));
       } catch (e) {
         console.error(`[watchdog] feeds skipped: ${e.message}`);
       }

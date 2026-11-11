@@ -10,6 +10,7 @@ import { ethers } from 'ethers';
 import { readDoc } from './notices.js';
 import { countdown } from './time.js';
 import { BODIES_ABI as BODIES } from './bodies.js';
+import { isFollowed, icsHref } from './reminders.js';
 
 export const CATEGORIES = [
   ['general', 'General'],
@@ -223,13 +224,15 @@ export async function collectAttention(cfg, provider, opts = {}) {
 }
 
 /** The ranked list as HTML, with a category filter. */
+const plain = (html) => String(html).replace(/<[^>]*>/g, '');
 export function attentionHtml(items, esc, { category = 'all', limit = 12, base = '' } = {}) {
   const shown = items.filter((i) => category === 'all' || i.category === category).slice(0, limit);
   if (!shown.length) return '<p class="muted">Nothing needs attention right now.</p>';
   return `<ol class="attention">${shown
     .map((i) => `<li class="attn ${i.level}"><p class="eyebrow"><span class="lvl">${LEVEL_LABEL[i.level]}</span> · ${esc(categoryLabel(i.category))}</p>
       <p><strong>${i.href ? `<a href="${esc(base + i.href)}" data-attn="${esc(i.kind)}:${i.id}">${esc(i.title)}</a>` : esc(i.title)}</strong></p>
-      <p class="meta">${i.what}</p></li>`)
+      <p class="meta">${i.what}</p>
+      <p class="row attn-tools"><button data-follow="${esc(i.kind)}:${i.id}" aria-pressed="${isFollowed(i)}">${isFollowed(i) ? '🔔 Following' : '🔔 Follow'}</button><a download="mandate-${esc(i.kind)}-${i.id}.ics" href="${icsHref({ ...i, plain: plain(i.what) })}">📅 Add to calendar</a></p></li>`)
     .join('')}</ol>`;
 }
 

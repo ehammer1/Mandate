@@ -204,7 +204,12 @@ test('public feeds: an Atom news feed and a calendar of deadlines', async () => 
   assert.match(cal, /^BEGIN:VCALENDAR\r\n/);
   assert.match(cal, /DTEND:20270115T080000Z/);
   assert.match(cal, /SUMMARY:Poll 1 closes: Fix the crossing\\, now/);
-  assert.match(cal, /TRIGGER:-PT24H/); // a reminder a day before
+  // Alerts 1 day, 8 hours and 1 hour before the deadline itself (not before the event's start).
+  assert.match(cal, /TRIGGER;RELATED=END:-P1D/);
+  assert.match(cal, /TRIGGER;RELATED=END:-PT8H/);
+  assert.match(cal, /TRIGGER;RELATED=END:-PT1H/);
+  assert.match(cal, /DESCRIPTION:8 hours left: Poll 1 closes/);
+  assert.equal(feeds.calendar([{ uid: 'x', at: 1_800_000_000, title: 't', body: 'b' }], { appUrl: 'https://e/', alarms: [900] }).match(/BEGIN:VALARM/g).length, 1);
   assert.ok(cal.split('\r\n').every((l) => l.length <= 75));
   // Deadlines come from the contracts.
   const { deployAll } = require('../scripts/deploy');

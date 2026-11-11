@@ -26,7 +26,8 @@ import { renderExplainer } from './explain.js';
 import { informedHtml } from './informed.js';
 import { wireOfficials } from './officials.js';
 import { wireBodies } from './bodies.js';
-import { countdown, startTicker } from './time.js';
+import { countdown, startTicker, clockOffset } from './time.js';
+import { trackItems, toggleFollow, wireSettings } from './reminders.js';
 import { collectAttention, attentionHtml, categoryFilterHtml, categoryChip, categoryOf } from './priority.js';
 
 const VOTE_ABI = [
@@ -75,6 +76,7 @@ async function loadConfig() {
   state.config = cfg;
   state.provider = new ethers.JsonRpcProvider(cfg.rpcUrl, undefined, { staticNetwork: true, cacheTimeout: -1 });
   startTicker(state.provider);
+  wireSettings($('reminder-settings'));
   state.vote = new ethers.Contract(cfg.voteAddress, VOTE_ABI, state.provider);
   state.registry = new ethers.Contract(cfg.identityAddress, IDENTITY_ABI, state.provider);
 }
@@ -616,6 +618,7 @@ async function refreshAttention() {
   try {
     const voted = async (id) => (state.identity ? state.vote.nullifierUsed(id, await nullifierFor(await state.vote.scopeOf(id))) : false);
     state.attention = await collectAttention(state.config, state.provider, { voted });
+    trackItems(state.attention, clockOffset());
   } catch (e) {
     box.innerHTML = `<p class="muted">Could not load: ${esc(e.shortMessage || e.message)}</p>`;
     return;
@@ -625,6 +628,7 @@ async function refreshAttention() {
     box.innerHTML = attentionHtml(state.attention, esc, { category: attentionCat });
     for (const b of $('attention-filters').querySelectorAll('[data-cat]')) b.onclick = () => { attentionCat = b.dataset.cat; draw(); };
     for (const a of box.querySelectorAll('a[data-attn]')) a.onclick = (ev) => { ev.preventDefault(); goTo(a.dataset.attn); };
+    for (const b of box.querySelectorAll('[data-follow]')) b.onclick = () => { toggleFollow(state.attention.find((i) => `${i.kind}:${i.id}` === b.dataset.follow)); draw(); };
   };
   draw();
 }

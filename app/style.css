@@ -43,7 +43,7 @@ nav button { min-height: 40px; padding: 6px 12px; font-size: 15px; }
 .choices { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin: 12px 0 4px; }
 .choice { font-weight: 600; }
 .choice.picked { background: var(--accent-soft); border-color: var(--accent); }
-select { width: 100%; max-width: 100%; min-width: 0; text-overflow: ellipsis; }
+select { width: 100%; max-width: 100%; min-width: 0; text-overflow: ellipsis; font: inherit; min-height: 48px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); }
 .stack > * { min-width: 0; max-width: 100%; }
 input[type=text], input[type=email], textarea { font: inherit; width: 100%; min-height: 48px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); }
 .code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 15px; word-break: break-all; background: var(--bg); border: 1px dashed var(--line); border-radius: 10px; padding: 12px; margin: 8px 0; }
@@ -89,3 +89,11 @@ ul.rules { list-style: none; padding: 0; margin: 0; } ul.rules li { padding: 10p
 table.data tr.against td { background: color-mix(in srgb, var(--warn) 12%, transparent); }
 table.data { width: 100%; border-collapse: collapse; font-size: 14px; }
 table.data th, table.data td { text-align: left; padding: 6px 4px; border-top: 1px solid var(--line); vertical-align: top; }
+#toasts { position: fixed; left: 12px; right: 12px; bottom: 12px; display: flex; flex-direction: column; gap: 8px; z-index: 50; pointer-events: none; }
+.toast { pointer-events: auto; background: var(--panel); border: 2px solid var(--warn); border-radius: var(--radius); padding: 12px 14px; display: flex; gap: 12px; align-items: center; justify-content: space-between; box-shadow: 0 6px 24px rgb(0 0 0 / 20%); font-weight: 600; }
+.toast button { min-height: 40px; }
+.countdown.soon { color: var(--warn); font-weight: 600; }
+.countdown.urgent { color: var(--error); font-weight: 700; }
+.attn-tools { gap: 12px; margin: 6px 0 0; font-size: 14px; }
+.attn-tools button { min-height: 36px; padding: 4px 12px; font-size: 14px; }
+.attn-tools button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); }

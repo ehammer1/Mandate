@@ -14,6 +14,7 @@ import { ethers } from 'ethers';
 import { countdown } from './time.js';
 import { readDoc, postDoc } from './notices.js';
 import { categoryChip, categoryFromHash, categoryOptions } from './priority.js';
+import { ORG_TEMPLATES, RULE_WORDS } from './org-templates.js';
 
 const RULES = 'tuple(string name, string kind, uint32 seats, uint16 quorumPct, uint16 passPct, bool passOfSeats, uint16 overridePct, uint32 noticeMinutes, uint32 voteMinutes, uint32 executiveMinutes, address executive, bool silenceApproves, uint8 residentTier, bool explainDissent, bool reasonsRequired, address clerk, bool active)';
 const MOTION = 'tuple(uint256 bodyId, string ref, bytes32 category, address proposer, uint64 noticeAt, uint64 opensAt, uint64 closesAt, uint256 residentPoll, uint8 stage, uint64 executiveBy, uint64 overrideBy, uint32 version, uint32 electorate, bool overridden, string executiveRef)';
@@ -148,6 +149,7 @@ async function motionHtml(cfg, provider, g, id, esc, names, now) {
     m, st, r, counts, who, choice, overrideChoice, doc,
     html: `<p class="eyebrow">Motion ${id} · <strong>${STAGES[st]}</strong> · ${clock}</p>
       <h3>${esc(doc.title)} ${categoryChip(categoryFromHash(m.category), esc)}</h3>${doc.body ? `<p>${esc(doc.body)}</p>` : ''}
+      ${doc.from && Number(doc.from.motion) ? `<p class="note">Comes from ${esc(String(doc.from.body || 'another body'))}, which adopted it ${Number(doc.from.yes)}–${Number(doc.from.no)} (motion ${Number(doc.from.motion)}).</p>` : ''}
       ${resLine}
       <p><strong>Members:</strong> ${counts[0]} Yes · ${counts[1]} No · ${counts[2]} Abstain · ${total} of ${m.electorate} voted${st === 7 || Number(counts[3]) + Number(counts[4]) ? ` · override ${counts[3]} Yes · ${counts[4]} No` : ''}${m.overridden ? ' · <strong>veto overridden</strong>' : ''}</p>
       ${m.executiveRef ? `<p class="muted">Executive's message: ${esc((await readDoc(cfg, provider, m.executiveRef)).body || m.executiveRef)}</p>` : ''}
@@ -202,15 +204,18 @@ export function wireBodies(ctx) {
       (motionsOf[m.bodyId] ||= []).push(id);
     }
     const cards = [];
+    const all = [];
+    for (let b = 1; b <= Number(n); b++) all.push({ id: b, body: await g.getBody(b) });
+    const others = all.filter(({ body: [r, , mem] }) => r.active && (mem.some((a) => a.toLowerCase() === account) || (account && r.clerk.toLowerCase() === account))).map(({ id, body: [r] }) => ({ id, name: r.name }));
     for (let b = 1; b <= Number(n); b++) {
-      const [r, , members] = await g.getBody(b);
+      const [r, , members] = all[b - 1].body;
       const seats = await Promise.all(members.map((a) => g.seatOf(b, a)));
       const mine = members.some((a) => a.toLowerCase() === account);
       const clerk = r.clerk.toLowerCase() === account && account;
       const items = [];
       for (const id of motionsOf[b] || []) {
         const x = await motionHtml(state.config, state.provider, g, id, esc, names, now);
-        items.push(`<article class="card stack motion" id="motion-${id}">${x.html}${actions(id, x, now, account, members, seats)}<p class="status" role="status"></p></article>`);
+        items.push(`<article class="card stack motion" id="motion-${id}">${x.html}${actions(id, x, now, account, members, seats, others)}<p class="status" role="status"></p></article>`);
       }
       cards.push(`<section class="card stack" id="body-${b}">
         <p class="eyebrow">${esc(r.kind || 'Body')}${r.active ? '' : ' · inactive'}</p><h2>${esc(r.name)}</h2>
@@ -229,7 +234,7 @@ export function wireBodies(ctx) {
   }
 
   /** Buttons for whoever may act on this motion now. */
-  function actions(id, x, now, account, members, seats) {
+  function actions(id, x, now, account, members, seats, others = []) {
     if (!account) return '';
     const { m, st, r, who, choice, overrideChoice } = x;
     const voted = new Map(who.map((a, i) => [a.toLowerCase(), [Number(choice[i]), Number(overrideChoice[i])]]));
@@ -250,6 +255,8 @@ export function wireBodies(ctx) {
     if (st === 7 && Number(m.overrideBy) > now) {
       if (isMember && !voted.get(account)?.[1]) out.push(`<div class="row">${reasonBox}</div><div class="row"><button data-override="${id}:1">Override the veto</button><button data-override="${id}:0">Keep the veto</button></div>`);
     }
+    const targets = others.filter((o) => o.id !== Number(m.bodyId));
+    if (st === 4 && targets.length) out.push(`<details><summary>Send it to the next body</summary><div class="stack"><p class="note">For example from a committee to the council, or from the House to the Senate. It goes on that body's agenda with a link back to this decision.</p><select data-f="target">${targets.map((o) => `<option value="${o.id}">${esc(o.name)}</option>`).join('')}</select><button data-forward="${id}">Put it on that agenda</button></div></details>`);
     const overrideDone = Number(x.counts[3]) + Number(x.counts[4]) >= Number(m.electorate);
     if ((st === 3 && Number(m.executiveBy) <= now) || (st === 7 && (Number(m.overrideBy) <= now || overrideDone))) out.push(`<button class="primary" data-settle="${id}">Close it</button>`);
     return out.join('');
@@ -283,6 +290,17 @@ export function wireBodies(ctx) {
       const text = field(b, 'exec');
       const ref = text ? await postDoc(state.config, ctx.activeSigner(), { title: `${sign ? 'Signed' : 'Vetoed'}: motion ${id}`, body: text }).catch(() => '') : '';
       after(await send(el, sign ? 'Sign' : 'Veto', (k) => k.act(id, !!sign, ref)));
+    };
+    for (const b of box.querySelectorAll('[data-forward]')) b.onclick = async () => {
+      const id = Number(b.dataset.forward);
+      const el = st(b);
+      const g = reg();
+      const [m, counts] = await g.getMotion(id);
+      const doc = await readDoc(state.config, state.provider, m.ref);
+      const [r] = await g.getBody(m.bodyId);
+      status(el, 'Publishing the item for the next body…');
+      const ref = await postDoc(state.config, ctx.activeSigner(), { title: doc.title, body: doc.body, category: doc.category, options: ['Yes', 'No'], from: { motion: id, body: r.name, yes: Number(counts[0]), no: Number(counts[1]) } }).catch((e) => status(el, e.message, 'error'));
+      if (ref) after(await send(el, 'Put on the next agenda', (k) => k.propose(Number(field(b, 'target')), ref, m.category)));
     };
     for (const b of box.querySelectorAll('[data-override]')) b.onclick = async () => {
       const [id, yes] = b.dataset.override.split(':').map(Number);
@@ -338,6 +356,74 @@ export function wireBodies(ctx) {
     $('body-edit').innerHTML = opts.join('');
     $('body-seat-body').innerHTML = opts.slice(1).join('') || '<option value="">No bodies yet</option>';
     if (keep) $('body-edit').value = keep;
+  }
+
+  // ----------------------------------------------------- whole organizations
+
+  function orgBodies() {
+    const t = ORG_TEMPLATES[$('org-type').value];
+    const org = $('org-name').value.trim() || 'Our';
+    return t.bodies.map((b, i) => ({ ...b, i, title: b.name.replace('{org}', org) }));
+  }
+  function drawOrg() {
+    const t = ORG_TEMPLATES[$('org-type').value];
+    $('org-about').textContent = `${t.about} Voters: ${t.who}.`;
+    const bodies = orgBodies();
+    $('org-bodies').innerHTML = bodies
+      .map((b) => `<div class="card stack" data-org-body="${b.i}">
+        <label class="row"><input type="checkbox" data-o="use" checked /> <strong>${esc(b.title)}</strong></label>
+        <div class="row"><label>Seats <input type="text" data-o="seats" value="${b.seats}" inputmode="numeric" style="width:80px" /></label></div>
+        ${b.executive ? `<label>${esc(b.executive)}'s account, who signs or vetoes (optional, 0x…) <input type="text" data-o="exec" autocomplete="off" spellcheck="false" /></label>` : ''}
+        ${b.then !== undefined ? `<p class="note">Then: <span data-then="${b.then}">${esc(bodies[b.then]?.title || '')}</span></p>` : ''}
+      </div>`)
+      .join('');
+    const rows = Object.entries(t.rules).map(([k, v]) => `<tr><td>${esc(RULE_WORDS[k]?.[0] || k)}</td><td>${esc(RULE_WORDS[k] ? RULE_WORDS[k][1](v) : String(v))}</td></tr>`);
+    $('org-rules').innerHTML = `<details><summary>Suggested voting rules for residents' votes</summary><table class="data"><tbody>${rows.join('')}</tbody></table>
+      <p class="note">The community's voting rules change only by public vote: open a rule-change poll for each one you want (Admin, Open a poll, "changes one of the community's voting rules").</p></details>`;
+  }
+  async function createOrg() {
+    const el = $('org-status');
+    if (!$('org-name').value.trim()) return status(el, 'Enter the organization\'s name.', 'error');
+    const chosen = [];
+    for (const b of orgBodies()) {
+      const box = $('org-bodies').querySelector(`[data-org-body="${b.i}"]`);
+      if (!box.querySelector('[data-o="use"]').checked) continue;
+      const exec = box.querySelector('[data-o="exec"]')?.value.trim() || '';
+      if (exec && !ethers.isAddress(exec)) return status(el, `Enter a valid account (0x…) for the ${b.executive}, or leave it empty.`, 'error');
+      const base = TEMPLATES[b.base];
+      const { label, ...baseRules } = base;
+      void label;
+      const executive = exec ? ethers.getAddress(exec) : ethers.ZeroAddress;
+      const r = { ...baseRules, ...Object.fromEntries(Object.entries(b).filter(([k]) => k in baseRules)) };
+      chosen.push({
+        title: b.title,
+        rules: {
+          ...r, name: b.title, kind: base.kind || b.base, seats: Number(box.querySelector('[data-o="seats"]').value) || b.seats,
+          executive, executiveMinutes: executive === ethers.ZeroAddress ? 0 : r.executiveMinutes || 10 * 1440, overridePct: executive === ethers.ZeroAddress ? 0 : r.overridePct,
+          explainDissent: r.explainDissent && r.residentTier !== 255, clerk: ethers.ZeroAddress, active: true,
+        },
+      });
+    }
+    if (!chosen.length) return status(el, 'Choose at least one body.', 'error');
+    for (const [i, c] of chosen.entries()) {
+      if (!(await send(el, `Create ${c.title} (${i + 1} of ${chosen.length})`, (k) => k.createBody(c.rules)))) return;
+    }
+    status(el, `Created ${chosen.map((c) => c.title).join(', ')}. Seat members below; then items can go on their agendas.`, 'ok');
+    await admin();
+  }
+
+  if ($('org-type')) {
+    $('org-type').innerHTML = Object.entries(ORG_TEMPLATES).map(([k, t]) => `<option value="${k}">${esc(t.label)}</option>`).join('');
+    $('org-type').onchange = drawOrg;
+    $('org-name').oninput = () => {
+      for (const b of orgBodies()) {
+        const strong = $('org-bodies').querySelector(`[data-org-body="${b.i}"] strong`);
+        if (strong) strong.textContent = b.title;
+        for (const t of $('org-bodies').querySelectorAll(`[data-then="${b.i}"]`)) t.textContent = b.title;
+      }
+    };
+    $('btn-org-create').onclick = () => createOrg();
+    drawOrg();
   }
 
   if ($('body-template')) {

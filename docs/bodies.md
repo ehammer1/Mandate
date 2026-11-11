@@ -48,6 +48,41 @@ legislature chamber, school board, committee or commission, nonprofit or company
 co-op, union or association board, neighborhood or HOA board, or a custom body. Every value
 can be changed.
 
+## Templates for whole organizations
+
+Admin, **Set up a whole organization**, creates every body an organization needs in one go,
+in the order an item moves through them, with suggested voting rules for residents' votes:
+
+| Organization | Bodies created (in order) | Signs or vetoes |
+| --- | --- | --- |
+| City or town | Planning Commission, then City Council | Mayor |
+| County | Planning Commission, then Board of Supervisors | none |
+| State or province | House, then Senate (passing measured against all members) | Governor |
+| Nation (federal) | House, then Senate | President |
+| Tribal nation | Tribal Council | Chair |
+| Special district or utility | Board of Directors (7 days' notice) | none |
+| School district | School Board | none |
+| University or college | Student Government and Faculty Senate, then Board of Trustees | President |
+| Hospital or health system | Community Advisory Council, then Board of Directors | none |
+| Nonprofit or charity | Finance Committee, then Board of Directors | none |
+| Company | Employee Council, then Board of Directors | CEO |
+| Cooperative | Board, members vote first | none |
+| Labor union | Executive Board, members vote first | President |
+| HOA or neighborhood | Board, households vote first | none |
+| Faith community | Council, congregation consulted | none |
+| Club or student group | Board, members vote first | none |
+| Professional association | Standards Committee, then Board | none |
+| Online community or DAO | Council, members vote first, dissent explained | none |
+
+Everything can be changed before creating, and later. Mandate counts one person, one vote, so
+share-weighted shareholder votes are not supported.
+
+## Passing an item to the next body
+
+When an item is adopted, a member or clerk of another body can put it on that body's agenda
+("Send it to the next body"): a committee to the council, or the House to the Senate. The new
+item links back: "Comes from the House, which adopted it 52–48."
+
 **Rule changes never move the goalposts.** Rules are versioned: an item already on the
 agenda keeps the rules it started under. Every change is public, and the watchdog raises
 an urgent alert.

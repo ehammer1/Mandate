@@ -13,10 +13,12 @@ import { collectAttention, attentionHtml, categoryFilterHtml, categoryChip, cate
 let attentionCat = 'all';
 async function renderAttention() {
   const items = await collectAttention(state.cfg, state.provider);
+  trackItems(items, clockOffset());
   const draw = () => {
     $('attention-filters').innerHTML = categoryFilterHtml(items, attentionCat);
     $('attention').innerHTML = attentionHtml(items, esc, { category: attentionCat, limit: 15, base: './' });
     for (const b of $('attention-filters').querySelectorAll('[data-cat]')) b.onclick = () => { attentionCat = b.dataset.cat; draw(); };
+    for (const b of $('attention').querySelectorAll('[data-follow]')) b.onclick = () => { toggleFollow(items.find((i) => `${i.kind}:${i.id}` === b.dataset.follow)); draw(); };
   };
   draw();
 }
@@ -24,7 +26,8 @@ import { loadRules } from './rules.js';
 import { informedHtml } from './informed.js';
 import { officialsDashboard } from './officials.js';
 import { bodiesDashboard } from './bodies.js';
-import { countdown, startTicker } from './time.js';
+import { countdown, startTicker, clockOffset } from './time.js';
+import { trackItems, toggleFollow } from './reminders.js';
 
 async function mostRequested() {
   if (!state.cfg.feedbackAddress) return '<p class="muted">Petitions are not set up on this deployment.</p>';
