@@ -28,5 +28,6 @@
   "feedUrl": "https://raw.githubusercontent.com/ehammer1/Mandate/watchdog/feed.xml",
   "calendarUrl": "https://raw.githubusercontent.com/ehammer1/Mandate/watchdog/calendar.ics",
   "officialsAddress": "0x727383e390Aa18a29A8b7C1067A412c10225Ad4f",
-  "bodiesAddress": "0xd2843b159fE0E2f2AAe5b7B35A83976dEee1fCD8"
+  "bodiesAddress": "0x75fc9E3665db5C34E860c9AE8bFAA9F6586b84cA",
+  "bodyRecordsAddress": "0xa2Eb258F34e92460a07238Db47E0309B20C398Db"
 }

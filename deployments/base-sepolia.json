@@ -19,7 +19,8 @@
     "budget": "0xB470252aCFcFe460fa4F3Cab6d3fBE10dF849c96",
     "feedback": "0xFfd95A1D0dA4Fe5d6397fB7Fd7C21137568D9526",
     "officials": "0x727383e390Aa18a29A8b7C1067A412c10225Ad4f",
-    "bodies": "0xd2843b159fE0E2f2AAe5b7B35A83976dEee1fCD8"
+    "bodies": "0x75fc9E3665db5C34E860c9AE8bFAA9F6586b84cA",
+    "bodyRecords": "0xa2Eb258F34e92460a07238Db47E0309B20C398Db"
   },
   "startBlock": 56415036,
   "previousVotes": [
@@ -47,6 +48,10 @@
       "budget": "0xb772EcB9084848966f13b70D07f2d6A59160AcdD",
       "feedback": "0x38Be50854E8ceBF4d3ACf2Baef2b0902Bc51b8aA",
       "escrows": "0xdc77DAF412Ff704a9cAd36efA4810eF899999637"
+    },
+    {
+      "replacedAt": "2026-11-11T06:22:51.452Z",
+      "bodies": "0xd2843b159fE0E2f2AAe5b7B35A83976dEee1fCD8"
     }
   ],
   "oldCouncilPending": {
@@ -54,5 +59,9 @@
     "proposals": [
       "12"
     ]
-  }
+  },
+  "pendingCouncilChanges": [
+    "1",
+    "2"
+  ]
 }
