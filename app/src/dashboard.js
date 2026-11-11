@@ -8,6 +8,7 @@
 import { ethers } from 'ethers';
 import { describeCall, COUNCIL_ABI, readProposal, shortenAddresses } from './council.js';
 import { readDoc } from './notices.js';
+import { wireCopy, copyBtn, jumpTo } from './copy.js';
 import { collectAttention, attentionHtml, categoryFilterHtml, categoryChip, categoryOf } from './priority.js';
 
 let attentionCat = 'all';
@@ -308,7 +309,7 @@ function renderContracts() {
     ['Council', c.councilAddress],
     ['Play credits', c.creditsAddress],
   ].filter(([, a]) => a);
-  $('contracts').innerHTML = `<ul class="list">${rows.map(([l, a]) => `<li>${esc(l)}<br><span class="addr">${link('address', a, a)}</span></li>`).join('')}</ul>
+  $('contracts').innerHTML = `<ul class="list">${rows.map(([l, a]) => `<li>${esc(l)}<br><span class="addr">${link('address', a, a)}</span> ${copyBtn(a)}</li>`).join('')}</ul>
     <p class="meta">Network: ${esc(c.chainName || c.chainId)}. The source code of every contract is public on GitHub.</p>`;
 }
 
@@ -363,6 +364,9 @@ async function boot() {
     };
   }
   $('btn-refresh').onclick = refresh;
+  wireCopy(document);
+  $('dash-menu').innerHTML = [...document.querySelectorAll('main > section > h2[id]')].map((h) => `<a class="button" href="#${h.id}" data-jump="${h.id}">${esc(h.textContent.replace(/:.*/, ''))}</a>`).join('');
+  for (const a of $('dash-menu').querySelectorAll('[data-jump]')) a.onclick = (e) => (e.preventDefault(), jumpTo($(a.dataset.jump)));
   await refresh();
   startTicker(state.provider);
   setInterval(() => document.visibilityState === 'visible' && refresh(), 60_000);

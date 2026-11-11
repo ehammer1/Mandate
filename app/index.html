@@ -117,6 +117,7 @@
       <div class="card">
         <p class="eyebrow">Active account</p>
         <p class="code" id="account-address"></p>
+        <button type="button" class="copy" id="btn-copy-address" data-copy="">Copy address</button>
         <p id="account-kind" class="note"></p>
         <p id="account-credits"></p>
         <button id="btn-auto-wallet" hidden>Switch back to my automatic account</button>
@@ -189,6 +190,7 @@
     <section id="screen-bodies" data-screen hidden>
       <h1>Government and boards</h1>
       <p>How councils, boards and committees decide, in public. Every item is published before the vote, residents can vote on it first, and every member's vote is on the record with their reasons.</p>
+      <div class="card stack todo" id="bodies-todo" hidden></div>
       <div id="bodies-list" class="stack"></div>
     </section>
 
@@ -270,6 +272,8 @@
     <!-- Admin (shown only to accounts with a role) -->
     <section id="screen-admin" data-screen hidden>
       <h1>Admin</h1>
+      <div class="card stack todo" id="admin-todo"><p class="muted">Checking what is waiting on you…</p></div>
+      <nav class="filters section-menu" id="admin-menu" aria-label="Jump to a section"></nav>
       <div class="card" id="admin-who"></div>
 
       <div class="card stack" id="admin-poll" hidden>

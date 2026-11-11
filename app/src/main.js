@@ -26,6 +26,7 @@ import { renderExplainer } from './explain.js';
 import { informedHtml } from './informed.js';
 import { wireOfficials } from './officials.js';
 import { wireBodies } from './bodies.js';
+import { wireCopy, jumpTo } from './copy.js';
 import { attachPicker, attachmentsHtml, wireAttachments, uploadService } from './attach.js';
 import { countdown, startTicker, clockOffset } from './time.js';
 import { trackItems, toggleFollow, wireSettings } from './reminders.js';
@@ -853,6 +854,7 @@ function activeAddress() {
 async function refreshAccount() {
   const address = activeAddress();
   $('account-address').textContent = address;
+  $('btn-copy-address').dataset.copy = address;
   addCopyButton($('account-address'));
   $('account-kind').textContent = state.external
     ? `Connected: ${state.external.label}`
@@ -951,19 +953,87 @@ async function myRoles(address) {
   const bodies = state.config.bodiesAddress
     ? await new ethers.Contract(state.config.bodiesAddress, ['function hasRole(bytes32, address) view returns (bool)'], state.provider).hasRole(ethers.id('REGISTRAR_ROLE'), address).catch(() => false)
     : false;
-  return { admin: voteAdmin || idAdmin, voteAdmin, idAdmin, proposer, issuer, councilMember, budgetProposer, official: official || bodies };
+  const prevCouncilMember = state.config.previousCouncilAddress && state.prevCouncil ? await state.prevCouncil.isMember(address).catch(() => false) : false;
+  return { admin: voteAdmin || idAdmin, voteAdmin, idAdmin, proposer, issuer, councilMember, budgetProposer, official: official || bodies, prevCouncilMember };
 }
 
 async function refreshAdminNav() {
   try {
     const r = await myRoles(activeAddress());
     state.roles = r;
-    $('nav-admin').hidden = !(r.admin || r.proposer || r.issuer || r.councilMember || r.budgetProposer || r.official);
+    $('nav-admin').hidden = !(r.admin || r.proposer || r.issuer || r.councilMember || r.budgetProposer || r.official || r.prevCouncilMember);
     $('nav-clerk').hidden = !r.issuer;
   } catch {
     $('nav-admin').hidden = true;
     $('nav-clerk').hidden = true;
   }
+  refreshTodoBadges().catch(() => {});
+}
+
+// ------------------------------------------------- what is waiting on you
+
+let todoCache = { at: 0, list: [] };
+/** Everything this account can act on now: council approvals and runs, votes, signatures, minutes. */
+async function allTodos(fresh = false) {
+  if (!fresh && Date.now() - todoCache.at < 60_000) return todoCache.list;
+  const parts = await Promise.all([state.council?.todos(), state.prevCouncil?.todos(), state.bodies?.todos()].map((p) => Promise.resolve(p).catch(() => [])));
+  const list = parts.flat().filter(Boolean);
+  todoCache = { at: Date.now(), list };
+  return list;
+}
+async function refreshTodoBadges() {
+  const list = await allTodos();
+  const admin = list.filter((t) => t.urgent && !/^(motion|body)-/.test(t.target)).length;
+  const gov = list.filter((t) => t.urgent && /^(motion|body)-/.test(t.target)).length;
+  $('nav-admin').textContent = admin ? `Admin (${admin})` : 'Admin';
+  $('nav-bodies').textContent = gov ? `Government (${gov})` : 'Government';
+}
+function todoHtml(list, emptyText) {
+  const now = list.filter((t) => t.urgent);
+  const later = list.filter((t) => !t.urgent);
+  const li = (t) => `<li><a href="#${esc(t.target)}" data-goto="${esc(t.target)}"><strong>${esc(t.action)}</strong></a> · ${t.text}</li>`;
+  return `<h2 style="margin:0">Waiting on you${now.length ? ` (${now.length})` : ''}</h2>
+    ${now.length ? `<ul class="list todo-list">${now.map(li).join('')}</ul>` : `<p class="ok">${esc(emptyText)}</p>`}
+    ${later.length ? `<details><summary>Coming up (${later.length})</summary><ul class="list todo-list">${later.map(li).join('')}</ul></details>` : ''}`;
+}
+async function goToTarget(target) {
+  if (/^(motion|body)-/.test(target)) {
+    if ($('screen-bodies').hidden) {
+      show('screen-bodies');
+      await state.bodies.render().catch(() => {});
+    }
+    const el = $(target);
+    if (el?.hidden) {
+      const all = el.closest('section')?.querySelector('[data-body-filter] [data-show="all"]');
+      if (all) all.click();
+    }
+    return jumpTo($(target));
+  }
+  if ($('screen-admin').hidden) {
+    show('screen-admin');
+    await refreshAdmin();
+  }
+  jumpTo($(target));
+}
+function wireTodoLinks(box) {
+  for (const a of box.querySelectorAll('[data-goto]')) a.onclick = (e) => (e.preventDefault(), goToTarget(a.dataset.goto));
+}
+async function renderAdminTodo() {
+  const list = (await allTodos(true)).filter((t) => !/^(motion|body)-/.test(t.target) || true);
+  $('admin-todo').innerHTML = todoHtml(list, 'Nothing is waiting on you. ✓');
+  wireTodoLinks($('admin-todo'));
+  refreshTodoBadges().catch(() => {});
+  // A menu of the sections shown, so nobody has to scroll to find one.
+  const cards = [...$('screen-admin').querySelectorAll(':scope > .card[id^="admin-"]:not([hidden])')].filter((c) => !['admin-todo', 'admin-who'].includes(c.id));
+  $('admin-menu').innerHTML = cards.map((c) => `<a class="button" href="#${c.id}" data-jump="${c.id}">${esc((c.querySelector('h2, h3')?.textContent || c.id).trim())}</a>`).join('');
+  for (const a of $('admin-menu').querySelectorAll('[data-jump]')) a.onclick = (e) => (e.preventDefault(), jumpTo($(a.dataset.jump)));
+}
+async function renderBodiesTodo() {
+  const list = (await allTodos(true)).filter((t) => /^(motion|body)-/.test(t.target));
+  $('bodies-todo').hidden = !list.length;
+  $('bodies-todo').innerHTML = list.length ? todoHtml(list, '') : '';
+  wireTodoLinks($('bodies-todo'));
+  refreshTodoBadges().catch(() => {});
 }
 
 async function refreshAdmin() {
@@ -993,6 +1063,7 @@ async function refreshAdmin() {
   }
   await state.officials.admin().catch(() => {});
   await state.bodies.admin().catch(() => {});
+  await renderAdminTodo().catch(() => {});
   if (!state.pollPicker && $('poll-attach')) state.pollPicker = attachPicker($('poll-attach'), { state, esc });
 }
 
@@ -1195,6 +1266,7 @@ function wireAdmin() {
 // --------------------------------------------------------------------- boot
 
 async function boot() {
+  wireCopy(document);
   wireSignIn();
   wireAccount();
   wireAdmin();
@@ -1217,6 +1289,7 @@ async function boot() {
   $('nav-bodies').onclick = async () => {
     show('screen-bodies');
     await state.bodies.render().catch((e) => ($('bodies-list').innerHTML = `<p class="error">Could not load: ${esc(e.shortMessage || e.message)}</p>`));
+    await renderBodiesTodo().catch(() => {});
   };
   state.officials = wireOfficials({ state, $, status, esc, activeSigner, activeAddress, sendTx: (el, label, fn) => sendAdminTx(el, label, () => fn()) });
   state.feedback = wireFeedback({ state, $, status, esc, show, nullifierFor, myTier: async () => {

@@ -16,6 +16,7 @@
 
 import { ethers } from 'ethers';
 import { countdown } from './time.js';
+import { copyBtn, jumpTo } from './copy.js';
 import { readDoc, postDoc } from './notices.js';
 import { categoryChip, categoryFromHash, categoryOptions } from './priority.js';
 import { ORG_TEMPLATES, RULE_WORDS } from './org-templates.js';
@@ -200,6 +201,7 @@ async function motionHtml(cfg, provider, g, id, esc, names, now) {
 
 export function wireBodies(ctx) {
   const { state, $, status, esc } = ctx;
+  const bodyFilter = {}; // the view each body was left on: open, decided or all
   const reg = () => (state.config.bodiesAddress ? new ethers.Contract(state.config.bodiesAddress, BODIES_ABI, state.provider) : null);
   const me = () => {
     try {
@@ -279,7 +281,7 @@ export function wireBodies(ctx) {
       const items = [];
       for (const id of motionsOf[b] || []) {
         const x = await motionHtml(state.config, state.provider, g, id, esc, names, now);
-        items.push(`<article class="card stack motion" id="motion-${id}">${x.html}${actions(id, x, now, account, members, seats, others, { chair, clerk, forMe })}<p class="status" role="status"></p></article>`);
+        items.push(`<article class="card stack motion" id="motion-${id}" data-group="${[1, 2, 3, 7].includes(x.st) ? 'open' : 'decided'}">${x.html}${actions(id, x, now, account, members, seats, others, { chair, clerk, forMe })}<p class="status" role="status"></p></article>`);
       }
       const myRoles = [mine && 'member', ...roleWords((chair ? 1 : 0) | (clerk ? 2 : 0) | (staff ? 4 : 0))].filter(Boolean);
       const bodyDrafts = drafts.filter((d) => Number(d.bodyId) === b);
@@ -289,7 +291,7 @@ export function wireBodies(ctx) {
         <p class="eyebrow">${esc(r.kind || 'Body')}${r.active ? '' : ' · inactive'}</p><h2>${esc(r.name)}</h2>
         <details><summary>How this body decides</summary>${rulesSummary(r, esc, names)}</details>
         ${myRoles.length ? `<p class="note">Your roles here: <strong>${myRoles.join(', ')}</strong></p>` : ''}
-        <details><summary>Members (${members.length} of ${r.seats} seats)</summary><ul class="list">${members.map((a, i) => `<li>${esc(seats[i])}: <strong>${esc(names[a.toLowerCase()] || short(a))}</strong>${Number(terms[i]) ? ` · term ends ${new Date(Number(terms[i]) * 1000).toLocaleDateString()}${Number(terms[i]) <= now ? ' (ended)' : ''}` : ''}${alternates[i] !== ethers.ZeroAddress ? ` · alternate: ${esc(names[alternates[i].toLowerCase()] || short(alternates[i]))}` : ''}</li>`).join('') || '<li class="muted">No members seated yet.</li>'}</ul></details>
+        <details><summary>Members (${members.length} of ${r.seats} seats)</summary><ul class="list">${members.map((a, i) => `<li>${esc(seats[i])}: <strong>${esc(names[a.toLowerCase()] || short(a))}</strong> ${copyBtn(a)}${Number(terms[i]) ? ` · term ends ${new Date(Number(terms[i]) * 1000).toLocaleDateString()}${Number(terms[i]) <= now ? ' (ended)' : ''}` : ''}${alternates[i] !== ethers.ZeroAddress ? ` · alternate: ${esc(names[alternates[i].toLowerCase()] || short(alternates[i]))}` : ''}</li>`).join('') || '<li class="muted">No members seated yet.</li>'}</ul></details>
         ${(mine || chair || clerk) && r.active ? `<details class="propose"><summary><strong>Put an item on the agenda</strong></summary><div class="stack">
           <label>Title <input type="text" data-f="title" /></label><label>Full text<textarea data-f="body" rows="4"></textarea></label>
           <label>Topic <select data-f="cat">${categoryOptions()}</select></label>
@@ -318,10 +320,27 @@ export function wireBodies(ctx) {
             <label>Publish them by <input type="date" data-f="csBy" /></label>
             <button data-closed="${b}">Record and seal</button>` : ''}
           <p class="status" role="status"></p></div></details>` : ''}
-        <h3>Agenda and decisions</h3>${items.join('') || '<p class="muted">Nothing on the agenda.</p>'}
+        <h3>Agenda and decisions</h3>
+        ${items.length ? `<div class="filters" role="group" aria-label="Show items" data-body-filter><button type="button" data-show="open" aria-pressed="true">Open (${items.filter((h) => h.includes('data-group="open"')).length})</button><button type="button" data-show="decided" aria-pressed="false">Decided (${items.filter((h) => h.includes('data-group="decided"')).length})</button><button type="button" data-show="all" aria-pressed="false">All</button></div>` : ''}
+        ${items.join('') || '<p class="muted">Nothing on the agenda.</p>'}
+        <p class="muted empty-note" hidden>Nothing open. Choose "Decided" or "All" to see earlier items.</p>
       </section>`);
     }
-    box.innerHTML = cards.join('');
+    const menu = all.length > 1 ? `<nav class="filters section-menu" aria-label="Jump to a body">${all.map(({ id, body: [r] }) => `<a class="button" href="#body-${id}" data-jump="body-${id}">${esc(r.name)}</a>`).join('')}</nav>` : '';
+    box.innerHTML = menu + cards.join('');
+    for (const a of box.querySelectorAll('[data-jump]')) a.onclick = (e) => (e.preventDefault(), jumpTo($(a.dataset.jump)));
+    for (const bar of box.querySelectorAll('[data-body-filter]')) {
+      const section = bar.closest('section');
+      const apply = (k) => {
+        bodyFilter[section.id] = k;
+        for (const b of bar.querySelectorAll('[data-show]')) b.setAttribute('aria-pressed', String(b.dataset.show === k));
+        const arts = [...section.querySelectorAll('article.motion')];
+        for (const a of arts) a.hidden = k !== 'all' && a.dataset.group !== k;
+        section.querySelector('.empty-note').hidden = arts.some((a) => !a.hidden);
+      };
+      for (const b of bar.querySelectorAll('[data-show]')) b.onclick = () => apply(b.dataset.show);
+      apply(bodyFilter[section.id] || 'open');
+    }
     for (const el of box.querySelectorAll('[data-attach]')) el._picker = attachPicker(el, { state, esc });
     wireAttachments(box, state.config);
     wire(box);
@@ -420,6 +439,7 @@ export function wireBodies(ctx) {
       }
       const ref = await postDoc(state.config, ctx.activeSigner(), { title, body: field(b, 'body'), category: field(b, 'cat'), options: ['Yes', 'No'], ...(files.length ? { attachments: files } : {}) }).catch((e) => status(el, e.message, 'error'));
       const cat = ethers.id(field(b, 'cat') || 'general');
+      bodyFilter[`body-${b.dataset.propose}`] = 'open'; // show the new item
       if (ref) after(await send(el, 'Put on the agenda', (k) => (action ? k.proposeAction(Number(b.dataset.propose), ref, cat, action) : k.propose(Number(b.dataset.propose), ref, cat))));
     };
     for (const b of box.querySelectorAll('[data-withdraw]')) b.onclick = async () => after(await send(st(b), 'Withdraw', (k) => k.withdraw(Number(b.dataset.withdraw))));
@@ -448,6 +468,7 @@ export function wireBodies(ctx) {
       const [bodyId, draftId] = b.dataset.sponsor.split(':').map(Number);
       const d = await new ethers.Contract(state.config.bodyRecordsAddress, RECORDS_ABI, state.provider).getDraft(draftId);
       const doc = await readDoc(state.config, state.provider, d.ref);
+      bodyFilter[`body-${bodyId}`] = 'open';
       after(await send(st(b), 'Sponsor', (k) => k.propose(bodyId, d.ref, ethers.id(doc.category || 'general'))));
     };
     for (const b of box.querySelectorAll('[data-closed]')) b.onclick = async () => {
@@ -520,6 +541,7 @@ export function wireBodies(ctx) {
       const [r] = await g.getBody(m.bodyId);
       status(el, 'Publishing the item for the next body…');
       const ref = await postDoc(state.config, ctx.activeSigner(), { title: doc.title, body: doc.body, category: doc.category, options: ['Yes', 'No'], from: { motion: id, body: r.name, yes: Number(counts[0]), no: Number(counts[1]) } }).catch((e) => status(el, e.message, 'error'));
+      bodyFilter[`body-${field(b, 'target')}`] = 'open';
       if (ref) after(await send(el, 'Put on the next agenda', (k) => k.propose(Number(field(b, 'target')), ref, m.category)));
     };
     for (const b of box.querySelectorAll('[data-override]')) b.onclick = async () => {
@@ -703,7 +725,59 @@ export function wireBodies(ctx) {
     };
   }
 
-  return { render, admin };
+  /** What this account can do now in government bodies: vote, count, sign, close, publish minutes. */
+  async function todos() {
+    const g = reg();
+    const account = me();
+    if (!g || !account) return [];
+    const a = account.toLowerCase();
+    const [mc, block] = await Promise.all([g.motionCount(), state.provider.getBlock('latest')]);
+    const now = Number(block.timestamp);
+    const out = [];
+    const bodyInfo = new Map();
+    const info = async (b) => {
+      if (!bodyInfo.has(b)) {
+        const [r, , members] = await g.getBody(b);
+        const alts = r.allowAlternates ? await Promise.all(members.map((m) => g.alternateOf(b, m))) : [];
+        bodyInfo.set(b, { r, members, member: members.some((m) => m.toLowerCase() === a) && (await g.isMember(b, account)), staff: await g.holds(b, account, ROLE.CHAIR | ROLE.CLERK), forMe: members.filter((m, i) => alts[i]?.toLowerCase() === a) });
+      }
+      return bodyInfo.get(b);
+    };
+    for (let id = Number(mc); id >= Math.max(1, Number(mc) - 49); id--) {
+      const [m, counts] = await g.getMotion(id);
+      const st = Number(m.stage);
+      if (![2, 3, 7].includes(st)) continue;
+      const b = Number(m.bodyId);
+      const x = await info(b);
+      const [who, choice, , , over] = await g.rollCall(id);
+      const voted = new Map(who.map((w, i) => [w.toLowerCase(), [Number(choice[i]), Number(over[i])]]));
+      const title = esc((await readDoc(state.config, state.provider, m.ref)).title);
+      const target = `motion-${id}`;
+      const involved = x.member || x.staff;
+      if (st === 2 && Number(m.closesAt) > now) {
+        if (x.member && !voted.get(a)?.[0]) out.push({ action: 'Vote', text: `${esc(x.r.name)}: ${title} (closes ${countdown(m.closesAt)})`, target, urgent: true });
+        for (const mm of x.forMe) if (!voted.get(mm.toLowerCase())?.[0]) out.push({ action: 'Vote as alternate', text: `${esc(x.r.name)}: ${title}`, target, urgent: true });
+      }
+      if (st === 2 && involved && (Number(m.closesAt) <= now || who.length >= Number(m.electorate))) out.push({ action: 'Count', text: `${esc(x.r.name)}: ${title} (voting is over)`, target, urgent: true });
+      if (st === 3 && Number(m.executiveBy) > now && x.r.executive.toLowerCase() === a) out.push({ action: 'Sign or veto', text: `${esc(x.r.name)}: ${title} (by ${countdown(m.executiveBy)})`, target, urgent: true });
+      if (st === 7 && Number(m.overrideBy) > now && x.member && !voted.get(a)?.[1]) out.push({ action: 'Override vote', text: `${esc(x.r.name)}: ${title}`, target, urgent: true });
+      const overDone = Number(counts[3]) + Number(counts[4]) >= Number(m.electorate);
+      if (involved && ((st === 3 && Number(m.executiveBy) <= now) || (st === 7 && (Number(m.overrideBy) <= now || overDone)))) out.push({ action: 'Close', text: `${esc(x.r.name)}: ${title}`, target, urgent: true });
+    }
+    if (state.config.bodyRecordsAddress) {
+      const rec = new ethers.Contract(state.config.bodyRecordsAddress, RECORDS_ABI, state.provider);
+      const sn = Number(await rec.sessionCount().catch(() => 0n));
+      for (let k = sn; k >= Math.max(1, sn - 49); k--) {
+        const [x, overdue] = await rec.getSession(k);
+        if (Number(x.publishedAt) || (!overdue && Number(x.publishBy) - now > 7 * 86_400)) continue;
+        if (!(await g.holds(x.bodyId, account, ROLE.CHAIR | ROLE.CLERK))) continue;
+        out.push({ action: 'Publish minutes', text: `Closed session ${k}: ${overdue ? 'overdue' : `due ${countdown(x.publishBy)}`}`, target: `body-${x.bodyId}`, urgent: true });
+      }
+    }
+    return out;
+  }
+
+  return { render, admin, todos: () => todos().catch(() => []) };
 }
 
 /** Dashboard: every body, its recent decisions, and how often each member sided with residents. */

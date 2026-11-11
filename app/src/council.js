@@ -5,6 +5,7 @@
 
 import { ethers } from 'ethers';
 import { countdown } from './time.js';
+import { copyBtn } from './copy.js';
 
 export const COUNCIL_ABI = [
   'function isMember(address) view returns (bool)',
@@ -103,7 +104,7 @@ export function describeCall(cfg, target, data) {
  */
 // Councils deployed before the emergency lane return a shorter proposal; read those with the older shape.
 /** Long account addresses in text, shown short; tap one to see it in full. */
-export const shortenAddresses = (html) => html.replace(/0x[0-9a-fA-F]{40}/g, (a) => `<span class="addr-short" title="${a}" tabindex="0" onclick="this.textContent=this.title">${a.slice(0, 6)}…${a.slice(-4)}</span>`);
+export const shortenAddresses = (html) => html.replace(/0x[0-9a-fA-F]{40}/g, (a) => `<span class="addr-short" title="${a}">${a.slice(0, 6)}…${a.slice(-4)}</span> ${copyBtn(a)}`);
 
 export async function readProposal(c, id) {
   try {
@@ -119,6 +120,7 @@ export async function readProposal(c, id) {
 
 export function wireCouncil(ctx, { addressKey = 'councilAddress', prefix = 'council', box = 'admin-council' } = {}) {
   const { state, status, esc } = ctx;
+  let filter = 'open';
   const $ = (id) => ctx.$(id.replace(/^council-/, `${prefix}-`).replace(/^btn-council-/, `btn-${prefix}-`).replace(/^admin-council$/, box));
   const addr = () => state.config[addressKey];
   const council = () => new ethers.Contract(addr(), COUNCIL_ABI, state.provider);
@@ -191,12 +193,19 @@ export function wireCouncil(ctx, { addressKey = 'councilAddress', prefix = 'coun
     box.hidden = false;
     $('council-summary').innerHTML = `<p>${members.length} members · ${threshold} must approve a change · then a public wait of ${esc(hours(delay))} (removing power needs no wait). Any one member can cancel a pending change.</p>
       <p class="muted">${mine ? 'You are a member.' : 'This account is not a member: you can see changes and run ready ones, but not approve.'}</p>
-      <details><summary>Members and terms</summary><ul>${(await Promise.all(members.map(async (m) => [m, await c.termEnds(m).catch(() => 0n)]))).map(([m, t]) => `<li><span class="code">${esc(m)}</span>${m.toLowerCase() === me.toLowerCase() ? ' (you)' : ''}<br><span class="muted">${t ? `term ends ${esc(new Date(Number(t) * 1000).toLocaleDateString(undefined, { dateStyle: 'medium' }))}` : 'no end date'}</span></li>`).join('')}</ul></details>
+      <details><summary>Members and terms</summary><ul>${(await Promise.all(members.map(async (m) => [m, await c.termEnds(m).catch(() => 0n)]))).map(([m, t]) => `<li><span class="code">${esc(m)}</span> ${copyBtn(m)}${m.toLowerCase() === me.toLowerCase() ? ' (you)' : ''}<br><span class="muted">${t ? `term ends ${esc(new Date(Number(t) * 1000).toLocaleDateString(undefined, { dateStyle: 'medium' }))}` : 'no end date'}</span></li>`).join('')}</ul></details>
       <p class="note">The public can elect members for a term, recall them, and remove anyone's role by vote, without the council.</p>`;
     const list = $('council-list');
     list.innerHTML = '';
     const n = Number(count);
     if (!n) return (list.innerHTML = '<p class="muted">No changes proposed yet.</p>');
+    const bar = document.createElement('div');
+    bar.className = 'filters';
+    bar.setAttribute('role', 'group');
+    bar.setAttribute('aria-label', 'Show changes');
+    list.append(bar);
+    const now = Date.now() / 1000;
+    const groups = { open: 0, done: 0, closed: 0 };
     for (let id = n; id >= Math.max(1, n - 19); id--) {
       const [[p, s, approvals], approvedByMe] = await Promise.all([readProposal(c, id), mine ? c.hasApproved(id, me) : false]);
       const st = Number(s);
@@ -208,10 +217,13 @@ export function wireCouncil(ctx, { addressKey = 'councilAddress', prefix = 'coun
       const card = document.createElement('div');
       card.className = 'card stack';
       card.id = `${prefix}-${id}`;
+      const pendingUndo = p.emergency && p.executed && !p.lapsed;
+      card.dataset.group = active || (pendingUndo && Number(p.ratifyBy) > now - 7 * 86_400) ? 'open' : st === 4 ? 'done' : 'closed';
+      groups[card.dataset.group]++;
       card.innerHTML = `<p class="muted">#${id} · ${esc(STATES[st])}${active ? ` · ${approvals} of ${threshold} approvals` : ''}${esc(when)}${p.fast && active ? ' · removes power: no wait' : ''}</p>
         <p class="big" style="font-size:1.05rem">${esc(describeCall(state.config, p.target, p.data))}</p>
         ${p.description ? `<p>${shortenAddresses(esc(p.description))}</p>` : ''}
-        <p class="muted">Proposed by ${esc(short(p.proposer))}</p>
+        <p class="muted">Proposed by ${esc(short(p.proposer))} ${copyBtn(p.proposer)}</p>
         ${timing}
         ${p.emergency ? `<p class="warn"><strong>Emergency change.</strong> ${p.lapsed ? 'Undone: residents did not ratify it.' : p.executed ? `In effect; residents vote on it in poll ${p.ratifyPoll}. Undone unless ratified by ${esc(new Date(Number(p.ratifyBy) * 1000).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }))} (${countdown(p.ratifyBy)}).` : 'Runs at once once approved, then residents must ratify it.'}</p>` : ''}
         <div class="row"></div><p class="status" role="status"></p>`;
@@ -234,6 +246,38 @@ export function wireCouncil(ctx, { addressKey = 'councilAddress', prefix = 'coun
       if (p.emergency && p.executed && !p.lapsed) button('Undo (not ratified)', () => send(el, 'Undo', (k) => k.lapse(id)));
       list.append(card);
     }
+    const draw = () => {
+      bar.innerHTML = [['open', `Open & pending (${groups.open})`], ['done', `Done (${groups.done})`], ['closed', `Cancelled or expired (${groups.closed})`], ['all', 'All']]
+        .map(([k, l]) => `<button type="button" data-show="${k}" aria-pressed="${filter === k}">${l}</button>`).join('');
+      for (const c of list.querySelectorAll('.card[data-group]')) c.hidden = filter !== 'all' && c.dataset.group !== filter;
+      for (const b of bar.querySelectorAll('[data-show]')) b.onclick = () => ((filter = b.dataset.show), draw());
+      const shown = [...list.querySelectorAll('.card[data-group]')].filter((c) => !c.hidden).length;
+      let empty = list.querySelector('.empty-note');
+      if (!shown && !empty) list.append(Object.assign(document.createElement('p'), { className: 'muted empty-note', textContent: 'Nothing here. Choose another view above.' }));
+      else if (shown && empty) empty.remove();
+    };
+    draw();
+  }
+
+  /** What this account can do now: approve, run, or undo. */
+  async function todos() {
+    if (!addr()) return [];
+    const me = ctx.activeAddress();
+    const c = council();
+    const [count, mine] = await Promise.all([c.proposalCount(), c.isMember(me)]);
+    const name = prefix === 'council' ? 'Council' : 'Previous council';
+    const out = [];
+    const now = Date.now() / 1000;
+    for (let id = Number(count); id >= Math.max(1, Number(count) - 19); id--) {
+      const [p, s] = await readProposal(c, id);
+      const st = Number(s);
+      const what = esc(describeCall(state.config, p.target, p.data));
+      if (st === 3) out.push({ action: 'Run', text: `${name} change #${id}: ${what}`, target: `${prefix}-${id}`, urgent: true });
+      else if (st === 1 && mine && !(await c.hasApproved(id, me))) out.push({ action: 'Approve', text: `${name} change #${id}: ${what}`, target: `${prefix}-${id}`, urgent: true });
+      else if (st === 2) out.push({ action: 'Waiting', text: `${name} change #${id} can run ${countdown(p.readyAt)}: ${what}`, target: `${prefix}-${id}`, urgent: false });
+      else if (p.emergency && p.executed && !p.lapsed && Number(p.ratifyBy) && Number(p.ratifyBy) < now) out.push({ action: 'Check', text: `${name} emergency change #${id}: ratification window ended (undo it if residents did not ratify)`, target: `${prefix}-${id}`, urgent: true });
+    }
+    return out;
   }
 
   // Never hide the council because the network hiccuped: show the section with a way to retry.
@@ -246,5 +290,5 @@ export function wireCouncil(ctx, { addressKey = 'councilAddress', prefix = 'coun
     }
   }
   $('btn-council-refresh').onclick = () => safeRender();
-  return { isMember, propose, proposeEmergency, render: safeRender };
+  return { isMember, propose, proposeEmergency, render: safeRender, todos: () => todos().catch(() => []) };
 }

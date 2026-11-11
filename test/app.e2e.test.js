@@ -426,6 +426,15 @@ test('council: one member proposes a new clerk, another approves, it runs after 
   await page.click('#nav-account');
   await page.click('#btn-auto-wallet');
   await page.click('#nav-admin');
+  // It is at the top, waiting on this member, with a link that jumps to it.
+  await page.waitForSelector('#admin-todo a[data-goto="council-1"] >> text=Approve', { timeout: 60_000 });
+  assert.match(await page.textContent('#admin-todo'), /Waiting on you \(1\)[\s\S]*Council change #1/);
+  await page.waitForFunction(() => /^Admin \(1\)$/.test(document.querySelector('#nav-admin').textContent));
+  assert.match(await page.textContent('#admin-menu'), /Council/);
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.screenshot({ path: `${process.env.APP_SCREENSHOT_DIR || '/tmp'}/7b-todo.png` }).catch(() => {});
+  await page.click('#admin-todo a[data-goto="council-1"]');
+  await page.waitForSelector('#council-1.flash');
   await page.click('#council-1 button:has-text("Approve")');
   await page.waitForSelector('#council-1 >> text=Waiting period', { timeout: 60_000 });
   assert.equal((await c.identity.issuers(desk)).active, false);
@@ -434,7 +443,12 @@ test('council: one member proposes a new clerk, another approves, it runs after 
   await provider.send('evm_increaseTime', [3601]);
   await provider.send('evm_mine', []);
   await page.click('#btn-council-refresh');
+  await page.click('#btn-council-refresh');
+  await page.waitForSelector('#admin-todo a[data-goto="council-1"] >> text=Run', { timeout: 60_000 }).catch(() => {});
   await page.click('#council-1 button:has-text("Run it now")');
+  // Done items leave the open list; they are under "Done".
+  await page.waitForSelector('#council-list [data-show="done"][aria-pressed="false"] >> text=Done (1)', { timeout: 60_000 });
+  await page.click('#council-list [data-show="done"]');
   await page.waitForSelector('#council-1 >> text=Done', { timeout: 60_000 });
   assert.equal((await c.identity.issuers(desk)).name, 'Council desk');
   assert.equal((await c.identity.issuers(desk)).active, true);
@@ -1222,7 +1236,9 @@ test('government bodies: set up from a template, public agenda with notice, roll
   await page.click('#nav-bodies');
   await page.waitForSelector(`#motion-${motionId} [data-count]`, { timeout: 60_000 });
   await page.click(`#motion-${motionId} [data-count]`);
-  await page.waitForSelector(`#motion-${motionId} >> text=Adopted`, { timeout: 60_000 });
+  await page.waitForSelector(`#motion-${motionId} >> text=Adopted`, { state: 'attached', timeout: 60_000 });
+  await page.click(`#body-${bodyId} [data-body-filter] [data-show="decided"]`);
+  await page.waitForSelector(`#motion-${motionId} >> text=Adopted`, { timeout: 30_000 });
   assert.match(await page.textContent(`#motion-${motionId}`), /Long overdue/);
 
   // An adopted item goes on to the next body, with a link back.

@@ -109,3 +109,12 @@ label.button { display: inline-flex; align-items: center; min-height: 44px; padd
 .attachment figcaption { font-size: 13px; color: var(--muted); margin-top: 4px; }
 .attachment .ai-text { white-space: pre-wrap; max-height: 240px; overflow: auto; font-size: 13px; background: var(--bg); padding: 8px; border-radius: 8px; }
 button.link { background: none; border: 0; padding: 0; min-height: 0; color: var(--accent); text-decoration: underline; font-size: 13px; cursor: pointer; }
+button.copy { min-height: 32px; padding: 2px 10px; font-size: 13px; border-radius: 8px; vertical-align: middle; }
+button.copy.copied { border-color: var(--accent); background: var(--accent-soft); }
+.section-menu { position: sticky; top: 0; z-index: 5; background: var(--bg); padding: 8px 0; margin: 0 0 8px; overflow-x: auto; flex-wrap: nowrap; }
+.section-menu a.button { white-space: nowrap; text-decoration: none; color: inherit; min-height: 40px; }
+a.button { display: inline-flex; align-items: center; padding: 6px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); }
+.todo { border-color: var(--accent); }
+.todo-list li a { font-weight: 600; }
+.flash { animation: flash 2s ease-out; }
+@keyframes flash { 0% { box-shadow: 0 0 0 4px var(--accent); } 100% { box-shadow: 0 0 0 0 transparent; } }
