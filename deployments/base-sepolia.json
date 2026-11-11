@@ -21,7 +21,8 @@
     "officials": "0x24b6ffc8D5a82175D8695074436bF702c2fa1eBB",
     "bodies": "0xd17b9c611872b555D2C1de77F19BbF9905A80E35",
     "bodyRecords": "0xBaF7f0c088c3b15Ab20d4ba6c5F6bF2Cfa21aF15",
-    "tallies": "0x7266CFb43A832C2AF968473F7628c0d0d32bb5Ff"
+    "tallies": "0x7266CFb43A832C2AF968473F7628c0d0d32bb5Ff",
+    "progress": "0xd65F3A846FAF6D26f7df486644E227d723a71156"
   },
   "startBlock": 56415036,
   "previousVotes": [

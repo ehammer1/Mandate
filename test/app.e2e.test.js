@@ -94,6 +94,7 @@ before(async () => {
       bodiesAddress: await c.bodies.getAddress(),
       bodyRecordsAddress: await c.bodyRecords.getAddress(),
       talliesAddress: await c.tallies.getAddress(),
+      progressAddress: await c.progress.getAddress(),
       relayers: ['http://127.0.0.1:1', `http://127.0.0.1:${relayPort}`], // the first is down: tests fail-over
       artifactsBase: '/artifacts',
       chainId: Number((await provider.getNetwork()).chainId),
@@ -720,6 +721,22 @@ test('mandate lifecycle: binding poll, vote, mandate, budget, evidence, verifica
   assert.match(await page.textContent('#mandate-1'), /0\.5 ETH held/);
 
   // The responsible party (this person) submits evidence; the verifier approves; the budget is paid out.
+  // Progress along the way: a milestone, then an update everyone can follow.
+  await page.waitForSelector('#mandate-1 .progress-box details.progress-form summary', { timeout: 60_000 });
+  await page.click('#mandate-1 .progress-box details.progress-form summary');
+  await page.fill('#mandate-1 [data-f="ms-title"]', 'Order the signal hardware');
+  await page.click('#mandate-1 [data-add-ms]');
+  await page.waitForSelector('#mandate-1 .progress-box >> text=0 of 1 milestones done', { timeout: 60_000 });
+  await page.click('#mandate-1 .progress-box details:has(.milestones) summary');
+  assert.match(await page.textContent('#mandate-1 .milestones'), /Order the signal hardware/);
+  await page.click('#mandate-1 [data-ms-done="0"]');
+  await page.waitForSelector('#mandate-1 .progress-box >> text=1 of 1 milestones done', { timeout: 60_000 });
+  await page.click('#mandate-1 .progress-box details.progress-form summary');
+  await page.fill('#mandate-1 [data-f="percent"]', '60');
+  await page.fill('#mandate-1 [data-f="text"]', 'Hardware delivered; installation next week.');
+  await page.click('#mandate-1 [data-post-update]');
+  await page.waitForSelector('#mandate-1 .progress-box >> text=60% done', { timeout: 60_000 });
+
   await page.fill('#evidence-1', 'Installed on 3 March. Photos: example.org/elm');
   await page.click('#mandate-1 button[data-act="evidence"]');
   await page.waitForSelector('#mandate-1 >> text=Evidence under review', { timeout: 60_000 });

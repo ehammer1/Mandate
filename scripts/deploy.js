@@ -138,6 +138,8 @@ async function deployAll(signer, opts = {}) {
   contracts.notices = await deploy(signer, 'NoticeBoard', {});
   // Paper ballots, in-person votes and official election results (two-clerk confirmation).
   contracts.tallies = await deploy(signer, 'Tallies', {}, me, await vote.getAddress(), await identity.getAddress());
+  // Progress on mandates: milestones and dated updates from the responsible party.
+  contracts.progress = await deploy(signer, 'Progress', {}, await registry.getAddress());
   if (opts.registrar) await send(contracts.tallies.grantRole(await contracts.tallies.CLERK_ROLE(), opts.registrar));
   // Drafts and closed-session records for government bodies.
   contracts.bodyRecords = await deploy(signer, 'BodyRecords', {}, await contracts.bodies.getAddress(), await contracts.notices.getAddress());
@@ -212,6 +214,7 @@ if (require.main === module) {
       bodiesAddress: addresses.bodies,
       bodyRecordsAddress: addresses.bodyRecords,
       talliesAddress: addresses.tallies,
+      progressAddress: addresses.progress,
       escrowFactoryAddress: addresses.escrows,
       relayers: (process.env.RELAYERS || '').split(',').map((s) => s.trim()).filter(Boolean),
       ipfsGateway: process.env.IPFS_GATEWAY || 'https://gateway.pinata.cloud',

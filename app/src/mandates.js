@@ -17,6 +17,7 @@ import { renderExplainer } from './explain.js';
 import { countdown } from './time.js';
 import { attachPicker, attachmentsHtml, wireAttachments, uploadService } from './attach.js';
 import { itemTools } from './copy.js';
+import { renderProgress } from './progress.js';
 
 const REGISTRY_ABI = [
   'function mandateCount() view returns (uint256)',
@@ -90,6 +91,7 @@ export function wireMandates(ctx) {
         ${itemTools({ anchor: `mandate-${id}`, idText: `Mandate ${id} (${state.config.registryAddress})`, ref: m.specCID, explorer: state.config.explorer, address: state.config.registryAddress })}
         <p class="muted">Responsible: <span class="code">${esc(short(m.responsible))}</span>${mine ? ' (you)' : ''} · ${m.threshold} independent check${Number(m.threshold) === 1 ? '' : 's'} needed</p>
         <p><strong>Budget:</strong> ${e ? `${esc(eth(locked))} held${contributed > locked && st !== 3 ? ` (of ${esc(eth(contributed))} backed${clawed ? `, ${esc(eth(clawed))} forfeited for lateness` : ''})` : ''}` : 'nobody has backed it yet'}${terms ? `. Paid to the responsible party once verified; refunded if repealed; ${Number(terms[0]) / 100}% forfeited to the public treasury every ${Math.round(Number(terms[1]) / 86_400)} day${Number(terms[1]) === 86_400 ? '' : 's'} while overdue.` : ''}</p>`);
+      parts.push(`<div class="progress-box" data-id="${id}" data-mine="${mine ? 1 : 0}" data-active="${[1, 2, 5].includes(st) ? 1 : 0}"></div>`);
       if (evidence) parts.push(`<div class="card"><p class="eyebrow">Evidence submitted (check ${m.round})</p><p>${esc(evidence.body || evidence.title)}</p>${attachmentsHtml(state.config, evidence, esc)}<p class="muted">${m.approvals} approval${Number(m.approvals) === 1 ? '' : 's'}, ${m.rejections} rejection${Number(m.rejections) === 1 ? '' : 's'} of ${m.threshold} needed</p></div>`);
 
       // Actions for this person.
@@ -109,6 +111,9 @@ export function wireMandates(ctx) {
     list.innerHTML = cards.join('') || '<p class="muted">No mandates yet. A mandate is created when a binding poll passes.</p>';
     for (const b of list.querySelectorAll('button[data-act]')) b.onclick = () => act(b, Number(b.dataset.id), b.dataset.act);
     for (const el of list.querySelectorAll('[data-attach]')) pickers[el.dataset.attach] = attachPicker(el, { state, esc });
+    for (const box of list.querySelectorAll('.progress-box')) {
+      renderProgress(box, { state, esc, status, activeSigner: ctx.activeSigner }, Number(box.dataset.id), { mine: box.dataset.mine === '1', active: box.dataset.active === '1' }).catch(() => {});
+    }
     wireAttachments(list, state.config);
     for (const box of list.querySelectorAll('.thread-box')) state.feedback?.thread(box, 'mandate', Number(box.dataset.id)).catch(() => {});
     for (const box of list.querySelectorAll('.rating-box')) state.feedback?.rating(box, 'mandate', Number(box.dataset.id)).catch(() => {});

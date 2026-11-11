@@ -128,3 +128,7 @@ dl.glossary dd { margin: 0 0 4px; }
 .search-results li .eyebrow { margin-bottom: 2px; }
 details.faq { border-top: 1px solid var(--line); padding: 8px 0; }
 details.faq summary { cursor: pointer; }
+.bar { height: 12px; background: var(--accent-soft); border-radius: 6px; overflow: hidden; }
+.bar span { display: block; height: 100%; background: var(--accent); }
+.milestones li.overdue strong { color: var(--error); }
+.milestones li.done { color: var(--muted); }

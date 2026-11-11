@@ -50,6 +50,9 @@ On a poll you voted in, tap **Check my vote**: your phone finds your own ballot 
 **How do I share or find a specific poll, proposal or item?**
 Tap **🔗 Copy link** on it to share a link that opens it directly. To find one, use **Search** with its number ("poll 12", "council 4", "#7"), an address (0x…), a reference (nb:0x…) or words from it.
 
+**How do I follow how a mandate is going?**
+Each mandate under way shows a **progress bar**, its **milestones** with due dates, and dated **updates** with photos or documents, all posted by the party responsible. Overdue milestones and 30 days without an update are flagged for everyone and appear under Needs attention. If you are the responsible party, open **Report progress** on the mandate. Progress reports never decide whether a mandate is fulfilled: independent verifiers still check the final evidence.
+
 **What happens if officials ignore an advisory result?**
 It stays on the public record: the dashboard shows each official's position next to residents' result and how often they sided with residents. Residents can then petition for a binding vote where the rules allow it.
 

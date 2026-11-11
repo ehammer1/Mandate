@@ -157,7 +157,16 @@ export async function collectAttention(cfg, provider, opts = {}) {
       if (st !== 1 && st !== 2) continue;
       const d = await doc(m.specCID);
       const overdue = st === 1 && Number(m.deadline) < now;
-      add({ kind: 'mandate', id, title: d.title, category: categoryFromHash(m.category), at: m.deadline, weight: overdue ? 'overdue' : 'mandate',
+      let flagged = false;
+      if (cfg.progressAddress && st !== 2) {
+        const pr = new ethers.Contract(cfg.progressAddress, ['function milestonesOf(uint256) view returns (tuple(string title, uint64 due, uint64 doneAt, string ref)[])', 'function summary(uint256) view returns (uint8 percent, uint64 lastUpdate, uint256 done, uint256 total)'], provider);
+        const [ms, sum] = await Promise.all([pr.milestonesOf(id).catch(() => []), pr.summary(id).catch(() => null)]);
+        const late = ms.filter((x) => !Number(x.doneAt) && Number(x.due) && Number(x.due) < now);
+        flagged = !!late.length;
+        if (late.length) add({ kind: 'mandate', id, title: d.title, category: categoryFromHash(m.category), at: late[0].due, weight: 'overdue', what: `Mandate ${id} · milestone overdue: ${escape(late[0].title)} (was due ${countdown(late[0].due)})`, href: `#mandate-${id}` });
+        else if (sum && (!Number(sum.lastUpdate) || now - Number(sum.lastUpdate) > 30 * 86_400) && now - Number(m.createdAt) > 30 * 86_400) (flagged = true), add({ kind: 'mandate', id, title: d.title, category: categoryFromHash(m.category), at: now + 86_400, weight: 'mandate', what: `Mandate ${id} · no progress update in 30 days`, href: `#mandate-${id}` });
+      }
+      if (!flagged) add({ kind: 'mandate', id, title: d.title, category: categoryFromHash(m.category), at: m.deadline, weight: overdue ? 'overdue' : 'mandate',
         what: overdue ? `Mandate ${id} · overdue · was due ${countdown(m.deadline)}` : st === 2 ? `Mandate ${id} · evidence under review` : `Mandate ${id} · due ${countdown(m.deadline)}`,
         href: `#mandate-${id}` });
     }
