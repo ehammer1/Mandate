@@ -237,3 +237,12 @@ test('watchdog: government bodies, officials and emergencies raise the right ale
   assert.equal(ev('EmergencyLapsed', { id: 9n })[0].severity, 'high');
   assert.match(ev('EmergencyDeclared', { measureId: 1n, officialId: 2n, pollId: 7n, ref: '' })[0].title, /lapses unless residents ratify it in poll 7/);
 });
+
+test('council changes the watchdog does not know are reported, never crash the scan', () => {
+  const { describeCall } = require('../services/watchdog/rules');
+  const i = new ethers.Interface(['function setElectorate(address)', 'function somethingNew(uint256)']);
+  const vote = '0x' + '2'.repeat(40);
+  assert.match(describeCall('0x' + '1'.repeat(40), i.encodeFunctionData('setElectorate', [vote]), { [vote]: 'voting contract' }), /answer to voting contract/);
+  assert.match(describeCall('0x' + '1'.repeat(40), i.encodeFunctionData('somethingNew', [7])), /unrecognised call/);
+  assert.match(describeCall('0x' + '1'.repeat(40), '0x'), /unrecognised call/);
+});

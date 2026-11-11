@@ -37,18 +37,21 @@ const CALLS = new ethers.Interface([
   'function setDelay(uint64 delay)',
   'function transferOwnership(address newOwner)',
   'function setMinBond(uint256 amount)',
+  'function setElectorate(address electorate)',
+  'function setDelegates(address registry)',
 ]);
 const utc = (secs) => new Date(Number(secs) * 1000).toISOString().slice(0, 16).replace('T', ' ') + ' UTC';
 
 /** What a council proposal will do, decoded from its exact calldata. */
 function describeCall(target, data, names = {}) {
   const where = names[String(target).toLowerCase()] || short(target);
-  let f;
+  let f = null;
   try {
-    f = CALLS.parseTransaction({ data });
+    f = CALLS.parseTransaction({ data }); // null (not an error) for a call it doesn't know
   } catch {
-    return `an unrecognised call to ${where} (data ${String(data).slice(0, 10)}…)`;
+    f = null;
   }
+  if (!f) return `an unrecognised call to ${where} (data ${String(data).slice(0, 10)}…)`;
   const a = f.args;
   switch (f.name) {
     case 'setIssuer':
@@ -69,6 +72,10 @@ function describeCall(target, data, names = {}) {
       return `hand ${where} to ${short(a.newOwner)}`;
     case 'setMinBond':
       return `set the poll bond to ${ethers.formatEther(a.amount)} credits`;
+    case 'setElectorate':
+      return `make the council answer to ${names[String(a.electorate).toLowerCase()] || short(a.electorate)} (residents elect, recall and remove power through it)`;
+    case 'setDelegates':
+      return `connect public delegates (${names[String(a.registry).toLowerCase()] || short(a.registry)}) to ${where}`;
     default:
       return `${f.name} on ${where}`;
   }
