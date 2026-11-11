@@ -213,7 +213,7 @@ export function wireCouncil(ctx, { addressKey = 'councilAddress', prefix = 'coun
       const fmt = (t) => new Date(Number(t) * 1000).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
       const approvedAt = Number(p.readyAt) ? Number(p.readyAt) - (p.fast ? 0 : Number(delay)) : 0;
       const when = '';
-      const timing = `<p class="muted">Proposed ${esc(fmt(p.proposedAt))} (${countdown(p.proposedAt)})${approvedAt ? ` · approved ${esc(fmt(approvedAt))} (${countdown(approvedAt)})` : ''}${st === 2 ? ` · <strong>can run ${esc(fmt(p.readyAt))} (${countdown(p.readyAt)})</strong>` : ''}${st === 3 && Number(p.readyAt) > approvedAt ? ` · ready since ${countdown(p.readyAt)}` : ''}${st === 3 ? ' · <strong>ready to run</strong>' : ''}</p>`;
+      const timing = `<p class="muted">Proposed ${esc(fmt(p.proposedAt))} (${countdown(p.proposedAt)})${approvedAt ? ` · approved ${esc(fmt(approvedAt))} (${countdown(approvedAt)})` : ''}${st === 2 ? ` · <strong>can run ${esc(fmt(p.readyAt))} (${countdown(p.readyAt, '', prefix)})</strong>` : ''}${st === 3 && Number(p.readyAt) > approvedAt ? ` · ready since ${countdown(p.readyAt)}` : ''}${st === 3 ? ' · <strong>ready to run</strong>' : ''}</p>`;
       const card = document.createElement('div');
       card.className = 'card stack';
       card.id = `${prefix}-${id}`;
@@ -226,7 +226,7 @@ export function wireCouncil(ctx, { addressKey = 'councilAddress', prefix = 'coun
         <p class="muted">Changes contract ${esc(short(p.target))} ${copyBtn(p.target)} · proposed by ${esc(short(p.proposer))} ${copyBtn(p.proposer)}</p>
         ${itemTools({ anchor: `${prefix}-${id}`, idText: `${prefix === 'council' ? 'Council' : 'Previous council'} change #${id} (council ${addr()})`, explorer: state.config.explorer, address: addr() })}
         ${timing}
-        ${p.emergency ? `<p class="warn"><strong>Emergency change.</strong> ${p.lapsed ? 'Undone: residents did not ratify it.' : p.executed ? `In effect; residents vote on it in poll ${p.ratifyPoll}. Undone unless ratified by ${esc(new Date(Number(p.ratifyBy) * 1000).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }))} (${countdown(p.ratifyBy)}).` : 'Runs at once once approved, then residents must ratify it.'}</p>` : ''}
+        ${p.emergency ? `<p class="warn"><strong>Emergency change.</strong> ${p.lapsed ? 'Undone: residents did not ratify it.' : p.executed ? `In effect; residents vote on it in poll ${p.ratifyPoll}. Undone unless ratified by ${esc(new Date(Number(p.ratifyBy) * 1000).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }))} (${countdown(p.ratifyBy, '', prefix)}).` : 'Runs at once once approved, then residents must ratify it.'}</p>` : ''}
         <div class="row"></div><p class="status" role="status"></p>`;
       const row = card.querySelector('.row');
       const el = card.querySelector('.status');
@@ -291,5 +291,9 @@ export function wireCouncil(ctx, { addressKey = 'councilAddress', prefix = 'coun
     }
   }
   $('btn-council-refresh').onclick = () => safeRender();
+  // A waiting period or ratification window just ended: show the new state (and its button).
+  document.addEventListener('countdown-zero', (e) => {
+    if (e.detail === prefix && !$('admin-council').hidden) safeRender();
+  });
   return { isMember, propose, proposeEmergency, render: safeRender, todos: () => todos().catch(() => []) };
 }

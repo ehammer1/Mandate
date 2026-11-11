@@ -141,6 +141,13 @@ async function openFromLink(hash) {
   }
 }
 window.addEventListener('hashchange', () => openFromLink(location.hash).catch(() => {}));
+document.addEventListener('countdown-zero', (e) => {
+  todoCache.at = 0; // what is waiting on you may have changed
+  if (e.detail === 'polls' && !$('screen-home').hidden) refreshPolls().catch(() => {});
+  if (e.detail === 'bodies' && !$('screen-bodies').hidden) state.bodies.render().then(() => renderBodiesTodo()).catch(() => {});
+  if ((e.detail === 'council' || e.detail === 'prevcouncil') && !$('screen-admin').hidden) renderAdminTodo().catch(() => {});
+  else refreshTodoBadges().catch(() => {});
+});
 
 async function trySignIn(fn, statusEl) {
   status(statusEl, 'Waiting for your passkey…');
@@ -709,7 +716,7 @@ async function refreshPolls() {
       const results = labels.map((l, i) => `<li><span>${esc(l)}</span><span>${tally[i] ?? 0n}</span></li>`).join('');
       const buttons = labels.map((l, i) => `<button class="choice" data-poll="${id}" data-option="${i}">${esc(l)}</button>`).join('');
       cards.push(`<article class="card poll" id="poll-${id}">
-        <p class="eyebrow">${open ? `Open until ${esc(when(p.end))} · ${countdown(p.end, 'closes ')}` : p.finalized ? (ck.disputed ? 'Closed · contested' : p.passed ? 'Closed · passed' : 'Closed · did not pass') : 'Voting ended · awaiting result'} · ${esc(who)}</p>
+        <p class="eyebrow">${open ? `Open until ${esc(when(p.end))} · ${countdown(p.end, 'closes ', 'polls')}` : p.finalized ? (ck.disputed ? 'Closed · contested' : p.passed ? 'Closed · passed' : 'Closed · did not pass') : 'Voting ended · awaiting result'} · ${esc(who)}</p>
         <h3>${esc(q.title)} ${categoryChip(categoryOf(q), esc)}</h3>
         ${q.body ? `<p>${esc(q.body)}</p>` : ''}
         ${attachmentsHtml(state.config, q, esc)}

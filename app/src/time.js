@@ -35,8 +35,16 @@ export function relative(at, now = nowSecs()) {
 }
 
 /** A live countdown element. `label` wraps it, e.g. countdown(t) or countdown(t, 'closes ') */
-export function countdown(at, prefix = '') {
-  return `<span class="countdown" data-countdown="${Number(at)}" data-prefix="${prefix}">${prefix}${relative(at)}</span>`;
+export function countdown(at, prefix = '', onZero = '') {
+  return `<span class="countdown" data-countdown="${Number(at)}" data-prefix="${prefix}"${onZero ? ` data-onzero="${onZero}"` : ''}>${prefix}${relative(at)}</span>`;
+}
+
+/** When a countdown marked with `onZero` runs out, that part of the page refreshes itself. */
+const lastFired = {};
+function fireZero(name) {
+  if (Date.now() - (lastFired[name] || 0) < 5000) return;
+  lastFired[name] = Date.now();
+  document.dispatchEvent(new CustomEvent('countdown-zero', { detail: name }));
 }
 
 let timer;
@@ -56,6 +64,11 @@ export function startTicker(provider) {
     for (const el of document.querySelectorAll('[data-countdown]')) {
       el.textContent = `${el.dataset.prefix || ''}${relative(el.dataset.countdown, now)}`;
       mark(el, el.dataset.countdown, now);
+      // A few seconds' grace, so the chain has passed the moment too.
+      if (el.dataset.onzero && !el.dataset.fired && Number(el.dataset.countdown) - now <= -3) {
+        el.dataset.fired = '1';
+        fireZero(el.dataset.onzero);
+      }
     }
   }, 1000);
 }

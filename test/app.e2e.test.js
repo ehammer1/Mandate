@@ -442,9 +442,9 @@ test('council: one member proposes a new clerk, another approves, it runs after 
   // An hour later anyone can run it.
   await provider.send('evm_increaseTime', [3601]);
   await provider.send('evm_mine', []);
-  await page.click('#btn-council-refresh');
-  await page.click('#btn-council-refresh');
-  await page.waitForSelector('#admin-todo a[data-goto="council-1"] >> text=Run', { timeout: 60_000 }).catch(() => {});
+  // No refresh needed: when the wait runs out, the council section updates itself and shows the Run button.
+  await page.waitForSelector('#council-1 button:has-text("Run it now")', { timeout: 90_000 });
+  await page.waitForSelector('#admin-todo a[data-goto="council-1"] >> text=Run', { timeout: 30_000 });
   await page.click('#council-1 button:has-text("Run it now")');
   // Done items leave the open list; they are under "Done".
   await page.waitForSelector('#council-list [data-show="done"][aria-pressed="false"] >> text=Done (1)', { timeout: 60_000 });

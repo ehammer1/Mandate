@@ -173,10 +173,10 @@ async function motionHtml(cfg, provider, g, id, esc, names, now) {
   const action = await g.actionOf(id).catch(() => null);
   const total = Number(counts[0]) + Number(counts[1]) + Number(counts[2]);
   const clock =
-    st === 1 ? `voting opens ${countdown(m.opensAt)}`
-    : st === 2 ? (Number(m.closesAt) > now ? `voting closes ${countdown(m.closesAt)}` : 'voting closed · waiting to be counted')
-    : st === 3 ? (Number(m.executiveBy) > now ? `executive must act ${countdown(m.executiveBy)}` : 'executive deadline passed · waiting to be closed')
-    : st === 7 ? (Number(m.overrideBy) > now ? `override vote closes ${countdown(m.overrideBy)}` : 'override vote closed · waiting to be closed')
+    st === 1 ? `voting opens ${countdown(m.opensAt, '', 'bodies')}`
+    : st === 2 ? (Number(m.closesAt) > now ? `voting closes ${countdown(m.closesAt, '', 'bodies')}` : 'voting closed · waiting to be counted')
+    : st === 3 ? (Number(m.executiveBy) > now ? `executive must act ${countdown(m.executiveBy, '', 'bodies')}` : 'executive deadline passed · waiting to be closed')
+    : st === 7 ? (Number(m.overrideBy) > now ? `override vote closes ${countdown(m.overrideBy, '', 'bodies')}` : 'override vote closed · waiting to be closed')
     : `put on the agenda ${countdown(m.noticeAt)}`;
   const resLine = res
     ? `<p><strong>Residents:</strong> ${res.yes} Yes · ${res.no} No${res.closed ? (res.result === 1 ? ' · <strong>residents said Yes</strong>' : res.result === 2 ? ' · <strong>residents said No</strong>' : ' · no clear result') : ` · residents' vote closes ${countdown(res.end)}`}</p>`
