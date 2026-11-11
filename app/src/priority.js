@@ -129,7 +129,7 @@ export async function collectAttention(cfg, provider, opts = {}) {
 
   if (cfg.councilAddress) jobs.push((async () => {
     const c = new ethers.Contract(cfg.councilAddress, COUNCIL, provider);
-    const read = (id) => c.proposal(id).catch(async () => {
+    const read = (id) => c.proposal(id).then((r) => (void r[0].lapsed, r)).catch(async () => {
       const [p, s, a] = await new ethers.Contract(cfg.councilAddress, COUNCIL_OLD, provider).proposal(id);
       return [{ ...p.toObject(), emergency: false, lapsed: false, ratifyBy: 0n }, s, a];
     });

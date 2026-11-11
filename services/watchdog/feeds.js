@@ -105,7 +105,7 @@ async function deadlines(cfg, provider, readDoc) {
     const c = new ethers.Contract(cfg.councilAddress, ['function proposalCount() view returns (uint256)', 'function proposal(uint256) view returns (tuple(address target, uint256 value, bytes data, string description, address proposer, uint64 proposedAt, uint64 readyAt, bool fast, bool executed, bool cancelled, bool emergency, address undoTarget, bytes undoData, uint256 ratifyPoll, uint64 ratifyBy, bool lapsed) p, uint8 s, uint256 approvals)'], provider);
     const n = Number(await c.proposalCount().catch(() => 0n));
     for (let id = n; id >= Math.max(1, n - 20); id--) {
-      const r = await c.proposal(id).catch(() => null); // older councils have no emergency lane
+      const r = await c.proposal(id).then((x) => (void x[0].lapsed, x)).catch(() => null); // older councils have no emergency lane
       if (!r) break;
       const [p, s] = r;
       if (p.emergency && p.executed && !p.lapsed && Number(p.ratifyBy) > now) out.push({ uid: `emergency-${cfg.councilAddress}-${id}`, at: Number(p.ratifyBy), title: `Ratify or it lapses: council emergency change #${id}`, body: `${p.description}. Vote in poll ${p.ratifyPoll} or it is undone.` });

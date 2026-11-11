@@ -104,7 +104,9 @@ export function describeCall(cfg, target, data) {
 // Councils deployed before the emergency lane return a shorter proposal; read those with the older shape.
 export async function readProposal(c, id) {
   try {
-    return await c.proposal(id);
+    const r = await c.proposal(id);
+    void r[0].lapsed; // results decode lazily: an older council's record fails here, not in the call
+    return r;
   } catch {
     const old = new ethers.Contract(await c.getAddress(), ['function proposal(uint256) view returns (tuple(address target, uint256 value, bytes data, string description, address proposer, uint64 proposedAt, uint64 readyAt, bool fast, bool executed, bool cancelled) p, uint8 s, uint256 approvals)'], c.runner);
     const [p, s, approvals] = await old.proposal(id);
