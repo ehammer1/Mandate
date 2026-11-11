@@ -451,6 +451,11 @@ test('council: one member proposes a new clerk, another approves, it runs after 
   await page.waitForSelector('#council-list [data-show="done"][aria-pressed="false"] >> text=Done (1)', { timeout: 60_000 });
   await page.click('#council-list [data-show="done"]');
   await page.waitForSelector('#council-1 >> text=Done', { timeout: 60_000 });
+  // A shared link opens even a finished change (its filter switches to show it).
+  await page.click('#council-list [data-show="open"]');
+  await page.evaluate(() => { location.hash = ''; });
+  await page.evaluate(() => { location.hash = '#council-1'; });
+  await page.waitForSelector('#council-1.flash:not([hidden])', { timeout: 30_000 });
   assert.equal((await c.identity.issuers(desk)).name, 'Council desk');
   assert.equal((await c.identity.issuers(desk)).active, true);
   await shot('8-council-done');

@@ -1093,7 +1093,15 @@ async function goToTarget(target) {
     show('screen-admin');
     await refreshAdmin();
   }
-  jumpTo($(target));
+  // Wait for the item to appear (lists load one by one); show it even if its filter hides it.
+  for (let i = 0; i < 80; i++) {
+    const el = $(target);
+    if (el) {
+      if (el.hidden && el.dataset.group) el.parentElement?.querySelector('.filters [data-show="all"]')?.click();
+      return jumpTo(el);
+    }
+    await new Promise((r) => setTimeout(r, 250));
+  }
 }
 function wireTodoLinks(box) {
   for (const a of box.querySelectorAll('[data-goto]')) a.onclick = (e) => (e.preventDefault(), goToTarget(a.dataset.goto));
