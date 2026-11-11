@@ -25,7 +25,7 @@ deployer's, can change who runs the system.
 - **Taking power away is instant once approved**: `revokeRole` and removing a clerk skip
   the wait, so a compromised account can be shut off quickly. Granting power and changing
   the council always wait.
-- Operational roles stay with people for daily work (clerks enrol voters, proposers open
+- Operational roles stay with people for daily work (clerks enroll voters, proposers open
   polls); only granting and removing them goes through the council.
 
 ## Testnet setup (Base Sepolia)

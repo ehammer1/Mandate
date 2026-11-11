@@ -118,3 +118,8 @@ a.button { display: inline-flex; align-items: center; padding: 6px 14px; border:
 .todo-list li a { font-weight: 600; }
 .flash { animation: flash 2s ease-out; }
 @keyframes flash { 0% { box-shadow: 0 0 0 4px var(--accent); } 100% { box-shadow: 0 0 0 0 transparent; } }
+.whats { font-size: 14px; font-weight: 400; margin-left: 6px; }
+.help-section summary { cursor: pointer; }
+dl.glossary dt { font-weight: 700; margin-top: 8px; }
+dl.glossary dd { margin: 0 0 4px; }
+.item-tools { gap: 8px; flex-wrap: wrap; font-size: 13px; margin: 4px 0 0; }

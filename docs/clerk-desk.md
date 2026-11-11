@@ -20,7 +20,7 @@ Each city picks **one** record that ties a voter code to a real person, set as
 | `id` (default) | Government photo ID: licence, state ID, mobile ID, passport | States with voter ID |
 | `roll` | The person's entry in the official voter roll, matched in person by name and address plus date of birth or signature. No photo ID. | States without voter ID, where identity is checked at registration (licence number or last 4 of the SSN) |
 
-Only one anchor is active at a time: if both were accepted, one person could enrol once
+Only one anchor is active at a time: if both were accepted, one person could enroll once
 by ID and again by voter-roll record. Proof of residence (utility bill, lease, bank
 statement, government letter, or the address on the ID or roll) is a separate checklist
 step; those documents show where someone lives, not who they are, so they never anchor a
@@ -64,7 +64,7 @@ from their registration.
   the voter code and the month, and works for about a month.
 - At most 2 letters per registration a month and 3 requests per connection an hour; 5 code
   attempts an hour.
-- Only in voter-roll cities (otherwise it would be a second way to enrol beside photo ID).
+- Only in voter-roll cities (otherwise it would be a second way to enroll beside photo ID).
 - Needs: the roll loaded, `MAIL_PROVIDER=lob` with `LOB_API_KEY` and the clerk's return
   address (`MAIL_FROM_*`), and the council's approval of the identity service for ID checks.
 
@@ -83,7 +83,7 @@ from their registration.
    (or a utility bill, lease or voter card) is in the city. Enter the type of ID, the
    issuing state or country, and the number. Enter the month they started living in the
    city, or tick **New resident** (30-day wait before full-rights polls).
-4. Tap **Enrol** or **Upgrade**. The desk confirms when they can vote in full-rights polls.
+4. Tap **Enroll** or **Upgrade**. The desk confirms when they can vote in full-rights polls.
 5. **Next person** clears the screen. It also clears itself after 2 minutes idle.
 
 ## Privacy
@@ -102,8 +102,8 @@ from their registration.
 ## Limits (pilot)
 
 - A person holding two different kinds of ID (for example a driver's licence and a
-  passport) could enrol twice at two desks. Pilot mitigations: ask for the state ID first,
-  the watchdog's enrolment-spike alerts, and audits of each desk's enrolments. A production
+  passport) could enroll twice at two desks. Pilot mitigations: ask for the state ID first,
+  the watchdog's enrollment-spike alerts, and audits of each desk's enrollments. A production
   version should fingerprint a person-level identifier (for example from a mobile ID).
 - Lost phone: an admin removes the old voter code (freeing the ID), then the person is
   enrolled again with a new code.

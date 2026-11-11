@@ -22,6 +22,7 @@
         <button id="nav-petitions">Petitions</button>
         <button id="nav-bodies">Government</button>
         <button id="nav-rules">Rules</button>
+        <button id="nav-help">Help</button>
         <button id="nav-clerk" hidden>Clerk desk</button>
         <button id="nav-admin" hidden>Admin</button>
         <button id="btn-signout">Sign out</button>
@@ -88,7 +89,7 @@
       </div>
       <p class="status" id="home-notice" role="status"></p>
       <p class="eyebrow" id="signin-method"></p>
-      <div class="card" id="membership" aria-live="polite"><p class="muted">Checking your enrolment…</p></div>
+      <div class="card" id="membership" aria-live="polite"><p class="muted">Checking your enrollment…</p></div>
       <section class="card stack" id="attention-card" aria-labelledby="h-attention">
         <h2 id="h-attention">Needs attention</h2>
         <p class="note">Everything open, ranked by how soon it closes and how much it can change.</p>
@@ -107,7 +108,7 @@
       <canvas id="voter-qr" role="img" aria-label="QR code of your voter code" style="display:block;margin:12px auto;background:#fff;padding:8px;border-radius:12px;max-width:100%"></canvas>
       <p class="code" id="voter-code" aria-label="Voter code"></p>
       <div class="row"><button id="btn-copy">Copy code</button><span class="status" id="copy-status" role="status"></span></div>
-      <p class="note">Enrolment checks your ID once. The clerk records only this code and a scrambled fingerprint of your ID number, never your name.</p>
+      <p class="note">Enrollment checks your ID once. The clerk records only this code and a scrambled fingerprint of your ID number, never your name.</p>
     </section>
 
     <!-- Account (optional) -->
@@ -158,7 +159,7 @@
           <div id="petition-term-row" hidden><label>Term in days <input type="text" id="petition-term" value="365" inputmode="numeric" style="width:100px" /></label></div>
           <div id="petition-role-row" class="stack" hidden>
             <label for="petition-role">Which role</label>
-            <select id="petition-role"><option value="issuer">Clerk (enrols voters)</option><option value="verifier">Verifier (checks mandates)</option></select>
+            <select id="petition-role"><option value="issuer">Clerk (enrolls voters)</option><option value="verifier">Verifier (checks mandates)</option></select>
           </div>
           <label for="petition-title">The petition, in one sentence</label>
           <input type="text" id="petition-title" placeholder="e.g. Pause the Elm Street project until the safety review is done" />
@@ -187,6 +188,15 @@
     </section>
 
     <!-- Rules -->
+    <section id="screen-help" data-screen hidden>
+      <h1>Help</h1>
+      <p>How to use Mandate, step by step, and what the words mean. Values in the guide are your community's current rules.</p>
+      <label for="help-search">Search the guide</label>
+      <input type="search" id="help-search" placeholder="e.g. quorum, petition, council" autocomplete="off" />
+      <div id="help-list"></div>
+      <p class="muted" id="help-empty" hidden>Nothing found. Try another word.</p>
+    </section>
+
     <section id="screen-bodies" data-screen hidden>
       <h1>Government and boards</h1>
       <p>How councils, boards and committees decide, in public. Every item is published before the vote, residents can vote on it first, and every member's vote is on the record with their reasons.</p>
@@ -261,7 +271,7 @@
           <label for="clerk-since">Living in the city since (from their ID or proof of address)</label>
           <input type="month" id="clerk-since" style="min-height:48px;font:inherit;border-radius:10px;padding:8px;width:200px" />
           <label class="row"><input type="checkbox" id="clerk-new-resident" /> New resident or can't tell (30-day wait before full-rights polls)</label>
-          <button class="primary" id="btn-clerk-submit">Enrol with full voting rights</button>
+          <button class="primary" id="btn-clerk-submit">Enroll with full voting rights</button>
         </div>
         <p class="status" id="clerk-result" role="status"></p>
         <div class="row"><button id="btn-clerk-next">Next person</button><span class="muted" id="clerk-count"></span></div>
@@ -278,6 +288,7 @@
 
       <div class="card stack" id="admin-poll" hidden>
         <h3>Open a poll</h3>
+        <p class="note">New to this? <a href="#help-polls" data-help="polls">How to run a poll</a>.</p>
         <label for="poll-title">Question</label>
         <input type="text" id="poll-title" placeholder="e.g. Fix the Elm Street crossing this year?" />
         <label for="poll-category">Topic</label>
@@ -285,7 +296,7 @@
         <label for="poll-body">Details: what exactly, by when, what it costs</label>
         <textarea id="poll-body" rows="4"></textarea>
         <div id="poll-attach"></div>
-        <label for="poll-kind">What a Yes does</label>
+        <label for="poll-kind">What a Yes does</label> <a href="#help-binding" class="whats" data-help="binding">What's this?</a>
         <select id="poll-kind">
           <option value="0">Advisory: records what the public wants</option>
           <option value="2">Binding: creates a mandate with a deadline</option>
@@ -329,14 +340,14 @@
           <label for="poll-question">Question reference (starts with nb:0x…)</label>
           <input type="text" id="poll-question" autocomplete="off" spellcheck="false" />
         </details>
-        <label for="poll-group">Who can vote</label>
+        <label for="poll-group">Who can vote</label> <a href="#help-voter-lists" class="whats" data-help="voter-lists">What's this?</a>
         <select id="poll-group" style="min-height:48px;font:inherit;border-radius:10px;padding:8px">
           <option value="2">Residents with full voting rights</option>
           <option value="1">All verified residents</option>
           <option value="0">All members</option>
         </select>
         <div id="poll-check-box" class="stack" hidden>
-          <label for="poll-check">Cross-check: also count a stricter group separately</label>
+          <label for="poll-check">Cross-check: also count a stricter group separately</label> <a href="#help-cross-check" class="whats" data-help="cross-check">What's this?</a>
           <select id="poll-check">
             <option value="-1">None</option>
             <option value="1">ID-checked residents</option>
@@ -349,7 +360,7 @@
         </div>
         <div class="row">
           <label>Days <input type="text" id="poll-days" value="7" inputmode="decimal" style="width:90px" /></label>
-          <label>Quorum <input type="text" id="poll-quorum" value="1" inputmode="numeric" style="width:90px" /></label>
+          <label>Quorum <input type="text" id="poll-quorum" value="1" inputmode="numeric" style="width:90px" /> <a href="#help-quorum" class="whats" data-help="quorum">What's this?</a></label>
         </div>
         <button class="primary" id="btn-open-poll">Open poll</button>
         <p class="status" id="poll-status" role="status"></p>
@@ -497,7 +508,7 @@
         <input type="text" id="grant-address" autocomplete="off" spellcheck="false" />
         <label for="grant-kind">Role</label>
         <select id="grant-kind" style="min-height:48px;font:inherit;border-radius:10px;padding:8px">
-          <option value="issuer">Clerk: can enrol voters</option>
+          <option value="issuer">Clerk: can enroll voters</option>
           <option value="proposer">Can open polls</option>
           <option value="admin">Admin (council member, if there is a council)</option>
         </select>

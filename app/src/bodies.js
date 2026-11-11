@@ -16,7 +16,7 @@
 
 import { ethers } from 'ethers';
 import { countdown } from './time.js';
-import { copyBtn, jumpTo } from './copy.js';
+import { copyBtn, jumpTo, itemTools } from './copy.js';
 import { readDoc, postDoc } from './notices.js';
 import { categoryChip, categoryFromHash, categoryOptions } from './priority.js';
 import { ORG_TEMPLATES, RULE_WORDS } from './org-templates.js';
@@ -190,6 +190,7 @@ async function motionHtml(cfg, provider, g, id, esc, names, now) {
     m, st, r, counts, who, choice, overrideChoice, doc,
     html: `<p class="eyebrow">Motion ${id} · <strong>${STAGES[st]}</strong> · ${clock}</p>
       <h3>${esc(doc.title)} ${categoryChip(categoryFromHash(m.category), esc)}</h3>${doc.body ? `<p>${esc(doc.body)}</p>` : ''}${attachmentsHtml(cfg, doc, esc)}
+      ${itemTools({ anchor: `motion-${id}`, idText: `Motion ${id} (government bodies ${cfg.bodiesAddress})`, ref: m.ref, explorer: cfg.explorer, address: cfg.bodiesAddress })}
       ${doc.from && Number(doc.from.motion) ? `<p class="note">Comes from ${esc(String(doc.from.body || 'another body'))}, which adopted it ${Number(doc.from.yes)}–${Number(doc.from.no)} (motion ${Number(doc.from.motion)}).</p>` : ''}
       ${resLine}
       ${action && Number(action.kind) ? `<p class="note"><strong>Changes the body itself:</strong> ${Number(action.kind) === 1 ? `${esc(names[action.account.toLowerCase()] || short(action.account))} ${roleWords(action.roles).length ? `becomes ${roleWords(action.roles).join(' and ')}` : 'loses every role'}${Number(action.until) ? ` until ${new Date(Number(action.until) * 1000).toLocaleDateString()}` : ''}` : `${action.alternate === ethers.ZeroAddress ? 'no alternate' : esc(names[action.alternate.toLowerCase()] || short(action.alternate))} for ${esc(names[action.account.toLowerCase()] || short(action.account))}`}. No executive signature needed.</p>` : ''}

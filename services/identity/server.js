@@ -2,7 +2,7 @@
 /**
  * services/identity/server.js - the sign-in identity service.
  *
- * An identity source (an "issuer" in IdentityRegistry) that enrols people who
+ * An identity source (an "issuer" in IdentityRegistry) that enrolls people who
  * sign in with an OpenID Connect provider:
  *
  *   Google, Apple, Microsoft            -> BASIC tier   (proves an account, not a person)
@@ -14,9 +14,9 @@
  *      made with their voter key (proving the code is theirs, not someone else's).
  *   2. They sign in with the provider (authorization code + PKCE, state, nonce).
  *   3. We validate the ID token, derive a fingerprint of the account,
- *      HMAC(pepper, provider:issuer:subject), and enrol the voter code on-chain.
+ *      HMAC(pepper, provider:issuer:subject), and enroll the voter code on-chain.
  *      The contract refuses a fingerprint it has already seen, so one account
- *      enrols one person, auditable by anyone, with no database here.
+ *      enrolls one person, auditable by anyone, with no database here.
  *   4. The person is sent back to the app.
  *
  * Privacy: the provider learns that the person used Mandate, never how they vote.
@@ -180,7 +180,7 @@ function createIdentityService(o) {
     return hmac(`${p.id}|${claims.iss}|${claims.sub}`);
   }
 
-  /** The voter key signs (service, code, time): only the code's owner can enrol it. Throws if not. */
+  /** The voter key signs (service, code, time): only the code's owner can enroll it. Throws if not. */
   function verifyOwnership(commitmentText, tsText, proofText) {
     const commitment = BigInt(commitmentText);
     const ts = Number(tsText);
@@ -196,10 +196,10 @@ function createIdentityService(o) {
     return commitment;
   }
 
-  /** Enrol on-chain, one transaction at a time. Returns the tx hash or throws { userMessage }. */
-  async function enrol(commitment, tier, hash, label) {
+  /** Enroll on-chain, one transaction at a time. Returns the tx hash or throws { userMessage }. */
+  async function enroll(commitment, tier, hash, label) {
     const used = tier === 1 ? await registry.commitmentOfDoc(hash) : await registry.commitmentOfAccount(hash);
-    if (used !== 0n) throw Object.assign(new Error('used'), { userMessage: `This ${label} has already been used to enrol someone.`, status: 409 });
+    if (used !== 0n) throw Object.assign(new Error('used'), { userMessage: `This ${label} has already been used to enroll someone.`, status: 409 });
     try {
       const run = queue.then(async () => {
         const tx = await registry.enroll(commitment, tier, hash, 0);
@@ -210,10 +210,10 @@ function createIdentityService(o) {
       return await run;
     } catch (e) {
       const name = e?.revert?.name;
-      log(`enrol failed: ${name || e.shortMessage || e.message}`);
-      if (name === 'AccountAlreadyUsed' || name === 'DocumentAlreadyUsed') throw Object.assign(e, { userMessage: `This ${label} has already been used to enrol someone.`, status: 409 });
+      log(`enroll failed: ${name || e.shortMessage || e.message}`);
+      if (name === 'AccountAlreadyUsed' || name === 'DocumentAlreadyUsed') throw Object.assign(e, { userMessage: `This ${label} has already been used to enroll someone.`, status: 409 });
       if (name === 'AlreadyEnrolled') throw Object.assign(e, { userMessage: 'This voter code is already enrolled.', status: 409 });
-      throw Object.assign(e, { userMessage: 'Enrolment failed on the network. Please try again later.', status: 502 });
+      throw Object.assign(e, { userMessage: 'Enrollment failed on the network. Please try again later.', status: 502 });
     }
   }
 
@@ -334,11 +334,11 @@ function createIdentityService(o) {
     }
 
     try {
-      const txHash = await enrol(BigInt(s.commitment), p.tier, fingerprint(p, claims), `${p.name} account`);
+      const txHash = await enroll(BigInt(s.commitment), p.tier, fingerprint(p, claims), `${p.name} account`);
       log(`enrolled a voter via ${p.id} (tier ${p.tier}) tx=${txHash}`);
       return backTo(res, s.returnUrl, { enrolled: p.tier === 1 ? 'verified' : 'basic', provider: p.name, tx: txHash });
     } catch (e) {
-      return backTo(res, s.returnUrl, { enroll_error: e.userMessage || 'Enrolment failed. Please try again later.' });
+      return backTo(res, s.returnUrl, { enroll_error: e.userMessage || 'Enrollment failed. Please try again later.' });
     }
   }
 
@@ -396,7 +396,7 @@ function createIdentityService(o) {
 
     const anchor = (o.clerkAnchor && o.clerkAnchor()) || 'id';
     if (!kindsFor(anchor).includes(body.doc?.kind)) {
-      return [400, { error: anchor === 'roll' ? 'This city enrols people by their voter registration record, not by ID document.' : 'This city enrols people by government photo ID, not by voter registration record.' }];
+      return [400, { error: anchor === 'roll' ? 'This city enrolls people by their voter registration record, not by ID document.' : 'This city enrolls people by government photo ID, not by voter registration record.' }];
     }
     let canonical;
     try {
@@ -459,11 +459,11 @@ function createIdentityService(o) {
       return [400, { error: e.userMessage || 'This mobile ID could not be verified.' }];
     }
     const docHash = hmac(canonicalDoc({ kind: r.jurisdiction.length === 2 ? 'state' : 'other', region: r.jurisdiction, number: r.documentNumber }));
-    if ((await registry.commitmentOfDoc(docHash)) !== 0n) return [409, { error: 'This ID has already been used to enrol someone. If you lost your phone, ask the clerk to remove your old voter code.' }];
+    if ((await registry.commitmentOfDoc(docHash)) !== 0n) return [409, { error: 'This ID has already been used to enroll someone. If you lost your phone, ask the clerk to remove your old voter code.' }];
     return enrolVerified(r.commitment, docHash, `mobile ID (${r.jurisdiction})`);
   }
 
-  /** Enrol at the ID-checked level, or upgrade a basic member. */
+  /** Enroll at the ID-checked level, or upgrade a basic member. */
   async function enrolVerified(commitment, docHash, how) {
     const m = await registry.members(commitment);
     if (m.active && Number(m.tier) >= 1) return [409, { error: 'This voter code is already ID-checked.' }];
@@ -479,8 +479,8 @@ function createIdentityService(o) {
       log(`enrolled a voter via ${how} tx=${tx}`);
       return [200, { enrolled: 'verified', tx }];
     } catch (e) {
-      log(`${how} enrol failed: ${e.revert?.name || e.shortMessage || e.message}`);
-      return [e.revert?.name === 'DocumentAlreadyUsed' ? 409 : 502, { error: e.revert?.name === 'DocumentAlreadyUsed' ? 'This registration or ID has already been used to enrol someone.' : 'Enrolment failed on the network. Please try again later.' }];
+      log(`${how} enroll failed: ${e.revert?.name || e.shortMessage || e.message}`);
+      return [e.revert?.name === 'DocumentAlreadyUsed' ? 409 : 502, { error: e.revert?.name === 'DocumentAlreadyUsed' ? 'This registration or ID has already been used to enroll someone.' : 'Enrollment failed on the network. Please try again later.' }];
     }
   }
 
@@ -518,7 +518,7 @@ function createIdentityService(o) {
     if (r.ambiguous) return { err: [409, { error: 'These details fit more than one registration. Please verify in person at the clerk.' }] };
     if (!r.matched || !r.streetMatched) return { err: [404, { error: 'We could not find a registration with exactly these details, including your street. Check them against your voter registration card, or verify in person.' }] };
     const docHash = hmac(canonicalDoc({ kind: 'roll', region: roll.state, number: r.registration }));
-    if ((await registry.commitmentOfDoc(docHash)) !== 0n) return { err: [409, { error: 'This registration has already been used to enrol someone. If that wasn\'t you, please contact the city clerk.' }] };
+    if ((await registry.commitmentOfDoc(docHash)) !== 0n) return { err: [409, { error: 'This registration has already been used to enroll someone. If that wasn\'t you, please contact the city clerk.' }] };
     const me = await registry.issuers(await o.signer.getAddress());
     if (!me.active || Number(me.maxTier) < 1) return { err: [503, { error: 'Verification by mail is waiting for the council to approve this service for ID checks.' }] };
     return { commitment, registration: r.registration, docHash, person: p, state: roll.state };
@@ -663,11 +663,11 @@ function createIdentityService(o) {
     }
     emailSessions.delete(String(body.session));
     try {
-      const tx = await enrol(BigInt(s.commitment), 0, hmac(`email|${s.norm}`), 'email address');
+      const tx = await enroll(BigInt(s.commitment), 0, hmac(`email|${s.norm}`), 'email address');
       log(`enrolled a voter via email tx=${tx}`);
       return [200, { enrolled: 'basic', tx }];
     } catch (e) {
-      return [e.status || 502, { error: e.userMessage || 'Enrolment failed. Please try again later.' }];
+      return [e.status || 502, { error: e.userMessage || 'Enrollment failed. Please try again later.' }];
     }
   }
 

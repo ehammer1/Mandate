@@ -1,5 +1,5 @@
 // Sign-in identity service end to end: real OpenID flow (PKCE, state, nonce,
-// signed ID tokens) against a mock provider, enrolment on a local chain.
+// signed ID tokens) against a mock provider, enrollment on a local chain.
 'use strict';
 
 const { test, before, after } = require('node:test');
@@ -100,7 +100,7 @@ async function signIn(identity, providerId, { tamper } = {}) {
   throw new Error('too many redirects');
 }
 
-test('Google-style sign-in enrols the voter code at the basic tier, once per account', async () => {
+test('Google-style sign-in enrolls the voter code at the basic tier, once per account', async () => {
   const me = new Identity('alice');
   idp.setUser({ sub: 'alice-123', email: 'alice@gmail.com', email_verified: true });
   const r = await signIn(me, 'testlogin');
@@ -130,7 +130,7 @@ test('refuses unverified emails, someone else’s voter code, and unknown return
   assert.equal(res.status, 400);
 });
 
-test('identity-proofed provider enrols at the verified tier only with the required assurance', async () => {
+test('identity-proofed provider enrolls at the verified tier only with the required assurance', async () => {
   const dan = new Identity('dan');
   gov.setUser({ sub: 'gov-dan', acr: 'ial1' });
   assert.match((await signIn(dan, 'govid')).enroll_error, /required level/);
@@ -161,7 +161,7 @@ test('email policy: reputable providers, .gov/.edu and listed domains in; throwa
   assert.equal(createEmailPolicy({}).check('a@mailinator.com').ok, false);
 });
 
-test('sign-in with an unaccepted email domain is refused before enrolment', async () => {
+test('sign-in with an unaccepted email domain is refused before enrollment', async () => {
   idp.setUser({ sub: 'temp-1', email: 'x@mailinator.com', email_verified: true });
   assert.match((await signIn(new Identity('temp'), 'testlogin')).enroll_error, /temporary-email service/);
   idp.setUser({ sub: 'odd-1', email: 'x@randomdomain.xyz', email_verified: true });
@@ -323,7 +323,7 @@ test('clerk desk: ID fingerprints only for approved clerks, same for every desk,
   assert.throws(() => parseVoterCode('0'), /isn't a valid voter code/);
 });
 
-test('clerk desk: the city picks one anchor, so nobody can enrol once by ID and again by voter roll', async () => {
+test('clerk desk: the city picks one anchor, so nobody can enroll once by ID and again by voter roll', async () => {
   const { clerkSessionMessage, canonicalDoc } = require('../client/clerk');
   const admin = await provider.getSigner(0);
   const desk = ethers.Wallet.createRandom();
@@ -378,7 +378,7 @@ test('voter-roll check: clerks find people in the roll from name, birth date and
   // Not in the roll, or not enough details to match safely.
   assert.equal((await match({ first: 'Robert', last: 'Smith', dob: '1980-04-12', house: '123', zip: '97201' })).matched, false);
   assert.equal((await match({ first: 'Robert', last: 'Lopez', dob: '', house: '', zip: '97201' })).status, 400);
-  // In a photo-ID city the roll only confirms registration: no enrolment fingerprint is handed out.
+  // In a photo-ID city the roll only confirms registration: no enrollment fingerprint is handed out.
   anchor = 'id';
   const inIdCity = await match({ first: 'Robert', last: 'Garcia Lopez', dob: '04/12/1980', house: '', zip: '97201' });
   assert.equal(inIdCity.matched, true);

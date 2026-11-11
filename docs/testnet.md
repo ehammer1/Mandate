@@ -21,7 +21,7 @@ NETWORK=base-sepolia DEPLOYER_PRIVATE_KEY=0x... ADMIN_ADDRESS=0xYourWallet DEMO_
 ```
 
 `ADMIN_ADDRESS` receives every admin role, so control does not depend on the deployer key.
-`DEMO_ISSUER=1` makes the deployer a "testnet demo clerk" that can enrol voter codes.
+`DEMO_ISSUER=1` makes the deployer a "testnet demo clerk" that can enroll voter codes.
 
 ## Operate
 

@@ -9,7 +9,7 @@
  *   3. Check the ID in person, enter its type, issuing state and number, and when they
  *      started living in the city. The service returns a keyed fingerprint of the ID;
  *      the desk refuses an ID already used for another voter code.
- *   4. Enrol with full rights (new person) or upgrade (basic member) in one transaction.
+ *   4. Enroll with full rights (new person) or upgrade (basic member) in one transaction.
  *   5. "Next person" (or two idle minutes) wipes everything from the screen and memory.
  *
  * Nothing about the person is stored on this device. On-chain: the voter code, the ID
@@ -179,7 +179,7 @@ export function wireClerk(ctx) {
     let canAct = true;
     if (m.issuer === ethers.ZeroAddress) {
       html += '<p class="big">Not on the voter list yet</p><p>After the ID check they will be added with full voting rights.</p>';
-      $('btn-clerk-submit').textContent = 'Enrol with full voting rights';
+      $('btn-clerk-submit').textContent = 'Enroll with full voting rights';
     } else if (!m.active) {
       html += '<p class="big">Removed from the voter list</p><p>This code can no longer be used. The person needs to make a new voter code in the app.</p>';
       canAct = false;

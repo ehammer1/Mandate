@@ -51,7 +51,7 @@ Anyone eligible can take part through at least one channel, with no crypto knowl
 | Phone app | Web app; the voting secret is unlocked with a passkey (Face ID, fingerprint, PIN) | Most residents | Highest: proof built on the device |
 | Computer | The same web app in any browser; the passkey syncs across the person's devices; a mobile ID is shared by scanning a QR code with the phone | People who prefer a larger screen | Highest |
 | Printed voter card | A QR card scanned at a kiosk or a library webcam | No smartphone | High: nothing saved after use |
-| Kiosk | Library and city-hall terminals, with assisted enrolment | No device, or needs help | High: open-source, audited kiosk software |
+| Kiosk | Library and city-hall terminals, with assisted enrollment | No device, or needs help | High: open-source, audited kiosk software |
 | Phone call | An AI phone line reads proposals; a PIN-unlocked custodial service casts the vote | Low vision, no internet | Lower: the custodian could see choices, so it is audited and voters get receipt codes |
 
 **Wallets are optional.**
@@ -87,10 +87,10 @@ Every role that could be a choke point is run by several independent parties, an
 
 | Role | What it does | Run by (pilot) | Run by (at scale) | Safeguard |
 | --- | --- | --- | --- | --- |
-| Identity source | Checks documents, enrols people | City clerk, a mobile-ID verifier, a phone check | Any accredited clerk, DMV, university, union or cooperative | Approved and removable by vote; every enrolment is traceable to its source |
+| Identity source | Checks documents, enrolls people | City clerk, a mobile-ID verifier, a phone check | Any accredited clerk, DMV, university, union or cooperative | Approved and removable by vote; every enrollment is traceable to its source |
 | Verifier | Checks evidence that a mandate was met | AI verifier, a civic auditor, a dispute-court adapter | Competing verifier networks | A threshold must agree, for example 2 of 3; no single verifier decides |
 | Relayer | Submits ballots and pays fees | City, library system, a civic nonprofit | Anyone who stakes a bond to run one | Proofs can't be altered; voter apps fail over to another relayer |
-| Kiosk operator | Assisted enrolment and voting | Libraries | Libraries, community centers, schools | Open-source, reproducible builds; nothing stored |
+| Kiosk operator | Assisted enrollment and voting | Libraries | Libraries, community centers, schools | Open-source, reproducible builds; nothing stored |
 | Protocol upgrades | Changes the contracts and rules | Admin key held by a timelock | A timelock controlled by the public vote | Every change is delayed and public before it takes effect |
 
 **Who governs the protocol itself.** Early on, a small founding group holds upgrade rights behind a timelock. Those rights pass to a vote of all participating communities as the network grows. Each community also keeps the right to leave, by forking the open-source code and its own records.
@@ -154,7 +154,7 @@ Phases one and two are built and tested; phase three is what a pilot city needs 
 | --- | --- | --- |
 | 1. Core loop | Mandate registry; budget escrow; decision markets on play money; AI evidence verifier; verifier node; dashboard | Built, tested |
 | 2. Identity and private voting | Identity registry with tiers and seasoning; zero-knowledge ballots; frozen voter lists; proposal bonds; ballot relayer | Built, tested with real proofs |
-| 3. Pilot readiness | Passkey web app for phone and computer with optional automatic accounts; clerk-desk enrolment app; mobile-ID and phone-check services; per-person market caps; handing admin control to a vote-controlled timelock | In progress |
+| 3. Pilot readiness | Passkey web app for phone and computer with optional automatic accounts; clerk-desk enrollment app; mobile-ID and phone-check services; per-person market caps; handing admin control to a vote-controlled timelock | In progress |
 | 4. Hardening | Receipt-free encrypted ballots (MACI) so votes can't be sold; dispute-court adapters; kiosk mode and printed cards; phone-call voting; external security audit | Planned |
 | 5. Network | Many communities on shared infrastructure; contributor task marketplace; staked relayer and verifier networks; cross-community standards | Planned |
 
@@ -168,7 +168,7 @@ The biggest risks are social and legal, not technical: low turnout, capture by o
 | Capture by organized groups | A motivated minority dominates low-turnout votes | Quorums; scheduled decision windows; public veto; deliberation before votes |
 | Wealthy influence | Money swings markets or floods proposals | Votes never weighted by money; per-person stake caps; time-averaged market prices; refundable bonds only |
 | Fake or duplicate identities | Bots or rented identities vote | Approved identity sources only; one document per person; 30-day seasoning; frozen voter lists; revocation |
-| Digital divide | Older, poorer or disabled residents are left out | Kiosks, printed cards, phone-call voting, assisted enrolment, publicly funded devices; track turnout by neighborhood |
+| Digital divide | Older, poorer or disabled residents are left out | Kiosks, printed cards, phone-call voting, assisted enrollment, publicly funded devices; track turnout by neighborhood |
 | AI verifier error | The AI approves weak evidence or rejects good evidence | AI is one verifier among several; approvals must quote the evidence; appeals to a dispute process |
 | Smart-contract bugs | Funds locked or lost | External audits; play money first; caps on funds per mandate; timelocked upgrades |
 | Legitimacy | Officials ignore results | Grow authority step by step under the legal path; publish every result and every ignored mandate |
@@ -180,7 +180,7 @@ Success means more people taking part, more decisions carried out, and less time
 
 | Metric | What it measures | Why it matters |
 | --- | --- | --- |
-| Enrolment rate | Verified residents as a share of eligible adults | Reach |
+| Enrollment rate | Verified residents as a share of eligible adults | Reach |
 | Participation | Ballots per poll as a share of the eligible voter list | Engagement |
 | Representativeness | Turnout by neighborhood, age and income compared with the population | Inclusion |
 | Fulfilment rate | Mandates fulfilled by their deadline | Real-world impact |
@@ -195,7 +195,7 @@ Success means more people taking part, more decisions carried out, and less time
 The goal for the next 90 days is a signed pilot partner and a testnet demo that a resident can use end to end.
 
 - [ ] Build the passkey web app for phone and computer, with optional automatic accounts
-- [ ] Build the clerk-desk enrolment app and a phone-check service
+- [ ] Build the clerk-desk enrollment app and a phone-check service
 - [ ] Deploy every contract to a public testnet and run a demo poll with volunteers
 - [ ] Write a one-page pitch and short demo video for city officials
 - [ ] Shortlist three candidate cities with open-data or participatory-budget programs

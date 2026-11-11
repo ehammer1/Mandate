@@ -6,7 +6,7 @@
  * that any relayer can submit.
  *
  *   const { Identity } = require('@semaphore-protocol/identity');
- *   const me = Identity.import(savedSecret);          // or new Identity() at enrolment
+ *   const me = Identity.import(savedSecret);          // or new Identity() at enrollment
  *   const ballot = await buildBallot({ provider, vote, pollId, identity: me, option: 0 });
  *   await fetch(relayerUrl + '/ballot', { method: 'POST', body: JSON.stringify({ pollId, ballot }) });
  *

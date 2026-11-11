@@ -51,7 +51,7 @@ const DOC_KINDS = {
 /**
  * What makes one person = one voter code, chosen once per city (config "clerkAnchor").
  * Only one anchor may be active: if photo IDs and voter-roll records were both accepted,
- * one person could enrol once with each.
+ * one person could enroll once with each.
  *   id    a government photo ID (the default)
  *   roll  the person's entry in the official voter roll, matched in person (name, address,
  *         date of birth or signature), as poll workers do in states without voter ID

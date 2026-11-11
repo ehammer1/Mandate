@@ -199,7 +199,7 @@ after(async () => {
   if (globalThis.curve_bn128) await globalThis.curve_bn128.terminate();
 });
 
-test('passkey sign-up, enrolment, anonymous vote through relayer fail-over, same identity on return', async () => {
+test('passkey sign-up, enrollment, anonymous vote through relayer fail-over, same identity on return', async () => {
   page.on('pageerror', (e) => console.error('page error:', e.message));
   await page.goto(appUrl);
   await page.waitForSelector('#screen-signin:not([hidden])');
@@ -218,7 +218,7 @@ test('passkey sign-up, enrolment, anonymous vote through relayer fail-over, same
   });
   assert.equal(parseVoterCode(jsQR(Uint8ClampedArray.from(img.data), img.w, img.h).data), commitment);
 
-  // The clerk checks ID at the desk and enrols the voter code (a long-time resident: full rights at once),
+  // The clerk checks ID at the desk and enrolls the voter code (a long-time resident: full rights at once),
   // plus two neighbours so the voter list is bigger than one.
   const longAgo = (await provider.getBlock('latest')).timestamp - 3 * 365 * DAY;
   await (await c.identity.connect(clerk).enroll(commitment, 1, docHash('DL-app'), longAgo)).wait();
@@ -267,7 +267,7 @@ test('admin from the passkey account, and from a connected wallet', async () => 
   await page.click('#nav-polls'); // refreshes roles
   await page.waitForSelector('#nav-admin:not([hidden])');
   await page.click('#nav-admin');
-  await page.waitForFunction(() => /can enrol voters/.test(document.querySelector('#admin-who').textContent));
+  await page.waitForFunction(() => /can enroll voters/.test(document.querySelector('#admin-who').textContent));
 
   // The clerk desk: open it once (signs a desk session), then serve people one by one.
   await page.waitForSelector('#nav-clerk:not([hidden])');
@@ -364,7 +364,7 @@ test('admin from the passkey account, and from a connected wallet', async () => 
   await page.waitForFunction(() => /Connected: Test Wallet/.test(document.querySelector('#account-kind').textContent));
   assert.equal(ethers.getAddress((await page.textContent('#account-address')).trim()), walletAccount);
   await page.click('#nav-admin');
-  await page.waitForFunction(() => /can enrol voters/.test(document.querySelector('#admin-who').textContent));
+  await page.waitForFunction(() => /can enroll voters/.test(document.querySelector('#admin-who').textContent));
   // The wallet's own clerk desk: a different account needs its own desk session.
   await page.click('#nav-clerk');
   await page.waitForSelector('text=Test Wallet clerk');
@@ -746,7 +746,7 @@ test('mandate lifecycle: binding poll, vote, mandate, budget, evidence, verifica
   assert.equal((await c.registry.getMandate(2)).status, 3n);
 });
 
-test('voter-roll city: the desk enrols by voter registration record, no photo ID', async () => {
+test('voter-roll city: the desk enrolls by voter registration record, no photo ID', async () => {
   // The person from the previous test becomes a clerk; the city switches its anchor to the voter roll.
   await page.click('#nav-account');
   const me = ethers.getAddress((await page.textContent('#account-address')).trim());

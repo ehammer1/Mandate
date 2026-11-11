@@ -7,7 +7,7 @@
  *
  *   high    power changed or something may be wrong: admin role granted/revoked,
  *           a council change proposed, scheduled or carried out, council membership,
- *           identity source approved/removed, enrolment spike, failed binding action,
+ *           identity source approved/removed, enrollment spike, failed binding action,
  *           operational account running out of funds
  *   medium  notable: other role changes, revocations, binding polls opened,
  *           overdue mandates, metric resolutions
@@ -77,7 +77,7 @@ function describeCall(target, data, names = {}) {
 /**
  * Turn one decoded event into zero or more alerts.
  * @param {{ contract: string, name: string, args: any, tx: string, block: number, time: number }} ev
- * @param {object} ctx  shared state: thresholds, enrolment windows, issuer names
+ * @param {object} ctx  shared state: thresholds, enrollment windows, issuer names
  */
 function rulesForEvent(ev, ctx) {
   const a = ev.args;
@@ -121,7 +121,7 @@ function rulesForEvent(ev, ctx) {
           ...base,
           rule: 'enrolment-spike',
           severity: 'high',
-          title: `Enrolment spike: ${win.length} people enrolled by "${name}" (${short(a.issuer)}) within an hour (limit ${limit})`,
+          title: `Enrollment spike: ${win.length} people enrolled by "${name}" (${short(a.issuer)}) within an hour (limit ${limit})`,
           facts: { issuer: a.issuer, count: win.length, windowSeconds: 3600, limit },
         }];
       }

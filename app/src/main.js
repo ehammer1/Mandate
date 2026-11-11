@@ -26,7 +26,8 @@ import { renderExplainer } from './explain.js';
 import { informedHtml } from './informed.js';
 import { wireOfficials } from './officials.js';
 import { wireBodies } from './bodies.js';
-import { wireCopy, jumpTo } from './copy.js';
+import { wireCopy, jumpTo, itemTools } from './copy.js';
+import { wireHelp } from './help.js';
 import { attachPicker, attachmentsHtml, wireAttachments, uploadService } from './attach.js';
 import { countdown, startTicker, clockOffset } from './time.js';
 import { trackItems, toggleFollow, wireSettings } from './reminders.js';
@@ -117,7 +118,29 @@ async function signedIn(k, backupCode) {
   await refreshStatus();
   await refreshPolls();
   await refreshAdminNav();
+  openFromLink(location.hash).catch(() => {});
 }
+
+/** Open the item a shared link points to: #poll-3, #petition-2, #mandate-1, #council-4, #motion-5, #help-quorum... */
+async function openFromLink(hash) {
+  const m = /^#(poll|petition|mandate|council|prevcouncil|motion|body|help)-([\w-]+)$/.exec(hash || '');
+  if (!m) return;
+  const [, kind, id] = m;
+  if (kind === 'help') return state.help.open(id);
+  const target = `${kind}-${id}`;
+  if (kind === 'council' || kind === 'prevcouncil') {
+    if ($('nav-admin').hidden) return void (location.href = `dashboard.html#h-council`);
+    return goToTarget(target);
+  }
+  if (kind === 'motion' || kind === 'body') return goToTarget(target);
+  const nav = { petition: 'nav-petitions', mandate: 'nav-mandates' }[kind];
+  if (nav) $(nav).click();
+  for (let i = 0; i < 60; i++) {
+    if ($(target) && !$(target).closest('[hidden]')) return jumpTo($(target));
+    await new Promise((r) => setTimeout(r, 250));
+  }
+}
+window.addEventListener('hashchange', () => openFromLink(location.hash).catch(() => {}));
 
 async function trySignIn(fn, statusEl) {
   status(statusEl, 'Waiting for your passkey…');
@@ -276,7 +299,7 @@ async function refreshStatus() {
 // ------------------------------------------------------------ join online
 //
 // Sign-in identity service: the person signs in with Google, Apple, Microsoft or
-// an identity-verified provider; the service enrols their voter code. The app
+// an identity-verified provider; the service enrolls their voter code. The app
 // first signs "this code is mine" with the voter key so nobody can attach their
 // account to someone else's code.
 
@@ -690,6 +713,7 @@ async function refreshPolls() {
         <h3>${esc(q.title)} ${categoryChip(categoryOf(q), esc)}</h3>
         ${q.body ? `<p>${esc(q.body)}</p>` : ''}
         ${attachmentsHtml(state.config, q, esc)}
+        ${itemTools({ anchor: `poll-${id}`, idText: `Poll ${id} (voting contract ${state.config.voteAddress})`, ref: p.questionCID, explorer: state.config.explorer, address: state.config.voteAddress })}
         ${(() => {
           const t = mandateTerms(p);
           const other = describeAction(p);
@@ -1042,7 +1066,7 @@ async function refreshAdmin() {
   const r = await myRoles(address);
   state.roles = r;
   const eth = await state.provider.getBalance(address);
-  const roles = [r.admin && 'admin', r.councilMember && 'council member', r.proposer && 'can open polls', r.issuer && 'can enrol voters'].filter(Boolean);
+  const roles = [r.admin && 'admin', r.councilMember && 'council member', r.proposer && 'can open polls', r.issuer && 'can enroll voters'].filter(Boolean);
   $('admin-who').innerHTML = `<p class="code" id="admin-address">${esc(address)}</p><p>${esc(roles.join(' · ') || 'no roles')}</p>
     <p class="${eth === 0n ? 'warn' : 'muted'}">${Number(ethers.formatEther(eth)).toFixed(6)} test ETH for fees${eth === 0n ? ': this account needs a little test ETH before it can act.' : ''}</p>`;
   addCopyButton($('admin-address'));
@@ -1298,6 +1322,7 @@ async function boot() {
     }
   };
   startTicker(state.provider);
+  state.help = wireHelp({ state, $, show });
   state.bodies = wireBodies({ state, $, status, esc, activeSigner, activeAddress });
   $('nav-bodies').onclick = async () => {
     show('screen-bodies');

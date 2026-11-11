@@ -1,7 +1,7 @@
 /**
  * client/enrol.js - shared by the voter app and the sign-in identity service.
  *
- * Before an identity service enrols a voter code, the person proves the code is
+ * Before an identity service enrolls a voter code, the person proves the code is
  * theirs by signing (service origin, code, time) with their voter key. That stops
  * anyone from attaching their own sign-in account to someone else's code.
  */

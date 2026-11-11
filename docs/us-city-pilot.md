@@ -11,7 +11,7 @@ locked-up capital fits, and how people take part without a crypto wallet.
   items, and service standards. Binding effect comes only from what the council
   voluntarily adopts by resolution.
 - **Partner:** the city clerk's office, because it already runs voter registration. Add
-  public libraries for in-person enrolment and kiosks.
+  public libraries for in-person enrollment and kiosks.
 - **Money:** play credits only for decision markets. Escrow can hold a small,
   council-approved participatory-budget pot. Talk to a lawyer before any real-money
   market (CFTC rules) or any binding effect (city charter, state election law).
@@ -26,7 +26,7 @@ Implemented in `contracts/IdentityRegistry.sol` and `contracts/MandateVote.sol`.
 |---|---|---|
 | `BASIC` | Phone check (one-time code + carrier line-type / SIM-swap check), or reputation stamps (Human Passport) | Comment, advisory polls, play-credit faucet, propose with a bond |
 | `VERIFIED` | Any one of: **clerk desk** (ID checked in person); **mobile driver's license** via the browser Digital Credentials API (ISO 18013-5, Apple/Google Wallet; reveals only "resident of city, 18+"); **passport-chip** zero-knowledge proof (Self / zkPassport) plus proof of address | Everything in BASIC, plus non-binding verified polls |
-| `SEASONED` | `VERIFIED` and resident for at least the seasoning period (pilot: 30 days), or residency proven that long at enrolment | Binding votes, vetoes of market decisions |
+| `SEASONED` | `VERIFIED` and resident for at least the seasoning period (pilot: 30 days), or residency proven that long at enrollment | Binding votes, vetoes of market decisions |
 
 How privacy is kept:
 
@@ -35,13 +35,13 @@ How privacy is kept:
 - Issuers check documents off-chain and then **delete the raw data**. On-chain they
   record only the commitment and a **document hash**: an HMAC of the license or passport
   number using a secret pepper that only the issuer holds. The same document can't
-  enrol twice, and the number can't be recovered from the chain.
+  enroll twice, and the number can't be recovered from the chain.
 - A ballot is a Semaphore zero-knowledge proof: "I'm in this poll's voter list and
   haven't voted yet." It reveals nothing else. A per-poll nullifier blocks double
   voting, and nobody can link one person's ballots across polls.
 
 Issuers are approved by governance (`setIssuer`), each with a maximum tier, and can be
-switched off. Every enrolment records which issuer made it, so a compromised issuer's
+switched off. Every enrollment records which issuer made it, so a compromised issuer's
 members can be audited and revoked.
 
 ## 3. Stopping temporary gaming
@@ -52,7 +52,7 @@ The concern is people or bots showing up briefly to swing a decision, then leavi
 |---|---|---|
 | **Frozen voter list per poll** | Each poll records the voter-group root when it opens. Anyone enrolled later, even a minute later, can't vote in it. | `MandateVote.createPoll` (snapshot root) |
 | **Seasoning** | New residents wait 30 days before binding votes. Long-term residents skip the wait by proving residency start: mDL issue date, voter-roll registration date, lease or utility history checked at the clerk desk. | `IdentityRegistry.season`, `residentSince` |
-| **One document, one person** | A document hash can only back one active member. Revoking frees it for re-enrolment on a new phone. | `commitmentOfDoc` |
+| **One document, one person** | A document hash can only back one active member. Revoking frees it for re-enrollment on a new phone. | `commitmentOfDoc` |
 | **Cross-checking sources** | For `VERIFIED`, require two independent signals, e.g. mDL residency **plus** the voter roll or a utility account, compared at the issuer. Mismatches go to the clerk desk. | Issuer policy (off-chain) |
 | **Time-averaged markets** | Market decisions use the average price over the whole trading period, so a last-minute spike barely moves it. | `DecisionMarket` (already built) |
 | **Capital locked for time** | Proposal bonds stay locked for the whole poll. Market stakes stay locked until the outcome resolves. Quick in-and-out manipulation costs real lockup. | `MandateVote` bonds, `DecisionMarket` |
@@ -82,7 +82,7 @@ Capital can show commitment and pay for enforcement. It must never buy votes.
 | **Proposal bonds** | Anyone can open a poll by locking a bond. It's refunded if the poll reaches quorum and goes to the treasury if it doesn't. This deters spam and doesn't require insider status. | Built (`MandateVote`) |
 | **Mandate backing** | Citizens deposit into a mandate's escrow. It's paid out when the mandate is fulfilled, decays while overdue, and is refunded pro rata if repealed. | Built (`BudgetEscrow`) |
 | **Decision-market stakes** | Bet on outcomes. Accurate forecasters gain, and per-person caps keep any one person from dominating. | Built. Per-*person* caps (instead of per-wallet) are next. |
-| **Challenge bonds** | Lock capital to challenge a suspicious enrolment or a verifier's verdict. The loser of the dispute forfeits. | Planned (with the dispute court) |
+| **Challenge bonds** | Lock capital to challenge a suspicious enrollment or a verifier's verdict. The loser of the dispute forfeits. | Planned (with the dispute court) |
 
 ## 6. Taking part without your own wallet
 
@@ -93,7 +93,7 @@ wallet, no tokens and no gas**.
 |---|---|---|
 | **Phone app or web page** (recommended) | The person's phone, in secure storage behind Face ID or a passkey | Proof built on the device and sent to a relayer (`broker/relayer.js`). The best privacy. |
 | **Printed voter card** (QR) | The card | For people without smartphones. Scan at a library or city-hall kiosk, which builds the proof and doesn't keep the secret. |
-| **Kiosk** (library, city hall) | Briefly, the kiosk | Assisted enrolment and voting. Open-source kiosk software with audited builds. |
+| **Kiosk** (library, city hall) | Briefly, the kiosk | Assisted enrollment and voting. Open-source kiosk software with audited builds. |
 | **Phone call (IVR)** or **SMS** | A custodial service, unlocked by the voter's PIN | Accessibility fallback. The custodian could see choices, so it needs audits, legal limits, and receipt codes. |
 | **Embedded wallet** (email or passkey login) | Split-key provider, or a smart account with passkeys | Only for things that need an account, like play credits or backing. Gas is sponsored, so users never see crypto. |
 

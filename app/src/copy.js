@@ -43,6 +43,15 @@ export function wireCopy(root = document) {
   });
 }
 
+/**
+ * Link, ID and public record for one item (a poll, petition, mandate, council change or
+ * agenda item): "🔗 Copy link" opens the app at that item.
+ */
+export function itemTools({ anchor, idText, ref, explorer, address }) {
+  const url = `${new URL('./', location.href).href}#${anchor}`;
+  return `<p class="row item-tools">${copyBtn(url, '🔗 Copy link')} ${copyBtn(idText, 'Copy ID')}${ref ? ` ${copyBtn(ref, 'Copy text reference')}` : ''}${explorer && address ? ` <a href="${escAttr(`${explorer.replace(/\/+$/, '')}/address/${address}`)}" target="_blank" rel="noopener">View on the blockchain</a>` : ''}</p>`;
+}
+
 /** Scroll to an element and flash it so it is easy to spot. */
 export function jumpTo(el) {
   if (!el) return false;

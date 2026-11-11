@@ -42,7 +42,7 @@ before(async () => {
   provider = new ethers.BrowserProvider(ganache.provider({ logging: { quiet: true }, wallet: { totalAccounts: 8, defaultBalance: 100 }, chain: { hardfork: 'shanghai', allowUnlimitedContractSize: true } }), undefined, { cacheTimeout: -1 });
   [admin, alice, mayor, delegateAcct, quiet, verifierToBe] = await Promise.all([0, 1, 2, 3, 4, 5].map((i) => provider.getSigner(i)));
   ({ contracts: c } = await deployAll(admin, { rules: { MIN_POLL_MINUTES: 10, BINDING_QUORUM_PCT: 0 }, council: { members: [admin.address, alice.address], threshold: 2, delaySeconds: 3600, ratifyDays: 3 } }));
-  // Founding setup through the council: a clerk enrols residents.
+  // Founding setup through the council: a clerk enrolls residents.
   const id = (rc) => c.council.interface.parseLog(rc.logs.find((l) => l.topics[0] === c.council.interface.getEvent('Proposed').topicHash)).args.id;
   const p = id(await send(c.council.propose(await c.identity.getAddress(), 0, c.identity.interface.encodeFunctionData('setIssuer', [admin.address, 1, true, 'Clerk']), 'setup')));
   await send(c.council.connect(alice).approve(p));

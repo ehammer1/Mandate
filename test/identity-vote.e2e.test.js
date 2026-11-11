@@ -1,5 +1,5 @@
 // Identity + private voting end to end, with real zero-knowledge proofs:
-// issuers enrol residents, seasoning, snapshot electorates, ballots built by the
+// issuers enroll residents, seasoning, snapshot electorates, ballots built by the
 // client library and submitted through the relayer (voters have no wallets),
 // bonds, and binding actions. Run: npm test
 'use strict';
@@ -200,7 +200,7 @@ test('vote: bonds - anyone may propose by locking capital; refunded only if quor
   assert.equal((await credits.balanceOf(outsider.address)) - o0, E(100));
 });
 
-test('identity: revoke frees the document for re-enrolment on a new device', async () => {
+test('identity: revoke frees the document for re-enrollment on a new device', async () => {
   // Rebuild each group off-chain to get Merkle siblings for removal.
   const siblings = [];
   for (const t of [0, 1, 2]) {
@@ -281,14 +281,14 @@ test('vote: a member revoked after a poll opens does not break other voters (sna
   assert.deepEqual((await vote.tally(pollId)).map(Number), [0, 1]);
 });
 
-test('identity: a sign-in account can enrol only one person (basic tier)', async () => {
+test('identity: a sign-in account can enroll only one person (basic tier)', async () => {
   const acct = ethers.keccak256(ethers.toUtf8Bytes('hmac(google:1234567890)'));
   const a = new Identity('signin-a');
   const b = new Identity('signin-b');
   await wait(identity.connect(phoneCheck).enroll(a.commitment, 0, acct, 0));
   assert.equal(await identity.commitmentOfAccount(acct), a.commitment);
   await reverts(() => identity.connect(phoneCheck).enroll.staticCall(b.commitment, 0, acct, 0), 'AccountAlreadyUsed');
-  // Without an account fingerprint, basic enrolment still works (e.g. a phone check).
+  // Without an account fingerprint, basic enrollment still works (e.g. a phone check).
   await wait(identity.connect(phoneCheck).enroll(b.commitment, 0, ethers.ZeroHash, 0));
 });
 

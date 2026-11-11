@@ -1,6 +1,6 @@
 # Sign-in identity service
 
-`services/identity/server.js` enrols voter codes for people who sign in with an
+`services/identity/server.js` enrolls voter codes for people who sign in with an
 OpenID Connect provider. It is one approved identity source among others (clerk desk,
 mobile ID); admins approve or remove it like any clerk.
 
@@ -9,12 +9,12 @@ mobile ID); admins approve or remove it like any clerk.
 | Google, Apple, Microsoft | Basic | Control of an online account. Not a unique person, not residency. |
 | Login.gov, ID.me, state identity systems (generic OIDC) | Verified | Identity-proofed person, when the provider reports the required assurance level (`requiredAcr`) |
 
-**One account enrols one person.** The service sends a fingerprint of the account
-(`HMAC(pepper, provider|issuer|subject)`) with each enrolment, and the IdentityRegistry
+**One account enrolls one person.** The service sends a fingerprint of the account
+(`HMAC(pepper, provider|issuer|subject)`) with each enrollment, and the IdentityRegistry
 contract refuses a fingerprint it has seen before. That's public and auditable, with no
 database to lose. The pepper must stay secret and must never change once in use.
 
-**Only the owner can enrol a code.** The voter app signs (service, voter code, time) with
+**Only the owner can enroll a code.** The voter app signs (service, voter code, time) with
 the voter key; the service checks the signature before sign-in starts.
 
 **Privacy.** The provider learns that the person used Mandate, never how they vote. The
@@ -45,7 +45,7 @@ types it in.
 
 - Codes expire after 10 minutes, allow 5 guesses, and are stored only as a hash.
 - Limits: 3 codes per mailbox per hour, and 10 per network address per hour.
-- One mailbox enrols one person. `+tags`, Gmail dots and googlemail.com are treated as
+- One mailbox enrolls one person. `+tags`, Gmail dots and googlemail.com are treated as
   the same mailbox, and Google sign-in and email sign-up for the same address share one
   fingerprint.
 - Whether an address is already enrolled is revealed only after the code is confirmed,
@@ -154,7 +154,7 @@ address counts once across Microsoft sign-in and email sign-up.
   `OIDC_PROVIDERS`, for example
   `[{"id":"logingov","name":"Login.gov","issuer":"https://idp.int.identitysandbox.gov","clientId":"…","privateKeyJwk":{…},"tier":1,"scope":"openid email","acrValues":"urn:acr.login.gov:verified","requiredAcr":"urn:acr.login.gov:verified"}]`.
   Check each provider's documentation for its exact assurance values and client
-  authentication. The service must be approved with maximum tier "verified" to enrol
+  authentication. The service must be approved with maximum tier "verified" to enroll
   at that tier.
 
 ## Limits

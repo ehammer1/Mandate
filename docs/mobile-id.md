@@ -15,7 +15,7 @@ state app) can become ID-checked residents from their phone, without visiting a 
    state, expiry date, "over 18", resident ZIP code and city.
 4. The service checks the state's signature (against trusted root certificates), that
    the answer was made for this website and this request, that the person is 18 or over,
-   the ID hasn't expired, and the address is in the community. It then enrols the voter
+   the ID hasn't expired, and the address is in the community. It then enrolls the voter
    code at the ID-checked level (or upgrades a basic member).
 
 The ID number becomes the **same keyed fingerprint a clerk desk makes from a licence**, so

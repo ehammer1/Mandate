@@ -10,6 +10,7 @@ import { readDoc } from './notices.js';
 import { countdown } from './time.js';
 import { categoryChip, categoryOf } from './priority.js';
 import { attachPicker, attachmentsHtml, wireAttachments, uploadService } from './attach.js';
+import { itemTools } from './copy.js';
 
 const FEEDBACK_ABI = [
   'function identity() view returns (address)',
@@ -182,6 +183,7 @@ export function wireFeedback(ctx) {
       cards.push(`<article class="card stack" id="petition-${id}">
         <p class="eyebrow">${sortBy === 'top' && !opened ? `#${rank + 1} most requested · ` : ''}Petition ${id} · ${esc(PETITION_KINDS[Number(p.action)] || 'A vote')} · started ${countdown(p.createdAt)} · signed by ${esc(TIER_WHO[Number(p.tier)].toLowerCase())}s</p>
         <h3>${esc(doc.title)} ${categoryChip(categoryOf(doc), esc)}</h3>${doc.body ? `<p>${esc(doc.body)}</p>` : ''}${attachmentsHtml(state.config, doc, esc)}
+        ${itemTools({ anchor: `petition-${id}`, idText: `Petition ${id} (${state.config.feedbackAddress})`, ref: p.ref, explorer: state.config.explorer, address: state.config.feedbackAddress })}
         <p><strong>${p.signatures} of ${p.needed}</strong> signatures</p>
         <div class="tally"><span>Progress</span><span class="track"><span class="fill" style="display:block;width:${pct}%"></span></span><span class="v">${pct}%</span></div>
         ${opened ? `<p class="ok">Enough signatures: poll ${p.pollId} opened by itself. Go to Polls to vote.</p>` : signed ? '<p class="ok">You signed this. Nobody can see who signed.</p>' : tier >= Number(p.tier) ? `<button class="primary" data-sign="${id}">Sign anonymously</button>` : `<p class="note">${tier < 0 ? 'Join first to sign.' : `Only ${esc(TIER_WHO[Number(p.tier)].toLowerCase())}s can sign this petition.`}</p>`}

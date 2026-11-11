@@ -5,7 +5,7 @@
 
 import { ethers } from 'ethers';
 import { countdown } from './time.js';
-import { copyBtn } from './copy.js';
+import { copyBtn, itemTools } from './copy.js';
 
 export const COUNCIL_ABI = [
   'function isMember(address) view returns (bool)',
@@ -223,7 +223,8 @@ export function wireCouncil(ctx, { addressKey = 'councilAddress', prefix = 'coun
       card.innerHTML = `<p class="muted">#${id} · ${esc(STATES[st])}${active ? ` · ${approvals} of ${threshold} approvals` : ''}${esc(when)}${p.fast && active ? ' · removes power: no wait' : ''}</p>
         <p class="big" style="font-size:1.05rem">${esc(describeCall(state.config, p.target, p.data))}</p>
         ${p.description ? `<p>${shortenAddresses(esc(p.description))}</p>` : ''}
-        <p class="muted">Proposed by ${esc(short(p.proposer))} ${copyBtn(p.proposer)}</p>
+        <p class="muted">Changes contract ${esc(short(p.target))} ${copyBtn(p.target)} · proposed by ${esc(short(p.proposer))} ${copyBtn(p.proposer)}</p>
+        ${itemTools({ anchor: `${prefix}-${id}`, idText: `${prefix === 'council' ? 'Council' : 'Previous council'} change #${id} (council ${addr()})`, explorer: state.config.explorer, address: addr() })}
         ${timing}
         ${p.emergency ? `<p class="warn"><strong>Emergency change.</strong> ${p.lapsed ? 'Undone: residents did not ratify it.' : p.executed ? `In effect; residents vote on it in poll ${p.ratifyPoll}. Undone unless ratified by ${esc(new Date(Number(p.ratifyBy) * 1000).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }))} (${countdown(p.ratifyBy)}).` : 'Runs at once once approved, then residents must ratify it.'}</p>` : ''}
         <div class="row"></div><p class="status" role="status"></p>`;

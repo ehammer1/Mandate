@@ -23,7 +23,7 @@
  *   LOOKBACK_BLOCKS       default 43200 (about one day on Base)
  *   LOG_BLOCK_SPAN        blocks per log query, default 200 (public RPC limit)
  *   POLL_INTERVAL_MS      default 60000
- *   ENROL_PER_HOUR        enrolments per identity source per hour before alerting, default 50
+ *   ENROL_PER_HOUR        enrollments per identity source per hour before alerting, default 50
  *   WATCH_BALANCES        JSON [{"label":"Relayer","address":"0x…","minEth":"0.0005"}]
  *   WATCH_EXPIRY          JSON [{"label":"Microsoft sign-in secret","expires":"2028-11-08","fix":"…"}]
  *   WATCH_FILE            JSON file with { balances, expiry } used when the two above are unset
