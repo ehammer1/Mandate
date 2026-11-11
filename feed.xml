@@ -4,7 +4,31 @@
   <subtitle>Every poll, mandate, budget round, petition and change of power, from the public blockchain record.</subtitle>
   <id>urn:mandate:feed</id>
   <link href="https://ehammer1.github.io/Mandate/"/>
-  <updated>2026-11-11T06:22:47.000Z</updated>
+  <updated>2026-11-11T06:34:02.000Z</updated>
+  <entry>
+    <id>urn:mandate:council-scheduled:0x380a4b3b559d597ecf35eb73b3d26de7a9e158c6934c1c45d94bbdb120bfcb27:1794378842</id>
+    <title>Council change #1 approved: it can run from 2026-11-11 07:34 UTC (grant PROPOSER to 0x75fc…84cA on voting). Members can still cancel it until then.</title>
+    <updated>2026-11-11T06:34:02.000Z</updated>
+    <link href="https://sepolia.basescan.org/tx/0x380a4b3b559d597ecf35eb73b3d26de7a9e158c6934c1c45d94bbdb120bfcb27"/>
+    <category term="high"/>
+    <summary>Urgent: Council change #1 approved: it can run from 2026-11-11 07:34 UTC (grant PROPOSER to 0x75fc…84cA on voting). Members can still cancel it until then.</summary>
+  </entry>
+  <entry>
+    <id>urn:mandate:council-scheduled:0x81ec51beb79707f881b1190b5054595468ec975a53a0849a939be36612a7d449:1794378840</id>
+    <title>Council change #2 approved: it can run from 2026-11-11 06:34 UTC (revoke PROPOSER from 0xd284…fCD8 on voting). Members can still cancel it until then.</title>
+    <updated>2026-11-11T06:34:00.000Z</updated>
+    <link href="https://sepolia.basescan.org/tx/0x81ec51beb79707f881b1190b5054595468ec975a53a0849a939be36612a7d449"/>
+    <category term="high"/>
+    <summary>Urgent: Council change #2 approved: it can run from 2026-11-11 06:34 UTC (revoke PROPOSER from 0xd284…fCD8 on voting). Members can still cancel it until then.</summary>
+  </entry>
+  <entry>
+    <id>urn:mandate:budget-round:0x8b5901840e3b2aa44431f893037556d139dda6fcfa461804b9db7b4c87fa1061:1794378792</id>
+    <title>Budget round 1 opened: 1 proposals, budget 500,000, 100 credits per person, closes 2026-12-11 06:33 UTC</title>
+    <updated>2026-11-11T06:33:12.000Z</updated>
+    <link href="https://sepolia.basescan.org/tx/0x8b5901840e3b2aa44431f893037556d139dda6fcfa461804b9db7b4c87fa1061"/>
+    <category term="info"/>
+    <summary>Budget round 1 opened: 1 proposals, budget 500,000, 100 credits per person, closes 2026-12-11 06:33 UTC</summary>
+  </entry>
   <entry>
     <id>urn:mandate:council-proposal:0x304d161422f79ef6ec0b8d5f9ad787fe87bdbb12909a3c21d56f5171c1cd20da:1794378167</id>
     <title>Council change #2 proposed by 0xC782…f834: revoke PROPOSER from 0xd284…fCD8 on voting (removes power: can run as soon as approved)</title>

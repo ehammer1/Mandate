@@ -1,8 +1,8 @@
 # Mandate audit report
 
-Generated 2026-11-11T06:30:44.000Z · last 24 hours · 32 high, 20 medium, 0 info
+Generated 2026-11-11T06:45:36.000Z · last 24 hours · 34 high, 20 medium, 1 info
 
-32 alert(s) need attention.
+34 alert(s) need attention.
 - 0x433B…476F joined the council
 - 0xb8e5…Cb71 joined the council
 - 0xC782…f834 joined the council
@@ -35,7 +35,9 @@ Generated 2026-11-11T06:30:44.000Z · last 24 hours · 32 high, 20 medium, 0 inf
 - ADMIN role revoked from 0xC782…f834 on government bodies
 - Council change #1 proposed by 0xC782…f834: grant PROPOSER to 0x75fc…84cA on voting
 - Council change #2 proposed by 0xC782…f834: revoke PROPOSER from 0xd284…fCD8 on voting (removes power: can run as soon as approved)
-20 other event(s) were recorded (see the list).
+- Council change #2 approved: it can run from 2026-11-11 06:34 UTC (revoke PROPOSER from 0xd284…fCD8 on voting). Members can still cancel it until then.
+- Council change #1 approved: it can run from 2026-11-11 07:34 UTC (grant PROPOSER to 0x75fc…84cA on voting). Members can still cancel it until then.
+21 other event(s) were recorded (see the list).
 
 ## All alerts
 
@@ -91,5 +93,8 @@ Generated 2026-11-11T06:30:44.000Z · last 24 hours · 32 high, 20 medium, 0 inf
 - **high** ADMIN role revoked from 0xC782…f834 on government bodies ([tx](https://sepolia.basescan.org/tx/0xd8c8b2ce4ede8dcc73bf9677b17f37060b7959260a173e2e169e976a8eb15523))
 - **high** Council change #1 proposed by 0xC782…f834: grant PROPOSER to 0x75fc…84cA on voting ([tx](https://sepolia.basescan.org/tx/0xea4bd4c48824576193811fe2697b70f39225c4a2b81c6987781f308f9eebe935))
 - **high** Council change #2 proposed by 0xC782…f834: revoke PROPOSER from 0xd284…fCD8 on voting (removes power: can run as soon as approved) ([tx](https://sepolia.basescan.org/tx/0x304d161422f79ef6ec0b8d5f9ad787fe87bdbb12909a3c21d56f5171c1cd20da))
+- **info** Budget round 1 opened: 1 proposals, budget 500,000, 100 credits per person, closes 2026-12-11 06:33 UTC ([tx](https://sepolia.basescan.org/tx/0x8b5901840e3b2aa44431f893037556d139dda6fcfa461804b9db7b4c87fa1061))
+- **high** Council change #2 approved: it can run from 2026-11-11 06:34 UTC (revoke PROPOSER from 0xd284…fCD8 on voting). Members can still cancel it until then. ([tx](https://sepolia.basescan.org/tx/0x81ec51beb79707f881b1190b5054595468ec975a53a0849a939be36612a7d449))
+- **high** Council change #1 approved: it can run from 2026-11-11 07:34 UTC (grant PROPOSER to 0x75fc…84cA on voting). Members can still cancel it until then. ([tx](https://sepolia.basescan.org/tx/0x380a4b3b559d597ecf35eb73b3d26de7a9e158c6934c1c45d94bbdb120bfcb27))
 
 Summary written by: fixed rules.

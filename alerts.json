@@ -1,5 +1,49 @@
 [
  {
+  "tx": "0x380a4b3b559d597ecf35eb73b3d26de7a9e158c6934c1c45d94bbdb120bfcb27",
+  "block": 57284868,
+  "time": 1794378842,
+  "contract": "council",
+  "event": "Queued",
+  "rule": "council-scheduled",
+  "severity": "high",
+  "title": "Council change #1 approved: it can run from 2026-11-11 07:34 UTC (grant PROPOSER to 0x75fc…84cA on voting). Members can still cancel it until then.",
+  "facts": {
+   "proposal": "1",
+   "readyAt": 1794382442
+  },
+  "id": "council-scheduled:0x380a4b3b559d597ecf35eb73b3d26de7a9e158c6934c1c45d94bbdb120bfcb27:1794378842"
+ },
+ {
+  "tx": "0x81ec51beb79707f881b1190b5054595468ec975a53a0849a939be36612a7d449",
+  "block": 57284860,
+  "time": 1794378840,
+  "contract": "council",
+  "event": "Queued",
+  "rule": "council-scheduled",
+  "severity": "high",
+  "title": "Council change #2 approved: it can run from 2026-11-11 06:34 UTC (revoke PROPOSER from 0xd284…fCD8 on voting). Members can still cancel it until then.",
+  "facts": {
+   "proposal": "2",
+   "readyAt": 1794378840
+  },
+  "id": "council-scheduled:0x81ec51beb79707f881b1190b5054595468ec975a53a0849a939be36612a7d449:1794378840"
+ },
+ {
+  "tx": "0x8b5901840e3b2aa44431f893037556d139dda6fcfa461804b9db7b4c87fa1061",
+  "block": 57284619,
+  "time": 1794378792,
+  "contract": "civic budget",
+  "event": "RoundCreated",
+  "rule": "budget-round",
+  "severity": "info",
+  "title": "Budget round 1 opened: 1 proposals, budget 500,000, 100 credits per person, closes 2026-12-11 06:33 UTC",
+  "facts": {
+   "round": "1"
+  },
+  "id": "budget-round:0x8b5901840e3b2aa44431f893037556d139dda6fcfa461804b9db7b4c87fa1061:1794378792"
+ },
+ {
   "tx": "0x304d161422f79ef6ec0b8d5f9ad787fe87bdbb12909a3c21d56f5171c1cd20da",
   "block": 57281494,
   "time": 1794378167,
