@@ -1398,6 +1398,20 @@ test('paper ballots: check in on the phone, clerks record and confirm, each pers
   await page.fill('#search-q', `${pollId}:123456789012345678901234567890`);
   await page.click('#search-form button');
   await page.waitForSelector('#search-results >> text=No ballot with this code', { timeout: 60_000 });
+
+  // Anyone can download the results, online and paper, as a spreadsheet.
+  const dash = await browser.newPage({ viewport: { width: 390, height: 844 }, acceptDownloads: true });
+  await dash.goto(`${appUrl}dashboard.html#h-downloads`);
+  await dash.waitForSelector('#downloads [data-download="polls"][data-format="csv"]');
+  const [dl] = await Promise.all([dash.waitForEvent('download', { timeout: 120_000 }), dash.click('#downloads [data-download="polls"][data-format="csv"]')]);
+  assert.match(dl.suggestedFilename(), /^mandate-polls-\d{4}-\d{2}-\d{2}\.csv$/);
+  const csv = fs.readFileSync(await dl.path(), 'utf8');
+  assert.match(csv, /^\ufeffpoll,question,status/);
+  assert.match(csv, new RegExp(`\\n${pollId},Open the pool on Sundays\\?,open,.*,Yes: 1; No: 0,1,Yes: 0; No: 1,`));
+  const [all] = await Promise.all([dash.waitForEvent('download', { timeout: 180_000 }), dash.click('#downloads [data-download="all"]')]);
+  const data = JSON.parse(fs.readFileSync(await all.path(), 'utf8'));
+  assert.ok(data.polls.length >= 1 && Array.isArray(data.paper) && data.paper.some((r) => r.place === 'Main Library' && r.confirmed));
+  await dash.close();
 });
 
 test('search finds items by number, address, text reference and words; FAQ in Help', async () => {

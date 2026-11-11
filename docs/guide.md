@@ -56,6 +56,9 @@ Each mandate under way shows a **progress bar**, its **milestones** with due dat
 **What happens if officials ignore an advisory result?**
 It stays on the public record: the dashboard shows each official's position next to residents' result and how often they sided with residents. Residents can then petition for a binding vote where the rules allow it.
 
+**Can I download the results and records?**
+Yes. On the live dashboard, **Download the data** gives polls and results, petitions, mandates and their progress, council changes, and paper and in-person counts, as a spreadsheet (CSV) or JSON. Anyone can download them, no sign-in needed. Ballots are anonymous, so no download can show who voted or how.
+
 **What does it cost a city?**
 The software is free and open source (Apache 2.0). A city pays only for hosting and network fees, typically small, plus staff time at the clerk desk.
 

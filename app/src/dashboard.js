@@ -24,6 +24,7 @@ async function renderAttention() {
   draw();
 }
 import { loadRules } from './rules.js';
+import { downloadsHtml, wireDownloads } from './downloads.js';
 import { informedHtml } from './informed.js';
 import { officialsDashboard } from './officials.js';
 import { bodiesDashboard } from './bodies.js';
@@ -358,6 +359,8 @@ async function boot() {
   state.provider = new ethers.JsonRpcProvider(state.cfg.rpcUrl, undefined, { staticNetwork: true, cacheTimeout: -1 });
   renderContracts();
   $('informed').innerHTML = informedHtml(state.cfg);
+  $('downloads').innerHTML = downloadsHtml(esc);
+  wireDownloads($('downloads'), state.cfg, state.provider);
   for (const b of document.querySelectorAll('#alert-filters button')) {
     b.onclick = () => {
       state.sev = b.dataset.sev;
