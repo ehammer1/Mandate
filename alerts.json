@@ -1,5 +1,356 @@
 [
  {
+  "tx": "0xac365f778ff965e6e31ba58f1578f39eaeed9e59f21cd66492b96b9dd8fb9b0c",
+  "block": 57395284,
+  "time": 1794400925,
+  "contract": "identity registry",
+  "event": "RoleRevoked",
+  "rule": "role-change",
+  "severity": "high",
+  "title": "ADMIN role revoked from 0x4c0e…797F on identity registry",
+  "facts": {
+   "role": "ADMIN",
+   "account": "0x4c0eC8820a4514DdB8aA3D98dEf878c6e296797F",
+   "by": "0x4c0eC8820a4514DdB8aA3D98dEf878c6e296797F"
+  },
+  "id": "role-change:0xac365f778ff965e6e31ba58f1578f39eaeed9e59f21cd66492b96b9dd8fb9b0c:1794400925"
+ },
+ {
+  "tx": "0x36e972a979248a485b48f8c7272ef7ba8d635fd5fa6d1600243824366318935d",
+  "block": 57388403,
+  "time": 1794399549,
+  "contract": "council",
+  "event": "Queued",
+  "rule": "council-scheduled",
+  "severity": "high",
+  "title": "Council change #3 approved: it can run from 2026-11-11 13:19 UTC (grant GOVERNOR to 0xb1D5…9441 on mandate registry). Members can still cancel it until then.",
+  "facts": {
+   "proposal": "3",
+   "readyAt": 1794403149
+  },
+  "id": "council-scheduled:0x36e972a979248a485b48f8c7272ef7ba8d635fd5fa6d1600243824366318935d:1794399549"
+ },
+ {
+  "tx": "0x646bfd0a8d952c8961974e2c55a95a7b4c3d1dba3c283b6bf35c206564b5ccbc",
+  "block": 57388370,
+  "time": 1794399542,
+  "contract": "council",
+  "event": "Queued",
+  "rule": "council-scheduled",
+  "severity": "high",
+  "title": "Council change #4 approved: it can run from 2026-11-11 13:19 UTC (grant VETO to 0xb1D5…9441 on decision markets). Members can still cancel it until then.",
+  "facts": {
+   "proposal": "4",
+   "readyAt": 1794403142
+  },
+  "id": "council-scheduled:0x646bfd0a8d952c8961974e2c55a95a7b4c3d1dba3c283b6bf35c206564b5ccbc:1794399542"
+ },
+ {
+  "tx": "0x0315f84bb110ed268988f18d97ae7b4e90fb9c34d0634ae0858aa6924857a8d2",
+  "block": 57388331,
+  "time": 1794399535,
+  "contract": "council",
+  "event": "Queued",
+  "rule": "council-scheduled",
+  "severity": "high",
+  "title": "Council change #5 approved: it can run from 2026-11-11 13:18 UTC (grant GOVERNOR to 0xb1D5…9441 on charter (voting rules)). Members can still cancel it until then.",
+  "facts": {
+   "proposal": "5",
+   "readyAt": 1794403135
+  },
+  "id": "council-scheduled:0x0315f84bb110ed268988f18d97ae7b4e90fb9c34d0634ae0858aa6924857a8d2:1794399535"
+ },
+ {
+  "tx": "0x4ed110fdf5c3e9118b946215261de8110184ce61064ce75b9e2dcec2316c89b9",
+  "block": 57388274,
+  "time": 1794399523,
+  "contract": "council",
+  "event": "Queued",
+  "rule": "council-scheduled",
+  "severity": "high",
+  "title": "Council change #6 approved: it can run from 2026-11-11 13:18 UTC (make the council answer to voting (residents elect, recall and remove power through it)). Members can still cancel it until then.",
+  "facts": {
+   "proposal": "6",
+   "readyAt": 1794403123
+  },
+  "id": "council-scheduled:0x4ed110fdf5c3e9118b946215261de8110184ce61064ce75b9e2dcec2316c89b9:1794399523"
+ },
+ {
+  "tx": "0xa31e0b1a61344abcdb7ea26928af4ab28af696f3aa64979de64a379bf4b8bf44",
+  "block": 57380617,
+  "time": 1794397992,
+  "contract": "council",
+  "event": "Executed",
+  "rule": "council-executed",
+  "severity": "high",
+  "title": "Council change #7 carried out: revoke GOVERNOR from 0x6a6f…93d4 on mandate registry",
+  "facts": {
+   "proposal": "7"
+  },
+  "id": "council-executed:0xa31e0b1a61344abcdb7ea26928af4ab28af696f3aa64979de64a379bf4b8bf44:1794397992"
+ },
+ {
+  "tx": "0xa31e0b1a61344abcdb7ea26928af4ab28af696f3aa64979de64a379bf4b8bf44",
+  "block": 57380617,
+  "time": 1794397992,
+  "contract": "mandate registry",
+  "event": "RoleRevoked",
+  "rule": "role-change",
+  "severity": "medium",
+  "title": "GOVERNOR role revoked from 0x6a6f…93d4 on mandate registry",
+  "facts": {
+   "role": "GOVERNOR",
+   "account": "0x6a6f31e40AA996fE43E43a3ee3B5b4f9377B93d4",
+   "by": "0xcF1e7E83B050e5B1f5f9ed9a976D9666F4619EC6"
+  },
+  "id": "role-change:0xa31e0b1a61344abcdb7ea26928af4ab28af696f3aa64979de64a379bf4b8bf44:1794397992"
+ },
+ {
+  "tx": "0xafd045cafb7106be0a952b3c8e47d7a0a9224b869b2d6a69c88f29a3302a6809",
+  "block": 57380594,
+  "time": 1794397987,
+  "contract": "council",
+  "event": "Queued",
+  "rule": "council-scheduled",
+  "severity": "high",
+  "title": "Council change #7 approved: it can run from 2026-11-11 11:53 UTC (revoke GOVERNOR from 0x6a6f…93d4 on mandate registry). Members can still cancel it until then.",
+  "facts": {
+   "proposal": "7",
+   "readyAt": 1794397987
+  },
+  "id": "council-scheduled:0xafd045cafb7106be0a952b3c8e47d7a0a9224b869b2d6a69c88f29a3302a6809:1794397987"
+ },
+ {
+  "tx": "0x4477528bad0cf50494bf2e6f548d16f3dbc013a67adca88f64495d47fb2886c3",
+  "block": 57380550,
+  "time": 1794397978,
+  "contract": "council",
+  "event": "Executed",
+  "rule": "council-executed",
+  "severity": "high",
+  "title": "Council change #8 carried out: revoke VETO from 0x6a6f…93d4 on decision markets",
+  "facts": {
+   "proposal": "8"
+  },
+  "id": "council-executed:0x4477528bad0cf50494bf2e6f548d16f3dbc013a67adca88f64495d47fb2886c3:1794397978"
+ },
+ {
+  "tx": "0x4477528bad0cf50494bf2e6f548d16f3dbc013a67adca88f64495d47fb2886c3",
+  "block": 57380550,
+  "time": 1794397978,
+  "contract": "decision markets",
+  "event": "RoleRevoked",
+  "rule": "role-change",
+  "severity": "medium",
+  "title": "VETO role revoked from 0x6a6f…93d4 on decision markets",
+  "facts": {
+   "role": "VETO",
+   "account": "0x6a6f31e40AA996fE43E43a3ee3B5b4f9377B93d4",
+   "by": "0xcF1e7E83B050e5B1f5f9ed9a976D9666F4619EC6"
+  },
+  "id": "role-change:0x4477528bad0cf50494bf2e6f548d16f3dbc013a67adca88f64495d47fb2886c3:1794397978"
+ },
+ {
+  "tx": "0x25180cacaea8a356a088d6c43e7fd22b35eb24d316d9e1b04e9dda15f4ccdbc8",
+  "block": 57380527,
+  "time": 1794397974,
+  "contract": "council",
+  "event": "Queued",
+  "rule": "council-scheduled",
+  "severity": "high",
+  "title": "Council change #8 approved: it can run from 2026-11-11 11:52 UTC (revoke VETO from 0x6a6f…93d4 on decision markets). Members can still cancel it until then.",
+  "facts": {
+   "proposal": "8",
+   "readyAt": 1794397974
+  },
+  "id": "council-scheduled:0x25180cacaea8a356a088d6c43e7fd22b35eb24d316d9e1b04e9dda15f4ccdbc8:1794397974"
+ },
+ {
+  "tx": "0x6cd3a0c6580c43823b1635b5cdbacee46bf8e1e0fa1e8022c8524a1cc1b17b70",
+  "block": 57380499,
+  "time": 1794397968,
+  "contract": "council",
+  "event": "Executed",
+  "rule": "council-executed",
+  "severity": "high",
+  "title": "Council change #9 carried out: revoke GOVERNOR from 0x6a6f…93d4 on charter (voting rules)",
+  "facts": {
+   "proposal": "9"
+  },
+  "id": "council-executed:0x6cd3a0c6580c43823b1635b5cdbacee46bf8e1e0fa1e8022c8524a1cc1b17b70:1794397968"
+ },
+ {
+  "tx": "0x6cd3a0c6580c43823b1635b5cdbacee46bf8e1e0fa1e8022c8524a1cc1b17b70",
+  "block": 57380499,
+  "time": 1794397968,
+  "contract": "charter (voting rules)",
+  "event": "RoleRevoked",
+  "rule": "role-change",
+  "severity": "high",
+  "title": "GOVERNOR role revoked from 0x6a6f…93d4 on charter (voting rules)",
+  "facts": {
+   "role": "GOVERNOR",
+   "account": "0x6a6f31e40AA996fE43E43a3ee3B5b4f9377B93d4",
+   "by": "0xcF1e7E83B050e5B1f5f9ed9a976D9666F4619EC6"
+  },
+  "id": "role-change:0x6cd3a0c6580c43823b1635b5cdbacee46bf8e1e0fa1e8022c8524a1cc1b17b70:1794397968"
+ },
+ {
+  "tx": "0xd5ca9b5edd62c91e2b5c08eb1e6d2fc892ef7653f68dd74b8e4dcefd7568855b",
+  "block": 57380473,
+  "time": 1794397963,
+  "contract": "council",
+  "event": "Queued",
+  "rule": "council-scheduled",
+  "severity": "high",
+  "title": "Council change #9 approved: it can run from 2026-11-11 11:52 UTC (revoke GOVERNOR from 0x6a6f…93d4 on charter (voting rules)). Members can still cancel it until then.",
+  "facts": {
+   "proposal": "9",
+   "readyAt": 1794397963
+  },
+  "id": "council-scheduled:0xd5ca9b5edd62c91e2b5c08eb1e6d2fc892ef7653f68dd74b8e4dcefd7568855b:1794397963"
+ },
+ {
+  "tx": "0x84a504064df5dd681970e6c3b023e311d1a4a3e4d92245bd7f198262492d9b2a",
+  "block": 57372124,
+  "time": 1794396293,
+  "contract": "council",
+  "event": "Proposed",
+  "rule": "council-proposal",
+  "severity": "high",
+  "title": "Council change #9 proposed by 0xC782…f834: revoke GOVERNOR from 0x6a6f…93d4 on charter (voting rules) (removes power: can run as soon as approved)",
+  "facts": {
+   "proposal": "9",
+   "proposer": "0xC782e1690D4B6c4C2Aba21283a6271477690f834",
+   "target": "0x2890c293dFE694D3d4cDa992074205e3CdE4B3C8",
+   "value": "0",
+   "data": "0xd547741f7935bd0ae54bc31f548c14dba4d37c5c64b3f8ca900cb468fb8abd54d5894f550000000000000000000000006a6f31e40aa996fe43e43a3ee3b5b4f9377b93d4",
+   "description": "Retire the old voting contract: it can no longer change the voting rules",
+   "fast": true
+  },
+  "id": "council-proposal:0x84a504064df5dd681970e6c3b023e311d1a4a3e4d92245bd7f198262492d9b2a:1794396293"
+ },
+ {
+  "tx": "0x7a12d0493651f04aa169cbfe3892e75735f3f124cda7776d4ac7a243e28dfb77",
+  "block": 57372101,
+  "time": 1794396289,
+  "contract": "council",
+  "event": "Proposed",
+  "rule": "council-proposal",
+  "severity": "high",
+  "title": "Council change #8 proposed by 0xC782…f834: revoke VETO from 0x6a6f…93d4 on decision markets (removes power: can run as soon as approved)",
+  "facts": {
+   "proposal": "8",
+   "proposer": "0xC782e1690D4B6c4C2Aba21283a6271477690f834",
+   "target": "0xf5C6155608E6eD37e50Bf666495501454D77831f",
+   "value": "0",
+   "data": "0xd547741f18d7d437a2d7905ef3353a5b94dadd41c37b2e3c79053f87c83493c081d7315a0000000000000000000000006a6f31e40aa996fe43e43a3ee3b5b4f9377b93d4",
+   "description": "Retire the old voting contract: it can no longer veto market decisions",
+   "fast": true
+  },
+  "id": "council-proposal:0x7a12d0493651f04aa169cbfe3892e75735f3f124cda7776d4ac7a243e28dfb77:1794396289"
+ },
+ {
+  "tx": "0x55101850d5f69a09d1251493359012edd46657af715673f47a936659c186e19f",
+  "block": 57372079,
+  "time": 1794396284,
+  "contract": "council",
+  "event": "Proposed",
+  "rule": "council-proposal",
+  "severity": "high",
+  "title": "Council change #7 proposed by 0xC782…f834: revoke GOVERNOR from 0x6a6f…93d4 on mandate registry (removes power: can run as soon as approved)",
+  "facts": {
+   "proposal": "7",
+   "proposer": "0xC782e1690D4B6c4C2Aba21283a6271477690f834",
+   "target": "0xc2d1e92A23d46e81091CC90e0394952D98e71CA7",
+   "value": "0",
+   "data": "0xd547741f7935bd0ae54bc31f548c14dba4d37c5c64b3f8ca900cb468fb8abd54d5894f550000000000000000000000006a6f31e40aa996fe43e43a3ee3b5b4f9377b93d4",
+   "description": "Retire the old voting contract: it can no longer create or change mandates",
+   "fast": true
+  },
+  "id": "council-proposal:0x55101850d5f69a09d1251493359012edd46657af715673f47a936659c186e19f:1794396284"
+ },
+ {
+  "tx": "0xee9c12204ab0e48ca79defc9574875a2cc001c0393cf7bb139e4f8fcf99ec30c",
+  "block": 57372057,
+  "time": 1794396280,
+  "contract": "council",
+  "event": "Proposed",
+  "rule": "council-proposal",
+  "severity": "high",
+  "title": "Council change #6 proposed by 0xC782…f834: make the council answer to voting (residents elect, recall and remove power through it)",
+  "facts": {
+   "proposal": "6",
+   "proposer": "0xC782e1690D4B6c4C2Aba21283a6271477690f834",
+   "target": "0xcF1e7E83B050e5B1f5f9ed9a976D9666F4619EC6",
+   "value": "0",
+   "data": "0x0512d79e000000000000000000000000b1d5556302079e03f53cc5b175986a94e4599441",
+   "description": "The council answers to the new voting contract: residents elect, recall and remove power through it",
+   "fast": false
+  },
+  "id": "council-proposal:0xee9c12204ab0e48ca79defc9574875a2cc001c0393cf7bb139e4f8fcf99ec30c:1794396280"
+ },
+ {
+  "tx": "0x4b6e0a7042ec463f69b4fc49b3d5ab2861ace8edc3f294d2fc8d3de41c38a541",
+  "block": 57372035,
+  "time": 1794396275,
+  "contract": "council",
+  "event": "Proposed",
+  "rule": "council-proposal",
+  "severity": "high",
+  "title": "Council change #5 proposed by 0xC782…f834: grant GOVERNOR to 0xb1D5…9441 on charter (voting rules)",
+  "facts": {
+   "proposal": "5",
+   "proposer": "0xC782e1690D4B6c4C2Aba21283a6271477690f834",
+   "target": "0x2890c293dFE694D3d4cDa992074205e3CdE4B3C8",
+   "value": "0",
+   "data": "0x2f2ff15d7935bd0ae54bc31f548c14dba4d37c5c64b3f8ca900cb468fb8abd54d5894f55000000000000000000000000b1d5556302079e03f53cc5b175986a94e4599441",
+   "description": "Let the new voting contract change the voting rules (by a passed rule-change poll)",
+   "fast": false
+  },
+  "id": "council-proposal:0x4b6e0a7042ec463f69b4fc49b3d5ab2861ace8edc3f294d2fc8d3de41c38a541:1794396275"
+ },
+ {
+  "tx": "0x4d0ef94bddb62c003a890874bd13ff818282b8a38f03e93bd954062629eb705b",
+  "block": 57372012,
+  "time": 1794396271,
+  "contract": "council",
+  "event": "Proposed",
+  "rule": "council-proposal",
+  "severity": "high",
+  "title": "Council change #4 proposed by 0xC782…f834: grant VETO to 0xb1D5…9441 on decision markets",
+  "facts": {
+   "proposal": "4",
+   "proposer": "0xC782e1690D4B6c4C2Aba21283a6271477690f834",
+   "target": "0xf5C6155608E6eD37e50Bf666495501454D77831f",
+   "value": "0",
+   "data": "0x2f2ff15d18d7d437a2d7905ef3353a5b94dadd41c37b2e3c79053f87c83493c081d7315a000000000000000000000000b1d5556302079e03f53cc5b175986a94e4599441",
+   "description": "Let the new voting contract veto market decisions",
+   "fast": false
+  },
+  "id": "council-proposal:0x4d0ef94bddb62c003a890874bd13ff818282b8a38f03e93bd954062629eb705b:1794396271"
+ },
+ {
+  "tx": "0xcc25c3155ab49a8fc42f82fd83644dae51385a2b731a7e828a669bdeeaa362b6",
+  "block": 57371990,
+  "time": 1794396266,
+  "contract": "council",
+  "event": "Proposed",
+  "rule": "council-proposal",
+  "severity": "high",
+  "title": "Council change #3 proposed by 0xC782…f834: grant GOVERNOR to 0xb1D5…9441 on mandate registry",
+  "facts": {
+   "proposal": "3",
+   "proposer": "0xC782e1690D4B6c4C2Aba21283a6271477690f834",
+   "target": "0xc2d1e92A23d46e81091CC90e0394952D98e71CA7",
+   "value": "0",
+   "data": "0x2f2ff15d7935bd0ae54bc31f548c14dba4d37c5c64b3f8ca900cb468fb8abd54d5894f55000000000000000000000000b1d5556302079e03f53cc5b175986a94e4599441",
+   "description": "Let the new voting contract (voters can change their vote) create, pause, revise and repeal mandates",
+   "fast": false
+  },
+  "id": "council-proposal:0xcc25c3155ab49a8fc42f82fd83644dae51385a2b731a7e828a669bdeeaa362b6:1794396266"
+ },
+ {
   "tx": "0x9ac4286a0aaa25c322bece22715061e921d3018767fdd3585e04cc585422993b",
   "block": 57321214,
   "time": 1794386111,
