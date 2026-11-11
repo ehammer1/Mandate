@@ -767,7 +767,8 @@ async function refreshPolls() {
         ${voted ? `<div class="receipt-box stack" data-id="${id}" data-nullifier="${myNullifier}"><p class="ok">Your vote is recorded. Nobody can see which way you voted.</p>
           <div class="row"><button type="button" data-checkvote>Check my vote</button> ${copyBtn(receiptCode(id, myNullifier), 'Copy receipt')}</div>
           ${open && eligibleTier && !paperPlace ? `<details class="change-vote"><summary>Change my vote</summary><p class="note">Until the poll closes you can change your vote, privately; only your latest vote counts. If anyone pressured you to vote a certain way, you can quietly change it.</p><div class="choices">${buttons}</div></details>` : ''}
-          <p class="note">The receipt lets anyone confirm this ballot was counted (in Search), without learning who cast it. Anyone you show it to can also see its choice, so keep it to yourself.</p><div data-receipt></div></div>` : ''}
+          <p class="note">The receipt lets anyone confirm this ballot was counted (in Search), without learning who cast it. Anyone you show it to can also see its choice, so keep it to yourself.</p>
+          <p class="note"><strong>Never share your voter key or backup code.</strong> Anyone who asks for it, or offers anything for your vote, may be trying to buy or control it; buying and selling votes is a crime. You can always change your online vote until the poll closes, or vote on paper.</p><div data-receipt></div></div>` : ''}
         <p class="status" id="poll-status-${id}" role="status"></p>
         <details><summary>Current count (${total} of ${p.electorate} eligible, quorum ${p.quorum})</summary><ul class="tally">${results}</ul></details>
         <div class="tallies-box" data-id="${id}" data-online="${esc(JSON.stringify(tally.map(String)))}" data-labels="${esc(JSON.stringify(labels))}" data-canvote="${eligibleTier && open && !p.finalized && !paperPlace ? 1 : 0}"></div>

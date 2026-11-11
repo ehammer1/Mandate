@@ -57,5 +57,7 @@ export async function receiptHtml(state, esc, pollId, nullifier, labels = ['Yes'
     const t = new ethers.Contract(state.config.talliesAddress, ['function checkedInAt(uint256, uint256) view returns (uint32)'], state.provider);
     if (Number(await t.checkedInAt(pollId, nullifier).catch(() => 0n))) paper = '<p class="note">This voter also checked in to vote on paper: the paper ballot is the one that counts, so this online ballot is left out of the combined count.</p>';
   }
-  return `<p class="ok">✓ Counted: this ballot (${choice}) is in the public count${b.at ? `, cast ${new Date(b.at * 1000).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}` : ''}.${explorer}</p>${paper}`;
+  // The choice stays folded away: nobody looking over a shoulder (or paying for a vote) sees it.
+  return `<p class="ok">✓ Counted: this ballot is in the public count${b.at ? `, cast ${new Date(b.at * 1000).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}` : ''}.${explorer}</p>
+    <details class="reveal"><summary>Show the choice</summary><p>This ballot: ${choice}</p></details>${paper}`;
 }

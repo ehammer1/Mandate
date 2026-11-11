@@ -1330,7 +1330,10 @@ test('paper ballots: check in on the phone, clerks record and confirm, each pers
   assert.deepEqual((await c.vote.tally(pollId)).map(Number), [1, 0]);
   await page.waitForSelector(`#poll-${pollId} [data-checkvote]`, { timeout: 60_000 });
   await page.click(`#poll-${pollId} [data-checkvote]`);
-  await page.waitForSelector(`#poll-${pollId} [data-receipt] >> text=this ballot (Yes)`, { timeout: 60_000 });
+  await page.waitForSelector(`#poll-${pollId} [data-receipt] >> text=Counted`, { timeout: 60_000 });
+  assert.equal(await page.isVisible(`#poll-${pollId} [data-receipt] details.reveal p`), false); // the choice stays hidden until asked
+  await page.click(`#poll-${pollId} [data-receipt] details.reveal summary`);
+  assert.match(await page.textContent(`#poll-${pollId} [data-receipt] details.reveal`), /This ballot: Yes/);
 
   // Then they go to the library, check in on their phone (a code for the clerk), and vote No on paper.
   await page.click(`#poll-${pollId} .tallies-box details.checkin summary`);
