@@ -423,6 +423,24 @@ test('council: one member proposes a new clerk, another approves, it runs after 
   assert.equal(await page.locator('#council-1 button', { hasText: 'Approve' }).count(), 0); // already approved by proposing
   assert.equal((await c.identity.issuers(desk)).active, false); // nothing happens yet
   await shot('7-council-proposed');
+  // Changed your mind? Undo your approval, then approve again.
+  assert.match(await page.textContent('#council-1'), /You approved this change/);
+  await page.click('#council-1 button:has-text("Undo my approval")');
+  await page.waitForSelector('#council-1 button:has-text("Approve")', { timeout: 60_000 });
+  assert.match(await page.textContent('#council-1'), /0 of 2 approvals/);
+  await page.click('#council-1 button:has-text("Approve")');
+  await page.waitForSelector('#council-1 button:has-text("Undo my approval")', { timeout: 60_000 });
+  // Anyone can read the proposal in full on its own page, before deciding.
+  const href = await page.getAttribute('#council-1 [data-read-proposal]', 'href');
+  const doc = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  await doc.goto(href);
+  await doc.waitForSelector('h1 >> text=Approve', { timeout: 60_000 });
+  const full = await doc.textContent('#proposal');
+  assert.match(full, /Second desk at City Hall/);
+  assert.match(full, /✓ Approved[\s\S]*○ Not yet/);
+  assert.match(full, /setIssuer[\s\S]*maxTier\s*1\s*can give full voting rights[\s\S]*name\s*Council desk/);
+  assert.equal(await doc.locator('h1').count(), 1);
+  await doc.close();
 
   // The second member (the automatic account) approves: the public wait starts.
   await page.click('#nav-account');
@@ -1383,7 +1401,7 @@ test('paper ballots: check in on the phone, clerks record and confirm, each pers
 
   // The poll counts this person once: their paper No, not their online Yes.
   await page.click('#nav-polls');
-  await page.waitForSelector(`#poll-${pollId} .tallies-box >> text=checked in on paper and also voted online`, { timeout: 120_000 });
+  await page.waitForSelector(`#poll-${pollId} .tallies-box >> text=voted online and then on paper`, { timeout: 120_000 });
   assert.match(await page.textContent(`#poll-${pollId} .tallies-box`), /Everyone, online and on paper: Yes 0 · No 1/);
   await page.click(`#poll-${pollId} [data-checkvote]`);
   await page.waitForSelector(`#poll-${pollId} [data-receipt] >> text=Counted`, { timeout: 60_000 });
@@ -1412,6 +1430,37 @@ test('paper ballots: check in on the phone, clerks record and confirm, each pers
   const data = JSON.parse(fs.readFileSync(await all.path(), 'utf8'));
   assert.ok(data.polls.length >= 1 && Array.isArray(data.paper) && data.paper.some((r) => r.place === 'Main Library' && r.confirmed));
   await dash.close();
+});
+
+test('a community can choose "last vote counts": a later online vote replaces a paper envelope', async () => {
+  const text = JSON.stringify({ title: 'Light the skate park at night?', body: 'Envelope ballots at the library.', options: ['Yes', 'No'], final: 'latest' });
+  await (await c.notices.post(text)).wait();
+  await (await c.vote.createPoll(await c.identity.groupId(1), 86_400, 1, 2, 0, '0x', `nb:${ethers.keccak256(ethers.toUtf8Bytes(text))}`, 0)).wait();
+  const pollId = await c.vote.pollCount();
+  await (await c.tallies.contestForPoll(pollId, 2)).wait();
+  await (await c.tallies.addPlace(await c.tallies.contestOfPoll(pollId), 'Main Library')).wait();
+
+  // The voter checks in on paper first: the poll says the envelope can still be replaced online.
+  await page.click('#nav-polls');
+  await page.waitForSelector(`#poll-${pollId} .tallies-box details.checkin summary`, { timeout: 60_000 });
+  assert.match(await page.textContent(`#poll-${pollId} .tallies-box`), /whichever they cast last counts/);
+  await page.click(`#poll-${pollId} .tallies-box details.checkin summary`);
+  await page.click(`#poll-${pollId} [data-checkin]`);
+  await page.waitForSelector(`#poll-${pollId} [data-paper-code]`, { timeout: 120_000 }).catch(async () => {
+    await page.click('#nav-polls');
+    await page.waitForSelector(`#poll-${pollId} [data-paper-code]`, { timeout: 60_000 });
+  });
+  const code = (await page.textContent(`#poll-${pollId} [data-paper-code]`)).trim();
+  assert.match(await page.textContent(`#poll-${pollId}`), /your paper envelope is set aside unopened/);
+
+  // Later they change their mind online: that vote counts, and the clerks are told to set aside their envelope.
+  await page.click(`#poll-${pollId} .choices button.choice[data-option="0"]`);
+  await page.waitForSelector(`#poll-${pollId} [data-checkvote]`, { timeout: 120_000 });
+  assert.deepEqual((await c.vote.tally(pollId)).map(Number), [1, 0]);
+  await page.click('#nav-polls');
+  await page.waitForSelector(`#poll-${pollId} [data-set-aside]`, { timeout: 120_000 });
+  assert.equal((await page.textContent(`#poll-${pollId} [data-set-aside]`)).trim(), code);
+  assert.match(await page.textContent(`#poll-${pollId} .tallies-box`), /Everyone, online and on paper: Yes 1 · No 0/);
 });
 
 test('search finds items by number, address, text reference and words; FAQ in Help', async () => {

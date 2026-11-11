@@ -29,7 +29,7 @@ import { wireBodies } from './bodies.js';
 import { wireCopy, jumpTo, itemTools } from './copy.js';
 import { wireHelp } from './help.js';
 import { search, resultsHtml, receiptResult } from './search.js';
-import { pollTallies, wireTallies, checkInCode } from './tallies.js';
+import { pollTallies, wireTallies, checkInCode, finalRule } from './tallies.js';
 import { receiptHtml, receiptCode } from './receipt.js';
 import { copyBtn } from './copy.js';
 import { attachPicker, attachmentsHtml, wireAttachments, uploadService } from './attach.js';
@@ -134,7 +134,8 @@ async function openFromLink(hash) {
   if (kind === 'help') return state.help.open(id);
   const target = id === '0' ? (kind === 'council' ? 'admin-council' : 'admin-prevcouncil') : `${kind}-${id}`;
   if (kind === 'council' || kind === 'prevcouncil') {
-    if ($('nav-admin').hidden) return void (location.href = `dashboard.html#h-council`);
+    if ($('nav-admin').hidden && id !== '0') return void (location.href = `proposal.html?${kind === 'council' ? '' : 'c=prevcouncil&'}id=${id}`);
+    if ($('nav-admin').hidden) return void (location.href = 'dashboard.html#h-council');
     return goToTarget(target);
   }
   if (kind === 'motion' || kind === 'body') return goToTarget(target);
@@ -738,6 +739,8 @@ async function refreshPolls() {
         const at = Number(await t.checkedInAt(id, myNullifier).catch(() => 0n));
         if (at) paperPlace = (await t.placesOf(await t.contestOfPoll(id)).catch(() => []))[at - 1] || 'a polling place';
       }
+      const latestWins = finalRule(q, state.config) === 'latest';
+      const paperLocks = Boolean(paperPlace) && !latestWins; // paper is final: no online voting after check-in
       const pollTier = groups.findIndex((g) => g === p.groupId);
       const who = GROUP_LABEL[pollTier] || 'Members';
       const eligibleTier = myTier >= pollTier;
@@ -761,17 +764,18 @@ async function refreshPolls() {
         ${ck.root ? `<p class="note"><strong>Cross-checked.</strong> Votes from ${esc(GROUP_LABEL[checkTier]?.toLowerCase() || 'ID-checked residents')} are also counted separately (Yes ${ckCounts[0]}, No ${ckCounts[1]}). If at least ${ck.quorum} of them vote and they choose the other side from everyone, the result is held for review.</p>` : ''}
         ${ck.disputed ? '<p class="warn"><strong>Contested.</strong> ID-checked voters chose the other side from the overall count, so this result was held: its binding action did not run. A re-vote among ID-checked residents can settle it.</p>' : ''}
         ${!open && !p.finalized ? `<button class="finalize" data-poll="${id}">Record the result</button>` : ''}
-        ${paperPlace ? `<p class="ok">You checked in at <strong>${esc(paperPlace)}</strong> to vote on paper. Your paper ballot is your vote and it is final: online votes for this poll don't count. Your check-in code: <span class="code big" data-paper-code>${String(myNullifier).slice(-6)}</span></p>` : ''}
-        ${open && !voted && eligibleTier && !paperPlace ? `<div class="choices">${buttons}</div>` : ''}
+        ${paperPlace && !latestWins ? `<p class="ok">You checked in at <strong>${esc(paperPlace)}</strong> to vote on paper. Your paper ballot is your vote and it is final: online votes for this poll don't count. Your check-in code: <span class="code big" data-paper-code>${String(myNullifier).slice(-6)}</span></p>` : ''}
+        ${paperPlace && latestWins ? `<p class="ok">You checked in at <strong>${esc(paperPlace)}</strong> to vote on paper. Put your ballot in the envelope marked with your check-in code: <span class="code big" data-paper-code>${String(myNullifier).slice(-6)}</span></p><p class="note">This poll counts your latest vote. If you vote online after checking in, your paper envelope is set aside unopened and your online vote counts instead.</p>` : ''}
+        ${open && !voted && eligibleTier && !paperLocks ? `<div class="choices">${buttons}</div>` : ''}
         ${open && !voted && !eligibleTier ? `<p class="note">${myTier < 0 ? 'Join first to vote in polls.' : `Only ${esc(who.toLowerCase())} can vote in this poll. ${pollTier === 2 ? 'Verify your ID with the city clerk, a library desk or a mobile ID to get full voting rights.' : 'Verify your ID to vote in it.'}`}</p>` : ''}
         ${voted ? `<div class="receipt-box stack" data-id="${id}" data-nullifier="${myNullifier}"><p class="ok">Your vote is recorded. Nobody can see which way you voted.</p>
           <div class="row"><button type="button" data-checkvote>Check my vote</button> ${copyBtn(receiptCode(id, myNullifier), 'Copy receipt')}</div>
-          ${open && eligibleTier && !paperPlace ? `<details class="change-vote"><summary>Change my vote</summary><p class="note">Until the poll closes you can change your vote, privately; only your latest vote counts. If anyone pressured you to vote a certain way, you can quietly change it.</p><div class="choices">${buttons}</div></details>` : ''}
+          ${open && eligibleTier && !paperLocks ? `<details class="change-vote"><summary>Change my vote</summary><p class="note">Until the poll closes you can change your vote, privately; only your latest vote counts. If anyone pressured you to vote a certain way, you can quietly change it.</p><div class="choices">${buttons}</div></details>` : ''}
           <p class="note">The receipt lets anyone confirm this ballot was counted (in Search), without learning who cast it. Anyone you show it to can also see its choice, so keep it to yourself.</p>
           <p class="note"><strong>Never share your voter key or backup code.</strong> Anyone who asks for it, or offers anything for your vote, may be trying to buy or control it; buying and selling votes is a crime. You can always change your online vote until the poll closes, or vote on paper.</p><div data-receipt></div></div>` : ''}
         <p class="status" id="poll-status-${id}" role="status"></p>
         <details><summary>Current count (${total} of ${p.electorate} eligible, quorum ${p.quorum})</summary><ul class="tally">${results}</ul></details>
-        <div class="tallies-box" data-id="${id}" data-online="${esc(JSON.stringify(tally.map(String)))}" data-labels="${esc(JSON.stringify(labels))}" data-canvote="${eligibleTier && open && !p.finalized && !paperPlace ? 1 : 0}"></div>
+        <div class="tallies-box" data-id="${id}" data-online="${esc(JSON.stringify(tally.map(String)))}" data-labels="${esc(JSON.stringify(labels))}" data-canvote="${eligibleTier && open && !p.finalized && !paperPlace ? 1 : 0}" data-final="${latestWins ? 'latest' : 'paper'}"></div>
         <div class="officials-box" data-id="${id}" data-canvote="${open && !voted && eligibleTier && Number(p.options) === 2 ? 1 : 0}"></div>
         <div class="explain-box" data-id="${id}"></div>
         <div class="thread-box" data-kind="poll" data-id="${id}"></div>
@@ -804,7 +808,7 @@ async function refreshPolls() {
       };
     }
     for (const box of list.querySelectorAll('.tallies-box')) {
-      pollTallies(box, { state, esc, status, relay: relayPost, onCheckedIn: () => refreshPolls() }, Number(box.dataset.id), JSON.parse(box.dataset.labels), JSON.parse(box.dataset.online), box.dataset.canvote === '1').catch(() => {});
+      pollTallies(box, { state, esc, status, relay: relayPost, onCheckedIn: () => refreshPolls() }, Number(box.dataset.id), JSON.parse(box.dataset.labels), JSON.parse(box.dataset.online), box.dataset.canvote === '1', box.dataset.final).catch(() => {});
     }
     for (const box of list.querySelectorAll('.officials-box')) {
       state.officials.pollSection(box, Number(box.dataset.id), box.dataset.canvote === '1', (option, btn) => castVote(BigInt(box.dataset.id), option, btn)).catch(() => {});
@@ -1302,7 +1306,7 @@ function wireAdmin() {
       try {
         status(el, 'Publishing the question: confirm if asked…');
         const files = state.pollPicker ? state.pollPicker.list() : [];
-        ref = await postDoc(state.config, activeSigner(), { title, body, options: ['Yes', 'No'], category: $('poll-category').value, ...(mandate ? { mandate } : {}), ...(files.length ? { attachments: files } : {}) });
+        ref = await postDoc(state.config, activeSigner(), { title, body, options: ['Yes', 'No'], category: $('poll-category').value, ...($('poll-final')?.value === 'latest' ? { final: 'latest' } : {}), ...(mandate ? { mandate } : {}), ...(files.length ? { attachments: files } : {}) });
       } catch (e) {
         return status(el, `Could not publish the question: ${e.shortMessage || e.message}`, 'error');
       }

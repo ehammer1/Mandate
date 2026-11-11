@@ -35,7 +35,7 @@ jobs:
       - name: Stamp this version on the app's files, so phones load the new code instead of a stale copy
         run: |
           v="${GITHUB_SHA::8}"
-          sed -i -E "s#(dist/(main|dashboard|notice)\.js)\"#\1?v=$v\"#; s#(style\.css)\"#\1?v=$v\"#" app/*.html
+          sed -i -E "s#(dist/(main|dashboard|notice|proposal)\.js)\"#\1?v=$v\"#; s#(style\.css)\"#\1?v=$v\"#" app/*.html
           grep -o 'dist/[a-z]*\.js?v=[0-9a-f]*' app/index.html app/dashboard.html
       - name: Drop sources and source maps from the published site
         run: rm -rf app/src && find app/dist -name "*.map" -delete

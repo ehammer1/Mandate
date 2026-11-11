@@ -8,6 +8,8 @@
  */
 
 import { ethers } from 'ethers';
+import { readDoc } from './notices.js';
+import { finalRule } from './tallies.js';
 
 const VOTE = [
   'event BallotCast(uint256 indexed id, uint256 option, uint256 nullifier)',
@@ -41,6 +43,7 @@ export async function findBallot(state, pollId, nullifier) {
 /** What happened to this ballot, in plain words (HTML). */
 export async function receiptHtml(state, esc, pollId, nullifier, labels = ['Yes', 'No']) {
   const b = await findBallot(state, pollId, nullifier);
+  const poll = b ? await new ethers.Contract(state.config.voteAddress, VOTE, state.provider).getPoll(pollId) : null;
   if (!b) return '<p class="warn">No ballot with this code in this poll.</p>';
   const explorer = state.config.explorer && b.txHash ? ` <a href="${esc(`${state.config.explorer.replace(/\/+$/, '')}/tx/${b.txHash}`)}" target="_blank" rel="noopener">See it on the blockchain</a>` : '';
   let choice = b.option === null ? 'recorded' : labels[b.option] ? `<strong>${esc(labels[b.option])}</strong>` : '';
@@ -55,7 +58,12 @@ export async function receiptHtml(state, esc, pollId, nullifier, labels = ['Yes'
   let paper = '';
   if (state.config.talliesAddress) {
     const t = new ethers.Contract(state.config.talliesAddress, ['function checkedInAt(uint256, uint256) view returns (uint32)'], state.provider);
-    if (Number(await t.checkedInAt(pollId, nullifier).catch(() => 0n))) paper = '<p class="note">This voter also checked in to vote on paper: the paper ballot is the one that counts, so this online ballot is left out of the combined count.</p>';
+    if (Number(await t.checkedInAt(pollId, nullifier).catch(() => 0n))) {
+      const q = await readDoc(state.config, state.provider, poll.questionCID).catch(() => null);
+      paper = finalRule(q, state.config) === 'latest'
+        ? '<p class="note">This voter also checked in to vote on paper. This poll counts the latest vote: if this online ballot came after the check-in, it counts and the paper envelope is set aside; otherwise the paper ballot counts.</p>'
+        : '<p class="note">This voter also checked in to vote on paper: the paper ballot is the one that counts, so this online ballot is left out of the combined count.</p>';
+    }
   }
   // The choice stays folded away: nobody looking over a shoulder (or paying for a vote) sees it.
   return `<p class="ok">✓ Counted: this ballot is in the public count${b.at ? `, cast ${new Date(b.at * 1000).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}` : ''}.${explorer}</p>

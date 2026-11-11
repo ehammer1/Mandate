@@ -9,7 +9,7 @@
 import { ethers } from 'ethers';
 import { COUNCIL_ABI, readProposal, describeCall } from './council.js';
 import { readDoc } from './notices.js';
-import { TALLIES_ABI, KIND } from './tallies.js';
+import { TALLIES_ABI, KIND, finalRule } from './tallies.js';
 import { PROGRESS_ABI } from './progress.js';
 
 const MAX = 500; // newest items per list, to keep a phone download quick
@@ -82,6 +82,7 @@ export const DATASETS = {
           paper_ballots: paper ? Number(paper.ballots) : '',
           paper_results: paper ? labels.map((l, i) => `${l}: ${Number(paper.counts[i] || 0)}`).join('; ') : '',
           cross_check: ck.root ? `Yes: ${Number(ckCounts[0])}; No: ${Number(ckCounts[1])}${ck.disputed ? ' (disagreed)' : ''}` : '',
+          if_voted_online_and_on_paper: finalRule(q, cfg) === 'latest' ? 'latest vote counts' : 'paper counts',
           question_ref: p.questionCID,
         });
       }

@@ -5,7 +5,7 @@
 
 import { ethers } from 'ethers';
 import { countdown } from './time.js';
-import { copyBtn, itemTools } from './copy.js';
+import { copyBtn } from './copy.js';
 
 export const COUNCIL_ABI = [
   'function isMember(address) view returns (bool)',
@@ -24,6 +24,8 @@ export const COUNCIL_ABI = [
   'error AlreadyRatified()',
   'function propose(address target, uint256 value, bytes data, string description) returns (uint256)',
   'function approve(uint256)',
+  'function withdrawApproval(uint256)',
+  'error NotApproved()',
   'function execute(uint256) payable',
   'function cancel(uint256)',
   'function addMember(address)',
@@ -120,6 +122,36 @@ export function describeCall(cfg, target, data) {
   }
 }
 
+/** Every detail of a proposed call, for reading in full: the function and each value, named. */
+export function callDetails(cfg, target, data) {
+  const names = contractNames(cfg);
+  const nameOf = (x) => names[String(x).toLowerCase()] || '';
+  let f = null;
+  try {
+    f = CALLS.parseTransaction({ data });
+  } catch {
+    f = null;
+  }
+  const contract = { address: target, name: nameOf(target) };
+  if (!f) return { contract, fn: data && data.length >= 10 ? data.slice(0, 10) : '(none)', known: false, args: [] };
+  const args = f.fragment.inputs.map((input, i) => {
+    const v = f.args[i];
+    let shown = String(v);
+    let note = '';
+    if (input.type === 'address') note = nameOf(v) ? `the ${nameOf(v)} contract` : '';
+    else if (input.type === 'bytes32') note = ROLE_NAMES[v] ? `role: ${ROLE_NAMES[v]}` : '';
+    else if (input.name === 'delay') note = hours(v);
+    else if (input.name === 'amount') note = `${ethers.formatEther(v)} play credits`;
+    else if (input.name === 'maxTier') note = Number(v) >= 1 ? 'can give full voting rights' : 'basic sign-ups only';
+    if (input.type === 'bool') shown = v ? 'yes' : 'no';
+    return { name: input.name, type: input.type, value: shown, note };
+  });
+  return { contract, fn: f.name, known: true, args };
+}
+
+/** Where a proposal can be read in full (shareable). */
+export const proposalUrl = (prefix, id) => `${new URL('./', location.href).href}proposal.html?${prefix === 'council' ? '' : `c=${prefix}&`}id=${id}`;
+
 /**
  * @param {object} ctx  { state, $, status, esc, activeSigner, activeAddress }
  */
@@ -212,7 +244,7 @@ export function wireCouncil(ctx, { addressKey = 'councilAddress', prefix = 'coun
     const c = council();
     const [members, threshold, delay, count, mine] = await Promise.all([c.members(), c.threshold(), c.delay(), c.proposalCount(), c.isMember(me)]);
     box.hidden = false;
-    $('council-summary').innerHTML = `<p>${members.length} members · ${threshold} must approve a change · then a public wait of ${esc(hours(delay))} (removing power needs no wait). Any one member can reject (cancel) a pending change.</p>
+    $('council-summary').innerHTML = `<p>${members.length} members · ${threshold} must approve a change · then a public wait of ${esc(hours(delay))} (removing power needs no wait). Any one member can reject (cancel) a pending change; a rejected change can be proposed again. You can undo your own approval until a change runs.</p>
       <p class="muted">${mine ? 'You are a member.' : 'This account is not a member: you can see changes and run ready ones, but not approve.'}</p>
       <details><summary>Members and terms</summary><ul>${(await Promise.all(members.map(async (m) => [m, await c.termEnds(m).catch(() => 0n)]))).map(([m, t]) => `<li><span class="code">${esc(m)}</span> ${copyBtn(m)}${m.toLowerCase() === me.toLowerCase() ? ' (you)' : ''}<br><span class="muted">${t ? `term ends ${esc(new Date(Number(t) * 1000).toLocaleDateString(undefined, { dateStyle: 'medium' }))}` : 'no end date'}</span></li>`).join('')}</ul></details>
       <p class="note">The public can elect members for a term, recall them, and remove anyone's role by vote, without the council.</p>`;
@@ -245,7 +277,9 @@ export function wireCouncil(ctx, { addressKey = 'councilAddress', prefix = 'coun
         <p class="big" style="font-size:1.05rem">${esc(describeCall(state.config, p.target, p.data))}</p>
         ${p.description ? `<p>${shortenAddresses(esc(p.description))}</p>` : ''}
         <p class="muted">Changes contract ${esc(short(p.target))} ${copyBtn(p.target)} · proposed by ${esc(short(p.proposer))} ${copyBtn(p.proposer)}</p>
-        ${itemTools({ anchor: `${prefix}-${id}`, idText: `${prefix === 'council' ? 'Council' : 'Previous council'} change #${id} (council ${addr()})`, explorer: state.config.explorer, address: addr() })}
+        <p class="row"><a class="button" href="${esc(proposalUrl(prefix, id))}" target="_blank" rel="noopener" data-read-proposal>📄 Read the full proposal</a> ${copyBtn(proposalUrl(prefix, id), '🔗 Copy link')} ${copyBtn(`${prefix === 'council' ? 'Council' : 'Previous council'} change #${id} (council ${addr()})`, 'Copy ID')}</p>
+        ${active && mine && approvedByMe ? '<p class="ok">✓ You approved this change.</p>' : ''}
+        ${st === 5 ? '<p class="muted">Rejected (cancelled): it can never run. A member can propose it again if it was rejected by mistake.</p>' : ''}
         ${timing}
         ${p.emergency ? `<p class="warn"><strong>Emergency change.</strong> ${p.lapsed ? 'Undone: residents did not ratify it.' : p.executed ? `In effect; residents vote on it in poll ${p.ratifyPoll}. Undone unless ratified by ${esc(new Date(Number(p.ratifyBy) * 1000).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }))} (${countdown(p.ratifyBy, '', prefix)}).` : 'Runs at once once approved, then residents must ratify it.'}</p>` : ''}
         <div class="row"></div><p class="status" role="status"></p>`;
@@ -263,11 +297,18 @@ export function wireCouncil(ctx, { addressKey = 'councilAddress', prefix = 'coun
         row.append(b);
       };
       if (active && mine && !approvedByMe) button('Approve', () => send(el, 'Approve', (k) => k.approve(id)), true);
+      if (active && mine && approvedByMe) button('Undo my approval', () => send(el, 'Undo approval', (k) => k.withdrawApproval(id)));
       if (st === 3) button('Run it now', () => send(el, 'Run', (k) => k.execute(id)), true);
       if (active && mine) {
         button('Reject', async () => {
-          if (!window.confirm(`Reject council change #${id}? It will be cancelled for good and can never run. (Any one member can reject a pending change.)`)) return false;
+          if (!window.confirm(`Reject council change #${id}? It is cancelled and cannot run. If this is a mistake, a member can propose it again (it then needs approvals and the wait again).`)) return false;
           return send(el, 'Reject', (k) => k.cancel(id));
+        });
+      }
+      if ((st === 5 || st === 6) && mine && !p.emergency) {
+        button('Propose it again', async () => {
+          if (!window.confirm(`Propose council change #${id} again, exactly as before? It starts over: it needs approvals and the waiting period again.`)) return false;
+          return send(el, 'Propose again', (k) => k.propose(p.target, p.value, p.data, p.description));
         });
       }
       if (p.emergency && p.executed && !p.lapsed) button('Undo (not ratified)', () => send(el, 'Undo', (k) => k.lapse(id)));

@@ -44,7 +44,9 @@ Wait until the countdown ends; the section then shows **Run it now** by itself. 
 The permanent address of a published text (a question, petition or comment) on the notice board. Each item's **Copy text reference** button copies it, and Search finds it.
 
 **Someone offered me money or pressured me to vote a certain way. What can I do?**
-Buying, selling or forcing votes is a crime: report it to your election office or the police. Never hand over your voter key or backup code. You can quietly change your online vote until the poll closes, and a paper ballot at a polling place replaces any online vote and is final, so nobody can be sure how you voted.
+Buying, selling or forcing votes is a crime: report it to your election office or the police. Never hand over your voter key or backup code. You can quietly change your online vote until the poll closes, and where paper is final, a paper ballot at a polling place replaces any online vote, so nobody can be sure how you voted.
+**What if someone votes online and on paper?**
+Each poll states its rule, chosen by the community when it opens. **Paper is final** (the usual choice): the paper ballot counts and any online vote from the same person is left out. **Last vote counts**: whichever they cast last counts; paper ballots then go in an envelope marked with the voter's check-in code, and if that voter votes online afterwards, clerks set the envelope aside unopened. Either way each person is counted once, and the check-in matches the paper voter to the voter list without revealing who they are.
 **How do I check my vote was counted?**
 On a poll you voted in, tap **Check my vote**: your phone finds your own ballot in the public count, using a one-time code only your voter key can recompute. **Copy receipt** gives a code anyone can check in Search to confirm that ballot was counted, without learning who cast it; anyone you show it to can also see its choice, so keep it to yourself.
 **How do I share or find a specific poll, proposal or item?**

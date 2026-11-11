@@ -81,6 +81,14 @@ async function placesHtml(cfg, provider, k, contestId, options, esc) {
 }
 
 /** Online ballots of people who also checked in on paper: their paper ballot is the one that counts. */
+/** Which vote counts when someone votes both online and on paper: the community's rule for
+ *  this poll (set in its question when it opened), else the deployment's default (paper). */
+export const finalRule = (q, cfg) => ((q?.final || cfg?.finalVote) === 'latest' ? 'latest' : 'paper');
+
+/**
+ * Voters who checked in on paper and also voted online, with when each happened (block, then
+ * position in it), so the combined count can keep the right one of their two votes.
+ */
 async function doubleVotes(state, k, pollId) {
   const checked = (await k.checkInsOf(pollId)).map(String);
   if (!checked.length) return [];
@@ -88,35 +96,43 @@ async function doubleVotes(state, k, pollId) {
   const both = [];
   for (const n of checked) if (await vote.nullifierUsed(pollId, n).catch(() => false)) both.push(n);
   if (!both.length) return [];
-  // Find those ballots' choices: search the poll's blocks (a few seconds per block on Base).
+  // Find those ballots and check-ins: search the poll's blocks (a few seconds per block on Base).
   const poll = await vote.getPoll(pollId);
   const head = await state.provider.getBlock('latest');
   const from = Math.max(0, head.number - Math.ceil((head.timestamp - Number(poll.start)) / 2) - 2000);
   const want = new Set(both);
   const latest = new Map(); // a voter who changed their vote: only their latest ballot was counted
+  const checkIn = new Map();
+  const at = (l) => l.blockNumber * 1e6 + (l.index ?? l.logIndex ?? 0);
   for (let a = from; a <= head.number; a += 9000) {
-    const logs = await vote.queryFilter(vote.filters.BallotCast(pollId), a, Math.min(head.number, a + 8999)).catch(() => []);
-    for (const l of logs) if (want.has(String(l.args.nullifier))) latest.set(String(l.args.nullifier), Number(l.args.option));
+    const b = Math.min(head.number, a + 8999);
+    const [ballots, ins] = await Promise.all([vote.queryFilter(vote.filters.BallotCast(pollId), a, b).catch(() => []), k.queryFilter(k.filters.CheckedIn(pollId), a, b).catch(() => [])]);
+    for (const l of ballots) if (want.has(String(l.args.nullifier))) latest.set(String(l.args.nullifier), { option: Number(l.args.option), at: at(l) });
+    for (const l of ins) if (want.has(String(l.args.nullifier))) checkIn.set(String(l.args.nullifier), { place: Number(l.args.place), at: at(l) });
   }
-  return [...latest].map(([nullifier, option]) => ({ nullifier, option }));
+  return [...latest].map(([nullifier, b]) => ({ nullifier, option: b.option, onlineLast: b.at > (checkIn.get(nullifier)?.at ?? Infinity), place: checkIn.get(nullifier)?.place ?? -1 }));
 }
 
 /** On a poll card: check in to vote on paper, and in-person counts beside the online count. */
-export async function pollTallies(box, ctx, pollId, labels, online, canVote) {
+export async function pollTallies(box, ctx, pollId, labels, online, canVote, final = 'paper') {
   const { state, esc } = ctx;
   const k = contract(state.config, state.provider);
   if (!k || !box) return;
   const contestId = await k.contestOfPoll(pollId);
   if (!Number(contestId)) return (box.innerHTML = '');
   const [c, places, [counts, ballots, confirmedPlaces, unconfirmed]] = await Promise.all([k.getContest(contestId), k.placesOf(contestId), k.totals(contestId)]);
-  const doubles = await doubleVotes(state, k, pollId).catch(() => []);
+  const all = await doubleVotes(state, k, pollId).catch(() => []);
+  // Paper is final: every double voter's online ballot is left out. Latest counts: the online
+  // ballot is left out only if they checked in after it; otherwise their envelope is set aside.
+  const doubles = final === 'latest' ? all.filter((d) => !d.onlineLast) : all;
+  const setAside = final === 'latest' ? all.filter((d) => d.onlineLast) : [];
   const combined = labels.map((l, i) => {
     const onlineHere = BigInt(online[i] || 0) - BigInt(doubles.filter((d) => d.option === i).length);
     return `${esc(l)} ${num(onlineHere + counts[i])}`;
   });
   const checkInHtml = canVote && places.length && !c.closed
     ? `<details class="checkin"><summary><strong>Voting on paper at a polling place? Check in</strong></summary><div class="stack">
-        <p class="note">Check in at the desk before you get a paper ballot. Your phone proves privately that you are on the voter list, the same way an online vote does, without saying who you are. If you also vote online, only your paper ballot counts.</p>
+        <p class="note">Check in at the desk before you get a paper ballot. Your phone proves privately that you are on the voter list, the same way an online vote does, without saying who you are. ${final === 'latest' ? 'Your paper ballot goes in an envelope marked with your check-in code. This poll counts your latest vote: if you vote online after checking in, your envelope is set aside unopened and the online vote counts.' : 'If you also vote online, only your paper ballot counts.'}</p>
         <label>Polling place <select data-place>${places.map((p, i) => `<option value="${i}">${esc(p)}</option>`).join('')}</select></label>
         <button class="primary" data-checkin>Check in</button><p class="status" role="status"></p><div data-code></div></div></details>`
     : '';
@@ -124,7 +140,9 @@ export async function pollTallies(box, ctx, pollId, labels, online, canVote) {
     ${checkInHtml}
     <p><strong>In person and on paper:</strong> ${labels.map((l, i) => `${esc(l)} ${num(counts[i])}`).join(' · ')} (${num(ballots)} ballots, ${num(confirmedPlaces)} place${Number(confirmedPlaces) === 1 ? '' : 's'} confirmed${Number(unconfirmed) ? `, ${num(unconfirmed)} awaiting confirmation` : ''})</p>
     <p><strong>Everyone, online and on paper:</strong> ${combined.join(' · ')}</p>
-    ${doubles.length ? `<p class="note">${doubles.length} ${doubles.length === 1 ? 'person' : 'people'} checked in on paper and also voted online: only the paper ballot counts, so the online one is left out above.</p>` : ''}
+    <p class="note"><strong>Rule for this poll:</strong> ${final === 'latest' ? 'if someone votes both online and on paper, whichever they cast last counts. Paper ballots go in envelopes marked with the check-in code, so a later online vote can replace one.' : 'if someone votes both online and on paper, the paper ballot counts (paper is final).'}</p>
+    ${doubles.length ? `<p class="note">${doubles.length} ${doubles.length === 1 ? 'person' : 'people'} voted online and then on paper: the paper ballot counts, so the online one is left out above.</p>` : ''}
+    ${setAside.length ? `<div class="warn stack"><p><strong>Envelopes to set aside, unopened, before counting:</strong> ${setAside.length} ${setAside.length === 1 ? 'voter' : 'voters'} checked in on paper and then voted online, so the online vote counts instead.</p><ul>${setAside.map((d) => `<li>Check-in code <span class="code" data-set-aside>${esc(checkInCode(d.nullifier))}</span>${places[d.place] ? ` · ${esc(places[d.place])}` : ''}</li>`).join('')}</ul><p class="muted">This list is final when the poll closes. Clerks remove these envelopes, then open and count the rest.</p></div>` : ''}
     <p class="note">Each paper voter checks in anonymously with their voter key, so the paper register matches the voter list: a place's paper ballots can't exceed its check-ins, and nobody is counted twice. Counts are entered by one clerk and confirmed by another, with a photo of the tally sheet.</p>
     <details><summary>Places counted</summary><ul class="list">${await placesHtml(state.config, state.provider, k, contestId, labels, esc)}</ul></details>
     ${c.closed ? '<p class="muted">Final: no more changes.</p>' : ''}</div>`;
