@@ -22,6 +22,7 @@
         <button id="nav-petitions">Petitions</button>
         <button id="nav-bodies">Government</button>
         <button id="nav-rules">Rules</button>
+        <button id="nav-search">Search</button>
         <button id="nav-help">Help</button>
         <button id="nav-clerk" hidden>Clerk desk</button>
         <button id="nav-admin" hidden>Admin</button>
@@ -90,6 +91,10 @@
       <p class="status" id="home-notice" role="status"></p>
       <p class="eyebrow" id="signin-method"></p>
       <div class="card" id="membership" aria-live="polite"><p class="muted">Checking your enrollment…</p></div>
+      <form id="home-search" class="row" role="search">
+        <input type="search" id="home-search-q" placeholder="Search polls, proposals, IDs, addresses…" aria-label="Search" autocomplete="off" style="flex:1" />
+        <button type="submit">Search</button>
+      </form>
       <section class="card stack" id="attention-card" aria-labelledby="h-attention">
         <h2 id="h-attention">Needs attention</h2>
         <p class="note">Everything open, ranked by how soon it closes and how much it can change.</p>
@@ -188,6 +193,17 @@
     </section>
 
     <!-- Rules -->
+    <section id="screen-search" data-screen hidden>
+      <h1>Search</h1>
+      <form id="search-form" class="row" role="search">
+        <label for="search-q" class="visually-hidden">Search</label>
+        <input type="search" id="search-q" placeholder="poll 12, council 4, 0x…, nb:0x…, or words" autocomplete="off" style="flex:1" />
+        <button type="submit" class="primary">Search</button>
+      </form>
+      <p class="note">Find anything: a number ("poll 12", "petition 3", "council 4", "agenda item 5", or just "#12"), an account or contract address (0x…), a text reference (nb:0x…), or words from a title, a body, an official's name or the Help guide.</p>
+      <div id="search-results" aria-live="polite"></div>
+    </section>
+
     <section id="screen-help" data-screen hidden>
       <h1>Help</h1>
       <p>How to use Mandate, step by step, and what the words mean. Values in the guide are your community's current rules.</p>

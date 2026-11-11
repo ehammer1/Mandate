@@ -28,6 +28,7 @@ import { wireOfficials } from './officials.js';
 import { wireBodies } from './bodies.js';
 import { wireCopy, jumpTo, itemTools } from './copy.js';
 import { wireHelp } from './help.js';
+import { search, resultsHtml } from './search.js';
 import { attachPicker, attachmentsHtml, wireAttachments, uploadService } from './attach.js';
 import { countdown, startTicker, clockOffset } from './time.js';
 import { trackItems, toggleFollow, wireSettings } from './reminders.js';
@@ -123,11 +124,12 @@ async function signedIn(k, backupCode) {
 
 /** Open the item a shared link points to: #poll-3, #petition-2, #mandate-1, #council-4, #motion-5, #help-quorum... */
 async function openFromLink(hash) {
+  if (hash === '#dashboard-officials') return void window.open('dashboard.html#h-officials', '_blank');
   const m = /^#(poll|petition|mandate|council|prevcouncil|motion|body|help)-([\w-]+)$/.exec(hash || '');
   if (!m) return;
   const [, kind, id] = m;
   if (kind === 'help') return state.help.open(id);
-  const target = `${kind}-${id}`;
+  const target = id === '0' ? (kind === 'council' ? 'admin-council' : 'admin-prevcouncil') : `${kind}-${id}`;
   if (kind === 'council' || kind === 'prevcouncil') {
     if ($('nav-admin').hidden) return void (location.href = `dashboard.html#h-council`);
     return goToTarget(target);
@@ -1330,6 +1332,22 @@ async function boot() {
   };
   startTicker(state.provider);
   state.help = wireHelp({ state, $, show });
+  const runSearch = async (q) => {
+    show('screen-search');
+    $('search-q').value = q;
+    const box = $('search-results');
+    if (!q.trim()) return (box.innerHTML = '');
+    box.innerHTML = '<p class="muted">Searching…</p>';
+    try {
+      box.innerHTML = resultsHtml(state.config, await search(state, q), esc);
+    } catch (e) {
+      box.innerHTML = `<p class="error">Search failed: ${esc(e.shortMessage || e.message)}</p>`;
+    }
+    for (const a of box.querySelectorAll('[data-open]')) a.onclick = (ev) => (ev.preventDefault(), openFromLink(a.dataset.open));
+  };
+  $('nav-search').onclick = () => runSearch($('search-q').value);
+  $('search-form').onsubmit = (e) => (e.preventDefault(), runSearch($('search-q').value));
+  $('home-search').onsubmit = (e) => (e.preventDefault(), runSearch($('home-search-q').value));
   state.bodies = wireBodies({ state, $, status, esc, activeSigner, activeAddress });
   $('nav-bodies').onclick = async () => {
     show('screen-bodies');

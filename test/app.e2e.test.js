@@ -1304,6 +1304,40 @@ test('government bodies: set up from a template, public agenda with notice, roll
   await shot('17-bodies');
 });
 
+test('search finds items by number, address, text reference and words; FAQ in Help', async () => {
+  await page.click('#nav-polls');
+  await page.fill('#home-search-q', 'poll 1');
+  await page.click('#home-search button');
+  await page.waitForSelector('#search-results >> text=Poll 1', { timeout: 60_000 });
+  const vote = await c.vote.getAddress();
+  await page.fill('#search-q', vote);
+  await page.click('#search-form button');
+  await page.waitForSelector('#search-results >> text=Voting contract', { timeout: 60_000 });
+  const ref = (await c.vote.getPoll(1)).questionCID;
+  if (/^nb:/.test(ref)) {
+    await page.fill('#search-q', ref);
+    await page.click('#search-form button');
+    await page.waitForSelector('#search-results >> text=Poll 1', { timeout: 60_000 });
+  }
+  await page.fill('#search-q', 'pothole elm');
+  await page.click('#search-form button');
+  await page.waitForSelector('#search-results >> text=Fix the pothole on Elm Street', { timeout: 60_000 });
+  await page.click('#search-results a:has-text("Fix the pothole on Elm Street")');
+  await page.waitForSelector('#screen-petitions:not([hidden])', { timeout: 30_000 });
+  // Help: the FAQ, found by search, opens in place.
+  await page.click('#nav-search');
+  await page.fill('#search-q', 'lose my phone');
+  await page.click('#search-form button');
+  await page.waitForSelector('#search-results >> text=Frequently asked questions', { timeout: 60_000 });
+  await page.click('#search-results a:has-text("Frequently asked questions")');
+  await page.waitForSelector('#help-faq[open] >> text=What if I lose my phone?', { timeout: 30_000 });
+  // Nothing found: a hint, not an empty page.
+  await page.click('#nav-search');
+  await page.fill('#search-q', 'nothing-like-this-exists-xyz');
+  await page.click('#search-form button');
+  await page.waitForSelector('#search-results >> text=Nothing found', { timeout: 60_000 });
+});
+
 test('explained in plain language: the published AI summary, labelled, and answers from the text', async () => {
   const vote = (await c.vote.getAddress()).toLowerCase();
   appIpfs[`poll-${vote}-1.json`] = JSON.stringify({
