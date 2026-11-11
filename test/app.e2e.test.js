@@ -1314,25 +1314,38 @@ test('paper ballots: check in on the phone, clerks record and confirm, each pers
   const contest = await c.tallies.contestOfPoll(pollId);
   await (await c.tallies.addPlace(contest, 'Main Library')).wait();
 
-  // The voter checks in at the library on their phone and gets a code for the clerk.
+  // The voter votes online (No), then changes their mind online (Yes): only the latest counts.
   await page.click('#nav-polls');
-  await page.waitForSelector(`#poll-${pollId} .tallies-box details.checkin summary`, { timeout: 60_000 });
+  await page.waitForSelector(`#poll-${pollId} button.choice[data-option="1"]`, { timeout: 60_000 });
+  await page.click(`#poll-${pollId} button.choice[data-option="1"]`);
+  await page.waitForSelector(`#poll-${pollId} details.change-vote summary`, { timeout: 120_000 });
+  await page.click(`#poll-${pollId} details.change-vote summary`);
+  await page.click(`#poll-${pollId} details.change-vote button.choice[data-option="0"]`);
+  await page.waitForSelector(`#poll-${pollId} >> text=Your vote is changed`, { timeout: 120_000 });
+  assert.deepEqual((await c.vote.tally(pollId)).map(Number), [1, 0]);
+  await page.waitForSelector(`#poll-${pollId} [data-checkvote]`, { timeout: 60_000 });
+  await page.click(`#poll-${pollId} [data-checkvote]`);
+  await page.waitForSelector(`#poll-${pollId} [data-receipt] >> text=this ballot (Yes)`, { timeout: 60_000 });
+
+  // Then they go to the library, check in on their phone (a code for the clerk), and vote No on paper.
   await page.click(`#poll-${pollId} .tallies-box details.checkin summary`);
   await page.click(`#poll-${pollId} [data-checkin]`);
-  await page.waitForSelector(`#poll-${pollId} .tallies-box >> text=Checked in`, { timeout: 120_000 });
-  const code = (await page.textContent(`#poll-${pollId} [data-code]`)).trim();
+  // The code stays on the poll for the clerk; paper is final: no more online voting or changes.
+  await page.waitForSelector(`#poll-${pollId} [data-paper-code]`, { timeout: 120_000 }).catch(async () => {
+    await page.click('#nav-polls');
+    await page.waitForSelector(`#poll-${pollId} [data-paper-code]`, { timeout: 60_000 });
+  });
+  const code = (await page.textContent(`#poll-${pollId} [data-paper-code]`)).trim();
   assert.match(code, /^\d{6}$/);
   assert.equal(Number(await c.tallies.checkIns(contest, 0)), 1);
-
-  // The same voter also votes online.
-  await page.click(`#poll-${pollId} button.choice[data-option="1"]`);
-  await page.waitForFunction((id) => /recorded|counted|voted/i.test(document.querySelector(`#poll-${id}`).textContent), String(pollId), { timeout: 120_000 });
+  assert.match(await page.textContent(`#poll-${pollId}`), /Your paper ballot is your vote and it is final/);
+  assert.equal(await page.locator(`#poll-${pollId} details.change-vote`).count(), 0);
 
   // One clerk records the library's paper count; this account, as a second clerk, confirms it.
   const auto = ethers.getAddress((await page.evaluate(() => document.querySelector('#account-address').textContent)).trim() || ethers.ZeroAddress);
   await (await c.tallies.grantRole(await c.tallies.CLERK_ROLE(), auto)).wait();
-  assert.equal(await c.tallies.record.staticCall(contest, { place: 0, counts: [2, 0], ballots: 2, ref: '', replaces: 0, reason: '' }).catch((e) => c.tallies.interface.parseError(e.data)?.name), 'MoreBallotsThanCheckIns');
-  await (await c.tallies.record(contest, { place: 0, counts: [1, 0], ballots: 1, ref: '', replaces: 0, reason: '' })).wait();
+  assert.equal(await c.tallies.record.staticCall(contest, { place: 0, counts: [0, 2], ballots: 2, ref: '', replaces: 0, reason: '' }).catch((e) => c.tallies.interface.parseError(e.data)?.name), 'MoreBallotsThanCheckIns');
+  await (await c.tallies.record(contest, { place: 0, counts: [0, 1], ballots: 1, ref: '', replaces: 0, reason: '' })).wait();
   await page.click('#nav-polls');
   await page.waitForSelector('#nav-admin:not([hidden])', { timeout: 60_000 });
   await page.click('#nav-admin');
@@ -1343,25 +1356,13 @@ test('paper ballots: check in on the phone, clerks record and confirm, each pers
   await page.click('#admin-tallies [data-confirm]');
   await page.waitForSelector('#admin-tallies >> text=Nothing to confirm', { timeout: 60_000 });
 
-  // The poll: the paper Yes counts, the same person's online No is left out.
+  // The poll counts this person once: their paper No, not their online Yes.
   await page.click('#nav-polls');
   await page.waitForSelector(`#poll-${pollId} .tallies-box >> text=checked in on paper and also voted online`, { timeout: 120_000 });
-  assert.match(await page.textContent(`#poll-${pollId} .tallies-box`), /Everyone, online and on paper: Yes 1 · No 0/);
-
-  // Check my vote: the phone finds its own ballot in the public count.
+  assert.match(await page.textContent(`#poll-${pollId} .tallies-box`), /Everyone, online and on paper: Yes 0 · No 1/);
   await page.click(`#poll-${pollId} [data-checkvote]`);
   await page.waitForSelector(`#poll-${pollId} [data-receipt] >> text=Counted`, { timeout: 60_000 });
-  const mine = await page.textContent(`#poll-${pollId} [data-receipt]`);
-  assert.match(mine, /this ballot \(No\) is in the public count/);
-  assert.match(mine, /paper ballot is the one that counts/);
-  // Changing the online vote: only the latest counts.
-  await page.click(`#poll-${pollId} details.change-vote summary`);
-  await page.click(`#poll-${pollId} details.change-vote button.choice[data-option="0"]`);
-  await page.waitForSelector(`#poll-${pollId} >> text=Your vote is changed`, { timeout: 120_000 });
-  assert.deepEqual((await c.vote.tally(pollId)).map(Number), [1, 0]);
-  await page.waitForSelector(`#poll-${pollId} [data-checkvote]`, { timeout: 60_000 });
-  await page.click(`#poll-${pollId} [data-checkvote]`);
-  await page.waitForSelector(`#poll-${pollId} [data-receipt] >> text=this ballot (Yes)`, { timeout: 60_000 });
+  assert.match(await page.textContent(`#poll-${pollId} [data-receipt]`), /paper ballot is the one that counts/);
   // Anyone can confirm a receipt in Search, without learning who cast it.
   const receipt = await page.getAttribute(`#poll-${pollId} .receipt-box [data-copy]`, 'data-copy');
   assert.match(receipt, new RegExp(`^${pollId}:\\d{20,}$`));

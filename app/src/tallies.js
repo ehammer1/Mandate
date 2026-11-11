@@ -93,12 +93,12 @@ async function doubleVotes(state, k, pollId) {
   const head = await state.provider.getBlock('latest');
   const from = Math.max(0, head.number - Math.ceil((head.timestamp - Number(poll.start)) / 2) - 2000);
   const want = new Set(both);
-  const found = [];
-  for (let a = from; a <= head.number && found.length < both.length; a += 9000) {
+  const latest = new Map(); // a voter who changed their vote: only their latest ballot was counted
+  for (let a = from; a <= head.number; a += 9000) {
     const logs = await vote.queryFilter(vote.filters.BallotCast(pollId), a, Math.min(head.number, a + 8999)).catch(() => []);
-    for (const l of logs) if (want.has(String(l.args.nullifier))) found.push({ nullifier: String(l.args.nullifier), option: Number(l.args.option) });
+    for (const l of logs) if (want.has(String(l.args.nullifier))) latest.set(String(l.args.nullifier), Number(l.args.option));
   }
-  return found;
+  return [...latest].map(([nullifier, option]) => ({ nullifier, option }));
 }
 
 /** On a poll card: check in to vote on paper, and in-person counts beside the online count. */
@@ -141,6 +141,7 @@ export async function pollTallies(box, ctx, pollId, labels, online, canVote) {
       const out = await ctx.relay('/checkin', { pollId: String(pollId), place, proof });
       ctx.status(el, 'Checked in. Show this code to the clerk, then take your paper ballot.', 'ok');
       box.querySelector('[data-code]').innerHTML = `<p class="code big" aria-label="Check-in code">${esc(out.code || checkInCode(proof.nullifier))}</p>`;
+      if (ctx.onCheckedIn) setTimeout(ctx.onCheckedIn, 1500); // show the poll as voted on paper (the code stays there)
     } catch (e) {
       let name = '';
       try {
