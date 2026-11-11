@@ -1,7 +1,7 @@
 {
   "chainId": 84532,
   "rpcUrl": "https://sepolia.base.org",
-  "voteAddress": "0x6a6f31e40AA996fE43E43a3ee3B5b4f9377B93d4",
+  "voteAddress": "0xb1D5556302079E03F53cc5b175986a94E4599441",
   "identityAddress": "0x47501C8558349aeB6a7139ADaF8Eb88f2A6BB9B4",
   "creditsAddress": "0x0fd384570c082ABb8eb1Da5f7994d1246872AA52",
   "relayers": [
@@ -22,13 +22,14 @@
   "escrowFactoryAddress": "0x7BCDd0E8917445E6AE84Fc1f31307F6dD23A8c74",
   "charterAddress": "0x2890c293dFE694D3d4cDa992074205e3CdE4B3C8",
   "budgetAddress": "0xB470252aCFcFe460fa4F3Cab6d3fBE10dF849c96",
-  "feedbackAddress": "0xFfd95A1D0dA4Fe5d6397fB7Fd7C21137568D9526",
+  "feedbackAddress": "0xaB60b54B8B1F97936D5B2A1652368c33E924d373",
   "previousCouncilAddress": "0x4c0eC8820a4514DdB8aA3D98dEf878c6e296797F",
   "explanationsUrl": "https://raw.githubusercontent.com/ehammer1/Mandate/watchdog/explanations/",
   "feedUrl": "https://raw.githubusercontent.com/ehammer1/Mandate/watchdog/feed.xml",
   "calendarUrl": "https://raw.githubusercontent.com/ehammer1/Mandate/watchdog/calendar.ics",
-  "officialsAddress": "0x727383e390Aa18a29A8b7C1067A412c10225Ad4f",
-  "bodiesAddress": "0x75fc9E3665db5C34E860c9AE8bFAA9F6586b84cA",
-  "bodyRecordsAddress": "0xa2Eb258F34e92460a07238Db47E0309B20C398Db",
-  "talliesAddress": "0xe46816EE36118ACAcd155C3a9332083e8054E18a"
+  "officialsAddress": "0x24b6ffc8D5a82175D8695074436bF702c2fa1eBB",
+  "bodiesAddress": "0xd17b9c611872b555D2C1de77F19BbF9905A80E35",
+  "bodyRecordsAddress": "0xBaF7f0c088c3b15Ab20d4ba6c5F6bF2Cfa21aF15",
+  "talliesAddress": "0x7266CFb43A832C2AF968473F7628c0d0d32bb5Ff",
+  "previousVoteAddress": "0x6a6f31e40AA996fE43E43a3ee3B5b4f9377B93d4"
 }
