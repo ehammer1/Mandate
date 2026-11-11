@@ -4,7 +4,31 @@
   <subtitle>Every poll, mandate, budget round, petition and change of power, from the public blockchain record.</subtitle>
   <id>urn:mandate:feed</id>
   <link href="https://ehammer1.github.io/Mandate/"/>
-  <updated>2026-11-11T06:34:02.000Z</updated>
+  <updated>2026-11-11T07:28:36.000Z</updated>
+  <entry>
+    <id>urn:mandate:council-executed:0xbdaac7853ae2aa2a840736584587438ef5d1b33456374f2739438be320eb7d07:1794382116</id>
+    <title>Council change #2 carried out: revoke PROPOSER from 0xd284…fCD8 on voting</title>
+    <updated>2026-11-11T07:28:36.000Z</updated>
+    <link href="https://sepolia.basescan.org/tx/0xbdaac7853ae2aa2a840736584587438ef5d1b33456374f2739438be320eb7d07"/>
+    <category term="high"/>
+    <summary>Urgent: Council change #2 carried out: revoke PROPOSER from 0xd284…fCD8 on voting</summary>
+  </entry>
+  <entry>
+    <id>urn:mandate:role-change:0xbdaac7853ae2aa2a840736584587438ef5d1b33456374f2739438be320eb7d07:1794382116</id>
+    <title>PROPOSER role revoked from 0xd284…fCD8 on voting</title>
+    <updated>2026-11-11T07:28:36.000Z</updated>
+    <link href="https://sepolia.basescan.org/tx/0xbdaac7853ae2aa2a840736584587438ef5d1b33456374f2739438be320eb7d07"/>
+    <category term="medium"/>
+    <summary>PROPOSER role revoked from 0xd284…fCD8 on voting</summary>
+  </entry>
+  <entry>
+    <id>urn:mandate:role-change:0x6dd976feb555f497fc64b14cee5ba20a0d8338173fb7c409d0fd2cbdd7706130:1794381879</id>
+    <title>ADMIN role granted to 0xcF1e…9EC6 on identity registry</title>
+    <updated>2026-11-11T07:24:39.000Z</updated>
+    <link href="https://sepolia.basescan.org/tx/0x6dd976feb555f497fc64b14cee5ba20a0d8338173fb7c409d0fd2cbdd7706130"/>
+    <category term="high"/>
+    <summary>Urgent: ADMIN role granted to 0xcF1e…9EC6 on identity registry</summary>
+  </entry>
   <entry>
     <id>urn:mandate:council-scheduled:0x380a4b3b559d597ecf35eb73b3d26de7a9e158c6934c1c45d94bbdb120bfcb27:1794378842</id>
     <title>Council change #1 approved: it can run from 2026-11-11 07:34 UTC (grant PROPOSER to 0x75fc…84cA on voting). Members can still cancel it until then.</title>

@@ -1,5 +1,51 @@
 [
  {
+  "tx": "0xbdaac7853ae2aa2a840736584587438ef5d1b33456374f2739438be320eb7d07",
+  "block": 57301236,
+  "time": 1794382116,
+  "contract": "council",
+  "event": "Executed",
+  "rule": "council-executed",
+  "severity": "high",
+  "title": "Council change #2 carried out: revoke PROPOSER from 0xd284…fCD8 on voting",
+  "facts": {
+   "proposal": "2"
+  },
+  "id": "council-executed:0xbdaac7853ae2aa2a840736584587438ef5d1b33456374f2739438be320eb7d07:1794382116"
+ },
+ {
+  "tx": "0xbdaac7853ae2aa2a840736584587438ef5d1b33456374f2739438be320eb7d07",
+  "block": 57301236,
+  "time": 1794382116,
+  "contract": "voting",
+  "event": "RoleRevoked",
+  "rule": "role-change",
+  "severity": "medium",
+  "title": "PROPOSER role revoked from 0xd284…fCD8 on voting",
+  "facts": {
+   "role": "PROPOSER",
+   "account": "0xd2843b159fE0E2f2AAe5b7B35A83976dEee1fCD8",
+   "by": "0xcF1e7E83B050e5B1f5f9ed9a976D9666F4619EC6"
+  },
+  "id": "role-change:0xbdaac7853ae2aa2a840736584587438ef5d1b33456374f2739438be320eb7d07:1794382116"
+ },
+ {
+  "tx": "0x6dd976feb555f497fc64b14cee5ba20a0d8338173fb7c409d0fd2cbdd7706130",
+  "block": 57300053,
+  "time": 1794381879,
+  "contract": "identity registry",
+  "event": "RoleGranted",
+  "rule": "role-change",
+  "severity": "high",
+  "title": "ADMIN role granted to 0xcF1e…9EC6 on identity registry",
+  "facts": {
+   "role": "ADMIN",
+   "account": "0xcF1e7E83B050e5B1f5f9ed9a976D9666F4619EC6",
+   "by": "0x4c0eC8820a4514DdB8aA3D98dEf878c6e296797F"
+  },
+  "id": "role-change:0x6dd976feb555f497fc64b14cee5ba20a0d8338173fb7c409d0fd2cbdd7706130:1794381879"
+ },
+ {
   "tx": "0x380a4b3b559d597ecf35eb73b3d26de7a9e158c6934c1c45d94bbdb120bfcb27",
   "block": 57284868,
   "time": 1794378842,
