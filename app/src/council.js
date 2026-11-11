@@ -102,6 +102,9 @@ export function describeCall(cfg, target, data) {
  * @param {object} ctx  { state, $, status, esc, activeSigner, activeAddress }
  */
 // Councils deployed before the emergency lane return a shorter proposal; read those with the older shape.
+/** Long account addresses in text, shown short; tap one to see it in full. */
+export const shortenAddresses = (html) => html.replace(/0x[0-9a-fA-F]{40}/g, (a) => `<span class="addr-short" title="${a}" tabindex="0" onclick="this.textContent=this.title">${a.slice(0, 6)}…${a.slice(-4)}</span>`);
+
 export async function readProposal(c, id) {
   try {
     const r = await c.proposal(id);
@@ -207,7 +210,7 @@ export function wireCouncil(ctx, { addressKey = 'councilAddress', prefix = 'coun
       card.id = `${prefix}-${id}`;
       card.innerHTML = `<p class="muted">#${id} · ${esc(STATES[st])}${active ? ` · ${approvals} of ${threshold} approvals` : ''}${esc(when)}${p.fast && active ? ' · removes power: no wait' : ''}</p>
         <p class="big" style="font-size:1.05rem">${esc(describeCall(state.config, p.target, p.data))}</p>
-        ${p.description ? `<p>${esc(p.description)}</p>` : ''}
+        ${p.description ? `<p>${shortenAddresses(esc(p.description))}</p>` : ''}
         <p class="muted">Proposed by ${esc(short(p.proposer))}</p>
         ${timing}
         ${p.emergency ? `<p class="warn"><strong>Emergency change.</strong> ${p.lapsed ? 'Undone: residents did not ratify it.' : p.executed ? `In effect; residents vote on it in poll ${p.ratifyPoll}. Undone unless ratified by ${esc(new Date(Number(p.ratifyBy) * 1000).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }))} (${countdown(p.ratifyBy)}).` : 'Runs at once once approved, then residents must ratify it.'}</p>` : ''}

@@ -6,7 +6,7 @@
  */
 
 import { ethers } from 'ethers';
-import { describeCall, COUNCIL_ABI, readProposal } from './council.js';
+import { describeCall, COUNCIL_ABI, readProposal, shortenAddresses } from './council.js';
 import { readDoc } from './notices.js';
 import { collectAttention, attentionHtml, categoryFilterHtml, categoryChip, categoryOf } from './priority.js';
 
@@ -167,7 +167,7 @@ async function renderCouncil() {
     const timing = st === 2 ? ` · can run from ${when(p.readyAt)} (${countdown(p.readyAt)})` : st === 3 ? ` · can run now (ready ${countdown(p.readyAt)})` : '';
     items.push(`<li><p class="eyebrow">#${id} · ${esc(COUNCIL_STATES[st])}${st >= 1 && st <= 3 ? ` · ${approvals} of ${threshold} approvals` : ''}${timing}</p>
       <p><strong>${esc(describeCall(state.cfg, p.target, p.data))}</strong></p>
-      ${p.description ? `<p class="meta">Reason given: ${esc(p.description)}</p>` : ''}
+      ${p.description ? `<p class="meta">Reason given: ${shortenAddresses(esc(p.description))}</p>` : ''}
       <p class="meta">Proposed ${esc(when(p.proposedAt))} (${countdown(p.proposedAt)}) by <span class="addr">${esc(short(p.proposer))}</span></p></li>`);
   }
   const hours = Number(delay) / 3600;

@@ -24,7 +24,9 @@ header { background: var(--panel); border-bottom: 1px solid var(--line); }
 .brand { font-weight: 700; font-size: 19px; letter-spacing: .2px; }
 .brand small { display: block; font-weight: 400; font-size: 13px; color: var(--muted); }
 nav { display: flex; gap: 8px; flex-wrap: wrap; }
-main { max-width: 760px; margin: 0 auto; padding: 20px 16px 48px; }
+main { max-width: 760px; margin: 0 auto; padding: 20px 16px 48px; overflow-wrap: anywhere; }
+.stack > *, .row > * { min-width: 0; }
+.addr-short { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.92em; text-decoration: underline dotted; cursor: pointer; }
 h1 { font-size: 26px; line-height: 1.25; margin: 4px 0 8px; }
 h2 { font-size: 20px; margin: 28px 0 10px; }
 h3 { font-size: 18px; margin: 4px 0 6px; }
