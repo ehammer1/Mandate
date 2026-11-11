@@ -70,3 +70,18 @@ ul.rules { list-style: none; padding: 0; margin: 0; } ul.rules li { padding: 10p
 .stars button { min-width: 0; padding: 6px 10px; font-size: 14px; }
 .explainer summary { cursor: pointer; font-weight: 600; }
 .explainer ul { margin: 4px 0; padding-left: 20px; }
+
+.chip { display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 999px; background: var(--accent-soft); color: var(--text, inherit); margin-left: 4px; }
+.filters { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0; }
+.filters button { min-height: 40px; padding: 6px 14px; }
+.filters button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); }
+.attention { list-style: none; padding: 0; margin: 0; }
+.attention li { border-top: 1px solid var(--line); padding: 10px 0 10px 12px; border-left: 4px solid transparent; }
+.attention li:first-child { border-top: 0; }
+.attention li.urgent { border-left-color: var(--error); }
+.attention li.soon { border-left-color: var(--warn); }
+.attention li.upcoming { border-left-color: var(--line); }
+.attention .lvl { font-weight: 700; }
+.attention li.urgent .lvl { color: var(--error); }
+.attention li.soon .lvl { color: var(--warn); }
+.attention .meta { font-size: 13px; color: var(--muted); margin: 2px 0 0; }

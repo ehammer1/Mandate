@@ -26,6 +26,7 @@ import { renderExplainer } from './explain.js';
 import { informedHtml } from './informed.js';
 import { wireOfficials } from './officials.js';
 import { countdown, startTicker } from './time.js';
+import { collectAttention, attentionHtml, categoryFilterHtml, categoryChip, categoryOf } from './priority.js';
 
 const VOTE_ABI = [
   'function castBallot(uint256 id, tuple(uint256 merkleTreeDepth, uint256 merkleTreeRoot, uint256 nullifier, uint256 message, uint256 scope, uint256[8] points) b)',
@@ -607,7 +608,40 @@ function optionLabels(poll, q) {
   return Array.from({ length: n }, (_, i) => `Choice ${i + 1}`);
 }
 
+/** The ranked "Needs attention" list on the home screen. */
+let attentionCat = 'all';
+async function refreshAttention() {
+  const box = $('attention');
+  try {
+    const voted = async (id) => (state.identity ? state.vote.nullifierUsed(id, await nullifierFor(await state.vote.scopeOf(id))) : false);
+    state.attention = await collectAttention(state.config, state.provider, { voted });
+  } catch (e) {
+    box.innerHTML = `<p class="muted">Could not load: ${esc(e.shortMessage || e.message)}</p>`;
+    return;
+  }
+  const draw = () => {
+    $('attention-filters').innerHTML = categoryFilterHtml(state.attention, attentionCat);
+    box.innerHTML = attentionHtml(state.attention, esc, { category: attentionCat });
+    for (const b of $('attention-filters').querySelectorAll('[data-cat]')) b.onclick = () => { attentionCat = b.dataset.cat; draw(); };
+    for (const a of box.querySelectorAll('a[data-attn]')) a.onclick = (ev) => { ev.preventDefault(); goTo(a.dataset.attn); };
+  };
+  draw();
+}
+/** Open the screen an attention item belongs to and scroll to it. */
+async function goTo(key) {
+  const [kind, id] = key.split(':');
+  const target = { poll: [null, `poll-${id}`], measure: [null, null], petition: ['nav-petitions', `petition-${id}`], mandate: ['nav-mandates', `mandate-${id}`], budget: ['nav-budget', null], motion: ['nav-bodies', `motion-${id}`], council: ['nav-admin', 'admin-council'] }[kind] || [null, null];
+  if (target[0] && $(target[0]) && !$(target[0]).hidden) $(target[0]).click();
+  else if (target[0]) return void window.open(`dashboard.html#h-${kind === 'motion' ? 'bodies' : kind}`, '_blank');
+  for (let i = 0; i < 40 && target[1]; i++) {
+    const el = $(target[1]);
+    if (el && !el.closest('[hidden]')) return el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    await new Promise((r) => setTimeout(r, 250));
+  }
+}
+
 async function refreshPolls() {
+  refreshAttention();
   const list = $('poll-list');
   list.innerHTML = '<p class="muted">Loading…</p>';
   try {
@@ -644,7 +678,7 @@ async function refreshPolls() {
       const buttons = labels.map((l, i) => `<button class="choice" data-poll="${id}" data-option="${i}">${esc(l)}</button>`).join('');
       cards.push(`<article class="card poll" id="poll-${id}">
         <p class="eyebrow">${open ? `Open until ${esc(when(p.end))} · ${countdown(p.end, 'closes ')}` : p.finalized ? (ck.disputed ? 'Closed · contested' : p.passed ? 'Closed · passed' : 'Closed · did not pass') : 'Voting ended · awaiting result'} · ${esc(who)}</p>
-        <h3>${esc(q.title)}</h3>
+        <h3>${esc(q.title)} ${categoryChip(categoryOf(q), esc)}</h3>
         ${q.body ? `<p>${esc(q.body)}</p>` : ''}
         ${(() => {
           const t = mandateTerms(p);
@@ -1053,7 +1087,7 @@ function wireAdmin() {
       mandate
         ? ethers.AbiCoder.defaultAbiCoder().encode(
             ['address', 'address', 'uint64', 'uint16', 'bytes32', 'string'],
-            [state.config.registryAddress, mandate.responsible, mandate.days * 86_400, mandate.checks, ethers.id('general'), r],
+            [state.config.registryAddress, mandate.responsible, mandate.days * 86_400, mandate.checks, ethers.id($('poll-category').value || 'general'), r],
           )
         : actionData;
     const call = async (r) =>
@@ -1078,7 +1112,7 @@ function wireAdmin() {
     if (title) {
       try {
         status(el, 'Publishing the question: confirm if asked…');
-        ref = await postDoc(state.config, activeSigner(), { title, body, options: ['Yes', 'No'], ...(mandate ? { mandate } : {}) });
+        ref = await postDoc(state.config, activeSigner(), { title, body, options: ['Yes', 'No'], category: $('poll-category').value, ...(mandate ? { mandate } : {}) });
       } catch (e) {
         return status(el, `Could not publish the question: ${e.shortMessage || e.message}`, 'error');
       }

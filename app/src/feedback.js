@@ -8,6 +8,7 @@ import { ethers } from 'ethers';
 import { commentProof, ratingProof, signatureProof, topicOf } from '../../client/feedback.js';
 import { readDoc } from './notices.js';
 import { countdown } from './time.js';
+import { categoryChip, categoryOf } from './priority.js';
 
 const FEEDBACK_ABI = [
   'function identity() view returns (address)',
@@ -154,27 +155,33 @@ export function wireFeedback(ctx) {
     const all = await Promise.all(ids.map((id) => f.getPetition(id)));
     let order = ids.map((id, i) => ({ id, p: all[i] }));
     if (sortBy === 'top') order = order.sort((a, b) => (Number(a.p.pollId > 0n) - Number(b.p.pollId > 0n)) || (Number(b.p.signatures) / Math.max(1, Number(b.p.needed)) - Number(a.p.signatures) / Math.max(1, Number(a.p.needed))) || b.id - a.id);
-    for (const [rank, { id, p }] of order.slice(0, 20).entries()) {
+    const topic = $('petition-filter')?.value || 'all';
+    let rank = -1;
+    for (const { id, p } of order) {
+      if (cards.length >= 20) break;
       const doc = await readDoc(state.config, state.provider, p.ref);
+      if (topic !== 'all' && categoryOf(doc) !== topic) continue;
+      rank++;
       const signed = state.identity ? await f.nullifierUsed(await ctx.nullifierFor(await f.petitionScope(id))) : false;
       const pct = Math.min(100, Math.round((Number(p.signatures) / Math.max(1, Number(p.needed))) * 100));
       const opened = p.pollId > 0n;
       cards.push(`<article class="card stack" id="petition-${id}">
         <p class="eyebrow">${sortBy === 'top' && !opened ? `#${rank + 1} most requested · ` : ''}Petition ${id} · ${esc(PETITION_KINDS[Number(p.action)] || 'A vote')} · started ${countdown(p.createdAt)} · signed by ${esc(TIER_WHO[Number(p.tier)].toLowerCase())}s</p>
-        <h3>${esc(doc.title)}</h3>${doc.body ? `<p>${esc(doc.body)}</p>` : ''}
+        <h3>${esc(doc.title)} ${categoryChip(categoryOf(doc), esc)}</h3>${doc.body ? `<p>${esc(doc.body)}</p>` : ''}
         <p><strong>${p.signatures} of ${p.needed}</strong> signatures</p>
         <div class="tally"><span>Progress</span><span class="track"><span class="fill" style="display:block;width:${pct}%"></span></span><span class="v">${pct}%</span></div>
         ${opened ? `<p class="ok">Enough signatures: poll ${p.pollId} opened by itself. Go to Polls to vote.</p>` : signed ? '<p class="ok">You signed this. Nobody can see who signed.</p>' : tier >= Number(p.tier) ? `<button class="primary" data-sign="${id}">Sign anonymously</button>` : `<p class="note">${tier < 0 ? 'Join first to sign.' : `Only ${esc(TIER_WHO[Number(p.tier)].toLowerCase())}s can sign this petition.`}</p>`}
         <p class="status" role="status"></p>
       </article>`);
     }
-    list.innerHTML = cards.join('') || '<p class="muted">No petitions yet.</p>';
+    list.innerHTML = cards.join('') || `<p class="muted">${topic === 'all' ? 'No petitions yet.' : 'No petitions on this topic yet.'}</p>`;
     for (const [k, v] of [['petition-sort-top', 'top'], ['petition-sort-new', 'new']]) {
       const b = $(k);
       if (!b) continue;
       b.setAttribute('aria-pressed', String(sortBy === v));
       b.onclick = () => { sortBy = v; renderPetitions(); };
     }
+    if ($('petition-filter')) $('petition-filter').onchange = () => renderPetitions();
     for (const b of list.querySelectorAll('[data-sign]')) {
       b.onclick = async () => {
         const id = Number(b.dataset.sign);
@@ -219,7 +226,7 @@ export function wireFeedback(ctx) {
     }
     try {
       status(el, 'Publishing the petition…');
-      const ref = await publish({ title, body: why });
+      const ref = await publish({ title, body: why, category: $('petition-category').value });
       const tier = action === 0 ? Number($('petition-tier').value) : Math.max(1, Number($('petition-tier').value));
       await relay('/feedback', { method: 'petition', args: [tier, action, data, ref] });
       status(el, 'Petition started. Share it: when enough residents sign, the poll opens by itself.', 'ok');

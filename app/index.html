@@ -88,6 +88,12 @@
       <p class="status" id="home-notice" role="status"></p>
       <p class="eyebrow" id="signin-method"></p>
       <div class="card" id="membership" aria-live="polite"><p class="muted">Checking your enrolment…</p></div>
+      <section class="card stack" id="attention-card" aria-labelledby="h-attention">
+        <h2 id="h-attention">Needs attention</h2>
+        <p class="note">Everything open, ranked by how soon it closes and how much it can change.</p>
+        <div class="filters" id="attention-filters" role="group" aria-label="Show topic"></div>
+        <div id="attention"><p class="muted">Loading…</p></div>
+      </section>
       <div class="row"><h2 style="flex:1">Polls</h2><button id="btn-refresh">Refresh</button></div>
       <div id="poll-list"></div>
     </section>
@@ -153,6 +159,8 @@
           </div>
           <label for="petition-title">The petition, in one sentence</label>
           <input type="text" id="petition-title" placeholder="e.g. Pause the Elm Street project until the safety review is done" />
+          <label for="petition-category">Topic</label>
+          <select id="petition-category"><option value="general">General</option><option value="safety">Public safety</option><option value="roads">Roads and transport</option><option value="housing">Housing</option><option value="budget">Budget and taxes</option><option value="environment">Environment and parks</option><option value="health">Health</option><option value="education">Schools and education</option><option value="services">Water, power and services</option><option value="economy">Jobs and business</option><option value="rights">Rights and justice</option><option value="governance">How decisions are made</option></select>
           <label for="petition-body">Why</label>
           <textarea id="petition-body" rows="3"></textarea>
           <label for="petition-tier">Who signs and votes</label>
@@ -162,6 +170,7 @@
         </div>
       </details>
       <div class="row" role="group" aria-label="Order petitions"><span class="muted">Show:</span><button id="petition-sort-top" aria-pressed="true">Most signed</button><button id="petition-sort-new" aria-pressed="false">Newest</button></div>
+      <label class="row">Topic <select id="petition-filter" style="width:auto"><option value="all">All topics</option><option value="general">General</option><option value="safety">Public safety</option><option value="roads">Roads and transport</option><option value="housing">Housing</option><option value="budget">Budget and taxes</option><option value="environment">Environment and parks</option><option value="health">Health</option><option value="education">Schools and education</option><option value="services">Water, power and services</option><option value="economy">Jobs and business</option><option value="rights">Rights and justice</option><option value="governance">How decisions are made</option></select></label>
       <div id="petition-list" class="stack"></div>
     </section>
 
@@ -257,6 +266,8 @@
         <h3>Open a poll</h3>
         <label for="poll-title">Question</label>
         <input type="text" id="poll-title" placeholder="e.g. Fix the Elm Street crossing this year?" />
+        <label for="poll-category">Topic</label>
+        <select id="poll-category"><option value="general">General</option><option value="safety">Public safety</option><option value="roads">Roads and transport</option><option value="housing">Housing</option><option value="budget">Budget and taxes</option><option value="environment">Environment and parks</option><option value="health">Health</option><option value="education">Schools and education</option><option value="services">Water, power and services</option><option value="economy">Jobs and business</option><option value="rights">Rights and justice</option><option value="governance">How decisions are made</option></select>
         <label for="poll-body">Details: what exactly, by when, what it costs</label>
         <textarea id="poll-body" rows="4"></textarea>
         <label for="poll-kind">What a Yes does</label>

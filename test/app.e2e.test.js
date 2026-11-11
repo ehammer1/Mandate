@@ -1025,20 +1025,38 @@ test('most requested petitions are ranked, and times count down live', async () 
   if (!(await page.$eval('#screen-petitions details', (d) => d.open))) await page.click('#screen-petitions details summary');
   await page.selectOption('#petition-kind', '0');
   await page.fill('#petition-title', 'Add a crosswalk on Main Street');
+  await page.selectOption('#petition-category', 'roads');
   await page.selectOption('#petition-tier', '1');
   await page.click('#btn-petition');
   await page.waitForSelector('#petition-status >> text=Petition started', { timeout: 60_000 });
   const pid = await c.feedback.petitionCount();
   await page.waitForSelector(`#petition-${pid} >> text=#1 most requested`, { timeout: 60_000 });
   assert.match(await page.textContent(`#petition-${pid}`), /started (just now|\d+s ago|\d+m)/);
+  assert.match(await page.textContent(`#petition-${pid} h3`), /Roads and transport/);
   await page.click('#petition-sort-new');
   await page.waitForSelector('#petition-sort-new[aria-pressed="true"]');
+  await page.selectOption('#petition-filter', 'health');
+  await page.waitForSelector('#petition-list >> text=No petitions on this topic yet');
+  await page.selectOption('#petition-filter', 'roads');
+  await page.waitForSelector(`#petition-${pid}`);
+
+  // Home: one list of everything open, ranked by urgency and importance, filterable by topic.
+  await page.click('#nav-polls');
+  await page.waitForSelector('#attention li', { timeout: 60_000 });
+  const attn = await page.textContent('#attention');
+  assert.match(attn, /(Urgent|Soon|Upcoming)/, attn);
+  const levels = await page.$$eval('#attention li', (lis) => lis.map((li) => li.className));
+  const rank = { 'attn urgent': 0, 'attn soon': 1, 'attn upcoming': 2 };
+  assert.deepEqual([...levels].sort((a, b) => rank[a] - rank[b]), levels, 'more urgent items come first');
+  await page.waitForSelector('#attention-filters button[data-cat="all"][aria-pressed="true"]');
 
   const dash = await browser.newPage({ viewport: { width: 390, height: 844 } });
   const errors = [];
   dash.on('pageerror', (e) => errors.push(e.message));
   await dash.goto(`${appUrl}dashboard.html`);
   await dash.waitForSelector('#requested li', { timeout: 60_000 });
+  await dash.waitForSelector('#attention li', { timeout: 60_000 });
+  assert.match(await dash.textContent('#requested'), /Roads and transport/);
   assert.match(await dash.textContent('#requested'), /#1 · Petition \d+[\s\S]*Add a crosswalk on Main Street/);
   const first = await dash.textContent('#requested .countdown');
   await dash.waitForFunction((t) => document.querySelector('#requested .countdown').textContent !== t, first, { timeout: 5000 });

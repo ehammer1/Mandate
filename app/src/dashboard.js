@@ -8,6 +8,18 @@
 import { ethers } from 'ethers';
 import { describeCall, COUNCIL_ABI, readProposal } from './council.js';
 import { readDoc } from './notices.js';
+import { collectAttention, attentionHtml, categoryFilterHtml, categoryChip, categoryOf } from './priority.js';
+
+let attentionCat = 'all';
+async function renderAttention() {
+  const items = await collectAttention(state.cfg, state.provider);
+  const draw = () => {
+    $('attention-filters').innerHTML = categoryFilterHtml(items, attentionCat);
+    $('attention').innerHTML = attentionHtml(items, esc, { category: attentionCat, limit: 15, base: './' });
+    for (const b of $('attention-filters').querySelectorAll('[data-cat]')) b.onclick = () => { attentionCat = b.dataset.cat; draw(); };
+  };
+  draw();
+}
 import { loadRules } from './rules.js';
 import { informedHtml } from './informed.js';
 import { officialsDashboard } from './officials.js';
@@ -27,7 +39,7 @@ async function mostRequested() {
   for (const [i, { id, p }] of top.entries()) {
     const doc = await readDoc(state.cfg, state.provider, p.ref).catch(() => ({ title: p.ref }));
     const pct = Math.min(100, Math.round(share(p) * 100));
-    rows.push(`<li><p class="eyebrow">#${i + 1} · Petition ${id} · started ${countdown(p.createdAt)}</p><p><strong>${esc(doc.title)}</strong></p>
+    rows.push(`<li><p class="eyebrow">#${i + 1} · Petition ${id} · started ${countdown(p.createdAt)}</p><p><strong>${esc(doc.title)}</strong> ${categoryChip(categoryOf(doc), esc)}</p>
       <div class="tally"><span>${num(p.signatures)}</span><span class="track"><span class="fill" style="display:block;width:${pct}%"></span></span><span class="v">${pct}% of ${num(p.needed)}</span></div></li>`);
   }
   return `<ol class="list">${rows.join('')}</ol>`;
@@ -308,6 +320,7 @@ async function refresh() {
     const [all, verified, full] = [await activeCount(identity, 0), await activeCount(identity, 1), await activeCount(identity, 2)];
     const [polls, pending, mandates] = [await renderPolls(vote, groupIds, now), await renderCouncil(), await renderMandates()];
     await renderBudget();
+    await renderAttention().catch((e) => ($('attention').innerHTML = `<p class="muted">Could not load: ${esc(e.message)}</p>`));
     $('requested').innerHTML = await mostRequested().catch((e) => `<p class="muted">Could not load petitions: ${esc(e.message)}</p>`);
     $('officials').innerHTML = await officialsDashboard(state.cfg, state.provider, esc).catch((e) => `<p class="muted">Could not load officials: ${esc(e.message)}</p>`);
     await renderSources(identity);

@@ -27,9 +27,6 @@
     .list li { border-top: 1px solid var(--line); padding: 10px 0; }
     .list li:first-child { border-top: 0; }
     .addr { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; overflow-wrap: anywhere; }
-    .filters { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0; }
-    .filters button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); }
-    .filters button { min-height: 40px; padding: 6px 14px; }
     table.data { width: 100%; border-collapse: collapse; font-size: 14px; }
     table.data th, table.data td { text-align: left; padding: 6px 4px; border-top: 1px solid var(--line); }
     table.data td.num, table.data th.num { text-align: right; font-variant-numeric: tabular-nums; }
@@ -51,6 +48,13 @@
     <section aria-labelledby="h-overview">
       <h2 id="h-overview">At a glance</h2>
       <div class="tiles" id="tiles"></div>
+    </section>
+
+    <section aria-labelledby="h-attention">
+      <h2 id="h-attention">Needs attention</h2>
+      <p class="muted">Everything open, ranked by how soon it closes and how much it can change: emergencies and binding decisions first.</p>
+      <div class="filters" id="attention-filters" role="group" aria-label="Show topic"></div>
+      <div class="card" id="attention"></div>
     </section>
 
     <section aria-labelledby="h-polls">
