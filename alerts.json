@@ -1,5 +1,35 @@
 [
  {
+  "tx": "0x6fdf213ea6abc630e430f072da07d4f74a89ed1c375f86b46f185e2f1b21dae0",
+  "block": 57308397,
+  "time": 1794383548,
+  "contract": "council",
+  "event": "Executed",
+  "rule": "council-executed",
+  "severity": "high",
+  "title": "Council change #1 carried out: grant PROPOSER to 0x75fc…84cA on voting",
+  "facts": {
+   "proposal": "1"
+  },
+  "id": "council-executed:0x6fdf213ea6abc630e430f072da07d4f74a89ed1c375f86b46f185e2f1b21dae0:1794383548"
+ },
+ {
+  "tx": "0x6fdf213ea6abc630e430f072da07d4f74a89ed1c375f86b46f185e2f1b21dae0",
+  "block": 57308397,
+  "time": 1794383548,
+  "contract": "voting",
+  "event": "RoleGranted",
+  "rule": "role-change",
+  "severity": "medium",
+  "title": "PROPOSER role granted to 0x75fc…84cA on voting",
+  "facts": {
+   "role": "PROPOSER",
+   "account": "0x75fc9E3665db5C34E860c9AE8bFAA9F6586b84cA",
+   "by": "0xcF1e7E83B050e5B1f5f9ed9a976D9666F4619EC6"
+  },
+  "id": "role-change:0x6fdf213ea6abc630e430f072da07d4f74a89ed1c375f86b46f185e2f1b21dae0:1794383548"
+ },
+ {
   "tx": "0xbdaac7853ae2aa2a840736584587438ef5d1b33456374f2739438be320eb7d07",
   "block": 57301236,
   "time": 1794382116,

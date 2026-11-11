@@ -1,8 +1,8 @@
 # Mandate audit report
 
-Generated 2026-11-11T07:30:37.000Z · last 24 hours · 36 high, 21 medium, 1 info
+Generated 2026-11-11T08:00:34.000Z · last 24 hours · 37 high, 22 medium, 1 info
 
-36 alert(s) need attention.
+37 alert(s) need attention.
 - 0x433B…476F joined the council
 - 0xb8e5…Cb71 joined the council
 - 0xC782…f834 joined the council
@@ -39,7 +39,8 @@ Generated 2026-11-11T07:30:37.000Z · last 24 hours · 36 high, 21 medium, 1 inf
 - Council change #1 approved: it can run from 2026-11-11 07:34 UTC (grant PROPOSER to 0x75fc…84cA on voting). Members can still cancel it until then.
 - ADMIN role granted to 0xcF1e…9EC6 on identity registry
 - Council change #2 carried out: revoke PROPOSER from 0xd284…fCD8 on voting
-22 other event(s) were recorded (see the list).
+- Council change #1 carried out: grant PROPOSER to 0x75fc…84cA on voting
+23 other event(s) were recorded (see the list).
 
 ## All alerts
 
@@ -101,5 +102,7 @@ Generated 2026-11-11T07:30:37.000Z · last 24 hours · 36 high, 21 medium, 1 inf
 - **high** ADMIN role granted to 0xcF1e…9EC6 on identity registry ([tx](https://sepolia.basescan.org/tx/0x6dd976feb555f497fc64b14cee5ba20a0d8338173fb7c409d0fd2cbdd7706130))
 - **medium** PROPOSER role revoked from 0xd284…fCD8 on voting ([tx](https://sepolia.basescan.org/tx/0xbdaac7853ae2aa2a840736584587438ef5d1b33456374f2739438be320eb7d07))
 - **high** Council change #2 carried out: revoke PROPOSER from 0xd284…fCD8 on voting ([tx](https://sepolia.basescan.org/tx/0xbdaac7853ae2aa2a840736584587438ef5d1b33456374f2739438be320eb7d07))
+- **medium** PROPOSER role granted to 0x75fc…84cA on voting ([tx](https://sepolia.basescan.org/tx/0x6fdf213ea6abc630e430f072da07d4f74a89ed1c375f86b46f185e2f1b21dae0))
+- **high** Council change #1 carried out: grant PROPOSER to 0x75fc…84cA on voting ([tx](https://sepolia.basescan.org/tx/0x6fdf213ea6abc630e430f072da07d4f74a89ed1c375f86b46f185e2f1b21dae0))
 
 Summary written by: fixed rules.
