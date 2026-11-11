@@ -247,7 +247,7 @@ test('passkey sign-up, enrollment, anonymous vote through relayer fail-over, sam
   assert.equal(BigInt((await page.textContent('#voter-code')).trim()), commitment);
   await page.click('#nav-polls');
   await page.waitForSelector('#poll-1 >> text=Your vote is recorded');
-  assert.equal(await page.locator('#poll-1 button.choice').count(), 0);
+  assert.equal(await page.locator('#poll-1 .choices:not(details .choices) button.choice').count(), 0); // only under "Change my vote"
 
   // Optional account: derived from the same passkey, but a different key from the voter key.
   await page.click('#nav-account');
@@ -517,7 +517,7 @@ test('join with email: code by email, enrolled without leaving the page', async 
   // A basic member sees why they can't vote in a full-rights poll, instead of buttons that would fail.
   await page.click('#btn-refresh');
   await page.waitForSelector('#poll-1 >> text=Only residents with full voting rights can vote in this poll');
-  assert.equal(await page.locator('#poll-1 button.choice').count(), 0);
+  assert.equal(await page.locator('#poll-1 .choices:not(details .choices) button.choice').count(), 0); // only under "Change my vote"
 });
 
 test('newcomer: "Join with my email" makes the voter key and lands on the email box', async () => {
@@ -1354,6 +1354,14 @@ test('paper ballots: check in on the phone, clerks record and confirm, each pers
   const mine = await page.textContent(`#poll-${pollId} [data-receipt]`);
   assert.match(mine, /this ballot \(No\) is in the public count/);
   assert.match(mine, /paper ballot is the one that counts/);
+  // Changing the online vote: only the latest counts.
+  await page.click(`#poll-${pollId} details.change-vote summary`);
+  await page.click(`#poll-${pollId} details.change-vote button.choice[data-option="0"]`);
+  await page.waitForSelector(`#poll-${pollId} >> text=Your vote is changed`, { timeout: 120_000 });
+  assert.deepEqual((await c.vote.tally(pollId)).map(Number), [1, 0]);
+  await page.waitForSelector(`#poll-${pollId} [data-checkvote]`, { timeout: 60_000 });
+  await page.click(`#poll-${pollId} [data-checkvote]`);
+  await page.waitForSelector(`#poll-${pollId} [data-receipt] >> text=this ballot (Yes)`, { timeout: 60_000 });
   // Anyone can confirm a receipt in Search, without learning who cast it.
   const receipt = await page.getAttribute(`#poll-${pollId} .receipt-box [data-copy]`, 'data-copy');
   assert.match(receipt, new RegExp(`^${pollId}:\\d{20,}$`));

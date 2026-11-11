@@ -152,14 +152,17 @@ function createRelayer({ provider, signer, voteAddress, budgetAddress, feedbackA
   async function handleBallot(req, res) {
     const { pollId, ballot } = parseBallot(await readJson(req));
     const key = `${pollId}:${ballot.nullifier}`;
-    if (inFlight.has(key) || (await vote.nullifierUsed(pollId, ballot.nullifier))) {
-      return send(res, 409, { error: 'NullifierUsed', message: 'a ballot from this voter is already recorded' });
+    // A second ballot from the same voter changes their vote (the contract refuses the same
+    // choice twice, and polls on contracts without vote-changing refuse it outright).
+    if (inFlight.has(key)) {
+      return send(res, 409, { error: 'NullifierUsed', message: 'a ballot from this voter is being recorded' });
     }
     // Validate fully (proof included) before spending gas.
     try {
       await vote.castBallot.staticCall(pollId, ballot);
     } catch (e) {
       const name = revertName(e);
+      if (name === 'NullifierUsed') return send(res, 409, { error: name, message: 'this voter already cast this choice' });
       return send(res, name ? 422 : 502, { error: name || 'RPCError', message: name ? 'ballot rejected by contract' : 'chain unavailable' });
     }
     inFlight.add(key);

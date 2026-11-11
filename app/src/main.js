@@ -758,6 +758,7 @@ async function refreshPolls() {
         ${open && !voted && !eligibleTier ? `<p class="note">${myTier < 0 ? 'Join first to vote in polls.' : `Only ${esc(who.toLowerCase())} can vote in this poll. ${pollTier === 2 ? 'Verify your ID with the city clerk, a library desk or a mobile ID to get full voting rights.' : 'Verify your ID to vote in it.'}`}</p>` : ''}
         ${voted ? `<div class="receipt-box stack" data-id="${id}" data-nullifier="${myNullifier}"><p class="ok">Your vote is recorded. Nobody can see which way you voted.</p>
           <div class="row"><button type="button" data-checkvote>Check my vote</button> ${copyBtn(receiptCode(id, myNullifier), 'Copy receipt')}</div>
+          ${open && eligibleTier ? `<details class="change-vote"><summary>Change my vote</summary><p class="note">Until the poll closes you can change your vote, privately; only your latest vote counts. If anyone pressured you to vote a certain way, you can quietly change it.</p><div class="choices">${buttons}</div></details>` : ''}
           <p class="note">The receipt lets anyone confirm this ballot was counted (in Search), without learning who cast it. Anyone you show it to can also see its choice, so keep it to yourself.</p><div data-receipt></div></div>` : ''}
         <p class="status" id="poll-status-${id}" role="status"></p>
         <details><summary>Current count (${total} of ${p.electorate} eligible, quorum ${p.quorum})</summary><ul class="tally">${results}</ul></details>
@@ -857,7 +858,8 @@ async function castVote(pollId, option, button) {
       });
       const body = await res.json().catch(() => ({}));
       if (res.ok || res.status === 409) {
-        status(el, `Your vote is recorded. Receipt: ${String(ballot.nullifier).slice(0, 12)}… (check it against the public count).`, 'ok');
+        const changing = !!card.querySelector('.receipt-box');
+        status(el, res.status === 409 && changing ? 'That is already your vote.' : changing ? 'Your vote is changed. Only this latest vote counts.' : `Your vote is recorded. Receipt: ${String(ballot.nullifier).slice(0, 12)}… (check it against the public count).`, 'ok');
         setTimeout(refreshPolls, 1500);
         return;
       }

@@ -83,8 +83,8 @@ test('anonymous delegation: delegated votes count the way the delegate publicly 
   for (const r of residents.slice(0, 3)) await send(c.vote.castBallot(pollId, await ballot(pollId, r, BASE + d)));
   await send(c.vote.castBallot(pollId, await ballot(pollId, residents[3], BASE + q))); // a delegate who never says
   for (const r of residents.slice(4, 6)) await send(c.vote.castBallot(pollId, await ballot(pollId, r, 1)));
-  // A delegator can't also vote directly: same person, same nullifier.
-  assert.equal(await errName(c.vote.castBallot.staticCall(pollId, await ballot(pollId, residents[0], 1))), 'NullifierUsed');
+  // A delegator can't be counted twice: the same choice again is refused (a different one would replace it).
+  assert.equal(await errName(c.vote.castBallot.staticCall(pollId, await ballot(pollId, residents[0], BASE + d))), 'NullifierUsed');
   assert.equal(await errName(c.vote.castBallot.staticCall(pollId, await ballot(pollId, residents[5], BASE + 999n))), 'NotADelegate');
   const [ids, counts] = await c.vote.delegatedVotes(pollId);
   assert.deepEqual([ids.map(Number), counts.map(Number)], [[Number(d), Number(q)], [3, 1]]);

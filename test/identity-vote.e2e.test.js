@@ -143,8 +143,8 @@ test('vote: full flow with real proofs', async () => {
     assert.equal(r.status, 200, JSON.stringify(r.json));
   }
 
-  // Same resident again: same nullifier -> rejected.
-  const again = await buildBallot({ provider, vote, pollId, identity: residents[0], option: 1 });
+  // Same resident, same choice again: same nullifier -> rejected (a different choice would change their vote).
+  const again = await buildBallot({ provider, vote, pollId, identity: residents[0], option: choices[0] });
   assert.equal((await post('/ballot', { pollId: pollId.toString(), ballot: again })).status, 409);
 
   // Tampering with the choice breaks the proof.
@@ -321,8 +321,9 @@ test('vote: cross-checked poll - when ID-checked residents disagree with everyon
   }
   const dir = process.env.SEMAPHORE_ARTIFACTS_DIR;
   const depth = Math.max(wide.depth, 1);
-  const twice = await generateProof(residents[0], wide, 0, await vote.scopeOf(pollId), depth, { wasm: `${dir}/semaphore-${depth}.wasm`, zkey: `${dir}/semaphore-${depth}.zkey` });
-  assert.equal((await post('/ballot', { pollId: pollId.toString(), ballot: twice })).status, 409);
+  const twice = await generateProof(residents[0], wide, 1, await vote.scopeOf(pollId), depth, { wasm: `${dir}/semaphore-${depth}.wasm`, zkey: `${dir}/semaphore-${depth}.zkey` });
+  const tw = await post('/ballot', { pollId: pollId.toString(), ballot: twice });
+  assert.ok([409, 422].includes(tw.status), JSON.stringify(tw.json)); // refused: never counted twice
 
   assert.deepEqual((await vote.tally(pollId)).map(Number), [4, 3]); // Yes would win overall
   const [, counts] = await vote.getCheck(pollId);

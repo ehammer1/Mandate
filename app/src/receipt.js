@@ -32,7 +32,7 @@ export async function findBallot(state, pollId, nullifier) {
   for (let to = head.number; to >= start; to -= 9000) {
     const from = Math.max(start, to - 8999);
     const logs = await vote.queryFilter(vote.filters.BallotCast(pollId), from, to).catch(() => []);
-    const hit = logs.find((l) => String(l.args.nullifier) === String(nullifier));
+    const hit = logs.findLast((l) => String(l.args.nullifier) === String(nullifier)); // the latest, if the vote was changed
     if (hit) return { option: Number(hit.args.option), txHash: hit.transactionHash, block: hit.blockNumber, at: (await hit.getBlock()).timestamp };
   }
   return { option: null, txHash: null, block: null }; // counted, but the record was not found in range

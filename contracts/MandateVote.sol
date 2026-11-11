@@ -169,6 +169,8 @@ contract MandateVote is AccessControl, ReentrancyGuard {
         uint256 indexed id, uint256 indexed groupId, uint256 snapshotRoot, Action action, uint64 end, string questionCID
     );
     event BallotCast(uint256 indexed id, uint256 option, uint256 nullifier);
+    /// A voter changed their vote: the earlier choice no longer counts (resists pressure and vote-buying).
+    event BallotChanged(uint256 indexed id, uint256 nullifier, uint256 previous, uint256 option);
     event DelegatedVotesCounted(uint256 indexed id, uint256 indexed delegateId, uint256 ballots, bool stated, uint8 position);
     event PollCrossChecked(uint256 indexed id, uint256 indexed checkGroupId, uint256 checkRoot, uint32 checkQuorum);
     event PollDisputed(uint256 indexed id, uint256 yes, uint256 no, uint256 checkYes, uint256 checkNo);
@@ -336,7 +338,14 @@ contract MandateVote is AccessControl, ReentrancyGuard {
         emit PollCreated(id, groupId, p.snapshotRoot, action, p.end, questionCID);
     }
 
-    /// @notice Cast an anonymous ballot. Anyone may submit it; the proof is the authorisation.
+    // poll => one-time code => (choice + 1); and whether that ballot came from the checked group.
+    mapping(uint256 => mapping(uint256 => uint256)) private _choice;
+    mapping(uint256 => mapping(uint256 => bool)) private _choiceChecked;
+
+    /// @notice Cast an anonymous ballot, or change it while the poll is open: the same voter key
+    ///         always gives the same one-time code, so a new ballot replaces the earlier one and
+    ///         only the latest counts. Someone pressured or paid to vote a certain way can quietly
+    ///         change it later. Anyone may submit it; the proof is the authorisation.
     function castBallot(uint256 id, Ballot calldata b) external {
         Poll storage p = _get(id);
         if (block.timestamp >= p.end || p.finalized) revert NotOpen();
@@ -350,7 +359,8 @@ contract MandateVote is AccessControl, ReentrancyGuard {
             if (p.options != 2 || address(delegates) == address(0) || !delegates.isDelegate(b.message - DELEGATE_BASE)) revert NotADelegate();
         } else if (b.message >= p.options) revert BadOption();
         if (b.merkleTreeDepth < MIN_DEPTH || b.merkleTreeDepth > MAX_DEPTH) revert BadDepth();
-        if (nullifierUsed[id][b.nullifier]) revert NullifierUsed();
+        uint256 previous = _choice[id][b.nullifier];
+        if (previous == b.message + 1) revert NullifierUsed(); // the same choice again: nothing to change
 
         bool ok = verifier.verifyProof(
             [b.points[0], b.points[1]],
@@ -362,6 +372,12 @@ contract MandateVote is AccessControl, ReentrancyGuard {
         if (!ok) revert InvalidProof();
 
         nullifierUsed[id][b.nullifier] = true;
+        if (previous != 0) {
+            _uncount(id, previous - 1, _choiceChecked[id][b.nullifier]);
+            emit BallotChanged(id, b.nullifier, previous - 1, b.message);
+        }
+        _choice[id][b.nullifier] = b.message + 1;
+        _choiceChecked[id][b.nullifier] = checked;
         if (delegated) {
             uint256 d = b.message - DELEGATE_BASE;
             if (_delegated[id][d] == 0) {
@@ -375,6 +391,18 @@ contract MandateVote is AccessControl, ReentrancyGuard {
             if (checked) _checkTally[id][b.message] += 1;
         }
         emit BallotCast(id, b.message, b.nullifier);
+    }
+
+    /// Remove an earlier ballot from the counts when its voter changes their vote.
+    function _uncount(uint256 id, uint256 option, bool checked) private {
+        if (option >= DELEGATE_BASE) {
+            uint256 d = option - DELEGATE_BASE;
+            _delegated[id][d] -= 1;
+            if (checked) _delegatedChecked[id][d] -= 1;
+        } else {
+            _tally[id][option] -= 1;
+            if (checked) _checkTally[id][option] -= 1;
+        }
     }
 
     /// @notice Close a poll, settle the bond and run the action if it passed. Callable by anyone.
