@@ -1,5 +1,117 @@
 [
  {
+  "tx": "0x9ac4286a0aaa25c322bece22715061e921d3018767fdd3585e04cc585422993b",
+  "block": 57321214,
+  "time": 1794386111,
+  "contract": "paper and in-person results",
+  "event": "RoleRevoked",
+  "rule": "role-change",
+  "severity": "high",
+  "title": "ADMIN role revoked from 0xC782…f834 on paper and in-person results",
+  "facts": {
+   "role": "ADMIN",
+   "account": "0xC782e1690D4B6c4C2Aba21283a6271477690f834",
+   "by": "0xC782e1690D4B6c4C2Aba21283a6271477690f834"
+  },
+  "id": "role-change:0x9ac4286a0aaa25c322bece22715061e921d3018767fdd3585e04cc585422993b:1794386111"
+ },
+ {
+  "tx": "0xc67170f56ef8db086aba34c48a19bb554d9c1f448b4d1167bd8d7d350456ee71",
+  "block": 57321191,
+  "time": 1794386107,
+  "contract": "paper and in-person results",
+  "event": "RoleRevoked",
+  "rule": "role-change",
+  "severity": "medium",
+  "title": "0xd603cc2d39ea2ab57038652f29ac8e7fd0e40e6a9b0f81de9bbc4acc6780d962 role revoked from 0xC782…f834 on paper and in-person results",
+  "facts": {
+   "role": "0xd603cc2d39ea2ab57038652f29ac8e7fd0e40e6a9b0f81de9bbc4acc6780d962",
+   "account": "0xC782e1690D4B6c4C2Aba21283a6271477690f834",
+   "by": "0xC782e1690D4B6c4C2Aba21283a6271477690f834"
+  },
+  "id": "role-change:0xc67170f56ef8db086aba34c48a19bb554d9c1f448b4d1167bd8d7d350456ee71:1794386107"
+ },
+ {
+  "tx": "0x26c42bc660dc8eecab60c78b447cf66bfc533b9a3c38773ed96a77c5ae6f5eb9",
+  "block": 57321169,
+  "time": 1794386102,
+  "contract": "paper and in-person results",
+  "event": "RoleGranted",
+  "rule": "role-change",
+  "severity": "high",
+  "title": "ADMIN role granted to 0xcF1e…9EC6 on paper and in-person results",
+  "facts": {
+   "role": "ADMIN",
+   "account": "0xcF1e7E83B050e5B1f5f9ed9a976D9666F4619EC6",
+   "by": "0xC782e1690D4B6c4C2Aba21283a6271477690f834"
+  },
+  "id": "role-change:0x26c42bc660dc8eecab60c78b447cf66bfc533b9a3c38773ed96a77c5ae6f5eb9:1794386102"
+ },
+ {
+  "tx": "0xa1b61bd81b062f76994019f79a14a541d8a2b4eb9ca780d417637b872d419a9a",
+  "block": 57321147,
+  "time": 1794386098,
+  "contract": "paper and in-person results",
+  "event": "RoleGranted",
+  "rule": "role-change",
+  "severity": "medium",
+  "title": "0xd603cc2d39ea2ab57038652f29ac8e7fd0e40e6a9b0f81de9bbc4acc6780d962 role granted to 0xb8e5…Cb71 on paper and in-person results",
+  "facts": {
+   "role": "0xd603cc2d39ea2ab57038652f29ac8e7fd0e40e6a9b0f81de9bbc4acc6780d962",
+   "account": "0xb8e5DA10ce9BE2A0dc3D86cB180c0E605491Cb71",
+   "by": "0xC782e1690D4B6c4C2Aba21283a6271477690f834"
+  },
+  "id": "role-change:0xa1b61bd81b062f76994019f79a14a541d8a2b4eb9ca780d417637b872d419a9a:1794386098"
+ },
+ {
+  "tx": "0x25710af6c03d842cbcb177193f71cc1d4075251c889285ce9b0c264406ae4633",
+  "block": 57321124,
+  "time": 1794386093,
+  "contract": "paper and in-person results",
+  "event": "RoleGranted",
+  "rule": "role-change",
+  "severity": "medium",
+  "title": "0xd603cc2d39ea2ab57038652f29ac8e7fd0e40e6a9b0f81de9bbc4acc6780d962 role granted to 0x433B…476F on paper and in-person results",
+  "facts": {
+   "role": "0xd603cc2d39ea2ab57038652f29ac8e7fd0e40e6a9b0f81de9bbc4acc6780d962",
+   "account": "0x433B8c945c9f4664870fFD3dA3Ea8d16dD41476F",
+   "by": "0xC782e1690D4B6c4C2Aba21283a6271477690f834"
+  },
+  "id": "role-change:0x25710af6c03d842cbcb177193f71cc1d4075251c889285ce9b0c264406ae4633:1794386093"
+ },
+ {
+  "tx": "0x2012a486111a7010035008c5e58c3feedb4dda0d236f82a6f4049e6c01ed5b9d",
+  "block": 57321102,
+  "time": 1794386089,
+  "contract": "paper and in-person results",
+  "event": "RoleGranted",
+  "rule": "role-change",
+  "severity": "medium",
+  "title": "0xd603cc2d39ea2ab57038652f29ac8e7fd0e40e6a9b0f81de9bbc4acc6780d962 role granted to 0xC782…f834 on paper and in-person results",
+  "facts": {
+   "role": "0xd603cc2d39ea2ab57038652f29ac8e7fd0e40e6a9b0f81de9bbc4acc6780d962",
+   "account": "0xC782e1690D4B6c4C2Aba21283a6271477690f834",
+   "by": "0xC782e1690D4B6c4C2Aba21283a6271477690f834"
+  },
+  "id": "role-change:0x2012a486111a7010035008c5e58c3feedb4dda0d236f82a6f4049e6c01ed5b9d:1794386089"
+ },
+ {
+  "tx": "0x2012a486111a7010035008c5e58c3feedb4dda0d236f82a6f4049e6c01ed5b9d",
+  "block": 57321102,
+  "time": 1794386089,
+  "contract": "paper and in-person results",
+  "event": "RoleGranted",
+  "rule": "role-change",
+  "severity": "high",
+  "title": "ADMIN role granted to 0xC782…f834 on paper and in-person results",
+  "facts": {
+   "role": "ADMIN",
+   "account": "0xC782e1690D4B6c4C2Aba21283a6271477690f834",
+   "by": "0xC782e1690D4B6c4C2Aba21283a6271477690f834"
+  },
+  "id": "role-change:0x2012a486111a7010035008c5e58c3feedb4dda0d236f82a6f4049e6c01ed5b9d:1794386089"
+ },
+ {
   "tx": "0x6fdf213ea6abc630e430f072da07d4f74a89ed1c375f86b46f185e2f1b21dae0",
   "block": 57308397,
   "time": 1794383548,

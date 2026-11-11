@@ -4,7 +4,63 @@
   <subtitle>Every poll, mandate, budget round, petition and change of power, from the public blockchain record.</subtitle>
   <id>urn:mandate:feed</id>
   <link href="https://ehammer1.github.io/Mandate/"/>
-  <updated>2026-11-11T07:52:28.000Z</updated>
+  <updated>2026-11-11T08:35:11.000Z</updated>
+  <entry>
+    <id>urn:mandate:role-change:0x9ac4286a0aaa25c322bece22715061e921d3018767fdd3585e04cc585422993b:1794386111</id>
+    <title>ADMIN role revoked from 0xC782…f834 on paper and in-person results</title>
+    <updated>2026-11-11T08:35:11.000Z</updated>
+    <link href="https://sepolia.basescan.org/tx/0x9ac4286a0aaa25c322bece22715061e921d3018767fdd3585e04cc585422993b"/>
+    <category term="high"/>
+    <summary>Urgent: ADMIN role revoked from 0xC782…f834 on paper and in-person results</summary>
+  </entry>
+  <entry>
+    <id>urn:mandate:role-change:0xc67170f56ef8db086aba34c48a19bb554d9c1f448b4d1167bd8d7d350456ee71:1794386107</id>
+    <title>0xd603cc2d39ea2ab57038652f29ac8e7fd0e40e6a9b0f81de9bbc4acc6780d962 role revoked from 0xC782…f834 on paper and in-person results</title>
+    <updated>2026-11-11T08:35:07.000Z</updated>
+    <link href="https://sepolia.basescan.org/tx/0xc67170f56ef8db086aba34c48a19bb554d9c1f448b4d1167bd8d7d350456ee71"/>
+    <category term="medium"/>
+    <summary>0xd603cc2d39ea2ab57038652f29ac8e7fd0e40e6a9b0f81de9bbc4acc6780d962 role revoked from 0xC782…f834 on paper and in-person results</summary>
+  </entry>
+  <entry>
+    <id>urn:mandate:role-change:0x26c42bc660dc8eecab60c78b447cf66bfc533b9a3c38773ed96a77c5ae6f5eb9:1794386102</id>
+    <title>ADMIN role granted to 0xcF1e…9EC6 on paper and in-person results</title>
+    <updated>2026-11-11T08:35:02.000Z</updated>
+    <link href="https://sepolia.basescan.org/tx/0x26c42bc660dc8eecab60c78b447cf66bfc533b9a3c38773ed96a77c5ae6f5eb9"/>
+    <category term="high"/>
+    <summary>Urgent: ADMIN role granted to 0xcF1e…9EC6 on paper and in-person results</summary>
+  </entry>
+  <entry>
+    <id>urn:mandate:role-change:0xa1b61bd81b062f76994019f79a14a541d8a2b4eb9ca780d417637b872d419a9a:1794386098</id>
+    <title>0xd603cc2d39ea2ab57038652f29ac8e7fd0e40e6a9b0f81de9bbc4acc6780d962 role granted to 0xb8e5…Cb71 on paper and in-person results</title>
+    <updated>2026-11-11T08:34:58.000Z</updated>
+    <link href="https://sepolia.basescan.org/tx/0xa1b61bd81b062f76994019f79a14a541d8a2b4eb9ca780d417637b872d419a9a"/>
+    <category term="medium"/>
+    <summary>0xd603cc2d39ea2ab57038652f29ac8e7fd0e40e6a9b0f81de9bbc4acc6780d962 role granted to 0xb8e5…Cb71 on paper and in-person results</summary>
+  </entry>
+  <entry>
+    <id>urn:mandate:role-change:0x25710af6c03d842cbcb177193f71cc1d4075251c889285ce9b0c264406ae4633:1794386093</id>
+    <title>0xd603cc2d39ea2ab57038652f29ac8e7fd0e40e6a9b0f81de9bbc4acc6780d962 role granted to 0x433B…476F on paper and in-person results</title>
+    <updated>2026-11-11T08:34:53.000Z</updated>
+    <link href="https://sepolia.basescan.org/tx/0x25710af6c03d842cbcb177193f71cc1d4075251c889285ce9b0c264406ae4633"/>
+    <category term="medium"/>
+    <summary>0xd603cc2d39ea2ab57038652f29ac8e7fd0e40e6a9b0f81de9bbc4acc6780d962 role granted to 0x433B…476F on paper and in-person results</summary>
+  </entry>
+  <entry>
+    <id>urn:mandate:role-change:0x2012a486111a7010035008c5e58c3feedb4dda0d236f82a6f4049e6c01ed5b9d:1794386089</id>
+    <title>0xd603cc2d39ea2ab57038652f29ac8e7fd0e40e6a9b0f81de9bbc4acc6780d962 role granted to 0xC782…f834 on paper and in-person results</title>
+    <updated>2026-11-11T08:34:49.000Z</updated>
+    <link href="https://sepolia.basescan.org/tx/0x2012a486111a7010035008c5e58c3feedb4dda0d236f82a6f4049e6c01ed5b9d"/>
+    <category term="medium"/>
+    <summary>0xd603cc2d39ea2ab57038652f29ac8e7fd0e40e6a9b0f81de9bbc4acc6780d962 role granted to 0xC782…f834 on paper and in-person results</summary>
+  </entry>
+  <entry>
+    <id>urn:mandate:role-change:0x2012a486111a7010035008c5e58c3feedb4dda0d236f82a6f4049e6c01ed5b9d:1794386089</id>
+    <title>ADMIN role granted to 0xC782…f834 on paper and in-person results</title>
+    <updated>2026-11-11T08:34:49.000Z</updated>
+    <link href="https://sepolia.basescan.org/tx/0x2012a486111a7010035008c5e58c3feedb4dda0d236f82a6f4049e6c01ed5b9d"/>
+    <category term="high"/>
+    <summary>Urgent: ADMIN role granted to 0xC782…f834 on paper and in-person results</summary>
+  </entry>
   <entry>
     <id>urn:mandate:council-executed:0x6fdf213ea6abc630e430f072da07d4f74a89ed1c375f86b46f185e2f1b21dae0:1794383548</id>
     <title>Council change #1 carried out: grant PROPOSER to 0x75fc…84cA on voting</title>

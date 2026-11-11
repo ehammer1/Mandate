@@ -1,8 +1,8 @@
 # Mandate audit report
 
-Generated 2026-11-11T08:00:34.000Z · last 24 hours · 37 high, 22 medium, 1 info
+Generated 2026-11-11T08:45:58.000Z · last 24 hours · 40 high, 26 medium, 1 info
 
-37 alert(s) need attention.
+40 alert(s) need attention.
 - 0x433B…476F joined the council
 - 0xb8e5…Cb71 joined the council
 - 0xC782…f834 joined the council
@@ -40,7 +40,10 @@ Generated 2026-11-11T08:00:34.000Z · last 24 hours · 37 high, 22 medium, 1 inf
 - ADMIN role granted to 0xcF1e…9EC6 on identity registry
 - Council change #2 carried out: revoke PROPOSER from 0xd284…fCD8 on voting
 - Council change #1 carried out: grant PROPOSER to 0x75fc…84cA on voting
-23 other event(s) were recorded (see the list).
+- ADMIN role granted to 0xC782…f834 on paper and in-person results
+- ADMIN role granted to 0xcF1e…9EC6 on paper and in-person results
+- ADMIN role revoked from 0xC782…f834 on paper and in-person results
+27 other event(s) were recorded (see the list).
 
 ## All alerts
 
@@ -104,5 +107,12 @@ Generated 2026-11-11T08:00:34.000Z · last 24 hours · 37 high, 22 medium, 1 inf
 - **high** Council change #2 carried out: revoke PROPOSER from 0xd284…fCD8 on voting ([tx](https://sepolia.basescan.org/tx/0xbdaac7853ae2aa2a840736584587438ef5d1b33456374f2739438be320eb7d07))
 - **medium** PROPOSER role granted to 0x75fc…84cA on voting ([tx](https://sepolia.basescan.org/tx/0x6fdf213ea6abc630e430f072da07d4f74a89ed1c375f86b46f185e2f1b21dae0))
 - **high** Council change #1 carried out: grant PROPOSER to 0x75fc…84cA on voting ([tx](https://sepolia.basescan.org/tx/0x6fdf213ea6abc630e430f072da07d4f74a89ed1c375f86b46f185e2f1b21dae0))
+- **high** ADMIN role granted to 0xC782…f834 on paper and in-person results ([tx](https://sepolia.basescan.org/tx/0x2012a486111a7010035008c5e58c3feedb4dda0d236f82a6f4049e6c01ed5b9d))
+- **medium** 0xd603cc2d39ea2ab57038652f29ac8e7fd0e40e6a9b0f81de9bbc4acc6780d962 role granted to 0xC782…f834 on paper and in-person results ([tx](https://sepolia.basescan.org/tx/0x2012a486111a7010035008c5e58c3feedb4dda0d236f82a6f4049e6c01ed5b9d))
+- **medium** 0xd603cc2d39ea2ab57038652f29ac8e7fd0e40e6a9b0f81de9bbc4acc6780d962 role granted to 0x433B…476F on paper and in-person results ([tx](https://sepolia.basescan.org/tx/0x25710af6c03d842cbcb177193f71cc1d4075251c889285ce9b0c264406ae4633))
+- **medium** 0xd603cc2d39ea2ab57038652f29ac8e7fd0e40e6a9b0f81de9bbc4acc6780d962 role granted to 0xb8e5…Cb71 on paper and in-person results ([tx](https://sepolia.basescan.org/tx/0xa1b61bd81b062f76994019f79a14a541d8a2b4eb9ca780d417637b872d419a9a))
+- **high** ADMIN role granted to 0xcF1e…9EC6 on paper and in-person results ([tx](https://sepolia.basescan.org/tx/0x26c42bc660dc8eecab60c78b447cf66bfc533b9a3c38773ed96a77c5ae6f5eb9))
+- **medium** 0xd603cc2d39ea2ab57038652f29ac8e7fd0e40e6a9b0f81de9bbc4acc6780d962 role revoked from 0xC782…f834 on paper and in-person results ([tx](https://sepolia.basescan.org/tx/0xc67170f56ef8db086aba34c48a19bb554d9c1f448b4d1167bd8d7d350456ee71))
+- **high** ADMIN role revoked from 0xC782…f834 on paper and in-person results ([tx](https://sepolia.basescan.org/tx/0x9ac4286a0aaa25c322bece22715061e921d3018767fdd3585e04cc585422993b))
 
 Summary written by: fixed rules.
