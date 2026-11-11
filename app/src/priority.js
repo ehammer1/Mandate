@@ -11,6 +11,7 @@ import { readDoc } from './notices.js';
 import { countdown } from './time.js';
 import { BODIES_ABI as BODIES } from './bodies.js';
 import { isFollowed, icsHref } from './reminders.js';
+import { copyBtn } from './copy.js';
 
 export const CATEGORIES = [
   ['general', 'General'],
@@ -138,13 +139,13 @@ export async function collectAttention(cfg, provider, opts = {}) {
       const st = Number(s);
       if (p.emergency && p.executed && !p.lapsed && Number(p.ratifyBy) > now) {
         add({ kind: 'council', id, title: p.description || `Council change ${id}`, category: 'governance', at: p.ratifyBy, weight: 'emergency',
-          what: `Emergency council change ${id} · in effect · undone unless residents ratify it ${countdown(p.ratifyBy)}`, href: '#council' });
+          what: `Emergency council change ${id} · in effect · undone unless residents ratify it ${countdown(p.ratifyBy)}`, href: '#council', read: `proposal.html?id=${id}` });
       } else if (st === 2 || st === 3) {
         add({ kind: 'council', id, title: p.description || `Council change ${id}`, category: 'governance', at: p.readyAt, weight: 'council',
-          what: st === 2 ? `Council change ${id} · can run ${countdown(p.readyAt)} · any member can still cancel it` : `Council change ${id} · approved and ready to run`, href: '#council' });
+          what: st === 2 ? `Council change ${id} · can run ${countdown(p.readyAt)} · any member can still cancel it` : `Council change ${id} · approved and ready to run`, href: '#council', read: `proposal.html?id=${id}` });
       } else if (st === 1) {
         add({ kind: 'council', id, title: p.description || `Council change ${id}`, category: 'governance', at: now + 7 * 86_400, weight: 'council', boost: 0.5,
-          what: `Council change ${id} · collecting approvals · proposed ${countdown(p.proposedAt)}`, href: '#council' });
+          what: `Council change ${id} · collecting approvals · proposed ${countdown(p.proposedAt)}`, href: '#council', read: `proposal.html?id=${id}` });
       }
     }
   })());
@@ -244,6 +245,12 @@ export async function collectAttention(cfg, provider, opts = {}) {
 
 /** The ranked list as HTML, with a category filter. */
 const plain = (html) => String(html).replace(/<[^>]*>/g, '');
+/** A shareable link to the item itself (a council change opens its full-proposal page). */
+function itemUrl(i, base) {
+  const href = i.read || (i.href && i.href !== '#budget' ? i.href : '');
+  return href && typeof location !== 'undefined' ? new URL(base + href, location.href).href : '';
+}
+
 export function attentionHtml(items, esc, { category = 'all', limit = 12, base = '' } = {}) {
   const shown = items.filter((i) => category === 'all' || i.category === category).slice(0, limit);
   if (!shown.length) return '<p class="muted">Nothing needs attention right now.</p>';
@@ -251,7 +258,7 @@ export function attentionHtml(items, esc, { category = 'all', limit = 12, base =
     .map((i) => `<li class="attn ${i.level}"><p class="eyebrow"><span class="lvl">${LEVEL_LABEL[i.level]}</span> · ${esc(categoryLabel(i.category))}</p>
       <p><strong>${i.href ? `<a href="${esc(base + i.href)}" data-attn="${esc(i.kind)}:${i.id}">${esc(i.title)}</a>` : esc(i.title)}</strong></p>
       <p class="meta">${i.what}</p>
-      <p class="row attn-tools"><button data-follow="${esc(i.kind)}:${i.id}" aria-pressed="${isFollowed(i)}">${isFollowed(i) ? '🔔 Following' : '🔔 Follow'}</button><a download="mandate-${esc(i.kind)}-${i.id}.ics" href="${icsHref({ ...i, plain: plain(i.what) })}">📅 Add to calendar</a></p></li>`)
+      <p class="row attn-tools">${i.read ? `<a class="button" href="${esc(base + i.read)}" target="_blank" rel="noopener" data-read>📄 Read the full proposal</a>` : ''}${itemUrl(i, base) ? copyBtn(itemUrl(i, base), '🔗 Copy link') : ''}<button data-follow="${esc(i.kind)}:${i.id}" aria-pressed="${isFollowed(i)}">${isFollowed(i) ? '🔔 Following' : '🔔 Follow'}</button><a download="mandate-${esc(i.kind)}-${i.id}.ics" href="${icsHref({ ...i, plain: plain(i.what) })}">📅 Add to calendar</a></p></li>`)
     .join('')}</ol>`;
 }
 
