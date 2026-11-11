@@ -39,7 +39,7 @@ export const COUNCIL_ABI = [
   'error CallFailed(bytes reason)',
 ];
 const STATES = ['', 'Collecting approvals', 'Waiting period', 'Ready to run', 'Done', 'Cancelled', 'Expired'];
-const ROLE_NAMES = { [ethers.ZeroHash]: 'admin', [ethers.id('PROPOSER_ROLE')]: 'poll opener', [ethers.id('ISSUER_ROLE')]: 'clerk', [ethers.id('GOVERNOR_ROLE')]: 'governor', [ethers.id('VERIFIER_ROLE')]: 'verifier', [ethers.id('CREATOR_ROLE')]: 'market creator', [ethers.id('RESOLVER_ROLE')]: 'market resolver', [ethers.id('VETO_ROLE')]: 'veto' };
+const ROLE_NAMES = { [ethers.ZeroHash]: 'admin', [ethers.id('PROPOSER_ROLE')]: 'poll opener', [ethers.id('ISSUER_ROLE')]: 'clerk', [ethers.id('GOVERNOR_ROLE')]: 'governor', [ethers.id('VERIFIER_ROLE')]: 'verifier', [ethers.id('CREATOR_ROLE')]: 'market creator', [ethers.id('RESOLVER_ROLE')]: 'market resolver', [ethers.id('VETO_ROLE')]: 'veto', [ethers.id('REGISTRAR_ROLE')]: 'registrar', [ethers.id('CLERK_ROLE')]: 'tally clerk' };
 const CALLS = new ethers.Interface([
   'function setIssuer(address issuer, uint8 maxTier, bool active, string name)',
   'function grantRole(bytes32 role, address account)',
@@ -50,6 +50,8 @@ const CALLS = new ethers.Interface([
   'function setDelay(uint64 delay)',
   'function transferOwnership(address newOwner)',
   'function setMinBond(uint256 amount)',
+  'function setElectorate(address electorate)',
+  'function setDelegates(address registry)',
 ]);
 const short = (a) => `${a.slice(0, 6)}…${a.slice(-4)}`;
 const hours = (s) => (Number(s) % 3600 === 0 ? `${Number(s) / 3600} hour${Number(s) === 3600 ? '' : 's'}` : `${Math.round(Number(s) / 60)} minutes`);
@@ -62,26 +64,41 @@ function contractNames(cfg) {
     [cfg.marketAddress?.toLowerCase()]: 'markets',
     [cfg.creditsAddress?.toLowerCase()]: 'play credits',
     [cfg.councilAddress?.toLowerCase()]: 'council',
+    [cfg.previousCouncilAddress?.toLowerCase()]: 'previous council',
+    [cfg.previousVoteAddress?.toLowerCase()]: 'old voting contract',
+    [cfg.charterAddress?.toLowerCase()]: 'voting rules',
+    [cfg.budgetAddress?.toLowerCase()]: 'civic budget',
+    [cfg.feedbackAddress?.toLowerCase()]: 'petitions and comments',
+    [cfg.officialsAddress?.toLowerCase()]: 'officials registry',
+    [cfg.bodiesAddress?.toLowerCase()]: 'government bodies',
+    [cfg.talliesAddress?.toLowerCase()]: 'paper results',
+    [cfg.escrowFactoryAddress?.toLowerCase()]: 'mandate budgets',
   };
 }
 
 /** Plain-language summary of exactly what a proposal will do (decoded from its calldata). */
 export function describeCall(cfg, target, data) {
-  const where = contractNames(cfg)[String(target).toLowerCase()] || short(target);
-  let f;
+  const names = contractNames(cfg);
+  const where = names[String(target).toLowerCase()] || short(target);
+  const who = (x) => {
+    const n = names[String(x).toLowerCase()];
+    return n ? `the ${n}${/contract$/.test(n) ? '' : ' contract'} (${short(x)})` : short(x);
+  };
+  let f = null;
   try {
     f = CALLS.parseTransaction({ data });
   } catch {
-    return `Unrecognised call to ${where}: check the transaction data before approving.`;
+    f = null;
   }
+  if (!f) return `Unrecognised call to ${where}: check the transaction data before approving.`;
   const a = f.args;
   switch (f.name) {
     case 'setIssuer':
       return a.active ? `Approve ${short(a.issuer)} as clerk "${a.name}" (${Number(a.maxTier) >= 1 ? 'can give full voting rights' : 'basic sign-ups only'})` : `Remove ${short(a.issuer)} ("${a.name}") as a clerk`;
     case 'grantRole':
-      return `Make ${short(a.account)} ${ROLE_NAMES[a.role] || 'a role holder'} on ${where}`;
+      return `Make ${who(a.account)} ${ROLE_NAMES[a.role] || 'a role holder'} on ${where}`;
     case 'revokeRole':
-      return `Remove ${short(a.account)} as ${ROLE_NAMES[a.role] || 'a role holder'} on ${where}`;
+      return `Remove ${who(a.account)} as ${ROLE_NAMES[a.role] || 'a role holder'} on ${where}`;
     case 'addMember':
       return `Add ${short(a.member)} to the council`;
     case 'removeMember':
@@ -94,6 +111,10 @@ export function describeCall(cfg, target, data) {
       return `Hand ${where} to ${short(a.newOwner)}`;
     case 'setMinBond':
       return `Set the poll bond to ${ethers.formatEther(a.amount)} play credits`;
+    case 'setElectorate':
+      return `The council answers to ${who(a.electorate)}: residents elect, recall and remove power through it`;
+    case 'setDelegates':
+      return `Connect public delegates (${who(a.registry)}) to ${where}`;
     default:
       return `${f.name} on ${where}`;
   }
