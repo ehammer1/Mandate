@@ -112,7 +112,14 @@ const ABIS = {
     'event MemberSeated(uint256 indexed bodyId, address indexed account, string seat)',
     'event MemberUnseated(uint256 indexed bodyId, address indexed account)',
     'event MotionProposed(uint256 indexed motionId, uint256 indexed bodyId, string ref, uint64 opensAt, uint64 closesAt, uint256 residentPoll)',
-    'event VoteCast(uint256 indexed motionId, address indexed member, uint8 choice, string reason, bool byClerk)',
+    'event VoteCast(uint256 indexed motionId, address indexed member, uint8 choice, string reason, uint8 via)',
+    'event RolesSet(uint256 indexed bodyId, address indexed account, uint8 roles, uint64 until, uint256 byMotion)',
+    'event AlternateSet(uint256 indexed bodyId, address indexed member, address alternate, uint256 byMotion)',
+    'event MotionWithdrawn(uint256 indexed motionId, address by)',
+  ],
+  bodyRecords: [
+    'event ClosedSessionRecorded(uint256 indexed sessionId, uint256 indexed bodyId, uint8 reason, string cite, uint64 publishBy)',
+    'event MinutesPublished(uint256 indexed sessionId, bytes32 minutesHash)',
     'event MotionDecided(uint256 indexed motionId, uint8 stage, uint32 yes, uint32 no, uint32 abstain)',
     'event ExecutiveActed(uint256 indexed motionId, bool signed, string ref)',
   ],
@@ -126,7 +133,7 @@ const ROLE_EVENTS = [
   'event RoleGranted(bytes32 indexed role, address indexed account, address indexed sender)',
   'event RoleRevoked(bytes32 indexed role, address indexed account, address indexed sender)',
 ];
-const CONTRACT_LABEL = { identity: 'identity registry', vote: 'voting', registry: 'mandate registry', market: 'decision markets', council: 'council', charter: 'charter (voting rules)', budget: 'civic budget', feedback: 'petitions and comments', officials: 'officials registry', bodies: 'government bodies' };
+const CONTRACT_LABEL = { identity: 'identity registry', vote: 'voting', registry: 'mandate registry', market: 'decision markets', council: 'council', charter: 'charter (voting rules)', budget: 'civic budget', feedback: 'petitions and comments', officials: 'officials registry', bodies: 'government bodies', bodyRecords: 'body records' };
 
 /**
  * @param {object} o
@@ -419,7 +426,7 @@ if (require.main === module) {
     const startBlock = env('START_BLOCK') ? Number(env('START_BLOCK')) : cfg.startBlock ? Number(cfg.startBlock) : Math.max(0, head - Number(env('LOOKBACK_BLOCKS') || 43_200));
     const dog = createWatchdog({
       provider,
-      addresses: { identity: cfg.identityAddress, vote: cfg.voteAddress, registry: cfg.registryAddress, market: cfg.marketAddress, council: cfg.councilAddress, charter: cfg.charterAddress, budget: cfg.budgetAddress, feedback: cfg.feedbackAddress, officials: cfg.officialsAddress, bodies: cfg.bodiesAddress },
+      addresses: { identity: cfg.identityAddress, vote: cfg.voteAddress, registry: cfg.registryAddress, market: cfg.marketAddress, council: cfg.councilAddress, charter: cfg.charterAddress, budget: cfg.budgetAddress, feedback: cfg.feedbackAddress, officials: cfg.officialsAddress, bodies: cfg.bodiesAddress, bodyRecords: cfg.bodyRecordsAddress },
       startBlock,
       blockSpan: Number(env('LOG_BLOCK_SPAN') || 200),
       enrolPerHour: Number(env('ENROL_PER_HOUR') || 50),

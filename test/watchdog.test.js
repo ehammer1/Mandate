@@ -231,8 +231,8 @@ test('watchdog: government bodies, officials and emergencies raise the right ale
   assert.equal(ev('RulesChanged', { bodyId: 1n, version: 0n }).length, 0); // the first rules come with BodyCreated
   assert.equal(ev('RulesChanged', { bodyId: 1n, version: 2n })[0].severity, 'high');
   assert.match(ev('ExecutiveActed', { motionId: 4n, signed: false, ref: '' })[0].title, /VETOED/);
-  assert.equal(ev('VoteCast', { motionId: 4n, member: '0x' + '1'.repeat(40), choice: 1n, reason: '', byClerk: false }).length, 0);
-  assert.match(ev('VoteCast', { motionId: 4n, member: '0x' + '1'.repeat(40), choice: 2n, reason: '', byClerk: true })[0].title, /Clerk recorded .* \(No\)/);
+  assert.equal(ev('VoteCast', { motionId: 4n, member: '0x' + '1'.repeat(40), choice: 1n, reason: '', via: 0n }).length, 0);
+  assert.match(ev('VoteCast', { motionId: 4n, member: '0x' + '1'.repeat(40), choice: 2n, reason: '', via: 1n })[0].title, /Clerk recorded .* \(No\)/);
   assert.match(ev('MotionDecided', { motionId: 4n, stage: 8n, yes: 3n, no: 1n, abstain: 0n })[0].title, /lapsed/);
   assert.equal(ev('EmergencyLapsed', { id: 9n })[0].severity, 'high');
   assert.match(ev('EmergencyDeclared', { measureId: 1n, officialId: 2n, pollId: 7n, ref: '' })[0].title, /lapses unless residents ratify it in poll 7/);

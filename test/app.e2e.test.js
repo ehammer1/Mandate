@@ -92,6 +92,7 @@ before(async () => {
       escrowFactoryAddress: await c.escrows.getAddress(),
       officialsAddress: await c.officials.getAddress(),
       bodiesAddress: await c.bodies.getAddress(),
+      bodyRecordsAddress: await c.bodyRecords.getAddress(),
       relayers: ['http://127.0.0.1:1', `http://127.0.0.1:${relayPort}`], // the first is down: tests fail-over
       artifactsBase: '/artifacts',
       chainId: Number((await provider.getNetwork()).chainId),
@@ -1130,7 +1131,7 @@ test('government bodies: set up from a template, public agenda with notice, roll
   await page.click('#btn-body-seat');
   await page.waitForFunction((q) => /done|failed/.test(document.querySelector(q).textContent), '#body-seat-status', { timeout: 60_000 });
   assert.match(await page.textContent('#body-seat-status'), /done/);
-  await (await c.bodies.seat(bodyId, clerk.address, 'District 2')).wait();
+  await (await c.bodies.seat(bodyId, clerk.address, 'District 2', 0)).wait();
 
   // A member puts an item on the agenda: published now, voting opens after the notice.
   await page.click('#nav-bodies');
@@ -1167,7 +1168,7 @@ test('government bodies: set up from a template, public agenda with notice, roll
   assert.match(await page.textContent(`#motion-${motionId}`), /Long overdue/);
 
   // An adopted item goes on to the next body, with a link back.
-  await (await c.bodies.seat(senateId, auto, 'Seat 1')).wait();
+  await (await c.bodies.seat(senateId, auto, 'Seat 1', 0)).wait();
   await page.click('#nav-bodies');
   await page.waitForSelector(`#motion-${motionId} [data-forward]`, { state: 'attached', timeout: 60_000 });
   await page.click(`#motion-${motionId} details:has([data-forward]) summary`);
@@ -1176,6 +1177,46 @@ test('government bodies: set up from a template, public agenda with notice, roll
   const next = motionId + 1n;
   await page.waitForSelector(`#motion-${next} >> text=Comes from Example City Council, which adopted it 2–0`, { timeout: 60_000 });
   assert.equal((await c.bodies.getMotion(next)).m.bodyId, senateId);
+
+  // Roles: the registrar makes this member the council's clerk too.
+  await page.click('#nav-admin');
+  await page.waitForSelector(`#body-role-body option[value="${bodyId}"]`, { state: 'attached', timeout: 60_000 });
+  await page.selectOption('#body-role-body', String(bodyId));
+  await page.fill('#body-role-address', auto);
+  await page.check('#body-role-clerk');
+  await page.click('#btn-body-role');
+  await page.waitForFunction(() => /done|failed/.test(document.querySelector('#body-role-status').textContent), null, { timeout: 60_000 });
+  assert.match(await page.textContent('#body-role-status'), /done/);
+  assert.equal(await c.bodies.holds(bodyId, auto, 2), true);
+  await page.click('#nav-bodies');
+  await page.waitForSelector(`#body-${bodyId} >> text=Your roles here: member, clerk`, { timeout: 60_000 });
+
+  // Recusal: a member steps aside on a new item, with a public reason.
+  await page.click(`#body-${bodyId} details.propose:has([data-propose]) summary`);
+  await page.fill(`#body-${bodyId} .propose [data-f="title"]`, 'Contract with Acme Paving');
+  await page.click(`#body-${bodyId} [data-propose]`);
+  const item = motionId + 2n;
+  await page.waitForSelector(`#motion-${item} details:has([data-recuse]) summary`, { timeout: 60_000 });
+  await page.click(`#motion-${item} details:has([data-recuse]) summary`);
+  await page.fill(`#motion-${item} [data-f="recuseWhy"]`, 'My brother owns Acme Paving');
+  await page.click(`#motion-${item} [data-recuse]`);
+  await page.waitForSelector(`#motion-${item} >> text=1 recused`, { timeout: 60_000 });
+  assert.match(await page.textContent(`#motion-${item}`), /Recused[\s\S]*My brother owns Acme Paving/);
+
+  // A closed session: recorded with a reason and a sealed fingerprint; published later, unchanged.
+  await page.click(`#body-${bodyId} details:has([data-closed]) summary`);
+  await page.fill(`#body-${bodyId} [data-f="csCite"]`, 'Open Meetings Act, personnel exception');
+  await page.fill(`#body-${bodyId} [data-f="csMinutes"]`, 'Interviewed two applicants for city manager. No action taken.');
+  const due = new Date((Number((await provider.getBlock('latest')).timestamp) + 30 * 86_400) * 1000).toISOString().slice(0, 10);
+  await page.fill(`#body-${bodyId} [data-f="csBy"]`, due);
+  await page.click(`#body-${bodyId} [data-closed]`);
+  await page.waitForSelector(`#body-${bodyId} >> text=Closed session 1`, { state: 'attached', timeout: 60_000 });
+  assert.equal(await c.bodyRecords.sessionCount(), 1n);
+  await page.click(`#body-${bodyId} details:has([data-publish]) summary`);
+  await page.waitForFunction((b) => document.querySelector(`#body-${b} [data-f="pubText"]`)?.value.includes('Interviewed'), String(bodyId), { timeout: 30_000 }); // kept on this device
+  await page.click(`#body-${bodyId} [data-publish]`);
+  await page.waitForSelector(`#body-${bodyId} >> text=Minutes published, matching their seal`, { state: 'attached', timeout: 60_000 });
+  assert.ok(Number((await c.bodyRecords.getSession(1)).s.publishedAt) > 0);
 
   const dash = await browser.newPage({ viewport: { width: 390, height: 844 } });
   const errors = [];

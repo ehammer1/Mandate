@@ -410,13 +410,26 @@
           <label>Override needs (% of members, 0 = none) <input type="text" id="body-override" inputmode="numeric" style="width:80px" /></label></div>
         <label class="row"><input type="checkbox" id="body-silence" /> If the executive does nothing in time, it is adopted (unchecked: it is dropped)</label>
         <label for="body-clerk">Clerk who publishes the agenda and records votes in the room, optional</label><input type="text" id="body-clerk" placeholder="0x… or leave empty" autocomplete="off" spellcheck="false" />
+        <label class="row"><input type="checkbox" id="body-selfgov" checked /> The body votes on its own roles (chair, clerks, staff) and alternates</label>
+        <label class="row"><input type="checkbox" id="body-alternates" /> A member's named alternate may vote in their place</label>
         <label class="row"><input type="checkbox" id="body-active" checked /> Active</label>
         <button class="primary" id="btn-body-save">Set up this body</button><p class="status" id="body-status" role="status"></p>
         <h3>Seats</h3>
         <div class="row"><select id="body-seat-body" style="width:auto"></select><label>Seat <input type="text" id="body-seat-name" placeholder="e.g. District 3" style="width:150px" /></label></div>
         <label for="body-seat-address">Member's account address</label><input type="text" id="body-seat-address" autocomplete="off" spellcheck="false" />
+        <label>Term ends (optional) <input type="date" id="body-seat-until" /></label>
         <label class="row"><input type="checkbox" id="body-seat-remove" /> Remove this member instead</label>
         <button id="btn-body-seat">Save seat</button><p class="status" id="body-seat-status" role="status"></p>
+        <h3>Roles and alternates</h3>
+        <p class="note">Chair: runs the agenda and can withdraw items before voting. Clerk: publishes the agenda, records votes taken in the room, records closed sessions. Staff: drafts items for members to sponsor. Roles can end on a date. Self-governed bodies can also vote on these themselves.</p>
+        <select id="body-role-body"></select>
+        <label for="body-role-address">Their account address</label><input type="text" id="body-role-address" autocomplete="off" spellcheck="false" />
+        <div class="row"><label><input type="checkbox" id="body-role-chair" /> Chair</label><label><input type="checkbox" id="body-role-clerk" /> Clerk</label><label><input type="checkbox" id="body-role-staff" /> Staff</label></div>
+        <label>Until (optional) <input type="date" id="body-role-until" /></label>
+        <button id="btn-body-role">Save roles (none checked removes them)</button>
+        <label for="body-alt-member">Name an alternate: the member's account</label><input type="text" id="body-alt-member" autocomplete="off" spellcheck="false" />
+        <label for="body-alt-address">Their alternate's account (empty to remove)</label><input type="text" id="body-alt-address" autocomplete="off" spellcheck="false" />
+        <button id="btn-body-alternate">Save alternate</button><p class="status" id="body-role-status" role="status"></p>
       </div>
 
       <div class="card stack" id="admin-officials" hidden>

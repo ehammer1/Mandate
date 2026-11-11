@@ -26,7 +26,7 @@ test('organization templates: every body is valid, executives get a deadline, ch
         const rules = {
           ...r, name: b.name.replace('{org}', 'Test'), kind: base.kind || b.base, executive,
           executiveMinutes: executive === ethers.ZeroAddress ? 0 : r.executiveMinutes || 14400, overridePct: executive === ethers.ZeroAddress ? 0 : r.overridePct,
-          explainDissent: r.explainDissent && r.residentTier !== 255, clerk: ethers.ZeroAddress, active: true,
+          explainDissent: r.explainDissent && r.residentTier !== 255, clerk: ethers.ZeroAddress, active: true, allowAlternates: !!r.allowAlternates, selfGoverned: !!r.selfGoverned,
         };
         await c.bodies.createBody.staticCall(rules).catch((e) => assert.fail(`${key} / ${rules.name} (${label}): ${c.bodies.interface.parseError(e.data)?.name || e.message}`));
         n++;

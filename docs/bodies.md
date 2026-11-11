@@ -97,6 +97,43 @@ an urgent alert.
 - **Anyone** can count a vote once it closes (or once every member has voted), and close
   an item when the executive's deadline or the override vote has ended.
 
+## Roles and permissions inside a body
+
+| Role | Can |
+| --- | --- |
+| Member (seated, optionally with a term end) | Put items on the agenda, vote, vote on overrides, recuse, sponsor drafts |
+| Chair | Put items on the agenda and withdraw any item before voting opens; record closed sessions |
+| Clerk (several allowed) | Put items on the agenda, record votes taken in the room, record closed sessions and publish their minutes |
+| Staff | Submit drafts for members to sponsor; cannot vote or set the agenda |
+| Alternate (named for one member) | Vote in that member's place, if the body allows alternates; marked "by their alternate" |
+| Executive | Sign or veto passed items |
+| Registrar (granted by the council) | Create bodies, change rules, seat members, give roles, name alternates |
+
+- **Roles and seats can expire** on a date; after it they simply stop working.
+- **Self-governed bodies** vote on their own roles and alternates ("this item changes the body
+  itself"). Such items need no executive signature, like a chamber choosing its Speaker.
+- **Recusal:** a member steps aside on an item with a public reason (for example a conflict of
+  interest). Recused members do not count toward quorum on that item.
+- **Withdrawing:** the proposer or the chair can take an item off the agenda before voting opens.
+
+Every grant, removal, recusal, alternate vote and withdrawal is public, and the watchdog
+announces it.
+
+## Closed sessions, on the record
+
+Where the law allows a meeting without the public (personnel, legal advice, security,
+property or labor negotiations), the chair or a clerk records:
+
+- that it happened, and why;
+- the rule that allows it (for example "Open Meetings Act, personnel exception");
+- a sealed fingerprint of the minutes, which stay private for now;
+- the date by which the minutes must be published.
+
+The minutes can only be published unchanged: the app checks the text against the seal before
+publishing. Anyone can see when publication is overdue; it also shows on the dashboard and in
+Needs attention. Truly secret or classified material should never be put in Mandate, because
+everything it publishes is public.
+
 ## How this fits the law
 
 In most places the law gives decisions to elected officials, so residents' results are

@@ -635,7 +635,7 @@ async function refreshAttention() {
 /** Open the screen an attention item belongs to and scroll to it. */
 async function goTo(key) {
   const [kind, id] = key.split(':');
-  const target = { poll: [null, `poll-${id}`], measure: [null, null], petition: ['nav-petitions', `petition-${id}`], mandate: ['nav-mandates', `mandate-${id}`], budget: ['nav-budget', null], motion: ['nav-bodies', `motion-${id}`], council: ['nav-admin', 'admin-council'] }[kind] || [null, null];
+  const target = { poll: [null, `poll-${id}`], measure: [null, null], petition: ['nav-petitions', `petition-${id}`], mandate: ['nav-mandates', `mandate-${id}`], budget: ['nav-budget', null], motion: ['nav-bodies', `motion-${id}`], session: ['nav-bodies', null], council: ['nav-admin', 'admin-council'] }[kind] || [null, null];
   if (target[0] && $(target[0]) && !$(target[0]).hidden) $(target[0]).click();
   else if (target[0]) return void window.open(`dashboard.html#h-${kind === 'motion' ? 'bodies' : kind}`, '_blank');
   for (let i = 0; i < 40 && target[1]; i++) {

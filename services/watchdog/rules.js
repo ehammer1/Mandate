@@ -180,8 +180,27 @@ function rulesForEvent(ev, ctx) {
       return [{ ...base, rule: 'bodies', severity: 'medium', title: `${short(a.account)} removed from body ${a.bodyId}`, facts: { body: String(a.bodyId), account: a.account } }];
     case 'MotionProposed':
       return [{ ...base, rule: 'agenda', severity: 'info', title: `Body ${a.bodyId} put motion ${a.motionId} on its agenda: voting ${new Date(Number(a.opensAt) * 1000).toISOString().slice(0, 16).replace('T', ' ')} to ${new Date(Number(a.closesAt) * 1000).toISOString().slice(0, 16).replace('T', ' ')} UTC${Number(a.residentPoll) ? `; residents vote first in poll ${a.residentPoll}` : ''}`, facts: { motion: String(a.motionId), body: String(a.bodyId), ref: a.ref } }];
-    case 'VoteCast':
-      return a.byClerk ? [{ ...base, rule: 'agenda', severity: 'info', title: `Clerk recorded ${short(a.member)}'s vote on motion ${a.motionId} (${['', 'Yes', 'No', 'Abstain'][Number(a.choice)]}) taken in the room`, facts: { motion: String(a.motionId), member: a.member } }] : [];
+    case 'VoteCast': {
+      const how = ['', 'Yes', 'No', 'Abstain', 'recused'][Number(a.choice)];
+      if (Number(a.choice) === 4) return [{ ...base, rule: 'agenda', severity: 'info', title: `${short(a.member)} recused on motion ${a.motionId}: ${a.reason}`, facts: { motion: String(a.motionId), member: a.member } }];
+      if (Number(a.via) === 1) return [{ ...base, rule: 'agenda', severity: 'info', title: `Clerk recorded ${short(a.member)}'s vote on motion ${a.motionId} (${how}) taken in the room`, facts: { motion: String(a.motionId), member: a.member } }];
+      if (Number(a.via) === 2) return [{ ...base, rule: 'agenda', severity: 'medium', title: `An alternate voted ${how} for ${short(a.member)} on motion ${a.motionId}`, facts: { motion: String(a.motionId), member: a.member } }];
+      return [];
+    }
+    case 'RolesSet': {
+      const names = ['chair', 'clerk', 'staff'].filter((_, i) => Number(a.roles) & (1 << i));
+      return [{ ...base, rule: 'bodies', severity: 'medium', title: `${short(a.account)} ${names.length ? `given the role of ${names.join(' and ')}` : 'had every role removed'} on body ${a.bodyId}${Number(a.until) ? ` until ${new Date(Number(a.until) * 1000).toISOString().slice(0, 10)}` : ''}${Number(a.byMotion) ? ` by the body's own vote (motion ${a.byMotion})` : ' by a registrar'}`, facts: { body: String(a.bodyId), account: a.account } }];
+    }
+    case 'AlternateSet':
+      return [{ ...base, rule: 'bodies', severity: 'medium', title: `${a.alternate === '0x0000000000000000000000000000000000000000' ? 'Alternate removed for' : `${short(a.alternate)} named alternate for`} ${short(a.member)} on body ${a.bodyId}${Number(a.byMotion) ? ` by the body's own vote (motion ${a.byMotion})` : ' by a registrar'}`, facts: { body: String(a.bodyId), member: a.member } }];
+    case 'MotionWithdrawn':
+      return [{ ...base, rule: 'agenda', severity: 'info', title: `Motion ${a.motionId} withdrawn from the agenda before voting by ${short(a.by)}`, facts: { motion: String(a.motionId) } }];
+    case 'ClosedSessionRecorded': {
+      const why = ['', 'personnel', 'legal advice', 'security', 'property negotiations', 'labor negotiations', 'other'][Number(a.reason)] || 'other';
+      return [{ ...base, rule: 'closed-session', severity: 'medium', title: `Body ${a.bodyId} met in closed session (${why}${a.cite ? `, under ${a.cite}` : ''}); sealed minutes due by ${new Date(Number(a.publishBy) * 1000).toISOString().slice(0, 10)}`, facts: { session: String(a.sessionId), body: String(a.bodyId) } }];
+    }
+    case 'MinutesPublished':
+      return [{ ...base, rule: 'closed-session', severity: 'info', title: `Minutes of closed session ${a.sessionId} published, matching their seal`, facts: { session: String(a.sessionId) } }];
     case 'MotionDecided': {
       const words = ['', '', '', 'passed: awaiting the executive', 'adopted', 'did not pass', 'vetoed', 'override vote', 'lapsed (the executive did not act)'];
       return [{ ...base, rule: 'agenda', severity: Number(a.stage) === 6 || Number(a.stage) === 8 ? 'medium' : 'info', title: `Motion ${a.motionId} ${words[Number(a.stage)] || 'decided'} (${a.yes} Yes, ${a.no} No, ${a.abstain} Abstain)`, facts: { motion: String(a.motionId), stage: Number(a.stage) } }];

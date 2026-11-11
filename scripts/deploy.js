@@ -136,6 +136,8 @@ async function deployAll(signer, opts = {}) {
   // Public text (questions, goals, evidence) and per-mandate budget escrows. Neither has an
   // admin. Overdue budgets drain to the council when there is one, else the treasury.
   contracts.notices = await deploy(signer, 'NoticeBoard', {});
+  // Drafts and closed-session records for government bodies.
+  contracts.bodyRecords = await deploy(signer, 'BodyRecords', {}, await contracts.bodies.getAddress(), await contracts.notices.getAddress());
   const escrowTreasury = contracts.council ? await contracts.council.getAddress() : treasury;
   contracts.escrows = await deploy(signer, 'EscrowFactory', {}, await registry.getAddress(), escrowTreasury, opts.escrowDecayBps ?? 1000, Math.round((opts.escrowDecayDays ?? 7) * 86_400));
   log('notice board and escrow factory deployed');
@@ -205,6 +207,7 @@ if (require.main === module) {
       feedbackAddress: addresses.feedback,
       officialsAddress: addresses.officials,
       bodiesAddress: addresses.bodies,
+      bodyRecordsAddress: addresses.bodyRecords,
       escrowFactoryAddress: addresses.escrows,
       relayers: (process.env.RELAYERS || '').split(',').map((s) => s.trim()).filter(Boolean),
       ipfsGateway: process.env.IPFS_GATEWAY || 'https://gateway.pinata.cloud',

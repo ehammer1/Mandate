@@ -83,7 +83,7 @@ async function deadlines(cfg, provider, readDoc) {
     const g = new ethers.Contract(cfg.bodiesAddress, [
       'function motionCount() view returns (uint256)',
       'function getMotion(uint256) view returns (tuple(uint256 bodyId, string ref, bytes32 category, address proposer, uint64 noticeAt, uint64 opensAt, uint64 closesAt, uint256 residentPoll, uint8 stage, uint64 executiveBy, uint64 overrideBy, uint32 version, uint32 electorate, bool overridden, string executiveRef) m, uint32[5] counts)',
-      'function getBody(uint256) view returns (tuple(string name, string kind, uint32 seats, uint16 quorumPct, uint16 passPct, bool passOfSeats, uint16 overridePct, uint32 noticeMinutes, uint32 voteMinutes, uint32 executiveMinutes, address executive, bool silenceApproves, uint8 residentTier, bool explainDissent, bool reasonsRequired, address clerk, bool active) r, uint32 version, address[] members)',
+      'function getBody(uint256) view returns (tuple(string name, string kind, uint32 seats, uint16 quorumPct, uint16 passPct, bool passOfSeats, uint16 overridePct, uint32 noticeMinutes, uint32 voteMinutes, uint32 executiveMinutes, address executive, bool silenceApproves, uint8 residentTier, bool explainDissent, bool reasonsRequired, address clerk, bool active, bool allowAlternates, bool selfGoverned) r, uint32 version, address[] members)',
     ], provider);
     const n = Number(await g.motionCount());
     for (let id = n; id >= Math.max(1, n - 30); id--) {

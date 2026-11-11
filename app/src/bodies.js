@@ -5,7 +5,11 @@
  *                  buttons for whoever may act (members vote, the clerk records votes
  *                  taken in the room, the executive signs or vetoes, anyone counts)
  *   Admin          registrars set up a body from a template (city council, school board,
- *                  co-op...) and change any rule, and seat members
+ *                  co-op...) and change any rule, seat members (with terms), give roles
+ *                  (chair, clerk, staff) and name alternates
+ *   Permissions    the chair runs the agenda; clerks record votes; staff draft; members can
+ *                  recuse; alternates vote for absent members; self-governed bodies vote on
+ *                  their own roles; closed sessions are recorded with sealed minutes
  *   Dashboard      every body's recent decisions and how often each member sided with
  *                  residents
  */
@@ -16,7 +20,7 @@ import { readDoc, postDoc } from './notices.js';
 import { categoryChip, categoryFromHash, categoryOptions } from './priority.js';
 import { ORG_TEMPLATES, RULE_WORDS } from './org-templates.js';
 
-const RULES = 'tuple(string name, string kind, uint32 seats, uint16 quorumPct, uint16 passPct, bool passOfSeats, uint16 overridePct, uint32 noticeMinutes, uint32 voteMinutes, uint32 executiveMinutes, address executive, bool silenceApproves, uint8 residentTier, bool explainDissent, bool reasonsRequired, address clerk, bool active)';
+const RULES = 'tuple(string name, string kind, uint32 seats, uint16 quorumPct, uint16 passPct, bool passOfSeats, uint16 overridePct, uint32 noticeMinutes, uint32 voteMinutes, uint32 executiveMinutes, address executive, bool silenceApproves, uint8 residentTier, bool explainDissent, bool reasonsRequired, address clerk, bool active, bool allowAlternates, bool selfGoverned)';
 const MOTION = 'tuple(uint256 bodyId, string ref, bytes32 category, address proposer, uint64 noticeAt, uint64 opensAt, uint64 closesAt, uint256 residentPoll, uint8 stage, uint64 executiveBy, uint64 overrideBy, uint32 version, uint32 electorate, bool overridden, string executiveRef)';
 export const BODIES_ABI = [
   'function bodyCount() view returns (uint256)',
@@ -26,12 +30,24 @@ export const BODIES_ABI = [
   'function isMember(uint256, address) view returns (bool)',
   'function motionCount() view returns (uint256)',
   `function getMotion(uint256) view returns (${MOTION} m, uint32[5] counts)`,
-  'function rollCall(uint256) view returns (address[] who, uint8[] choice, string[] reason, bool[] byClerk, uint8[] overrideChoice)',
+  'function rollCall(uint256) view returns (address[] who, uint8[] choice, string[] reason, uint8[] via, uint8[] overrideChoice)',
+  'function holds(uint256, address, uint8) view returns (bool)',
+  'function grantOf(uint256, address) view returns (uint8 roles, uint64 until)',
+  'function seatUntil(uint256, address) view returns (uint64)',
+  'function alternateOf(uint256, address) view returns (address)',
+  'function recusals(uint256) view returns (uint32)',
+  'function actionOf(uint256) view returns (tuple(uint8 kind, address account, address alternate, uint8 roles, uint64 until))',
+  'function setRoles(uint256, address, uint8, uint64)',
+  'function setAlternate(uint256, address, address)',
+  'function proposeAction(uint256, string, bytes32, tuple(uint8 kind, address account, address alternate, uint8 roles, uint64 until)) returns (uint256)',
+  'function withdraw(uint256)',
+  'function recuse(uint256, string)',
+  'function castVoteFor(uint256, address, uint8, string)',
   'function residentResult(uint256) view returns (uint8)',
   'function hasRole(bytes32, address) view returns (bool)',
   `function createBody(${RULES}) returns (uint256)`,
   `function setRules(uint256, ${RULES})`,
-  'function seat(uint256, address, string)',
+  'function seat(uint256, address, string, uint64)',
   'function unseat(uint256, address)',
   'function propose(uint256, string, bytes32) returns (uint256)',
   'function castVote(uint256, uint8, string)',
@@ -56,24 +72,44 @@ const ERRORS = {
   ReasonRequired: 'A public reason is required for this vote (it goes against the residents\' result, or the body requires reasons).',
   TooEarly: 'Not yet: voting is still open, or members are still voting.',
   BadRef: 'That text is too long (128 characters at most).',
+  BadInput: 'Check the details: a reason is needed, the publication date must be in the future (within 10 years), and "Other" needs the rule cited.',
+  WrongMinutes: 'That text does not match the sealed minutes. Publish exactly the minutes that were sealed.',
+  AlreadyPublished: 'These minutes are already published.',
 };
 const BODY_ERRORS = new ethers.Interface(BODIES_ABI.filter((x) => x.startsWith('error')));
 
-export const STAGES = ['', 'On the agenda', 'Voting', 'Awaiting the executive', 'Adopted', 'Did not pass', 'Vetoed', 'Override vote', 'Lapsed'];
-const CHOICE = ['', 'Yes', 'No', 'Abstain'];
+export const STAGES = ['', 'On the agenda', 'Voting', 'Awaiting the executive', 'Adopted', 'Did not pass', 'Vetoed', 'Override vote', 'Lapsed', 'Withdrawn'];
+const CHOICE = ['', 'Yes', 'No', 'Abstain', 'Recused'];
+export const ROLE = { CHAIR: 1, CLERK: 2, STAFF: 4 };
+const roleWords = (bits) => ['chair', 'clerk', 'staff'].filter((_, i) => Number(bits) & (1 << i));
+export const RECORDS_ABI = [
+  'function draftCount() view returns (uint256)',
+  'function getDraft(uint256) view returns (tuple(uint256 bodyId, string ref, address by, uint64 at))',
+  'function submitDraft(uint256, string) returns (uint256)',
+  'function sessionCount() view returns (uint256)',
+  'function getSession(uint256) view returns (tuple(uint256 bodyId, uint8 reason, string cite, bytes32 minutesHash, uint64 heldAt, uint64 publishBy, uint64 publishedAt, address by) s, bool overdue)',
+  'function recordClosedSession(uint256, uint8, string, bytes32, uint64) returns (uint256)',
+  'function publishMinutes(uint256, bytes32)',
+  'error NotAllowed()', 'error BadInput()', 'error Unknown()', 'error AlreadyPublished()', 'error WrongMinutes()',
+];
+const RECORD_ERRORS = new ethers.Interface(RECORDS_ABI.filter((x) => x.startsWith('error')));
+export const CLOSED_REASONS = ['', 'Personnel', 'Legal advice', 'Security', 'Property negotiations', 'Labor negotiations', 'Other (cite the rule)'];
+/** The minutes document whose fingerprint is sealed, and later published unchanged. */
+export const minutesDoc = (bodyName, text) => ({ title: `Minutes of a closed session: ${bodyName}`, body: text });
+export const sealOf = (doc) => ethers.keccak256(ethers.toUtf8Bytes(JSON.stringify(doc)));
 const TIERS = ['all members', 'ID-checked residents', 'residents with full voting rights'];
 
 /** Starting points: every value can be changed before (and after) the body is set up. */
 export const TEMPLATES = {
-  city: { label: 'City or town council', kind: 'city council', seats: 7, quorumPct: 51, passPct: 50, passOfSeats: false, overridePct: 67, noticeMinutes: 72 * 60, voteMinutes: 7 * 24 * 60, executiveMinutes: 10 * 24 * 60, silenceApproves: true, residentTier: 2, explainDissent: true, reasonsRequired: false },
-  county: { label: 'County board', kind: 'county board', seats: 5, quorumPct: 60, passPct: 50, passOfSeats: false, overridePct: 0, noticeMinutes: 72 * 60, voteMinutes: 7 * 24 * 60, executiveMinutes: 0, silenceApproves: true, residentTier: 2, explainDissent: true, reasonsRequired: false },
-  legislature: { label: 'State legislature (one chamber)', kind: 'legislative chamber', seats: 100, quorumPct: 51, passPct: 50, passOfSeats: true, overridePct: 67, noticeMinutes: 5 * 24 * 60, voteMinutes: 3 * 24 * 60, executiveMinutes: 10 * 24 * 60, silenceApproves: true, residentTier: 2, explainDissent: true, reasonsRequired: false },
-  school: { label: 'School board', kind: 'school board', seats: 7, quorumPct: 51, passPct: 50, passOfSeats: false, overridePct: 0, noticeMinutes: 72 * 60, voteMinutes: 3 * 24 * 60, executiveMinutes: 0, silenceApproves: true, residentTier: 2, explainDissent: false, reasonsRequired: false },
-  committee: { label: 'Committee or commission', kind: 'committee', seats: 5, quorumPct: 51, passPct: 50, passOfSeats: false, overridePct: 0, noticeMinutes: 48 * 60, voteMinutes: 3 * 24 * 60, executiveMinutes: 0, silenceApproves: true, residentTier: 255, explainDissent: false, reasonsRequired: false },
-  nonprofit: { label: 'Nonprofit or company board', kind: 'board of directors', seats: 9, quorumPct: 51, passPct: 50, passOfSeats: false, overridePct: 0, noticeMinutes: 7 * 24 * 60, voteMinutes: 3 * 24 * 60, executiveMinutes: 0, silenceApproves: true, residentTier: 255, explainDissent: false, reasonsRequired: true },
-  coop: { label: 'Co-op, union or association board', kind: 'member board', seats: 7, quorumPct: 51, passPct: 50, passOfSeats: false, overridePct: 0, noticeMinutes: 7 * 24 * 60, voteMinutes: 7 * 24 * 60, executiveMinutes: 0, silenceApproves: true, residentTier: 0, explainDissent: true, reasonsRequired: false },
-  hoa: { label: 'Neighborhood or HOA board', kind: 'neighborhood board', seats: 5, quorumPct: 60, passPct: 50, passOfSeats: false, overridePct: 0, noticeMinutes: 4 * 24 * 60, voteMinutes: 7 * 24 * 60, executiveMinutes: 0, silenceApproves: true, residentTier: 1, explainDissent: true, reasonsRequired: false },
-  custom: { label: 'Custom: start from scratch', kind: '', seats: 5, quorumPct: 51, passPct: 50, passOfSeats: false, overridePct: 0, noticeMinutes: 24 * 60, voteMinutes: 3 * 24 * 60, executiveMinutes: 0, silenceApproves: true, residentTier: 255, explainDissent: false, reasonsRequired: false },
+  city: { label: 'City or town council', kind: 'city council', seats: 7, quorumPct: 51, passPct: 50, passOfSeats: false, overridePct: 67, noticeMinutes: 72 * 60, voteMinutes: 7 * 24 * 60, executiveMinutes: 10 * 24 * 60, silenceApproves: true, residentTier: 2, explainDissent: true, reasonsRequired: false, allowAlternates: false, selfGoverned: true },
+  county: { label: 'County board', kind: 'county board', seats: 5, quorumPct: 60, passPct: 50, passOfSeats: false, overridePct: 0, noticeMinutes: 72 * 60, voteMinutes: 7 * 24 * 60, executiveMinutes: 0, silenceApproves: true, residentTier: 2, explainDissent: true, reasonsRequired: false, allowAlternates: false, selfGoverned: true },
+  legislature: { label: 'State legislature (one chamber)', kind: 'legislative chamber', seats: 100, quorumPct: 51, passPct: 50, passOfSeats: true, overridePct: 67, noticeMinutes: 5 * 24 * 60, voteMinutes: 3 * 24 * 60, executiveMinutes: 10 * 24 * 60, silenceApproves: true, residentTier: 2, explainDissent: true, reasonsRequired: false, allowAlternates: false, selfGoverned: true },
+  school: { label: 'School board', kind: 'school board', seats: 7, quorumPct: 51, passPct: 50, passOfSeats: false, overridePct: 0, noticeMinutes: 72 * 60, voteMinutes: 3 * 24 * 60, executiveMinutes: 0, silenceApproves: true, residentTier: 2, explainDissent: false, reasonsRequired: false, allowAlternates: false, selfGoverned: true },
+  committee: { label: 'Committee or commission', kind: 'committee', seats: 5, quorumPct: 51, passPct: 50, passOfSeats: false, overridePct: 0, noticeMinutes: 48 * 60, voteMinutes: 3 * 24 * 60, executiveMinutes: 0, silenceApproves: true, residentTier: 255, explainDissent: false, reasonsRequired: false, allowAlternates: false, selfGoverned: true },
+  nonprofit: { label: 'Nonprofit or company board', kind: 'board of directors', seats: 9, quorumPct: 51, passPct: 50, passOfSeats: false, overridePct: 0, noticeMinutes: 7 * 24 * 60, voteMinutes: 3 * 24 * 60, executiveMinutes: 0, silenceApproves: true, residentTier: 255, explainDissent: false, reasonsRequired: true, allowAlternates: false, selfGoverned: true },
+  coop: { label: 'Co-op, union or association board', kind: 'member board', seats: 7, quorumPct: 51, passPct: 50, passOfSeats: false, overridePct: 0, noticeMinutes: 7 * 24 * 60, voteMinutes: 7 * 24 * 60, executiveMinutes: 0, silenceApproves: true, residentTier: 0, explainDissent: true, reasonsRequired: false, allowAlternates: false, selfGoverned: true },
+  hoa: { label: 'Neighborhood or HOA board', kind: 'neighborhood board', seats: 5, quorumPct: 60, passPct: 50, passOfSeats: false, overridePct: 0, noticeMinutes: 4 * 24 * 60, voteMinutes: 7 * 24 * 60, executiveMinutes: 0, silenceApproves: true, residentTier: 1, explainDissent: true, reasonsRequired: false, allowAlternates: false, selfGoverned: true },
+  custom: { label: 'Custom: start from scratch', kind: '', seats: 5, quorumPct: 51, passPct: 50, passOfSeats: false, overridePct: 0, noticeMinutes: 24 * 60, voteMinutes: 3 * 24 * 60, executiveMinutes: 0, silenceApproves: true, residentTier: 255, explainDissent: false, reasonsRequired: false, allowAlternates: false, selfGoverned: true },
 };
 
 const dur = (minutes) => {
@@ -99,6 +135,7 @@ export function rulesSummary(r, esc, names = {}) {
     <li>${Number(r.residentTier) === 255 ? 'No residents\' vote first' : `Residents (${TIERS[Number(r.residentTier)]}) vote anonymously on each item during the notice period`}${r.explainDissent ? ' · members who vote against a clear residents\' result must say why' : ''}${r.reasonsRequired ? ' · every vote needs a public reason' : ''}</li>
     <li>${exec ? `Then the executive (${esc(names[r.executive.toLowerCase()] || short(r.executive))}) has ${dur(r.executiveMinutes)} to sign or veto; if they do nothing it is ${r.silenceApproves ? 'adopted' : 'dropped'}${Number(r.overridePct) ? ` · a veto can be overridden by ${Number(r.overridePct)}% of all members` : ' · vetoes are final'}` : 'No executive signature needed: passed means adopted'}</li>
     ${r.clerk !== ethers.ZeroAddress ? `<li>Clerk: ${esc(names[r.clerk.toLowerCase()] || short(r.clerk))} (publishes the agenda, records votes taken in the room)</li>` : ''}
+    <li>${r.selfGoverned ? 'The body votes on its own roles (chair, clerks, staff) and alternates' : 'Roles are given by the registrar'}${r.allowAlternates ? ' · a member\'s named alternate may vote in their place' : ''} · members may recuse, on the record</li>
   </ul>`;
 }
 
@@ -129,7 +166,9 @@ async function motionHtml(cfg, provider, g, id, esc, names, now) {
   const doc = await readDoc(cfg, provider, m.ref);
   const r = await g.rulesAt(m.bodyId, m.version);
   const res = await residents(cfg, provider, g, id, m).catch(() => null);
-  const [who, choice, reason, byClerk, overrideChoice] = await g.rollCall(id);
+  const [who, choice, reason, via, overrideChoice] = await g.rollCall(id);
+  const recused = Number(await g.recusals(id).catch(() => 0n));
+  const action = await g.actionOf(id).catch(() => null);
   const total = Number(counts[0]) + Number(counts[1]) + Number(counts[2]);
   const clock =
     st === 1 ? `voting opens ${countdown(m.opensAt)}`
@@ -142,8 +181,8 @@ async function motionHtml(cfg, provider, g, id, esc, names, now) {
     : '';
   const rows = who.map((a, i) => {
     const c = Number(choice[i]);
-    const against = res && res.result && c && c !== 3 && c !== res.result;
-    return `<tr${against ? ' class="against"' : ''}><td>${esc(names[a.toLowerCase()] || short(a))}</td><td><strong>${CHOICE[c] || '-'}</strong>${Number(overrideChoice[i]) ? ` · override: ${Number(overrideChoice[i]) === 1 ? 'Yes' : 'No'}` : ''}${byClerk[i] ? ' <span class="muted">(recorded by clerk)</span>' : ''}${against ? ' <span class="warn">▲ against residents</span>' : ''}</td><td>${esc(reason[i] || '')}</td></tr>`;
+    const against = res && res.result && c && c < 3 && c !== res.result;
+    return `<tr${against ? ' class="against"' : ''}><td>${esc(names[a.toLowerCase()] || short(a))}</td><td><strong>${CHOICE[c] || '-'}</strong>${Number(overrideChoice[i]) ? ` · override: ${Number(overrideChoice[i]) === 1 ? 'Yes' : 'No'}` : ''}${Number(via[i]) === 1 ? ' <span class="muted">(recorded by clerk)</span>' : Number(via[i]) === 2 ? ' <span class="muted">(by their alternate)</span>' : ''}${against ? ' <span class="warn">▲ against residents</span>' : ''}</td><td>${esc(reason[i] || '')}</td></tr>`;
   });
   return {
     m, st, r, counts, who, choice, overrideChoice, doc,
@@ -151,7 +190,8 @@ async function motionHtml(cfg, provider, g, id, esc, names, now) {
       <h3>${esc(doc.title)} ${categoryChip(categoryFromHash(m.category), esc)}</h3>${doc.body ? `<p>${esc(doc.body)}</p>` : ''}
       ${doc.from && Number(doc.from.motion) ? `<p class="note">Comes from ${esc(String(doc.from.body || 'another body'))}, which adopted it ${Number(doc.from.yes)}–${Number(doc.from.no)} (motion ${Number(doc.from.motion)}).</p>` : ''}
       ${resLine}
-      <p><strong>Members:</strong> ${counts[0]} Yes · ${counts[1]} No · ${counts[2]} Abstain · ${total} of ${m.electorate} voted${st === 7 || Number(counts[3]) + Number(counts[4]) ? ` · override ${counts[3]} Yes · ${counts[4]} No` : ''}${m.overridden ? ' · <strong>veto overridden</strong>' : ''}</p>
+      ${action && Number(action.kind) ? `<p class="note"><strong>Changes the body itself:</strong> ${Number(action.kind) === 1 ? `${esc(names[action.account.toLowerCase()] || short(action.account))} ${roleWords(action.roles).length ? `becomes ${roleWords(action.roles).join(' and ')}` : 'loses every role'}${Number(action.until) ? ` until ${new Date(Number(action.until) * 1000).toLocaleDateString()}` : ''}` : `${action.alternate === ethers.ZeroAddress ? 'no alternate' : esc(names[action.alternate.toLowerCase()] || short(action.alternate))} for ${esc(names[action.account.toLowerCase()] || short(action.account))}`}. No executive signature needed.</p>` : ''}
+      <p><strong>Members:</strong> ${counts[0]} Yes · ${counts[1]} No · ${counts[2]} Abstain${recused ? ` · ${recused} recused` : ''} · ${total} of ${Number(m.electorate) - recused} voted${st === 7 || Number(counts[3]) + Number(counts[4]) ? ` · override ${counts[3]} Yes · ${counts[4]} No` : ''}${m.overridden ? ' · <strong>veto overridden</strong>' : ''}</p>
       ${m.executiveRef ? `<p class="muted">Executive's message: ${esc((await readDoc(cfg, provider, m.executiveRef)).body || m.executiveRef)}</p>` : ''}
       ${rows.length ? `<details${st === 2 || st === 7 ? ' open' : ''}><summary>Roll call (${rows.length})</summary><table class="data"><thead><tr><th>Member</th><th>Vote</th><th>Reason</th></tr></thead><tbody>${rows.join('')}</tbody></table></details>` : ''}`,
   };
@@ -206,26 +246,76 @@ export function wireBodies(ctx) {
     const cards = [];
     const all = [];
     for (let b = 1; b <= Number(n); b++) all.push({ id: b, body: await g.getBody(b) });
-    const others = all.filter(({ body: [r, , mem] }) => r.active && (mem.some((a) => a.toLowerCase() === account) || (account && r.clerk.toLowerCase() === account))).map(({ id, body: [r] }) => ({ id, name: r.name }));
+    const rolesOf = {};
+    for (const { id } of all) rolesOf[id] = account ? (await g.grantOf(id, account).catch(() => [0n, 0n])) : [0n, 0n];
+    const holds = (b, bits) => {
+      const [roles, until] = rolesOf[b];
+      if ((Number(roles) & bits) && (!Number(until) || Number(until) > now)) return true;
+      return !!(bits & ROLE.CLERK) && !!account && all[b - 1].body[0].clerk.toLowerCase() === account;
+    };
+    const others = all.filter(({ id, body: [r, , mem] }) => r.active && (mem.some((a) => a.toLowerCase() === account) || holds(id, ROLE.CHAIR | ROLE.CLERK))).map(({ id, body: [r] }) => ({ id, name: r.name }));
+    const rec = state.config.bodyRecordsAddress ? new ethers.Contract(state.config.bodyRecordsAddress, RECORDS_ABI, state.provider) : null;
+    const drafts = [];
+    const sessions = [];
+    if (rec) {
+      const [dn, sn] = await Promise.all([rec.draftCount(), rec.sessionCount()]);
+      for (let d = Number(dn); d >= Math.max(1, Number(dn) - 49); d--) drafts.push({ id: d, ...(await rec.getDraft(d)).toObject() });
+      for (let k = Number(sn); k >= Math.max(1, Number(sn) - 49); k--) {
+        const [x, overdue] = await rec.getSession(k);
+        sessions.push({ id: k, ...x.toObject(), overdue });
+      }
+    }
     for (let b = 1; b <= Number(n); b++) {
       const [r, , members] = all[b - 1].body;
       const seats = await Promise.all(members.map((a) => g.seatOf(b, a)));
       const mine = members.some((a) => a.toLowerCase() === account);
-      const clerk = r.clerk.toLowerCase() === account && account;
+      const chair = holds(b, ROLE.CHAIR);
+      const clerk = holds(b, ROLE.CLERK);
+      const staff = holds(b, ROLE.STAFF);
+      const terms = await Promise.all(members.map((a) => g.seatUntil(b, a).catch(() => 0n)));
+      const alternates = await Promise.all(members.map((a) => g.alternateOf(b, a).catch(() => ethers.ZeroAddress)));
+      const forMe = r.allowAlternates ? members.filter((a, i) => alternates[i].toLowerCase() === account) : [];
       const items = [];
       for (const id of motionsOf[b] || []) {
         const x = await motionHtml(state.config, state.provider, g, id, esc, names, now);
-        items.push(`<article class="card stack motion" id="motion-${id}">${x.html}${actions(id, x, now, account, members, seats, others)}<p class="status" role="status"></p></article>`);
+        items.push(`<article class="card stack motion" id="motion-${id}">${x.html}${actions(id, x, now, account, members, seats, others, { chair, clerk, forMe })}<p class="status" role="status"></p></article>`);
       }
+      const myRoles = [mine && 'member', ...roleWords((chair ? 1 : 0) | (clerk ? 2 : 0) | (staff ? 4 : 0))].filter(Boolean);
+      const bodyDrafts = drafts.filter((d) => Number(d.bodyId) === b);
+      const bodySessions = sessions.filter((x) => Number(x.bodyId) === b);
+      const draftDocs = await Promise.all(bodyDrafts.map((d) => readDoc(state.config, state.provider, d.ref)));
       cards.push(`<section class="card stack" id="body-${b}">
         <p class="eyebrow">${esc(r.kind || 'Body')}${r.active ? '' : ' · inactive'}</p><h2>${esc(r.name)}</h2>
         <details><summary>How this body decides</summary>${rulesSummary(r, esc, names)}</details>
-        <details><summary>Members (${members.length} of ${r.seats} seats)</summary><ul class="list">${members.map((a, i) => `<li>${esc(seats[i])}: <strong>${esc(names[a.toLowerCase()] || short(a))}</strong></li>`).join('') || '<li class="muted">No members seated yet.</li>'}</ul></details>
-        ${(mine || clerk) && r.active ? `<details class="propose"><summary><strong>Put an item on the agenda</strong></summary><div class="stack">
+        ${myRoles.length ? `<p class="note">Your roles here: <strong>${myRoles.join(', ')}</strong></p>` : ''}
+        <details><summary>Members (${members.length} of ${r.seats} seats)</summary><ul class="list">${members.map((a, i) => `<li>${esc(seats[i])}: <strong>${esc(names[a.toLowerCase()] || short(a))}</strong>${Number(terms[i]) ? ` · term ends ${new Date(Number(terms[i]) * 1000).toLocaleDateString()}${Number(terms[i]) <= now ? ' (ended)' : ''}` : ''}${alternates[i] !== ethers.ZeroAddress ? ` · alternate: ${esc(names[alternates[i].toLowerCase()] || short(alternates[i]))}` : ''}</li>`).join('') || '<li class="muted">No members seated yet.</li>'}</ul></details>
+        ${(mine || chair || clerk) && r.active ? `<details class="propose"><summary><strong>Put an item on the agenda</strong></summary><div class="stack">
           <label>Title <input type="text" data-f="title" /></label><label>Full text<textarea data-f="body" rows="4"></textarea></label>
           <label>Topic <select data-f="cat">${categoryOptions()}</select></label>
+          ${r.selfGoverned ? `<label>This item changes the body itself <select data-f="action"><option value="0">No: an ordinary item</option><option value="1">Give or remove someone's roles</option><option value="2">Name a member's alternate</option></select></label>
+          <div class="stack" data-show="1" hidden><label>Their account (0x…) <input type="text" data-f="roleAccount" autocomplete="off" spellcheck="false" /></label>
+            <div class="row"><label><input type="checkbox" data-f="roleChair" /> Chair</label><label><input type="checkbox" data-f="roleClerk" /> Clerk</label><label><input type="checkbox" data-f="roleStaff" /> Staff</label></div>
+            <label>Until (optional) <input type="date" data-f="roleUntil" /></label><p class="note">Leave all unchecked to remove every role.</p></div>
+          <div class="stack" data-show="2" hidden><label>Member <select data-f="altMember">${members.map((a, i) => `<option value="${a}">${esc(seats[i])}</option>`).join('')}</select></label>
+            <label>Their alternate's account (0x…, empty to remove) <input type="text" data-f="altAccount" autocomplete="off" spellcheck="false" /></label></div>` : ''}
           <p class="note">It is published at once; voting opens after the ${dur(r.noticeMinutes)} notice period${Number(r.residentTier) === 255 ? '' : ', while residents vote on it'}.</p>
           <button class="primary" data-propose="${b}">Publish to the agenda</button><p class="status" role="status"></p></div></details>` : ''}
+        ${rec ? `<details class="propose"><summary>Drafts (${bodyDrafts.length})</summary><div class="stack">
+          ${bodyDrafts.map((d, i) => `<div class="card stack"><p class="eyebrow">Draft ${d.id} · by ${esc(names[d.by.toLowerCase()] || short(d.by))} · ${countdown(d.at)}</p><p><strong>${esc(draftDocs[i].title)}</strong></p>${draftDocs[i].body ? `<p>${esc(draftDocs[i].body)}</p>` : ''}${(mine || chair || clerk) && r.active ? `<button data-sponsor="${b}:${d.id}">Sponsor: put it on the agenda</button>` : ''}<p class="status" role="status"></p></div>`).join('') || '<p class="muted">No drafts.</p>'}
+          ${mine || chair || clerk || staff ? `<label>New draft: title <input type="text" data-f="draftTitle" /></label><label>Text<textarea data-f="draftBody" rows="3"></textarea></label><button data-draft="${b}">Submit draft</button>` : ''}
+          <p class="status" role="status"></p></div></details>
+        <details class="propose"><summary>Closed sessions (${bodySessions.length})${bodySessions.some((x) => x.overdue) ? ' <span class="warn">▲ minutes overdue</span>' : ''}</summary><div class="stack">
+          <p class="note">Where the law allows a meeting without the public, it is still on the record: why it was closed, and a sealed fingerprint of its minutes, which must be published unchanged by the date shown.</p>
+          ${bodySessions.map((x) => `<div class="card stack"><p class="eyebrow">Closed session ${x.id} · ${countdown(x.heldAt)} · ${esc(CLOSED_REASONS[Number(x.reason)] || 'Other')}${x.cite ? ` (${esc(x.cite)})` : ''}</p>
+            <p>${Number(x.publishedAt) ? `Minutes published, matching their seal: <a href="#" data-minutes="${x.minutesHash}">read them</a>` : x.overdue ? `<strong class="warn">▲ Minutes overdue</strong> since ${countdown(x.publishBy)}` : `Minutes due ${countdown(x.publishBy)}`}</p>
+            ${!Number(x.publishedAt) && (chair || clerk) ? `<label>The sealed minutes, exactly <textarea data-f="pubText" rows="3"></textarea></label><button data-publish="${x.id}:${b}">Publish the minutes</button>` : ''}
+            <div class="minutes-text"></div><p class="status" role="status"></p></div>`).join('') || '<p class="muted">None recorded.</p>'}
+          ${chair || clerk ? `<h4>Record a closed session</h4><label>Why it was closed <select data-f="csReason">${CLOSED_REASONS.slice(1).map((w, i) => `<option value="${i + 1}">${w}</option>`).join('')}</select></label>
+            <label>The law or rule that allows it <input type="text" data-f="csCite" maxlength="120" placeholder="e.g. Open Meetings Act, personnel exception" /></label>
+            <label>Minutes (kept private until published; only their fingerprint goes on the record now) <textarea data-f="csMinutes" rows="4"></textarea></label>
+            <label>Publish them by <input type="date" data-f="csBy" /></label>
+            <button data-closed="${b}">Record and seal</button>` : ''}
+          <p class="status" role="status"></p></div></details>` : ''}
         <h3>Agenda and decisions</h3>${items.join('') || '<p class="muted">Nothing on the agenda.</p>'}
       </section>`);
     }
@@ -234,14 +324,23 @@ export function wireBodies(ctx) {
   }
 
   /** Buttons for whoever may act on this motion now. */
-  function actions(id, x, now, account, members, seats, others = []) {
+  function actions(id, x, now, account, members, seats, others = [], my = {}) {
     if (!account) return '';
     const { m, st, r, who, choice, overrideChoice } = x;
     const voted = new Map(who.map((a, i) => [a.toLowerCase(), [Number(choice[i]), Number(overrideChoice[i])]]));
     const isMember = members.some((a) => a.toLowerCase() === account);
-    const isClerk = r.clerk.toLowerCase() === account;
+    const isClerk = !!my.clerk;
     const out = [];
     const reasonBox = '<input type="text" data-f="reason" maxlength="128" placeholder="Reason (public)" />';
+    if (st === 1 && (m.proposer.toLowerCase() === account || my.chair)) out.push(`<button data-withdraw="${id}">Withdraw from the agenda</button>`);
+    if ((st === 1 || (st === 2 && Number(m.closesAt) > now)) && isMember && !voted.get(account)?.[0]) out.push(`<details><summary>Recuse myself</summary><div class="stack"><p class="note">Step aside on this item, for example because of a conflict of interest. Your reason is public, and you no longer count toward quorum on it.</p><input type="text" data-f="recuseWhy" maxlength="128" placeholder="Reason (public)" /><button data-recuse="${id}">Recuse</button></div></details>`);
+    if (st === 2 && Number(m.closesAt) > now) {
+      for (const a of my.forMe || []) {
+        if (voted.get(a.toLowerCase())?.[0]) continue;
+        const seat = seats[members.indexOf(a)];
+        out.push(`<p class="note">You are the alternate for <strong>${esc(seat)}</strong>.</p><div class="row"><button data-votefor="${id}:${a}:1">Yes for ${esc(seat)}</button><button data-votefor="${id}:${a}:2">No for ${esc(seat)}</button><button data-votefor="${id}:${a}:3">Abstain for ${esc(seat)}</button></div>`);
+      }
+    }
     if (st === 2 && Number(m.closesAt) > now) {
       if (isMember && !voted.get(account)?.[0]) out.push(`<div class="row">${reasonBox}</div><div class="row"><button data-vote="${id}:1">Vote Yes</button><button data-vote="${id}:2">Vote No</button><button data-vote="${id}:3">Abstain</button></div>`);
       if (isClerk) {
@@ -249,7 +348,7 @@ export function wireBodies(ctx) {
         if (open.length) out.push(`<details><summary>Clerk: record a vote taken in the room</summary><div class="stack"><select data-f="member">${open.map(([a, s]) => `<option value="${a}">${esc(s)}</option>`).join('')}</select><select data-f="choice"><option value="1">Yes</option><option value="2">No</option><option value="3">Abstain</option></select>${reasonBox}<button data-record="${id}">Record vote</button></div></details>`);
       }
     }
-    const allVoted = Number(x.counts[0]) + Number(x.counts[1]) + Number(x.counts[2]) >= Number(m.electorate);
+    const allVoted = who.length >= Number(m.electorate); // votes and recusals
     if (st === 2 && (Number(m.closesAt) <= now || allVoted)) out.push(`<button class="primary" data-count="${id}">Count the votes</button>`);
     if (st === 3 && Number(m.executiveBy) > now && r.executive.toLowerCase() === account) out.push(`<label>Your public message <textarea data-f="exec" rows="2"></textarea></label><div class="row"><button class="primary" data-act="${id}:1">Sign it</button><button data-act="${id}:0">Veto it</button></div>`);
     if (st === 7 && Number(m.overrideBy) > now) {
@@ -263,17 +362,122 @@ export function wireBodies(ctx) {
   }
 
   function wire(box) {
-    const card = (el) => el.closest('article, .propose');
+    const card = (el) => el.closest('article, .card.stack, .propose');
     const field = (el, f) => card(el).querySelector(`[data-f="${f}"]`)?.value?.trim() || '';
-    const st = (el) => card(el).querySelector('.status');
+    const st = (el) => {
+      const c = card(el);
+      return c.querySelector(':scope > .status, :scope > .stack > .status') || c.querySelector('.status');
+    };
     const after = async (ok) => ok && render();
+    for (const sel of box.querySelectorAll('[data-f="action"]')) sel.onchange = () => {
+      for (const d of card(sel).querySelectorAll('[data-show]')) d.hidden = d.dataset.show !== sel.value;
+    };
+    const checked = (el, f) => !!card(el).querySelector(`[data-f="${f}"]`)?.checked;
+    const recordsSend = async (el, label, fn) => {
+      status(el, `${label}: confirm…`);
+      try {
+        const k = new ethers.Contract(state.config.bodyRecordsAddress, RECORDS_ABI, ctx.activeSigner());
+        await (await fn(k)).wait();
+        status(el, `${label}: done.`, 'ok');
+        return true;
+      } catch (e) {
+        let name = e.revert?.name;
+        try {
+          name ||= RECORD_ERRORS.parseError(e.data)?.name;
+        } catch {
+          /* not ours */
+        }
+        status(el, `${label} failed: ${ERRORS[name] || name || e.shortMessage || e.message}`, 'error');
+        return false;
+      }
+    };
     for (const b of box.querySelectorAll('[data-propose]')) b.onclick = async () => {
       const el = st(b);
       const title = field(b, 'title');
       if (!title) return status(el, 'Give the item a title.', 'error');
+      const kind = Number(field(b, 'action') || 0);
+      let action = null;
+      if (kind === 1) {
+        const who = field(b, 'roleAccount');
+        if (!ethers.isAddress(who)) return status(el, 'Enter the account that gets (or loses) the roles.', 'error');
+        const until = field(b, 'roleUntil') ? Math.floor(Date.parse(field(b, 'roleUntil')) / 1000) : 0;
+        action = { kind, account: ethers.getAddress(who), alternate: ethers.ZeroAddress, roles: (checked(b, 'roleChair') ? 1 : 0) | (checked(b, 'roleClerk') ? 2 : 0) | (checked(b, 'roleStaff') ? 4 : 0), until };
+      } else if (kind === 2) {
+        const alt = field(b, 'altAccount');
+        if (alt && !ethers.isAddress(alt)) return status(el, 'Enter the alternate\'s account (0x…), or leave it empty to remove.', 'error');
+        action = { kind, account: field(b, 'altMember'), alternate: alt ? ethers.getAddress(alt) : ethers.ZeroAddress, roles: 0, until: 0 };
+      }
       status(el, 'Publishing the full text…');
       const ref = await postDoc(state.config, ctx.activeSigner(), { title, body: field(b, 'body'), category: field(b, 'cat'), options: ['Yes', 'No'] }).catch((e) => status(el, e.message, 'error'));
-      if (ref) after(await send(el, 'Put on the agenda', (k) => k.propose(Number(b.dataset.propose), ref, ethers.id(field(b, 'cat') || 'general'))));
+      const cat = ethers.id(field(b, 'cat') || 'general');
+      if (ref) after(await send(el, 'Put on the agenda', (k) => (action ? k.proposeAction(Number(b.dataset.propose), ref, cat, action) : k.propose(Number(b.dataset.propose), ref, cat))));
+    };
+    for (const b of box.querySelectorAll('[data-withdraw]')) b.onclick = async () => after(await send(st(b), 'Withdraw', (k) => k.withdraw(Number(b.dataset.withdraw))));
+    for (const b of box.querySelectorAll('[data-recuse]')) b.onclick = async () => {
+      if (!field(b, 'recuseWhy')) return status(st(b), 'Give your reason: it is public.', 'error');
+      after(await send(st(b), 'Recuse', (k) => k.recuse(Number(b.dataset.recuse), field(b, 'recuseWhy'))));
+    };
+    for (const b of box.querySelectorAll('[data-votefor]')) b.onclick = async () => {
+      const [id, member, c] = b.dataset.votefor.split(':');
+      after(await send(st(b), `Vote ${CHOICE[Number(c)]} as alternate`, (k) => k.castVoteFor(Number(id), member, Number(c), field(b, 'reason'))));
+    };
+    for (const b of box.querySelectorAll('[data-draft]')) b.onclick = async () => {
+      const el = st(b);
+      if (!field(b, 'draftTitle')) return status(el, 'Give the draft a title.', 'error');
+      status(el, 'Publishing the draft…');
+      const ref = await postDoc(state.config, ctx.activeSigner(), { title: field(b, 'draftTitle'), body: field(b, 'draftBody'), options: ['Yes', 'No'], draft: true }).catch((e) => status(el, e.message, 'error'));
+      if (ref) after(await recordsSend(el, 'Submit draft', (k) => k.submitDraft(Number(b.dataset.draft), ref)));
+    };
+    for (const b of box.querySelectorAll('[data-sponsor]')) b.onclick = async () => {
+      const [bodyId, draftId] = b.dataset.sponsor.split(':').map(Number);
+      const d = await new ethers.Contract(state.config.bodyRecordsAddress, RECORDS_ABI, state.provider).getDraft(draftId);
+      const doc = await readDoc(state.config, state.provider, d.ref);
+      after(await send(st(b), 'Sponsor', (k) => k.propose(bodyId, d.ref, ethers.id(doc.category || 'general'))));
+    };
+    for (const b of box.querySelectorAll('[data-closed]')) b.onclick = async () => {
+      const el = st(b);
+      const bodyId = Number(b.dataset.closed);
+      const text = field(b, 'csMinutes');
+      const by = field(b, 'csBy') ? Math.floor(Date.parse(field(b, 'csBy')) / 1000) : 0;
+      if (!text || !by) return status(el, 'Write the minutes and the date by which they must be published.', 'error');
+      const [r] = await reg().getBody(bodyId);
+      const seal = sealOf(minutesDoc(r.name, text));
+      try {
+        localStorage.setItem(`mandate.minutes.${seal}`, text); // so this device can publish them later, unchanged
+      } catch {
+        /* keep your own copy */
+      }
+      if (await recordsSend(el, 'Record and seal', (k) => k.recordClosedSession(bodyId, Number(field(b, 'csReason')), field(b, 'csCite'), seal, by))) {
+        status(el, 'Recorded. Keep the minutes exactly as written: only that text can be published against the seal (a copy is saved on this device).', 'ok');
+        render();
+      }
+    };
+    for (const b of box.querySelectorAll('[data-publish]')) {
+      const [sid, bodyId] = b.dataset.publish.split(':').map(Number);
+      const area = card(b).querySelector('[data-f="pubText"]');
+      new ethers.Contract(state.config.bodyRecordsAddress, RECORDS_ABI, state.provider).getSession(sid).then(([x]) => {
+        try {
+          const saved = localStorage.getItem(`mandate.minutes.${x.minutesHash}`);
+          if (saved && area && !area.value) area.value = saved;
+        } catch {
+          /* nothing saved */
+        }
+      }).catch(() => {});
+      b.onclick = async () => {
+        const el = st(b);
+        const [x] = await new ethers.Contract(state.config.bodyRecordsAddress, RECORDS_ABI, state.provider).getSession(sid);
+        const [r] = await reg().getBody(bodyId);
+        const doc = minutesDoc(r.name, area.value.trim());
+        if (sealOf(doc) !== x.minutesHash) return status(el, ERRORS.WrongMinutes, 'error');
+        status(el, 'Publishing the minutes…');
+        const ok = await postDoc(state.config, ctx.activeSigner(), doc).catch((e) => status(el, e.message, 'error'));
+        if (ok) after(await recordsSend(el, 'Publish the minutes', (k) => k.publishMinutes(sid, x.minutesHash)));
+      };
+    }
+    for (const a of box.querySelectorAll('[data-minutes]')) a.onclick = async (ev) => {
+      ev.preventDefault();
+      const d = await readDoc(state.config, state.provider, `nb:${a.dataset.minutes}`);
+      a.closest('.card').querySelector('.minutes-text').innerHTML = `<p>${esc(d.body)}</p>`;
     };
     for (const b of box.querySelectorAll('[data-vote]')) b.onclick = async () => {
       const [id, c] = b.dataset.vote.split(':').map(Number);
@@ -324,6 +528,8 @@ export function wireBodies(ctx) {
     $('body-residents').value = String(t.residentTier);
     $('body-dissent').checked = t.explainDissent;
     $('body-reasons').checked = t.reasonsRequired;
+    $('body-alternates').checked = !!t.allowAlternates;
+    $('body-selfgov').checked = t.selfGoverned !== false;
   }
   function read() {
     const addr = (id) => {
@@ -339,7 +545,7 @@ export function wireBodies(ctx) {
       noticeMinutes: Math.round(Number($('body-notice').value) * 60), voteMinutes: Math.round(Number($('body-vote').value) * 60),
       executiveMinutes: executive === ethers.ZeroAddress ? 0 : Math.round(Number($('body-exec-days').value) * 1440), executive, silenceApproves: $('body-silence').checked,
       residentTier: Number($('body-residents').value), explainDissent: $('body-dissent').checked && $('body-residents').value !== '255', reasonsRequired: $('body-reasons').checked,
-      clerk: addr('body-clerk'), active: $('body-active').checked,
+      clerk: addr('body-clerk'), active: $('body-active').checked, allowAlternates: $('body-alternates').checked, selfGoverned: $('body-selfgov').checked,
     };
   }
 
@@ -355,6 +561,7 @@ export function wireBodies(ctx) {
     const keep = $('body-edit').value;
     $('body-edit').innerHTML = opts.join('');
     $('body-seat-body').innerHTML = opts.slice(1).join('') || '<option value="">No bodies yet</option>';
+    $('body-role-body').innerHTML = $('body-seat-body').innerHTML;
     if (keep) $('body-edit').value = keep;
   }
 
@@ -460,7 +667,23 @@ export function wireBodies(ctx) {
       if (!ethers.isAddress(who)) return status(el, 'Enter the member\'s account address (0x…).', 'error');
       if (!$('body-seat-name').value.trim()) return status(el, 'Name the seat (for example "District 3" or "At-large").', 'error');
       const remove = $('body-seat-remove').checked;
-      await send(el, remove ? 'Remove from seat' : 'Seat member', (k) => (remove ? k.unseat(Number($('body-seat-body').value), ethers.getAddress(who)) : k.seat(Number($('body-seat-body').value), ethers.getAddress(who), $('body-seat-name').value.trim())));
+      const until = $('body-seat-until').value ? Math.floor(Date.parse($('body-seat-until').value) / 1000) : 0;
+      await send(el, remove ? 'Remove from seat' : 'Seat member', (k) => (remove ? k.unseat(Number($('body-seat-body').value), ethers.getAddress(who)) : k.seat(Number($('body-seat-body').value), ethers.getAddress(who), $('body-seat-name').value.trim(), until)));
+    };
+    $('btn-body-role').onclick = async () => {
+      const el = $('body-role-status');
+      const who = $('body-role-address').value.trim();
+      if (!ethers.isAddress(who)) return status(el, 'Enter their account address (0x…).', 'error');
+      const roles = ($('body-role-chair').checked ? 1 : 0) | ($('body-role-clerk').checked ? 2 : 0) | ($('body-role-staff').checked ? 4 : 0);
+      const until = $('body-role-until').value ? Math.floor(Date.parse($('body-role-until').value) / 1000) : 0;
+      await send(el, roles ? 'Give roles' : 'Remove roles', (k) => k.setRoles(Number($('body-role-body').value), ethers.getAddress(who), roles, until));
+    };
+    $('btn-body-alternate').onclick = async () => {
+      const el = $('body-role-status');
+      const member = $('body-alt-member').value.trim();
+      const alt = $('body-alt-address').value.trim();
+      if (!ethers.isAddress(member) || (alt && !ethers.isAddress(alt))) return status(el, 'Enter the member\'s account, and their alternate\'s (or leave it empty to remove).', 'error');
+      await send(el, 'Name alternate', (k) => k.setAlternate(Number($('body-role-body').value), ethers.getAddress(member), alt ? ethers.getAddress(alt) : ethers.ZeroAddress));
     };
   }
 
@@ -497,7 +720,19 @@ export async function bodiesDashboard(cfg, provider, esc) {
       const [w, ag] = sided[a.toLowerCase()] || [0, 0];
       return `<tr><td>${esc(names[a.toLowerCase()] || short(a))}</td><td class="num">${w + ag ? `${w} of ${w + ag}` : '-'}</td></tr>`;
     });
-    out.push(`<div class="card stack"><p class="eyebrow">${esc(r.kind || 'Body')}</p><h3>${esc(r.name)}</h3>
+    let closed = '';
+    if (cfg.bodyRecordsAddress) {
+      const rec = new ethers.Contract(cfg.bodyRecordsAddress, RECORDS_ABI, provider);
+      const sn = Number(await rec.sessionCount().catch(() => 0n));
+      const rows = [];
+      for (let k = sn; k >= Math.max(1, sn - 49); k--) {
+        const [x, overdue] = await rec.getSession(k);
+        if (Number(x.bodyId) !== b) continue;
+        rows.push(`<li>${esc(CLOSED_REASONS[Number(x.reason)] || 'Other')}${x.cite ? ` (${esc(x.cite)})` : ''} · held ${countdown(x.heldAt)} · ${Number(x.publishedAt) ? 'minutes published, matching their seal' : overdue ? '<strong class="warn">▲ minutes overdue</strong>' : `minutes due ${countdown(x.publishBy)}`}</li>`);
+      }
+      if (rows.length) closed = `<details${rows.some((x) => x.includes('overdue')) ? ' open' : ''}><summary>Closed sessions (${rows.length})</summary><ul class="list">${rows.join('')}</ul></details>`;
+    }
+    out.push(`<div class="card stack"><p class="eyebrow">${esc(r.kind || 'Body')}</p><h3>${esc(r.name)}</h3>${closed}
       <details><summary>How it decides</summary>${rulesSummary(r, esc, names)}</details>
       ${score.length ? `<table class="data"><thead><tr><th>Member</th><th class="num">Sided with residents</th></tr></thead><tbody>${score.join('')}</tbody></table>` : ''}
       <ul class="list">${items.join('') || '<li class="muted">No decisions yet.</li>'}</ul></div>`);

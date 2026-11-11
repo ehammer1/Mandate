@@ -115,6 +115,8 @@ function show({ item, left }) {
     close.onclick = () => t.remove();
     t.append(close);
     box.append(t);
+    while (box.children.length > 3) box.firstElementChild.remove(); // only the latest few
+    setTimeout(() => t.remove(), 20_000);
   }
 }
 

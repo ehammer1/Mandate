@@ -219,6 +219,16 @@ export async function collectAttention(cfg, provider, opts = {}) {
     }
   })());
 
+  if (cfg.bodyRecordsAddress) jobs.push((async () => {
+    const r = new ethers.Contract(cfg.bodyRecordsAddress, ['function sessionCount() view returns (uint256)', 'function getSession(uint256) view returns (tuple(uint256 bodyId, uint8 reason, string cite, bytes32 minutesHash, uint64 heldAt, uint64 publishBy, uint64 publishedAt, address by) s, bool overdue)'], provider);
+    for (const id of recent(await r.sessionCount())) {
+      const [x, overdue] = await r.getSession(id);
+      if (Number(x.publishedAt)) continue;
+      add({ kind: 'session', id, title: `Minutes of closed session ${id} (body ${x.bodyId})`, category: 'governance', at: x.publishBy, weight: overdue ? 'overdue' : 'mandate',
+        what: overdue ? `▲ Minutes overdue: were due ${countdown(x.publishBy)}` : `Sealed minutes must be published ${countdown(x.publishBy)}`, href: `#body-${x.bodyId}` });
+    }
+  })());
+
   await Promise.all(jobs.map((j) => j.catch(() => {})));
   return items.sort((a, b) => b.score - a.score || a.at - b.at);
 }
