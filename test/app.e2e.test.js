@@ -1347,6 +1347,23 @@ test('paper ballots: check in on the phone, clerks record and confirm, each pers
   await page.click('#nav-polls');
   await page.waitForSelector(`#poll-${pollId} .tallies-box >> text=checked in on paper and also voted online`, { timeout: 120_000 });
   assert.match(await page.textContent(`#poll-${pollId} .tallies-box`), /Everyone, online and on paper: Yes 1 · No 0/);
+
+  // Check my vote: the phone finds its own ballot in the public count.
+  await page.click(`#poll-${pollId} [data-checkvote]`);
+  await page.waitForSelector(`#poll-${pollId} [data-receipt] >> text=Counted`, { timeout: 60_000 });
+  const mine = await page.textContent(`#poll-${pollId} [data-receipt]`);
+  assert.match(mine, /this ballot \(No\) is in the public count/);
+  assert.match(mine, /paper ballot is the one that counts/);
+  // Anyone can confirm a receipt in Search, without learning who cast it.
+  const receipt = await page.getAttribute(`#poll-${pollId} .receipt-box [data-copy]`, 'data-copy');
+  assert.match(receipt, new RegExp(`^${pollId}:\\d{20,}$`));
+  await page.click('#nav-search');
+  await page.fill('#search-q', receipt);
+  await page.click('#search-form button');
+  await page.waitForSelector('#search-results >> text=Counted', { timeout: 60_000 });
+  await page.fill('#search-q', `${pollId}:123456789012345678901234567890`);
+  await page.click('#search-form button');
+  await page.waitForSelector('#search-results >> text=No ballot with this code', { timeout: 60_000 });
 });
 
 test('search finds items by number, address, text reference and words; FAQ in Help', async () => {

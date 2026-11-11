@@ -28,8 +28,10 @@ import { wireOfficials } from './officials.js';
 import { wireBodies } from './bodies.js';
 import { wireCopy, jumpTo, itemTools } from './copy.js';
 import { wireHelp } from './help.js';
-import { search, resultsHtml } from './search.js';
+import { search, resultsHtml, receiptResult } from './search.js';
 import { pollTallies, wireTallies, checkInCode } from './tallies.js';
+import { receiptHtml, receiptCode } from './receipt.js';
+import { copyBtn } from './copy.js';
 import { attachPicker, attachmentsHtml, wireAttachments, uploadService } from './attach.js';
 import { countdown, startTicker, clockOffset } from './time.js';
 import { trackItems, toggleFollow, wireSettings } from './reminders.js';
@@ -754,7 +756,9 @@ async function refreshPolls() {
         ${!open && !p.finalized ? `<button class="finalize" data-poll="${id}">Record the result</button>` : ''}
         ${open && !voted && eligibleTier ? `<div class="choices">${buttons}</div>` : ''}
         ${open && !voted && !eligibleTier ? `<p class="note">${myTier < 0 ? 'Join first to vote in polls.' : `Only ${esc(who.toLowerCase())} can vote in this poll. ${pollTier === 2 ? 'Verify your ID with the city clerk, a library desk or a mobile ID to get full voting rights.' : 'Verify your ID to vote in it.'}`}</p>` : ''}
-        ${voted ? '<p class="ok">Your vote is recorded. Nobody can see which way you voted.</p>' : ''}
+        ${voted ? `<div class="receipt-box stack" data-id="${id}" data-nullifier="${myNullifier}"><p class="ok">Your vote is recorded. Nobody can see which way you voted.</p>
+          <div class="row"><button type="button" data-checkvote>Check my vote</button> ${copyBtn(receiptCode(id, myNullifier), 'Copy receipt')}</div>
+          <p class="note">The receipt lets anyone confirm this ballot was counted (in Search), without learning who cast it. Anyone you show it to can also see its choice, so keep it to yourself.</p><div data-receipt></div></div>` : ''}
         <p class="status" id="poll-status-${id}" role="status"></p>
         <details><summary>Current count (${total} of ${p.electorate} eligible, quorum ${p.quorum})</summary><ul class="tally">${results}</ul></details>
         <div class="tallies-box" data-id="${id}" data-online="${esc(JSON.stringify(tally.map(String)))}" data-labels="${esc(JSON.stringify(labels))}" data-canvote="${eligibleTier && open && !p.finalized ? 1 : 0}"></div>
@@ -780,6 +784,15 @@ async function refreshPolls() {
     for (const b of list.querySelectorAll('button.choice')) b.onclick = () => castVote(BigInt(b.dataset.poll), Number(b.dataset.option), b);
     for (const box of list.querySelectorAll('.thread-box')) state.feedback.thread(box, box.dataset.kind, Number(box.dataset.id)).catch(() => {});
     wireAttachments(list, state.config);
+    for (const box of list.querySelectorAll('.receipt-box')) {
+      const b = box.querySelector('[data-checkvote]');
+      b.onclick = async () => {
+        const out = box.querySelector('[data-receipt]');
+        out.innerHTML = '<p class="muted">Looking for your ballot in the public count…</p>';
+        const card = box.closest('.card');
+        out.innerHTML = await receiptHtml(state, esc, Number(box.dataset.id), box.dataset.nullifier, JSON.parse(card.querySelector('.tallies-box')?.dataset.labels || '["Yes","No"]')).catch((e) => `<p class="error">${esc(e.message)}</p>`);
+      };
+    }
     for (const box of list.querySelectorAll('.tallies-box')) {
       pollTallies(box, { state, esc, status, relay: relayPost }, Number(box.dataset.id), JSON.parse(box.dataset.labels), JSON.parse(box.dataset.online), box.dataset.canvote === '1').catch(() => {});
     }
@@ -1365,7 +1378,8 @@ async function boot() {
     if (!q.trim()) return (box.innerHTML = '');
     box.innerHTML = '<p class="muted">Searching…</p>';
     try {
-      box.innerHTML = resultsHtml(state.config, await search(state, q), esc);
+      const out = await search(state, q);
+      box.innerHTML = out.receipt ? await receiptResult(state, out, esc) : resultsHtml(state.config, out, esc);
     } catch (e) {
       box.innerHTML = `<p class="error">Search failed: ${esc(e.shortMessage || e.message)}</p>`;
     }

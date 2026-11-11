@@ -43,6 +43,8 @@ Wait until the countdown ends; the section then shows **Run it now** by itself. 
 **What is an nb:0x… reference?**
 The permanent address of a published text (a question, petition or comment) on the notice board. Each item's **Copy text reference** button copies it, and Search finds it.
 
+**How do I check my vote was counted?**
+On a poll you voted in, tap **Check my vote**: your phone finds your own ballot in the public count, using a one-time code only your voter key can recompute. **Copy receipt** gives a code anyone can check in Search to confirm that ballot was counted, without learning who cast it; anyone you show it to can also see its choice, so keep it to yourself.
 **How do I share or find a specific poll, proposal or item?**
 Tap **🔗 Copy link** on it to share a link that opens it directly. To find one, use **Search** with its number ("poll 12", "council 4", "#7"), an address (0x…), a reference (nb:0x…) or words from it.
 

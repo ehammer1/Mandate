@@ -10,6 +10,7 @@ import { readDoc } from './notices.js';
 import { readProposal, describeCall } from './council.js';
 import { BODIES_ABI } from './bodies.js';
 import { HELP } from './help-content.js';
+import { parseReceipt, receiptHtml } from './receipt.js';
 
 const POLL = ['function pollCount() view returns (uint256)', 'function getPoll(uint256) view returns (tuple(uint256 groupId, uint256 snapshotRoot, uint256 electorate, uint64 start, uint64 end, uint32 quorum, uint8 options, uint8 action, bool finalized, bool passed, address proposer, uint256 bond, string questionCID, bytes actionData))'];
 const PETITIONS = ['function petitionCount() view returns (uint256)', 'function getPetition(uint256) view returns (tuple(uint8 tier, uint8 action, uint32 needed, uint32 signatures, uint256 pollId, bytes actionData, string ref, address creator, uint64 createdAt))'];
@@ -114,6 +115,9 @@ const KIND_WORDS = {
 export async function search(state, query) {
   const q = String(query || '').trim();
   if (!q) return { results: [], note: '' };
+  // A ballot receipt ("12:<code>"): was it counted?
+  const receipt = parseReceipt(q);
+  if (receipt) return { results: [], receipt, note: '' };
   const items = await buildIndex(state);
   const cfg = state.config;
   // An address: which contract it is, and everywhere it appears.
@@ -154,6 +158,10 @@ export async function search(state, query) {
 const LABEL = { poll: 'Poll', petition: 'Petition', mandate: 'Mandate', council: 'Council change', prevcouncil: 'Previous council change', motion: 'Agenda item', body: 'Body', official: 'Official', help: 'Help' };
 
 /** The results as HTML: each a link that opens the item. */
+export async function receiptResult(state, out, esc) {
+  return `<div class="card stack"><p class="eyebrow">Ballot receipt · poll ${out.receipt.pollId}</p>${await receiptHtml(state, esc, out.receipt.pollId, out.receipt.nullifier)}<p><a href="#poll-${out.receipt.pollId}" data-open="#poll-${out.receipt.pollId}">Open poll ${out.receipt.pollId}</a></p></div>`;
+}
+
 export function resultsHtml(cfg, out, esc) {
   if (!out.results.length) return `<p class="muted">${esc(out.note)}</p>`;
   const explorer = cfg.explorer && out.address ? `<p><a href="${esc(`${cfg.explorer.replace(/\/+$/, '')}/address/${out.address}`)}" target="_blank" rel="noopener">View this address on the blockchain</a></p>` : '';
