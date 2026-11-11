@@ -150,7 +150,11 @@ const CONTRACT_LABEL = { identity: 'identity registry', vote: 'voting', registry
  */
 function createWatchdog(o) {
   const log = o.log || ((m) => console.log(`${new Date().toISOString()} [watchdog] ${m}`));
-  const span = o.blockSpan || 200;
+  // Blocks per log request: start wide, narrow when the RPC refuses a range, widen again slowly.
+  // (Base Sepolia's public RPC answers at most 200 blocks per request, with HTTP 413 beyond that.)
+  let span = o.blockSpan || 200;
+  const minSpan = 25;
+  const maxSpan = o.blockSpan || 200;
   const contracts = Object.entries(o.addresses).filter(([, a]) => a && ethers.isAddress(a));
   const byAddress = new Map(contracts.map(([k, a]) => [a.toLowerCase(), { key: k, iface: new ethers.Interface([...(ABIS[k] || []), ...ROLE_EVENTS]) }]));
   const registry = o.addresses.registry ? new ethers.Contract(o.addresses.registry, ABIS.registry, o.provider) : null;
@@ -212,18 +216,25 @@ function createWatchdog(o) {
   }
 
   /** Read new events in small block ranges; returns the alerts raised. */
-  async function scanEvents() {
+  async function scanEvents({ maxBlocks = Infinity } = {}) {
     const head = await rpc(() => o.provider.getBlockNumber());
     const raised = [];
-    while (nextBlock <= head) {
-      const to = Math.min(nextBlock + span - 1, head);
+    const stopAt = Math.min(head, nextBlock + maxBlocks - 1); // scheduled runs catch up a slice at a time
+    while (nextBlock <= stopAt) {
+      const to = Math.min(nextBlock + span - 1, stopAt);
       let logs;
       try {
         logs = await rpc(() => o.provider.getLogs({ address: contracts.map(([, a]) => a), fromBlock: nextBlock, toBlock: to }));
       } catch (e) {
+        const text = `${e?.message || ''} ${JSON.stringify(e?.error || e?.info || '')}`;
+        if (span > minSpan && /range|block|limit|too many|exceed|size|large|413|10000/i.test(text)) {
+          span = Math.max(minSpan, Math.floor(span / 4)); // the RPC refused this range: ask for less
+          continue;
+        }
         await raise(raised); // keep what was found before the failure
         throw e;
       }
+      if (span < maxSpan) span = Math.min(maxSpan, span * 2);
       logs.sort((x, y) => x.blockNumber - y.blockNumber || x.index - y.index);
       for (const l of logs) {
         const src = byAddress.get(l.address.toLowerCase());
@@ -298,8 +309,8 @@ function createWatchdog(o) {
     return raised;
   }
 
-  async function scanOnce() {
-    const a = await scanEvents();
+  async function scanOnce(opts) {
+    const a = await scanEvents(opts);
     const b = await periodicChecks();
     return [...a, ...b];
   }
@@ -454,13 +465,14 @@ if (require.main === module) {
       } catch {
         /* first run */
       }
-      // A redeploy changes the contracts: start a fresh history for the new addresses.
+      // Keep the history across upgrades: new contracts are newer than where the scan stands, so it
+      // simply carries on (restarting from the first deployment made every run start over).
       const watched = [cfg.identityAddress, cfg.voteAddress, cfg.registryAddress, cfg.marketAddress].join(',');
-      if (st && st.watched === watched) dog.importState(st);
+      if (st) dog.importState(st);
       let raised = [];
       let scanError = null;
       try {
-        raised = await dog.scanOnce();
+        raised = await dog.scanOnce({ maxBlocks: Number(env('MAX_BLOCKS_PER_RUN') || 300_000) });
       } catch (e) {
         scanError = e; // save progress anyway; the next run continues from here
       }
@@ -472,7 +484,8 @@ if (require.main === module) {
       fs.writeFileSync(stateFile, JSON.stringify(state, (_k, v) => (typeof v === 'bigint' ? v.toString() : v)));
       fs.writeFileSync(path.join(dir, 'alerts.json'), JSON.stringify(dog.alerts.slice(0, 500), (_k, v) => (typeof v === 'bigint' ? v.toString() : v), 1));
       fs.writeFileSync(path.join(dir, 'report.md'), dog.reportMarkdown(report) + '\n');
-      console.log(`[watchdog] scanned to block ${dog.nextBlock - 1}; ${raised.length} new alert(s); report ${needSummary ? 'updated' : 'unchanged'}`);
+      const head = await provider.getBlockNumber().catch(() => dog.nextBlock);
+      console.log(`[watchdog] scanned to block ${dog.nextBlock - 1}${head >= dog.nextBlock ? ` (${head - dog.nextBlock + 1} blocks still to catch up; the next runs continue)` : ''}; ${raised.length} new alert(s); report ${needSummary ? 'updated' : 'unchanged'}`);
       try {
         // Public feeds: news (from the alerts) and a calendar of deadlines.
         const feeds = require('./feeds');

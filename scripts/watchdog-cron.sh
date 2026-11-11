@@ -27,19 +27,22 @@ fi
 for attempt in 1 2 3; do
   rm -rf "$WORK/data"
   git "${auth[@]}" clone -q --depth 5 --branch "$BRANCH" "$URL" "$WORK/data"
-  (cd "$APP_DIR" && STATE_DIR="$WORK/data" node services/watchdog/server.js --once)
+  # Publish whatever was scanned even if the scan stopped early, so the next run continues
+  # from there instead of starting over (then report the failure).
+  scan_status=0
+  (cd "$APP_DIR" && STATE_DIR="$WORK/data" node services/watchdog/server.js --once) || scan_status=$?
   cd "$WORK/data"
   git config user.name "mandate-watchdog"
   git config user.email "watchdog@users.noreply.github.com"
   git add -A
   if git diff --cached --quiet; then
     echo "[watchdog-cron] nothing new"
-    exit 0
+    exit "$scan_status"
   fi
   git commit -q -m "Watchdog scan $(date -u +%Y-%m-%dT%H:%MZ) (Render)"
   if git "${auth[@]}" push -q origin "$BRANCH"; then
     echo "[watchdog-cron] findings published"
-    exit 0
+    exit "$scan_status"
   fi
   # Someone else published first (another run): start again from their history.
   echo "[watchdog-cron] branch moved, retrying ($attempt)"
