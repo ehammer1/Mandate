@@ -1,8 +1,8 @@
 # Mandate audit report
 
-Generated 2026-11-11T05:07:51.000Z · last 24 hours · 27 high, 17 medium, 0 info
+Generated 2026-11-11T06:30:44.000Z · last 24 hours · 32 high, 20 medium, 0 info
 
-27 alert(s) need attention.
+32 alert(s) need attention.
 - 0x433B…476F joined the council
 - 0xb8e5…Cb71 joined the council
 - 0xC782…f834 joined the council
@@ -30,7 +30,12 @@ Generated 2026-11-11T05:07:51.000Z · last 24 hours · 27 high, 17 medium, 0 inf
 - ADMIN role revoked from 0xC782…f834 on officials registry
 - ADMIN role granted to 0xcF1e…9EC6 on government bodies
 - ADMIN role revoked from 0xC782…f834 on government bodies
-17 other event(s) were recorded (see the list).
+- ADMIN role granted to 0xC782…f834 on government bodies
+- ADMIN role granted to 0xcF1e…9EC6 on government bodies
+- ADMIN role revoked from 0xC782…f834 on government bodies
+- Council change #1 proposed by 0xC782…f834: grant PROPOSER to 0x75fc…84cA on voting
+- Council change #2 proposed by 0xC782…f834: revoke PROPOSER from 0xd284…fCD8 on voting (removes power: can run as soon as approved)
+20 other event(s) were recorded (see the list).
 
 ## All alerts
 
@@ -78,5 +83,13 @@ Generated 2026-11-11T05:07:51.000Z · last 24 hours · 27 high, 17 medium, 0 inf
 - **high** ADMIN role granted to 0xcF1e…9EC6 on government bodies ([tx](https://sepolia.basescan.org/tx/0x84a47271eb4dcf4c0f2b4d1c7b776f1643e9016c1118c80e1e7a56fdb979322d))
 - **high** ADMIN role revoked from 0xC782…f834 on government bodies ([tx](https://sepolia.basescan.org/tx/0xb972bb4bbfa47ff65bfb32e19c7089feb9f0c56fdf86a97c5a3716336b407208))
 - **medium** Watchdog GitHub token (Render) expires on 2026-12-10, in 28 days: GitHub (ehammer1) > Settings > Developer settings > Fine-grained tokens > regenerate the watchdog token (only ehammer1/Mandate, Contents read and write), then paste it into GITHUB_TOKEN on Render's mandate-watchdog
+- **high** ADMIN role granted to 0xC782…f834 on government bodies ([tx](https://sepolia.basescan.org/tx/0xbd686bb27ed88cf8177706c915b30cc67382bff3aa698ad40bb6245a0c0a459e))
+- **medium** 0xedcc084d3dcd65a1f7f23c65c46722faca6953d28e43150a467cf43e5c309238 role granted to 0xC782…f834 on government bodies ([tx](https://sepolia.basescan.org/tx/0xbd686bb27ed88cf8177706c915b30cc67382bff3aa698ad40bb6245a0c0a459e))
+- **medium** 0xedcc084d3dcd65a1f7f23c65c46722faca6953d28e43150a467cf43e5c309238 role granted to 0x433B…476F on government bodies ([tx](https://sepolia.basescan.org/tx/0xa0c2df57fd9f772fb67a53efc07f42877ef19be4f0325a50754d8a80de8c0a41))
+- **medium** 0xedcc084d3dcd65a1f7f23c65c46722faca6953d28e43150a467cf43e5c309238 role revoked from 0xC782…f834 on government bodies ([tx](https://sepolia.basescan.org/tx/0xc91114b48a77f34f975a05d165465eb0bc7aeab3b6f7a51d55ada008baa77d74))
+- **high** ADMIN role granted to 0xcF1e…9EC6 on government bodies ([tx](https://sepolia.basescan.org/tx/0x80712390c1fd8d632af163e5632ae0d9c23c6ec9990ade90d7a37708cdff6b4f))
+- **high** ADMIN role revoked from 0xC782…f834 on government bodies ([tx](https://sepolia.basescan.org/tx/0xd8c8b2ce4ede8dcc73bf9677b17f37060b7959260a173e2e169e976a8eb15523))
+- **high** Council change #1 proposed by 0xC782…f834: grant PROPOSER to 0x75fc…84cA on voting ([tx](https://sepolia.basescan.org/tx/0xea4bd4c48824576193811fe2697b70f39225c4a2b81c6987781f308f9eebe935))
+- **high** Council change #2 proposed by 0xC782…f834: revoke PROPOSER from 0xd284…fCD8 on voting (removes power: can run as soon as approved) ([tx](https://sepolia.basescan.org/tx/0x304d161422f79ef6ec0b8d5f9ad787fe87bdbb12909a3c21d56f5171c1cd20da))
 
 Summary written by: fixed rules.
