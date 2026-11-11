@@ -90,6 +90,8 @@ before(async () => {
       budgetAddress: await c.budget.getAddress(),
       feedbackAddress: await c.feedback.getAddress(),
       escrowFactoryAddress: await c.escrows.getAddress(),
+      officialsAddress: await c.officials.getAddress(),
+      bodiesAddress: await c.bodies.getAddress(),
       relayers: ['http://127.0.0.1:1', `http://127.0.0.1:${relayPort}`], // the first is down: tests fail-over
       artifactsBase: '/artifacts',
       chainId: Number((await provider.getNetwork()).chainId),
@@ -1062,6 +1064,84 @@ test('most requested petitions are ranked, and times count down live', async () 
   await dash.waitForFunction((t) => document.querySelector('#requested .countdown').textContent !== t, first, { timeout: 5000 });
   assert.deepEqual(errors, []);
   await dash.close();
+});
+
+test('government bodies: set up from a template, public agenda with notice, roll-call vote, on the dashboard', async () => {
+  await page.click('#nav-account');
+  const auto = ethers.getAddress((await page.textContent('#account-address')).trim());
+  await (await c.bodies.grantRole(await c.bodies.REGISTRAR_ROLE(), auto)).wait();
+  await (await admin.sendTransaction({ to: auto, value: ethers.parseEther('1') })).wait();
+
+  // A registrar sets up a city council from the template, with a shorter notice for the test.
+  await page.click('#nav-polls');
+  await page.waitForSelector('#nav-admin:not([hidden])', { timeout: 60_000 });
+  await page.click('#nav-admin');
+  await page.waitForSelector('#admin-bodies:not([hidden])', { timeout: 60_000 });
+  await page.selectOption('#body-template', 'city');
+  assert.equal(await page.inputValue('#body-seats'), '7');
+  await page.fill('#body-name', 'Example City Council');
+  await page.fill('#body-notice', '0.5');
+  await page.fill('#body-vote', '1');
+  await page.click('#btn-body-save');
+  await page.waitForFunction((q) => /done|failed/.test(document.querySelector(q).textContent), '#body-status', { timeout: 60_000 });
+  assert.match(await page.textContent('#body-status'), /done/);
+  const bodyId = await c.bodies.bodyCount();
+  const [rules] = await c.bodies.getBody(bodyId);
+  assert.deepEqual([rules.name, Number(rules.seats), Number(rules.noticeMinutes), Number(rules.residentTier), rules.explainDissent], ['Example City Council', 7, 30, 2, true]);
+
+  // Seats: this account and the city clerk.
+  await page.waitForSelector(`#body-seat-body option[value="${bodyId}"]`, { state: 'attached' });
+  await page.selectOption('#body-seat-body', String(bodyId));
+  await page.fill('#body-seat-name', 'District 1');
+  await page.fill('#body-seat-address', auto);
+  await page.click('#btn-body-seat');
+  await page.waitForFunction((q) => /done|failed/.test(document.querySelector(q).textContent), '#body-seat-status', { timeout: 60_000 });
+  assert.match(await page.textContent('#body-seat-status'), /done/);
+  await (await c.bodies.seat(bodyId, clerk.address, 'District 2')).wait();
+
+  // A member puts an item on the agenda: published now, voting opens after the notice.
+  await page.click('#nav-bodies');
+  await page.waitForSelector(`#body-${bodyId} details.propose summary`, { timeout: 60_000 });
+  await page.click(`#body-${bodyId} details.propose summary`);
+  await page.fill(`#body-${bodyId} .propose [data-f="title"]`, 'Repave Elm Street in 2027');
+  await page.fill(`#body-${bodyId} .propose [data-f="body"]`, 'Full repaving between 1st and 9th, budget $1.2M.');
+  await page.selectOption(`#body-${bodyId} .propose [data-f="cat"]`, 'roads');
+  await page.click(`#body-${bodyId} [data-propose]`);
+  const motionId = await (async () => {
+    for (let i = 0; i < 120; i++) {
+      const n = await c.bodies.motionCount();
+      if (n > 0n) return n;
+      await new Promise((r) => setTimeout(r, 500));
+    }
+    throw new Error('no motion');
+  })();
+  await page.waitForSelector(`#motion-${motionId} >> text=On the agenda`, { timeout: 60_000 });
+  assert.match(await page.textContent(`#motion-${motionId}`), /voting opens in/);
+  assert.match(await page.textContent(`#motion-${motionId}`), /Roads and transport/);
+
+  // After the notice period: this member votes from the app, the other member from their account.
+  await provider.send('evm_increaseTime', [31 * 60]);
+  await provider.send('evm_mine', []);
+  await page.click('#nav-bodies');
+  await page.waitForSelector(`#motion-${motionId} [data-vote="${motionId}:1"]`, { timeout: 60_000 });
+  await page.click(`#motion-${motionId} [data-vote="${motionId}:1"]`);
+  await page.waitForSelector(`#motion-${motionId} >> text=1 Yes`, { timeout: 60_000 });
+  await (await c.bodies.connect(clerk).castVote(motionId, 1, 'Long overdue')).wait();
+  await page.click('#nav-bodies');
+  await page.waitForSelector(`#motion-${motionId} [data-count]`, { timeout: 60_000 });
+  await page.click(`#motion-${motionId} [data-count]`);
+  await page.waitForSelector(`#motion-${motionId} >> text=Adopted`, { timeout: 60_000 });
+  assert.match(await page.textContent(`#motion-${motionId}`), /Long overdue/);
+
+  const dash = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  const errors = [];
+  dash.on('pageerror', (e) => errors.push(e.message));
+  await dash.goto(`${appUrl}dashboard.html`);
+  await dash.waitForSelector('#bodies >> text=Example City Council', { timeout: 60_000 });
+  assert.match(await dash.textContent('#bodies'), /Repave Elm Street in 2027[\s\S]*2 Yes · 0 No/);
+  assert.deepEqual(errors, []);
+  await dash.close();
+  await shot('17-bodies');
 });
 
 test('explained in plain language: the published AI summary, labelled, and answers from the text', async () => {

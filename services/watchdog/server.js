@@ -95,6 +95,26 @@ const ABIS = {
     'event MemberRecalled(address indexed member)',
     'event PowerRemovedByVote(address indexed target, bytes data)',
     'event ElectorateChanged(address electorate)',
+    'event EmergencyProposed(uint256 indexed id, address undoTarget, bytes undoData)',
+    'event EmergencyRatificationOpened(uint256 indexed id, uint256 indexed pollId, uint64 ratifyBy)',
+    'event EmergencyLapsed(uint256 indexed id)',
+  ],
+  officials: [
+    'event OfficialRegistered(uint256 indexed id, address indexed account, string name, string office, string jurisdiction, uint64 termEnd)',
+    'event OfficialRemoved(uint256 indexed id, address indexed account)',
+    'event DelegateRegistered(uint256 indexed id, address indexed account, string name)',
+    'event PositionRecorded(uint256 indexed pollId, uint256 indexed officialId, uint8 position, bool late, string ref)',
+    'event EmergencyDeclared(uint256 indexed measureId, uint256 indexed officialId, uint256 pollId, string ref)',
+  ],
+  bodies: [
+    'event BodyCreated(uint256 indexed bodyId, string name, string kind)',
+    'event RulesChanged(uint256 indexed bodyId, uint32 version)',
+    'event MemberSeated(uint256 indexed bodyId, address indexed account, string seat)',
+    'event MemberUnseated(uint256 indexed bodyId, address indexed account)',
+    'event MotionProposed(uint256 indexed motionId, uint256 indexed bodyId, string ref, uint64 opensAt, uint64 closesAt, uint256 residentPoll)',
+    'event VoteCast(uint256 indexed motionId, address indexed member, uint8 choice, string reason, bool byClerk)',
+    'event MotionDecided(uint256 indexed motionId, uint8 stage, uint32 yes, uint32 no, uint32 abstain)',
+    'event ExecutiveActed(uint256 indexed motionId, bool signed, string ref)',
   ],
   market: [
     'event Decided(uint256 indexed id, uint8 chosen, uint256 twapPass, uint256 twapFail, uint64 vetoEnd)',
@@ -106,7 +126,7 @@ const ROLE_EVENTS = [
   'event RoleGranted(bytes32 indexed role, address indexed account, address indexed sender)',
   'event RoleRevoked(bytes32 indexed role, address indexed account, address indexed sender)',
 ];
-const CONTRACT_LABEL = { identity: 'identity registry', vote: 'voting', registry: 'mandate registry', market: 'decision markets', council: 'council', charter: 'charter (voting rules)', budget: 'civic budget', feedback: 'petitions and comments' };
+const CONTRACT_LABEL = { identity: 'identity registry', vote: 'voting', registry: 'mandate registry', market: 'decision markets', council: 'council', charter: 'charter (voting rules)', budget: 'civic budget', feedback: 'petitions and comments', officials: 'officials registry', bodies: 'government bodies' };
 
 /**
  * @param {object} o
@@ -399,7 +419,7 @@ if (require.main === module) {
     const startBlock = env('START_BLOCK') ? Number(env('START_BLOCK')) : cfg.startBlock ? Number(cfg.startBlock) : Math.max(0, head - Number(env('LOOKBACK_BLOCKS') || 43_200));
     const dog = createWatchdog({
       provider,
-      addresses: { identity: cfg.identityAddress, vote: cfg.voteAddress, registry: cfg.registryAddress, market: cfg.marketAddress, council: cfg.councilAddress, charter: cfg.charterAddress, budget: cfg.budgetAddress, feedback: cfg.feedbackAddress },
+      addresses: { identity: cfg.identityAddress, vote: cfg.voteAddress, registry: cfg.registryAddress, market: cfg.marketAddress, council: cfg.councilAddress, charter: cfg.charterAddress, budget: cfg.budgetAddress, feedback: cfg.feedbackAddress, officials: cfg.officialsAddress, bodies: cfg.bodiesAddress },
       startBlock,
       blockSpan: Number(env('LOG_BLOCK_SPAN') || 200),
       enrolPerHour: Number(env('ENROL_PER_HOUR') || 50),

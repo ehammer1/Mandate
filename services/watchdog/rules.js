@@ -154,6 +154,40 @@ function rulesForEvent(ev, ctx) {
       return [{ ...base, rule: 'role-change', severity: 'high', title: `Public vote removed power: ${describeCall(a.target, a.data, ctx.contractNames)}`, facts: { target: a.target, data: a.data } }];
     case 'ElectorateChanged':
       return [{ ...base, rule: 'council-settings', severity: 'high', title: `The council changed which voting contract can elect and recall it, to ${short(a.electorate)}. Check this was publicly agreed.`, facts: { electorate: a.electorate } }];
+    case 'EmergencyProposed':
+      return [{ ...base, rule: 'emergency', severity: 'high', title: `Council change #${a.id} proposed as an EMERGENCY: it runs as soon as approved, then residents must ratify it or it is undone`, facts: { proposal: String(a.id) } }];
+    case 'EmergencyRatificationOpened':
+      return [{ ...base, rule: 'emergency', severity: 'high', title: `Emergency council change #${a.id} is in effect. Residents ratify it in poll ${a.pollId} by ${new Date(Number(a.ratifyBy) * 1000).toISOString().slice(0, 16).replace('T', ' ')} UTC, or anyone can undo it`, facts: { proposal: String(a.id), poll: String(a.pollId) } }];
+    case 'EmergencyLapsed':
+      return [{ ...base, rule: 'emergency', severity: 'high', title: `Emergency council change #${a.id} was undone: residents did not ratify it`, facts: { proposal: String(a.id) } }];
+    case 'OfficialRegistered':
+      return [{ ...base, rule: 'officials', severity: 'medium', title: `Official registered: ${a.name}, ${a.office}${a.jurisdiction ? ` (${a.jurisdiction})` : ''}, account ${short(a.account)}`, facts: { official: String(a.id), account: a.account } }];
+    case 'OfficialRemoved':
+      return [{ ...base, rule: 'officials', severity: 'medium', title: `Official ${a.id} (${short(a.account)}) removed from the registry`, facts: { official: String(a.id) } }];
+    case 'DelegateRegistered':
+      return [{ ...base, rule: 'officials', severity: 'info', title: `New public delegate: ${a.name} (${short(a.account)})`, facts: { delegate: String(a.id) } }];
+    case 'PositionRecorded':
+      return a.late ? [{ ...base, rule: 'officials', severity: 'info', title: `Official ${a.officialId} recorded a position on poll ${a.pollId} after it closed (marked late)`, facts: { poll: String(a.pollId) } }] : [];
+    case 'EmergencyDeclared':
+      return [{ ...base, rule: 'emergency', severity: 'high', title: `Emergency measure ${a.measureId} declared by official ${a.officialId}: it lapses unless residents ratify it in poll ${a.pollId}`, facts: { measure: String(a.measureId), poll: String(a.pollId) } }];
+    case 'BodyCreated':
+      return [{ ...base, rule: 'bodies', severity: 'medium', title: `New decision-making body set up: ${a.name}${a.kind ? ` (${a.kind})` : ''}`, facts: { body: String(a.bodyId) } }];
+    case 'RulesChanged':
+      return Number(a.version) === 0 ? [] : [{ ...base, rule: 'bodies', severity: 'high', title: `Body ${a.bodyId} changed how it decides (rules version ${a.version}). Items already on its agenda keep the old rules; check the change was publicly agreed`, facts: { body: String(a.bodyId), version: Number(a.version) } }];
+    case 'MemberSeated':
+      return [{ ...base, rule: 'bodies', severity: 'medium', title: `${short(a.account)} seated on body ${a.bodyId} (${a.seat})`, facts: { body: String(a.bodyId), account: a.account } }];
+    case 'MemberUnseated':
+      return [{ ...base, rule: 'bodies', severity: 'medium', title: `${short(a.account)} removed from body ${a.bodyId}`, facts: { body: String(a.bodyId), account: a.account } }];
+    case 'MotionProposed':
+      return [{ ...base, rule: 'agenda', severity: 'info', title: `Body ${a.bodyId} put motion ${a.motionId} on its agenda: voting ${new Date(Number(a.opensAt) * 1000).toISOString().slice(0, 16).replace('T', ' ')} to ${new Date(Number(a.closesAt) * 1000).toISOString().slice(0, 16).replace('T', ' ')} UTC${Number(a.residentPoll) ? `; residents vote first in poll ${a.residentPoll}` : ''}`, facts: { motion: String(a.motionId), body: String(a.bodyId), ref: a.ref } }];
+    case 'VoteCast':
+      return a.byClerk ? [{ ...base, rule: 'agenda', severity: 'info', title: `Clerk recorded ${short(a.member)}'s vote on motion ${a.motionId} (${['', 'Yes', 'No', 'Abstain'][Number(a.choice)]}) taken in the room`, facts: { motion: String(a.motionId), member: a.member } }] : [];
+    case 'MotionDecided': {
+      const words = ['', '', '', 'passed: awaiting the executive', 'adopted', 'did not pass', 'vetoed', 'override vote', 'lapsed (the executive did not act)'];
+      return [{ ...base, rule: 'agenda', severity: Number(a.stage) === 6 || Number(a.stage) === 8 ? 'medium' : 'info', title: `Motion ${a.motionId} ${words[Number(a.stage)] || 'decided'} (${a.yes} Yes, ${a.no} No, ${a.abstain} Abstain)`, facts: { motion: String(a.motionId), stage: Number(a.stage) } }];
+    }
+    case 'ExecutiveActed':
+      return [{ ...base, rule: 'agenda', severity: a.signed ? 'info' : 'medium', title: `Motion ${a.motionId} ${a.signed ? 'signed' : 'VETOED'} by the executive`, facts: { motion: String(a.motionId) } }];
     case 'PetitionCreated':
       return [{ ...base, rule: 'petition', severity: 'info', title: `Petition ${a.id} started (action ${a.action}): ${a.needed} signatures open its vote`, facts: { petition: String(a.id) } }];
     case 'PetitionSucceeded':

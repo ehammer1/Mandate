@@ -23,6 +23,7 @@ async function renderAttention() {
 import { loadRules } from './rules.js';
 import { informedHtml } from './informed.js';
 import { officialsDashboard } from './officials.js';
+import { bodiesDashboard } from './bodies.js';
 import { countdown, startTicker } from './time.js';
 
 async function mostRequested() {
@@ -320,6 +321,7 @@ async function refresh() {
     const [all, verified, full] = [await activeCount(identity, 0), await activeCount(identity, 1), await activeCount(identity, 2)];
     const [polls, pending, mandates] = [await renderPolls(vote, groupIds, now), await renderCouncil(), await renderMandates()];
     await renderBudget();
+    $('bodies').innerHTML = await bodiesDashboard(state.cfg, state.provider, esc).catch((e) => `<div class="card"><p class="muted">Could not load: ${esc(e.message)}</p></div>`);
     await renderAttention().catch((e) => ($('attention').innerHTML = `<p class="muted">Could not load: ${esc(e.message)}</p>`));
     $('requested').innerHTML = await mostRequested().catch((e) => `<p class="muted">Could not load petitions: ${esc(e.message)}</p>`);
     $('officials').innerHTML = await officialsDashboard(state.cfg, state.provider, esc).catch((e) => `<p class="muted">Could not load officials: ${esc(e.message)}</p>`);

@@ -9,6 +9,7 @@
 import { ethers } from 'ethers';
 import { readDoc } from './notices.js';
 import { countdown } from './time.js';
+import { BODIES_ABI as BODIES } from './bodies.js';
 
 export const CATEGORIES = [
   ['general', 'General'],
@@ -58,11 +59,7 @@ const BUDGET = [
   'function roundCount() view returns (uint256)',
   'function getRound(uint256) view returns (tuple(uint256 groupId, uint256 snapshotRoot, uint256 electorate, uint64 start, uint64 end, uint32 credits, uint256 budget, string ref, bool finalized, uint256 participants, uint256 spent, uint256 fundedMask))',
 ];
-const BODIES = [
-  'function motionCount() view returns (uint256)',
-  'function getMotion(uint256) view returns (tuple(uint256 bodyId, string ref, bytes32 category, uint64 noticeAt, uint64 opensAt, uint64 closesAt, uint256 residentPoll, uint8 stage, uint64 executiveBy) m, uint32[3] counts)',
-  'function getBody(uint256) view returns (tuple(string name, string kind, uint32 seats, uint16 quorumPct, uint16 passPct, uint16 overridePct, uint32 noticeMinutes, uint32 voteMinutes, uint32 executiveMinutes, address executive, bool residentPollRequired, bool explainDissent, bool active) b)',
-];
+
 
 /** How much a kind of decision can change (higher is more important). */
 const WEIGHT = {
@@ -207,12 +204,14 @@ export async function collectAttention(cfg, provider, opts = {}) {
     for (const id of recent(await g.motionCount())) {
       const [m] = await g.getMotion(id);
       const stage = Number(m.stage);
-      if (stage > 3) continue; // decided
-      const b = await g.getBody(m.bodyId);
+      if (![1, 2, 3, 7].includes(stage)) continue; // decided
+      const [b] = await g.getBody(m.bodyId);
       const d = await doc(m.ref);
       const [at, what, weight] = stage === 3
         ? [m.executiveBy, `${escape(b.name)} passed it · awaiting signature or veto ${countdown(m.executiveBy)}`, 'executive']
-        : Number(m.opensAt) > now
+        : stage === 7
+          ? [m.overrideBy, `${escape(b.name)} · vetoed · override vote closes ${countdown(m.overrideBy)}`, 'executive']
+          : Number(m.opensAt) > now
           ? [m.opensAt, `${escape(b.name)} · on the agenda · voting opens ${countdown(m.opensAt)}`, 'motion']
           : [m.closesAt, `${escape(b.name)} · voting now · closes ${countdown(m.closesAt)}`, 'motion'];
       add({ kind: 'motion', id, title: d.title, category: categoryFromHash(m.category), at, weight, what, href: `#motion-${id}` });

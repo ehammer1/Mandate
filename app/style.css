@@ -85,3 +85,7 @@ ul.rules { list-style: none; padding: 0; margin: 0; } ul.rules li { padding: 10p
 .attention li.urgent .lvl { color: var(--error); }
 .attention li.soon .lvl { color: var(--warn); }
 .attention .meta { font-size: 13px; color: var(--muted); margin: 2px 0 0; }
+.rules-summary { margin: 4px 0; padding-left: 20px; }
+table.data tr.against td { background: color-mix(in srgb, var(--warn) 12%, transparent); }
+table.data { width: 100%; border-collapse: collapse; font-size: 14px; }
+table.data th, table.data td { text-align: left; padding: 6px 4px; border-top: 1px solid var(--line); vertical-align: top; }

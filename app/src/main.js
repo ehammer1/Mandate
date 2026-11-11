@@ -25,6 +25,7 @@ import { wireFeedback } from './feedback.js';
 import { renderExplainer } from './explain.js';
 import { informedHtml } from './informed.js';
 import { wireOfficials } from './officials.js';
+import { wireBodies } from './bodies.js';
 import { countdown, startTicker } from './time.js';
 import { collectAttention, attentionHtml, categoryFilterHtml, categoryChip, categoryOf } from './priority.js';
 
@@ -938,7 +939,10 @@ async function myRoles(address) {
     const o = new ethers.Contract(state.config.officialsAddress, ['function idOf(address) view returns (uint256)', 'function hasRole(bytes32, address) view returns (bool)'], state.provider);
     official = (await o.idOf(address).catch(() => 0n)) > 0n || (await o.hasRole(ethers.id('REGISTRAR_ROLE'), address).catch(() => false));
   }
-  return { admin: voteAdmin || idAdmin, voteAdmin, idAdmin, proposer, issuer, councilMember, budgetProposer, official };
+  const bodies = state.config.bodiesAddress
+    ? await new ethers.Contract(state.config.bodiesAddress, ['function hasRole(bytes32, address) view returns (bool)'], state.provider).hasRole(ethers.id('REGISTRAR_ROLE'), address).catch(() => false)
+    : false;
+  return { admin: voteAdmin || idAdmin, voteAdmin, idAdmin, proposer, issuer, councilMember, budgetProposer, official: official || bodies };
 }
 
 async function refreshAdminNav() {
@@ -976,9 +980,10 @@ async function refreshAdmin() {
     const credits = new ethers.Contract(state.config.creditsAddress, ['function owner() view returns (address)'], state.provider);
     $('admin-credits').hidden = (await credits.owner()).toLowerCase() !== address.toLowerCase();
     await state.council.render();
-    await state.officials.admin().catch(() => {});
     if (state.config.previousCouncilAddress) await state.prevCouncil.render();
   }
+  await state.officials.admin().catch(() => {});
+  await state.bodies.admin().catch(() => {});
 }
 
 async function sendAdminTx(statusEl, label, build) {
@@ -1197,6 +1202,11 @@ async function boot() {
     }
   };
   startTicker(state.provider);
+  state.bodies = wireBodies({ state, $, status, esc, activeSigner, activeAddress });
+  $('nav-bodies').onclick = async () => {
+    show('screen-bodies');
+    await state.bodies.render().catch((e) => ($('bodies-list').innerHTML = `<p class="error">Could not load: ${esc(e.shortMessage || e.message)}</p>`));
+  };
   state.officials = wireOfficials({ state, $, status, esc, activeSigner, activeAddress, sendTx: (el, label, fn) => sendAdminTx(el, label, () => fn()) });
   state.feedback = wireFeedback({ state, $, status, esc, show, nullifierFor, myTier: async () => {
     const m = await state.registry.members(state.identity.commitment);

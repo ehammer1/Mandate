@@ -117,6 +117,10 @@ async function deployAll(signer, opts = {}) {
   await send(vote.setDelegates(await contracts.officials.getAddress()));
   await send(vote.grantRole(await vote.PROPOSER_ROLE(), await contracts.officials.getAddress())); // ratification polls for emergencies
   await send(contracts.officials.grantRole(await contracts.officials.REGISTRAR_ROLE(), opts.registrar || me));
+  // Government bodies and organizations: their own rules, public agendas and roll-call votes.
+  contracts.bodies = await deploy(signer, 'Bodies', {}, me, await vote.getAddress(), await identity.getAddress());
+  await send(vote.grantRole(await vote.PROPOSER_ROLE(), await contracts.bodies.getAddress())); // residents' polls on agenda items
+  if (opts.registrar) await send(contracts.bodies.grantRole(await contracts.bodies.REGISTRAR_ROLE(), opts.registrar));
   // Residents' comments, ratings and petitions; a successful petition opens its poll itself.
   contracts.feedback = await deploy(signer, 'Feedback', {}, await identity.getAddress(), await vote.getAddress(), await charter.getAddress());
   await send(vote.grantRole(await vote.PROPOSER_ROLE(), await contracts.feedback.getAddress()));
@@ -200,6 +204,7 @@ if (require.main === module) {
       budgetAddress: addresses.budget,
       feedbackAddress: addresses.feedback,
       officialsAddress: addresses.officials,
+      bodiesAddress: addresses.bodies,
       escrowFactoryAddress: addresses.escrows,
       relayers: (process.env.RELAYERS || '').split(',').map((s) => s.trim()).filter(Boolean),
       ipfsGateway: process.env.IPFS_GATEWAY || 'https://gateway.pinata.cloud',

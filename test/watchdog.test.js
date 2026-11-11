@@ -218,3 +218,17 @@ test('public feeds: an Atom news feed and a calendar of deadlines', async () => 
   assert.equal(events.length, 1);
   assert.equal(events[0].title, 'Poll 1 closes: Repaint the bridge');
 });
+
+test('watchdog: government bodies, officials and emergencies raise the right alerts', () => {
+  const { rulesForEvent } = require('../services/watchdog/rules');
+  const ctx = { proposals: new Map(), contractNames: {} };
+  const ev = (name, args) => rulesForEvent({ contract: 'x', name, args, tx: '0x1', block: 1, time: 1 }, ctx);
+  assert.equal(ev('RulesChanged', { bodyId: 1n, version: 0n }).length, 0); // the first rules come with BodyCreated
+  assert.equal(ev('RulesChanged', { bodyId: 1n, version: 2n })[0].severity, 'high');
+  assert.match(ev('ExecutiveActed', { motionId: 4n, signed: false, ref: '' })[0].title, /VETOED/);
+  assert.equal(ev('VoteCast', { motionId: 4n, member: '0x' + '1'.repeat(40), choice: 1n, reason: '', byClerk: false }).length, 0);
+  assert.match(ev('VoteCast', { motionId: 4n, member: '0x' + '1'.repeat(40), choice: 2n, reason: '', byClerk: true })[0].title, /Clerk recorded .* \(No\)/);
+  assert.match(ev('MotionDecided', { motionId: 4n, stage: 8n, yes: 3n, no: 1n, abstain: 0n })[0].title, /lapsed/);
+  assert.equal(ev('EmergencyLapsed', { id: 9n })[0].severity, 'high');
+  assert.match(ev('EmergencyDeclared', { measureId: 1n, officialId: 2n, pollId: 7n, ref: '' })[0].title, /lapses unless residents ratify it in poll 7/);
+});

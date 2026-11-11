@@ -20,6 +20,7 @@
         <button id="nav-mandates">Mandates</button>
         <button id="nav-budget">Budget</button>
         <button id="nav-petitions">Petitions</button>
+        <button id="nav-bodies">Government</button>
         <button id="nav-rules">Rules</button>
         <button id="nav-clerk" hidden>Clerk desk</button>
         <button id="nav-admin" hidden>Admin</button>
@@ -182,6 +183,12 @@
     </section>
 
     <!-- Rules -->
+    <section id="screen-bodies" data-screen hidden>
+      <h1>Government and boards</h1>
+      <p>How councils, boards and committees decide, in public. Every item is published before the vote, residents can vote on it first, and every member's vote is on the record with their reasons.</p>
+      <div id="bodies-list" class="stack"></div>
+    </section>
+
     <section id="screen-rules" data-screen hidden>
       <h1>The community's rules</h1>
       <p>How voting works here, decided by the community itself. A rule changes only when a rule-change poll passes; the limits in brackets are fixed and no vote can go beyond them.</p>
@@ -367,6 +374,37 @@
         <div id="council-summary"></div>
         <div class="row"><button id="btn-council-refresh">Refresh</button><span class="status" id="council-status" role="status"></span></div>
         <div id="council-list" class="stack"></div>
+      </div>
+
+      <div class="card stack" id="admin-bodies" hidden>
+        <h3>Government bodies and boards</h3>
+        <p class="note">Each body sets its own rules. Start from a template and change anything; later changes never affect items already on the agenda.</p>
+        <label for="body-edit">Body</label><select id="body-edit"><option value="0">A new body</option></select>
+        <div id="body-template-row" class="stack"><label for="body-template">Start from</label><select id="body-template"></select></div>
+        <label for="body-name">Name</label><input type="text" id="body-name" placeholder="e.g. Example City Council" />
+        <label for="body-kind">Kind</label><input type="text" id="body-kind" placeholder="e.g. city council" />
+        <div class="row"><label>Seats <input type="text" id="body-seats" inputmode="numeric" style="width:80px" /></label>
+          <label>Must take part (%) <input type="text" id="body-quorum" inputmode="numeric" style="width:80px" /></label>
+          <label>Yes needed (%) <input type="text" id="body-pass" inputmode="numeric" style="width:80px" /></label></div>
+        <label class="row"><input type="checkbox" id="body-pass-seats" /> Count the Yes share against all members, not just votes cast</label>
+        <div class="row"><label>Notice before voting (hours) <input type="text" id="body-notice" inputmode="decimal" style="width:90px" /></label>
+          <label>Voting stays open (hours) <input type="text" id="body-vote" inputmode="decimal" style="width:90px" /></label></div>
+        <label for="body-residents">Residents vote on each item first</label>
+        <select id="body-residents"><option value="255">No residents' vote</option><option value="2">Yes: residents with full voting rights</option><option value="1">Yes: ID-checked residents</option><option value="0">Yes: all members</option></select>
+        <label class="row"><input type="checkbox" id="body-dissent" /> Members voting against a clear residents' result must give a reason</label>
+        <label class="row"><input type="checkbox" id="body-reasons" /> Every vote needs a public reason</label>
+        <label for="body-executive">Executive who signs or vetoes (mayor, governor, chair), optional</label><input type="text" id="body-executive" placeholder="0x… or leave empty" autocomplete="off" spellcheck="false" />
+        <div class="row"><label>Days to sign or veto <input type="text" id="body-exec-days" inputmode="decimal" style="width:80px" /></label>
+          <label>Override needs (% of members, 0 = none) <input type="text" id="body-override" inputmode="numeric" style="width:80px" /></label></div>
+        <label class="row"><input type="checkbox" id="body-silence" /> If the executive does nothing in time, it is adopted (unchecked: it is dropped)</label>
+        <label for="body-clerk">Clerk who publishes the agenda and records votes in the room, optional</label><input type="text" id="body-clerk" placeholder="0x… or leave empty" autocomplete="off" spellcheck="false" />
+        <label class="row"><input type="checkbox" id="body-active" checked /> Active</label>
+        <button class="primary" id="btn-body-save">Set up this body</button><p class="status" id="body-status" role="status"></p>
+        <h3>Seats</h3>
+        <div class="row"><select id="body-seat-body" style="width:auto"></select><label>Seat <input type="text" id="body-seat-name" placeholder="e.g. District 3" style="width:150px" /></label></div>
+        <label for="body-seat-address">Member's account address</label><input type="text" id="body-seat-address" autocomplete="off" spellcheck="false" />
+        <label class="row"><input type="checkbox" id="body-seat-remove" /> Remove this member instead</label>
+        <button id="btn-body-seat">Save seat</button><p class="status" id="body-seat-status" role="status"></p>
       </div>
 
       <div class="card stack" id="admin-officials" hidden>
