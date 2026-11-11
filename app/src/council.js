@@ -212,8 +212,8 @@ export function wireCouncil(ctx, { addressKey = 'councilAddress', prefix = 'coun
       const active = st >= 1 && st <= 3;
       const fmt = (t) => new Date(Number(t) * 1000).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
       const approvedAt = Number(p.readyAt) ? Number(p.readyAt) - (p.fast ? 0 : Number(delay)) : 0;
-      const when = st === 2 ? ` · can run from ${fmt(p.readyAt)}` : '';
-      const timing = `<p class="muted">Proposed ${esc(fmt(p.proposedAt))} (${countdown(p.proposedAt)})${approvedAt ? ` · approved ${esc(fmt(approvedAt))} (${countdown(approvedAt)})` : ''}${st === 2 ? ` · <strong>can run ${countdown(p.readyAt)}</strong>` : ''}${st === 3 && Number(p.readyAt) ? ` · ready since ${countdown(p.readyAt)}` : ''}</p>`;
+      const when = '';
+      const timing = `<p class="muted">Proposed ${esc(fmt(p.proposedAt))} (${countdown(p.proposedAt)})${approvedAt ? ` · approved ${esc(fmt(approvedAt))} (${countdown(approvedAt)})` : ''}${st === 2 ? ` · <strong>can run ${esc(fmt(p.readyAt))} (${countdown(p.readyAt)})</strong>` : ''}${st === 3 && Number(p.readyAt) > approvedAt ? ` · ready since ${countdown(p.readyAt)}` : ''}${st === 3 ? ' · <strong>ready to run</strong>' : ''}</p>`;
       const card = document.createElement('div');
       card.className = 'card stack';
       card.id = `${prefix}-${id}`;

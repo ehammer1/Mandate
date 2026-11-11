@@ -847,7 +847,7 @@ test('rules: the community changes its own voting rules by vote, within the char
   await page.waitForFunction(() => /outside the charter's limits/.test(document.querySelector('#poll-status').textContent));
   await page.fill('#poll-rule-value', '150');
   await page.selectOption('#poll-group', '2');
-  await page.selectOption('#poll-check', '-1');
+  assert.equal(await page.isHidden('#poll-check-box'), true); // nothing stricter than full voting rights
   await page.fill('#poll-days', '0.5'); // the rules say rule changes stay open at least a day
   await page.click('#btn-open-poll');
   await page.waitForFunction(() => /shorter than the community's rules allow/.test(document.querySelector('#poll-status').textContent), null, { timeout: 60_000 });

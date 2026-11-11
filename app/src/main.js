@@ -1090,7 +1090,19 @@ async function sendAdminTx(statusEl, label, build) {
   }
 }
 
+/** Cross-checks only make sense against a stricter group than who can vote. */
+function syncCrossCheck() {
+  const tier = Number($('poll-group').value);
+  $('poll-check-box').hidden = tier >= 2;
+  for (const o of $('poll-check').options) o.disabled = Number(o.value) >= 0 && Number(o.value) <= tier;
+  if ($('poll-check').selectedOptions[0]?.disabled || tier >= 2) $('poll-check').value = '-1';
+  $('poll-check-more').hidden = $('poll-check').value === '-1';
+}
+
 function wireAdmin() {
+  $('poll-group').addEventListener('change', syncCrossCheck);
+  $('poll-check').addEventListener('change', syncCrossCheck);
+  syncCrossCheck();
   $('nav-admin').onclick = async () => {
     show('screen-admin');
     await refreshAdmin();
@@ -1125,6 +1137,7 @@ function wireAdmin() {
     const tier = Number($('poll-group').value);
     const action = Number($('poll-kind').value);
     if (!title && !existing) return status(el, 'Write the question.', 'error');
+    if (existing && !/^nb:0x[0-9a-fA-F]{64}$/.test(existing) && !/^(Qm|baf)[a-zA-Z0-9]{40,}$/.test(existing)) return status(el, 'The "existing question reference" box is only for a published question\'s reference (it starts with nb:0x…). To ask a new question, type it in the Question box at the top and leave that box empty.', 'error');
     if (!(days > 0) || !(quorum >= 1)) return status(el, 'Fill in the days and quorum.', 'error');
     let actionData = '0x';
     let mandate = null;
@@ -1165,7 +1178,7 @@ function wireAdmin() {
     }
     // The voting contract below needs these before the question is published.
     const groupId = await state.registry.groupId(tier);
-    const checkTier = Number($('poll-check').value);
+    const checkTier = $('poll-check-box').hidden ? -1 : Number($('poll-check').value);
     const checkMin = Number($('poll-check-min').value);
     if (checkTier >= 0 && (checkTier <= tier || !(checkMin >= 1))) return status(el, 'The cross-check must use a stricter group than who can vote, and need at least 1 checked vote.', 'error');
     const vote = new ethers.Contract(state.config.voteAddress, ['function createPoll(uint256,uint64,uint32,uint8,uint8,bytes,string,uint256)', 'function createCheckedPoll(uint256,uint256,uint32,uint64,uint32,uint8,bytes,string,uint256)'], state.provider);

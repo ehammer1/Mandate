@@ -325,16 +325,8 @@
           </div>
           <p class="note">If Yes wins, the mandate starts when the result is recorded. Approved verifiers confirm it was done; anyone can back it with funds that are paid out only then.</p>
         </div>
-        <label for="poll-check">Cross-check (for polls open to online sign-ups)</label>
-        <select id="poll-check">
-          <option value="-1">None</option>
-          <option value="1">Also count ID-checked residents separately</option>
-          <option value="2">Also count residents with full voting rights separately</option>
-        </select>
-        <label>Checked votes needed before a disagreement counts <input type="text" id="poll-check-min" value="3" inputmode="numeric" style="width:90px" /></label>
-        <p class="note">If the checked voters clearly choose the other side from everyone, the result is held as contested and a binding action does not run.</p>
         <details><summary>Use an existing question reference instead</summary>
-          <label for="poll-question">Question reference</label>
+          <label for="poll-question">Question reference (starts with nb:0x…)</label>
           <input type="text" id="poll-question" autocomplete="off" spellcheck="false" />
         </details>
         <label for="poll-group">Who can vote</label>
@@ -343,6 +335,18 @@
           <option value="1">All verified residents</option>
           <option value="0">All members</option>
         </select>
+        <div id="poll-check-box" class="stack" hidden>
+          <label for="poll-check">Cross-check: also count a stricter group separately</label>
+          <select id="poll-check">
+            <option value="-1">None</option>
+            <option value="1">ID-checked residents</option>
+            <option value="2">Residents with full voting rights</option>
+          </select>
+          <div id="poll-check-more" class="stack" hidden>
+            <label>Checked votes needed before a disagreement counts <input type="text" id="poll-check-min" value="3" inputmode="numeric" style="width:90px" /></label>
+            <p class="note">If the checked voters clearly choose the other side from everyone, the result is held as contested and a binding action does not run.</p>
+          </div>
+        </div>
         <div class="row">
           <label>Days <input type="text" id="poll-days" value="7" inputmode="decimal" style="width:90px" /></label>
           <label>Quorum <input type="text" id="poll-quorum" value="1" inputmode="numeric" style="width:90px" /></label>
