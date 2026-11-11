@@ -458,6 +458,12 @@ test('council: one member proposes a new clerk, another approves, it runs after 
   await page.click('#council-1 button:has-text("Approve")');
   await page.waitForSelector('#council-1 >> text=Waiting period', { timeout: 60_000 });
   assert.equal((await c.identity.issuers(desk)).active, false);
+  // From Needs attention on the home screen, tapping the change opens that change itself.
+  await page.click('#nav-polls');
+  await page.waitForSelector('#attention a[data-attn="council:1"]', { timeout: 60_000 });
+  assert.match(await page.getAttribute('#attention a[data-read]', 'href'), /proposal\.html\?id=1$/);
+  await page.click('#attention a[data-attn="council:1"]');
+  await page.waitForSelector('#council-1.flash:not([hidden])', { timeout: 60_000 });
 
   // An hour later anyone can run it.
   await provider.send('evm_increaseTime', [3601]);
