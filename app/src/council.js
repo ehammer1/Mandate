@@ -212,7 +212,7 @@ export function wireCouncil(ctx, { addressKey = 'councilAddress', prefix = 'coun
     const c = council();
     const [members, threshold, delay, count, mine] = await Promise.all([c.members(), c.threshold(), c.delay(), c.proposalCount(), c.isMember(me)]);
     box.hidden = false;
-    $('council-summary').innerHTML = `<p>${members.length} members · ${threshold} must approve a change · then a public wait of ${esc(hours(delay))} (removing power needs no wait). Any one member can cancel a pending change.</p>
+    $('council-summary').innerHTML = `<p>${members.length} members · ${threshold} must approve a change · then a public wait of ${esc(hours(delay))} (removing power needs no wait). Any one member can reject (cancel) a pending change.</p>
       <p class="muted">${mine ? 'You are a member.' : 'This account is not a member: you can see changes and run ready ones, but not approve.'}</p>
       <details><summary>Members and terms</summary><ul>${(await Promise.all(members.map(async (m) => [m, await c.termEnds(m).catch(() => 0n)]))).map(([m, t]) => `<li><span class="code">${esc(m)}</span> ${copyBtn(m)}${m.toLowerCase() === me.toLowerCase() ? ' (you)' : ''}<br><span class="muted">${t ? `term ends ${esc(new Date(Number(t) * 1000).toLocaleDateString(undefined, { dateStyle: 'medium' }))}` : 'no end date'}</span></li>`).join('')}</ul></details>
       <p class="note">The public can elect members for a term, recall them, and remove anyone's role by vote, without the council.</p>`;
@@ -264,7 +264,12 @@ export function wireCouncil(ctx, { addressKey = 'councilAddress', prefix = 'coun
       };
       if (active && mine && !approvedByMe) button('Approve', () => send(el, 'Approve', (k) => k.approve(id)), true);
       if (st === 3) button('Run it now', () => send(el, 'Run', (k) => k.execute(id)), true);
-      if (active && mine) button('Cancel', () => send(el, 'Cancel', (k) => k.cancel(id)));
+      if (active && mine) {
+        button('Reject', async () => {
+          if (!window.confirm(`Reject council change #${id}? It will be cancelled for good and can never run. (Any one member can reject a pending change.)`)) return false;
+          return send(el, 'Reject', (k) => k.cancel(id));
+        });
+      }
       if (p.emergency && p.executed && !p.lapsed) button('Undo (not ratified)', () => send(el, 'Undo', (k) => k.lapse(id)));
       list.append(card);
     }
