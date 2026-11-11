@@ -117,6 +117,13 @@ const ABIS = {
     'event AlternateSet(uint256 indexed bodyId, address indexed member, address alternate, uint256 byMotion)',
     'event MotionWithdrawn(uint256 indexed motionId, address by)',
   ],
+  tallies: [
+    'event ContestCreated(uint256 indexed contestId, uint8 kind, uint256 pollId, string ref, uint8 options)',
+    'event PlaceAdded(uint256 indexed contestId, uint32 place, string name)',
+    'event TallyRecorded(uint256 indexed tallyId, uint256 indexed contestId, uint32 place, uint32 ballots, address by, uint256 replaces)',
+    'event TallyConfirmed(uint256 indexed tallyId, uint256 indexed contestId, address by)',
+    'event ContestClosed(uint256 indexed contestId, address by)',
+  ],
   bodyRecords: [
     'event ClosedSessionRecorded(uint256 indexed sessionId, uint256 indexed bodyId, uint8 reason, string cite, uint64 publishBy)',
     'event MinutesPublished(uint256 indexed sessionId, bytes32 minutesHash)',
@@ -133,7 +140,7 @@ const ROLE_EVENTS = [
   'event RoleGranted(bytes32 indexed role, address indexed account, address indexed sender)',
   'event RoleRevoked(bytes32 indexed role, address indexed account, address indexed sender)',
 ];
-const CONTRACT_LABEL = { identity: 'identity registry', vote: 'voting', registry: 'mandate registry', market: 'decision markets', council: 'council', charter: 'charter (voting rules)', budget: 'civic budget', feedback: 'petitions and comments', officials: 'officials registry', bodies: 'government bodies', bodyRecords: 'body records' };
+const CONTRACT_LABEL = { identity: 'identity registry', vote: 'voting', registry: 'mandate registry', market: 'decision markets', council: 'council', charter: 'charter (voting rules)', budget: 'civic budget', feedback: 'petitions and comments', officials: 'officials registry', bodies: 'government bodies', bodyRecords: 'body records', tallies: 'paper and in-person results' };
 
 /**
  * @param {object} o
@@ -426,7 +433,7 @@ if (require.main === module) {
     const startBlock = env('START_BLOCK') ? Number(env('START_BLOCK')) : cfg.startBlock ? Number(cfg.startBlock) : Math.max(0, head - Number(env('LOOKBACK_BLOCKS') || 43_200));
     const dog = createWatchdog({
       provider,
-      addresses: { identity: cfg.identityAddress, vote: cfg.voteAddress, registry: cfg.registryAddress, market: cfg.marketAddress, council: cfg.councilAddress, charter: cfg.charterAddress, budget: cfg.budgetAddress, feedback: cfg.feedbackAddress, officials: cfg.officialsAddress, bodies: cfg.bodiesAddress, bodyRecords: cfg.bodyRecordsAddress },
+      addresses: { identity: cfg.identityAddress, vote: cfg.voteAddress, registry: cfg.registryAddress, market: cfg.marketAddress, council: cfg.councilAddress, charter: cfg.charterAddress, budget: cfg.budgetAddress, feedback: cfg.feedbackAddress, officials: cfg.officialsAddress, bodies: cfg.bodiesAddress, bodyRecords: cfg.bodyRecordsAddress, tallies: cfg.talliesAddress },
       startBlock,
       blockSpan: Number(env('LOG_BLOCK_SPAN') || 200),
       enrolPerHour: Number(env('ENROL_PER_HOUR') || 50),

@@ -29,6 +29,7 @@ import { wireBodies } from './bodies.js';
 import { wireCopy, jumpTo, itemTools } from './copy.js';
 import { wireHelp } from './help.js';
 import { search, resultsHtml } from './search.js';
+import { pollTallies, wireTallies, checkInCode } from './tallies.js';
 import { attachPicker, attachmentsHtml, wireAttachments, uploadService } from './attach.js';
 import { countdown, startTicker, clockOffset } from './time.js';
 import { trackItems, toggleFollow, wireSettings } from './reminders.js';
@@ -680,6 +681,24 @@ async function goTo(key) {
   }
 }
 
+/** POST to the first relayer that answers (check-ins). */
+async function relayPost(path, body) {
+  let last = 'No relayer is configured.';
+  for (const url of state.config.relayers || []) {
+    try {
+      const res = await fetch(`${url.replace(/\/+$/, '')}${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body, (_k, v) => (typeof v === 'bigint' ? v.toString() : v)) });
+      const out = await res.json().catch(() => ({}));
+      if (res.ok) return out;
+      last = out.error || `relayer answered ${res.status}`;
+      if (res.status < 500) break;
+    } catch (e) {
+      last = e.message;
+    }
+  }
+  throw new Error(last);
+}
+void checkInCode;
+
 async function refreshPolls() {
   refreshAttention();
   const list = $('poll-list');
@@ -738,6 +757,7 @@ async function refreshPolls() {
         ${voted ? '<p class="ok">Your vote is recorded. Nobody can see which way you voted.</p>' : ''}
         <p class="status" id="poll-status-${id}" role="status"></p>
         <details><summary>Current count (${total} of ${p.electorate} eligible, quorum ${p.quorum})</summary><ul class="tally">${results}</ul></details>
+        <div class="tallies-box" data-id="${id}" data-online="${esc(JSON.stringify(tally.map(String)))}" data-labels="${esc(JSON.stringify(labels))}" data-canvote="${eligibleTier && open && !p.finalized ? 1 : 0}"></div>
         <div class="officials-box" data-id="${id}" data-canvote="${open && !voted && eligibleTier && Number(p.options) === 2 ? 1 : 0}"></div>
         <div class="explain-box" data-id="${id}"></div>
         <div class="thread-box" data-kind="poll" data-id="${id}"></div>
@@ -760,6 +780,9 @@ async function refreshPolls() {
     for (const b of list.querySelectorAll('button.choice')) b.onclick = () => castVote(BigInt(b.dataset.poll), Number(b.dataset.option), b);
     for (const box of list.querySelectorAll('.thread-box')) state.feedback.thread(box, box.dataset.kind, Number(box.dataset.id)).catch(() => {});
     wireAttachments(list, state.config);
+    for (const box of list.querySelectorAll('.tallies-box')) {
+      pollTallies(box, { state, esc, status, relay: relayPost }, Number(box.dataset.id), JSON.parse(box.dataset.labels), JSON.parse(box.dataset.online), box.dataset.canvote === '1').catch(() => {});
+    }
     for (const box of list.querySelectorAll('.officials-box')) {
       state.officials.pollSection(box, Number(box.dataset.id), box.dataset.canvote === '1', (option, btn) => castVote(BigInt(box.dataset.id), option, btn)).catch(() => {});
     }
@@ -987,14 +1010,15 @@ async function myRoles(address) {
     ? await new ethers.Contract(state.config.bodiesAddress, ['function hasRole(bytes32, address) view returns (bool)'], state.provider).hasRole(ethers.id('REGISTRAR_ROLE'), address).catch(() => false)
     : false;
   const prevCouncilMember = state.config.previousCouncilAddress && state.prevCouncil ? await state.prevCouncil.isMember(address).catch(() => false) : false;
-  return { admin: voteAdmin || idAdmin, voteAdmin, idAdmin, proposer, issuer, councilMember, budgetProposer, official: official || bodies, prevCouncilMember };
+  const tallyClerk = state.tallies ? await state.tallies.isClerk().catch(() => false) : false;
+  return { admin: voteAdmin || idAdmin, voteAdmin, idAdmin, proposer, issuer, councilMember, budgetProposer, official: official || bodies, prevCouncilMember, tallyClerk };
 }
 
 async function refreshAdminNav() {
   try {
     const r = await myRoles(activeAddress());
     state.roles = r;
-    $('nav-admin').hidden = !(r.admin || r.proposer || r.issuer || r.councilMember || r.budgetProposer || r.official || r.prevCouncilMember);
+    $('nav-admin').hidden = !(r.admin || r.proposer || r.issuer || r.councilMember || r.budgetProposer || r.official || r.prevCouncilMember || r.tallyClerk);
     $('nav-clerk').hidden = !r.issuer;
   } catch {
     $('nav-admin').hidden = true;
@@ -1009,7 +1033,7 @@ let todoCache = { at: 0, list: [] };
 /** Everything this account can act on now: council approvals and runs, votes, signatures, minutes. */
 async function allTodos(fresh = false) {
   if (!fresh && Date.now() - todoCache.at < 60_000) return todoCache.list;
-  const parts = await Promise.all([state.council?.todos(), state.prevCouncil?.todos(), state.bodies?.todos()].map((p) => Promise.resolve(p).catch(() => [])));
+  const parts = await Promise.all([state.council?.todos(), state.prevCouncil?.todos(), state.bodies?.todos(), state.tallies?.todos()].map((p) => Promise.resolve(p).catch(() => [])));
   const list = parts.flat().filter(Boolean);
   todoCache = { at: Date.now(), list };
   return list;
@@ -1096,6 +1120,7 @@ async function refreshAdmin() {
   }
   await state.officials.admin().catch(() => {});
   await state.bodies.admin().catch(() => {});
+  await state.tallies?.render();
   await renderAdminTodo().catch(() => {});
   if (!state.pollPicker && $('poll-attach')) state.pollPicker = attachPicker($('poll-attach'), { state, esc });
 }
@@ -1332,6 +1357,7 @@ async function boot() {
   };
   startTicker(state.provider);
   state.help = wireHelp({ state, $, show });
+  state.tallies = wireTallies({ state, $, status, esc, activeSigner, activeAddress });
   const runSearch = async (q) => {
     show('screen-search');
     $('search-q').value = q;

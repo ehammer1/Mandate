@@ -27,6 +27,7 @@ import { loadRules } from './rules.js';
 import { informedHtml } from './informed.js';
 import { officialsDashboard } from './officials.js';
 import { bodiesDashboard } from './bodies.js';
+import { talliesDashboard } from './tallies.js';
 import { countdown, startTicker, clockOffset } from './time.js';
 import { trackItems, toggleFollow } from './reminders.js';
 
@@ -325,6 +326,7 @@ async function refresh() {
     const [all, verified, full] = [await activeCount(identity, 0), await activeCount(identity, 1), await activeCount(identity, 2)];
     const [polls, pending, mandates] = [await renderPolls(vote, groupIds, now), await renderCouncil(), await renderMandates()];
     await renderBudget();
+    $('results').innerHTML = await talliesDashboard(state.cfg, state.provider, esc).catch((e) => `<div class="card"><p class="muted">Could not load: ${esc(e.message)}</p></div>`);
     $('bodies').innerHTML = await bodiesDashboard(state.cfg, state.provider, esc).catch((e) => `<div class="card"><p class="muted">Could not load: ${esc(e.message)}</p></div>`);
     await renderAttention().catch((e) => ($('attention').innerHTML = `<p class="muted">Could not load: ${esc(e.message)}</p>`));
     $('requested').innerHTML = await mostRequested().catch((e) => `<p class="muted">Could not load petitions: ${esc(e.message)}</p>`);

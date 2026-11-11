@@ -207,6 +207,16 @@ function rulesForEvent(ev, ctx) {
     }
     case 'ExecutiveActed':
       return [{ ...base, rule: 'agenda', severity: a.signed ? 'info' : 'medium', title: `Motion ${a.motionId} ${a.signed ? 'signed' : 'VETOED'} by the executive`, facts: { motion: String(a.motionId) } }];
+    case 'ContestCreated':
+      return [{ ...base, rule: 'tallies', severity: 'info', title: Number(a.kind) === 1 ? `Paper voting set up for poll ${a.pollId}: voters check in on their phones, so nobody is counted twice` : `New ${Number(a.kind) === 2 ? 'official election' : 'meeting'} contest ${a.contestId} to be counted on paper`, facts: { contest: String(a.contestId) } }];
+    case 'TallyRecorded':
+      return Number(a.replaces)
+        ? [{ ...base, rule: 'tallies', severity: 'medium', title: `Tally ${a.replaces} (contest ${a.contestId}) was CORRECTED by ${short(a.by)}: new tally ${a.tallyId}, ${a.ballots} ballots; check the reason given`, facts: { contest: String(a.contestId), tally: String(a.tallyId) } }]
+        : [{ ...base, rule: 'tallies', severity: 'info', title: `Paper count recorded for contest ${a.contestId}, place ${a.place}: ${a.ballots} ballots (awaiting a second clerk)`, facts: { contest: String(a.contestId), tally: String(a.tallyId) } }];
+    case 'TallyConfirmed':
+      return [{ ...base, rule: 'tallies', severity: 'info', title: `Tally ${a.tallyId} (contest ${a.contestId}) confirmed by a second clerk, ${short(a.by)}`, facts: { contest: String(a.contestId), tally: String(a.tallyId) } }];
+    case 'ContestClosed':
+      return [{ ...base, rule: 'tallies', severity: 'medium', title: `Contest ${a.contestId} closed by ${short(a.by)}: its paper results are now final`, facts: { contest: String(a.contestId) } }];
     case 'PetitionCreated':
       return [{ ...base, rule: 'petition', severity: 'info', title: `Petition ${a.id} started (action ${a.action}): ${a.needed} signatures open its vote`, facts: { petition: String(a.id) } }];
     case 'PetitionSucceeded':

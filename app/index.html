@@ -470,6 +470,32 @@
         <button id="btn-body-alternate">Save alternate</button><p class="status" id="body-role-status" role="status"></p>
       </div>
 
+      <div class="card stack" id="admin-tallies" hidden>
+        <h3>Paper ballots and in-person results</h3>
+        <p class="note">Record counts from polling places, precincts or meetings. One clerk records, another confirms; a photo of the signed tally sheet goes with it. For a Mandate poll, paper voters check in on their phones first, so the paper register matches the voter list and nobody is counted twice.</p>
+        <details><summary><strong>Set up a contest</strong></summary><div class="stack">
+          <label for="tally-kind">What is being counted</label>
+          <select id="tally-kind"><option value="poll">Paper votes for a Mandate poll</option><option value="election">An official election contest</option><option value="meeting">A vote at a public meeting</option></select>
+          <div id="tally-poll-row" class="stack"><label>Poll number <input type="text" id="tally-poll" inputmode="numeric" style="width:100px" /></label></div>
+          <div id="tally-new-row" class="stack" hidden>
+            <label for="tally-title">Name</label><input type="text" id="tally-title" placeholder="e.g. City Council, District 3 (Nov 3 general election)" />
+            <label for="tally-options">Choices, one per line (candidates, Yes/No…)</label><textarea id="tally-options" rows="3"></textarea>
+            <label for="tally-details">Details (optional)</label><textarea id="tally-details" rows="2"></textarea>
+          </div>
+          <button id="btn-tally-contest">Set it up</button><p class="status" id="tally-contest-status" role="status"></p>
+        </div></details>
+        <label for="tally-contest">Contest</label><select id="tally-contest"></select>
+        <div class="row"><select id="tally-place" style="width:auto"></select><input type="text" id="tally-new-place" placeholder="New place, e.g. Main Library" style="width:200px" /><button id="btn-tally-place">Add place</button></div>
+        <div id="tally-checkins"></div>
+        <div id="tally-counts" class="row"></div>
+        <label>Ballots cast here (including blank and spoiled) <input type="text" id="tally-ballots" inputmode="numeric" style="width:110px" /></label>
+        <p class="note">Photo of the signed tally sheet:</p><div id="tally-sheet"></div>
+        <label for="tally-note">Notes (optional)</label><input type="text" id="tally-note" />
+        <details><summary>This corrects an earlier tally</summary><div class="stack"><label>Tally number <input type="text" id="tally-replaces" inputmode="numeric" style="width:100px" /></label><label>Why <input type="text" id="tally-reason" maxlength="200" /></label></div></details>
+        <button class="primary" id="btn-tally-record">Record these counts</button><p class="status" id="tally-status" role="status"></p>
+        <h4>Waiting for your confirmation</h4><div id="tally-queue"></div>
+      </div>
+
       <div class="card stack" id="admin-officials" hidden>
         <h3>Officials</h3>
         <div id="officials-register" class="stack" hidden>

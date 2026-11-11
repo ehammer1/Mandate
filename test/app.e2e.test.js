@@ -73,7 +73,7 @@ before(async () => {
   ({ contracts: c } = await deployAll(admin, { seasoningDays: 30, rules: { MIN_POLL_MINUTES: 10, BINDING_QUORUM_PCT: 0, BINDING_CHECK_REQUIRED: 0, CHECK_MIN_VOTES: 1, RULE_CHANGE_MIN_MINUTES: 1440 } }));
   await (await c.identity.setIssuer(clerk.address, 1, true, 'Example City Clerk')).wait();
 
-  relay = createRelayer({ provider, signer: relayerSigner, voteAddress: await c.vote.getAddress(), budgetAddress: await c.budget.getAddress(), feedbackAddress: await c.feedback.getAddress(), noticeBoardAddress: await c.notices.getAddress(), log: () => {} });
+  relay = createRelayer({ provider, signer: relayerSigner, voteAddress: await c.vote.getAddress(), budgetAddress: await c.budget.getAddress(), feedbackAddress: await c.feedback.getAddress(), noticeBoardAddress: await c.notices.getAddress(), talliesAddress: await c.tallies.getAddress(), log: () => {} });
   const relayPort = await listen(relay);
 
   const ipfs = { [QUESTION_CID]: JSON.stringify({ title: 'Publish the FY2027 line-item budget?', body: 'Every line item above $10,000, as CSV, within 30 days.', options: ['Yes', 'No'] }) };
@@ -93,6 +93,7 @@ before(async () => {
       officialsAddress: await c.officials.getAddress(),
       bodiesAddress: await c.bodies.getAddress(),
       bodyRecordsAddress: await c.bodyRecords.getAddress(),
+      talliesAddress: await c.tallies.getAddress(),
       relayers: ['http://127.0.0.1:1', `http://127.0.0.1:${relayPort}`], // the first is down: tests fail-over
       artifactsBase: '/artifacts',
       chainId: Number((await provider.getNetwork()).chainId),
@@ -1302,6 +1303,50 @@ test('government bodies: set up from a template, public agenda with notice, roll
   assert.deepEqual(errors, []);
   await dash.close();
   await shot('17-bodies');
+});
+
+test('paper ballots: check in on the phone, clerks record and confirm, each person counted once', async () => {
+  const text = JSON.stringify({ title: 'Open the pool on Sundays?', body: 'Paper and online.', options: ['Yes', 'No'] });
+  await (await c.notices.post(text)).wait();
+  await (await c.vote.createPoll(await c.identity.groupId(1), 86_400, 1, 2, 0, '0x', `nb:${ethers.keccak256(ethers.toUtf8Bytes(text))}`, 0)).wait();
+  const pollId = await c.vote.pollCount();
+  await (await c.tallies.contestForPoll(pollId, 2)).wait();
+  const contest = await c.tallies.contestOfPoll(pollId);
+  await (await c.tallies.addPlace(contest, 'Main Library')).wait();
+
+  // The voter checks in at the library on their phone and gets a code for the clerk.
+  await page.click('#nav-polls');
+  await page.waitForSelector(`#poll-${pollId} .tallies-box details.checkin summary`, { timeout: 60_000 });
+  await page.click(`#poll-${pollId} .tallies-box details.checkin summary`);
+  await page.click(`#poll-${pollId} [data-checkin]`);
+  await page.waitForSelector(`#poll-${pollId} .tallies-box >> text=Checked in`, { timeout: 120_000 });
+  const code = (await page.textContent(`#poll-${pollId} [data-code]`)).trim();
+  assert.match(code, /^\d{6}$/);
+  assert.equal(Number(await c.tallies.checkIns(contest, 0)), 1);
+
+  // The same voter also votes online.
+  await page.click(`#poll-${pollId} button.choice[data-option="1"]`);
+  await page.waitForFunction((id) => /recorded|counted|voted/i.test(document.querySelector(`#poll-${id}`).textContent), String(pollId), { timeout: 120_000 });
+
+  // One clerk records the library's paper count; this account, as a second clerk, confirms it.
+  const auto = ethers.getAddress((await page.evaluate(() => document.querySelector('#account-address').textContent)).trim() || ethers.ZeroAddress);
+  await (await c.tallies.grantRole(await c.tallies.CLERK_ROLE(), auto)).wait();
+  assert.equal(await c.tallies.record.staticCall(contest, { place: 0, counts: [2, 0], ballots: 2, ref: '', replaces: 0, reason: '' }).catch((e) => c.tallies.interface.parseError(e.data)?.name), 'MoreBallotsThanCheckIns');
+  await (await c.tallies.record(contest, { place: 0, counts: [1, 0], ballots: 1, ref: '', replaces: 0, reason: '' })).wait();
+  await page.click('#nav-polls');
+  await page.waitForSelector('#nav-admin:not([hidden])', { timeout: 60_000 });
+  await page.click('#nav-admin');
+  await page.waitForSelector('#admin-todo a >> text=Confirm tally', { timeout: 60_000 });
+  await page.click('#admin-todo a:has-text("Confirm tally")');
+  await page.waitForSelector('#admin-tallies [data-confirm]', { timeout: 60_000 });
+  assert.match(await page.textContent('#admin-tallies'), new RegExp(`Main Library: 1 checked in · latest codes: ${code}`));
+  await page.click('#admin-tallies [data-confirm]');
+  await page.waitForSelector('#admin-tallies >> text=Nothing to confirm', { timeout: 60_000 });
+
+  // The poll: the paper Yes counts, the same person's online No is left out.
+  await page.click('#nav-polls');
+  await page.waitForSelector(`#poll-${pollId} .tallies-box >> text=checked in on paper and also voted online`, { timeout: 120_000 });
+  assert.match(await page.textContent(`#poll-${pollId} .tallies-box`), /Everyone, online and on paper: Yes 1 · No 0/);
 });
 
 test('search finds items by number, address, text reference and words; FAQ in Help', async () => {
