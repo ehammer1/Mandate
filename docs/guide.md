@@ -45,8 +45,8 @@ Admin, *Open a poll* (you need the "can open polls" role).
 The quorum is the **fewest ballots** (Yes, No and any other choice, all counted) for a poll's result to count. If fewer people vote, the poll does not pass, whatever the split.
 
 - **Advisory polls**: any number you like; 1 just records whatever happens.
-- **Binding polls**: at least the value on the Rules screen of the people on that voter list (the app tells you the minimum if you go below it). This stops a handful of people deciding for everyone.
-- **Passing**: with the quorum met, a Yes/No poll passes when Yes gets more votes than No. A poll that changes a voting rule needs the value on the Rules screen Yes.
+- **Binding polls**: at least a set amount (see the Rules screen) of the people on that voter list (the app tells you the minimum if you go below it). This stops a handful of people deciding for everyone.
+- **Passing**: with the quorum met, a Yes/No poll passes when Yes gets more votes than No. A poll that changes a voting rule needs a set amount (see the Rules screen) Yes.
 
 **Example.** 1,000 residents have full voting rights and the binding quorum is 10%. A binding poll needs a quorum of at least 100. If 120 vote, 70 Yes and 50 No, it passes. If only 80 vote, it does not pass, even if all 80 say Yes.
 
@@ -78,7 +78,7 @@ It only makes sense when the poll is open to a wider group than the check, so th
 <a id="petitions"></a>
 ## Petitions: asking for a vote
 
-Petitions, *Start a petition*. Say what the vote should decide, why, and who should sign. When the value on the Rules screen of that voter list signs, the poll opens by itself: nobody can block it. Signatures are anonymous.
+Petitions, *Start a petition*. Say what the vote should decide, why, and who should sign. When a set amount (see the Rules screen) of that voter list signs, the poll opens by itself: nobody can block it. Signatures are anonymous.
 
 Petitions can ask an advisory question, or to pause or revise a mandate, elect or recall a council member, or remove someone's role. "Most signed" shows what residents want most.
 
@@ -133,7 +133,7 @@ Anyone can become a **public delegate** (Account). Residents can hand a delegate
 <a id="rules"></a>
 ## The community's voting rules
 
-The Rules screen lists every rule with its current value and the fixed limits it can move within. A rule changes only by a binding poll that gets the value on the Rules screen Yes, stays open at least the value on the Rules screen, and is open to residents with full voting rights.
+The Rules screen lists every rule with its current value and the fixed limits it can move within. A rule changes only by a binding poll that gets a set amount (see the Rules screen) Yes, stays open at least a set amount (see the Rules screen), and is open to residents with full voting rights.
 
 <a id="reminders"></a>
 ## Reminders and staying informed

@@ -5,7 +5,7 @@ import { HELP } from '../app/src/help-content.js';
 const md = (html) =>
   html
     .replace(/\(\{\{RULE:[A-Z_]+\}\}\)/g, '(see the Rules screen)')
-    .replace(/\{\{RULE:([A-Z_]+)\}\}/g, 'the value on the Rules screen')
+    .replace(/\{\{RULE:([A-Z_]+)\}\}/g, 'a set amount (see the Rules screen)')
     .replace(/<a [^>]*data-help="([\w-]+)"[^>]*>(.*?)<\/a>/g, '[$2](#$1)')
     .replace(/<strong>(.*?)<\/strong>/g, '**$1**')
     .replace(/<em>(.*?)<\/em>/g, '*$1*')
