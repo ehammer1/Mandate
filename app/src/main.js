@@ -26,6 +26,7 @@ import { renderExplainer } from './explain.js';
 import { informedHtml } from './informed.js';
 import { wireOfficials } from './officials.js';
 import { wireBodies } from './bodies.js';
+import { attachPicker, attachmentsHtml, wireAttachments, uploadService } from './attach.js';
 import { countdown, startTicker, clockOffset } from './time.js';
 import { trackItems, toggleFollow, wireSettings } from './reminders.js';
 import { collectAttention, attentionHtml, categoryFilterHtml, categoryChip, categoryOf } from './priority.js';
@@ -77,6 +78,7 @@ async function loadConfig() {
   state.provider = new ethers.JsonRpcProvider(cfg.rpcUrl, undefined, { staticNetwork: true, cacheTimeout: -1 });
   startTicker(state.provider);
   wireSettings($('reminder-settings'));
+  uploadService(cfg).catch(() => {});
   state.vote = new ethers.Contract(cfg.voteAddress, VOTE_ABI, state.provider);
   state.registry = new ethers.Contract(cfg.identityAddress, IDENTITY_ABI, state.provider);
 }
@@ -650,7 +652,8 @@ async function refreshPolls() {
   const list = $('poll-list');
   list.innerHTML = '<p class="muted">Loading…</p>';
   try {
-    const [count, block] = await Promise.all([state.vote.pollCount(), state.provider.getBlock('latest')]);
+    await uploadService(state.config);
+  const [count, block] = await Promise.all([state.vote.pollCount(), state.provider.getBlock('latest')]);
     const now = BigInt(block.timestamp);
     const groups = await Promise.all([0, 1, 2].map((t) => state.registry.groupId(t)));
     // Which voter lists this person is on (tier 0 = basic, 1 = verified, 2 = full voting rights).
@@ -685,6 +688,7 @@ async function refreshPolls() {
         <p class="eyebrow">${open ? `Open until ${esc(when(p.end))} · ${countdown(p.end, 'closes ')}` : p.finalized ? (ck.disputed ? 'Closed · contested' : p.passed ? 'Closed · passed' : 'Closed · did not pass') : 'Voting ended · awaiting result'} · ${esc(who)}</p>
         <h3>${esc(q.title)} ${categoryChip(categoryOf(q), esc)}</h3>
         ${q.body ? `<p>${esc(q.body)}</p>` : ''}
+        ${attachmentsHtml(state.config, q, esc)}
         ${(() => {
           const t = mandateTerms(p);
           const other = describeAction(p);
@@ -721,6 +725,7 @@ async function refreshPolls() {
     list.innerHTML = (banner ? `<div class="card">${banner}</div>` : '') + (cards.join('') || '<p class="muted">No polls yet.</p>') + `<details class="card"><summary><strong>Stay informed</strong></summary><div class="stack">${informedHtml(state.config)}</div></details>`;
     for (const b of list.querySelectorAll('button.choice')) b.onclick = () => castVote(BigInt(b.dataset.poll), Number(b.dataset.option), b);
     for (const box of list.querySelectorAll('.thread-box')) state.feedback.thread(box, box.dataset.kind, Number(box.dataset.id)).catch(() => {});
+    wireAttachments(list, state.config);
     for (const box of list.querySelectorAll('.officials-box')) {
       state.officials.pollSection(box, Number(box.dataset.id), box.dataset.canvote === '1', (option, btn) => castVote(BigInt(box.dataset.id), option, btn)).catch(() => {});
     }
@@ -988,6 +993,7 @@ async function refreshAdmin() {
   }
   await state.officials.admin().catch(() => {});
   await state.bodies.admin().catch(() => {});
+  if (!state.pollPicker && $('poll-attach')) state.pollPicker = attachPicker($('poll-attach'), { state, esc });
 }
 
 async function sendAdminTx(statusEl, label, build) {
@@ -1121,7 +1127,8 @@ function wireAdmin() {
     if (title) {
       try {
         status(el, 'Publishing the question: confirm if asked…');
-        ref = await postDoc(state.config, activeSigner(), { title, body, options: ['Yes', 'No'], category: $('poll-category').value, ...(mandate ? { mandate } : {}) });
+        const files = state.pollPicker ? state.pollPicker.list() : [];
+        ref = await postDoc(state.config, activeSigner(), { title, body, options: ['Yes', 'No'], category: $('poll-category').value, ...(mandate ? { mandate } : {}), ...(files.length ? { attachments: files } : {}) });
       } catch (e) {
         return status(el, `Could not publish the question: ${e.shortMessage || e.message}`, 'error');
       }

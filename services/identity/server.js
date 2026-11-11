@@ -671,6 +671,22 @@ function createIdentityService(o) {
     }
   }
 
+  const uploadHits = new Map();
+  function readRaw(req, max) {
+    return new Promise((resolve, reject) => {
+      let size = 0;
+      const chunks = [];
+      req.on('data', (c) => {
+        size += c.length;
+        if (size > max) {
+          reject(new Error('too large'));
+          req.destroy();
+        } else chunks.push(c);
+      });
+      req.on('end', () => resolve(Buffer.concat(chunks)));
+      req.on('error', reject);
+    });
+  }
   function readBody(req) {
     return new Promise((resolve, reject) => {
       let size = 0;
@@ -708,6 +724,46 @@ function createIdentityService(o) {
         if (o.mdl) list.push({ id: 'mdl', name: 'Mobile ID', tier: 1, kind: 'mdl' });
         if (o.mailer && o.roll && o.roll() && (o.clerkAnchor ? o.clerkAnchor() : 'id') === 'roll') list.push({ id: 'mail', name: 'Code by mail', tier: 1, kind: 'mail' });
         return res.end(JSON.stringify(list));
+      }
+      if (url.pathname === '/upload/blocked') {
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-store' });
+        return res.end(JSON.stringify({ enabled: !!o.uploads, ai: !!(o.uploads && o.askEnabled), blocked: o.uploads ? o.uploads.blocked() : [] }));
+      }
+      if (url.pathname === '/upload' || url.pathname === '/upload/remove') {
+        const origin = req.headers.origin || '';
+        const admin = url.pathname === '/upload/remove';
+        const cors = o.allowedReturnOrigins.includes(origin) ? { 'Access-Control-Allow-Origin': origin, Vary: 'Origin' } : {};
+        const json = (status, obj) => {
+          res.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', ...cors });
+          res.end(JSON.stringify(obj));
+        };
+        if (req.method === 'OPTIONS') {
+          res.writeHead(204, { ...cors, 'Access-Control-Allow-Methods': 'POST', 'Access-Control-Allow-Headers': 'Content-Type, X-Upload-Proof, X-File-Name', 'Access-Control-Max-Age': '600' });
+          return res.end();
+        }
+        if (!admin && !cors['Access-Control-Allow-Origin']) return json(403, { error: 'This app is not allowed to use this identity service.' });
+        if (!o.uploads) return json(503, { error: 'Adding files is not available right now.' });
+        if (req.method !== 'POST') return json(405, { error: 'POST only' });
+        if (admin) {
+          let body;
+          try {
+            body = JSON.parse(await readBody(req));
+          } catch {
+            return json(400, { error: 'Invalid request.' });
+          }
+          const [status, out] = await o.uploads.remove(body, req.headers.authorization);
+          return json(status, out);
+        }
+        if (recentCount(uploadHits, ip, 3600_000).length >= (o.uploadsPerIpHour ?? 60)) return json(429, { error: 'Too many files this hour. Please try again later.' });
+        uploadHits.get(ip).push(Date.now());
+        let bytes;
+        try {
+          bytes = await readRaw(req, require('./uploads').MAX_BYTES);
+        } catch {
+          return json(413, { error: 'Files can be up to 10 MB.' });
+        }
+        const [status, out] = await o.uploads.upload(bytes, req.headers, url.searchParams);
+        return json(status, out);
       }
       if (url.pathname.startsWith('/email/') || url.pathname.startsWith('/clerk/') || url.pathname.startsWith('/mdl/') || url.pathname.startsWith('/roll/') || url.pathname === '/ask') {
         // Called from the voter app's page: allow its origin only.
@@ -824,6 +880,19 @@ if (require.main === module) {
       mailer: require('./mail').mailerFromEnv(),
       roll: () => roll,
       rollKey: clean(process.env.ROLL_KEY) || undefined,
+      uploads: clean(process.env.PINATA_JWT)
+        ? require('./uploads').createUploads({
+          store: require('./uploads').pinata(clean(process.env.PINATA_JWT)),
+          appConfig: () => appCfg,
+          provider,
+          perDay: Number(process.env.UPLOADS_PER_DAY || 10),
+          minTier: Number(process.env.UPLOAD_MIN_TIER || 0),
+          read: clean(process.env.ANTHROPIC_API_KEY) ? (bytes, type) => require('../explainer/explain').readUpload(bytes, type) : undefined,
+          adminToken: clean(process.env.UPLOAD_ADMIN_TOKEN) || undefined,
+          blocked: (process.env.UPLOAD_BLOCKLIST || '').split(',').map((x) => x.trim()).filter(Boolean),
+          log: (m) => console.log(`[identity] ${m}`),
+        })
+        : undefined,
     });
     const port = Number(process.env.PORT || 8790);
     server.listen(port, () => console.log(`[identity] listening on :${port}; issuer ${signer.address}; providers: ${[...providers.map((p) => `${p.name}(${p.tier ? 'verified' : 'basic'})`), ...(process.env.EMAIL_PROVIDER ? [`Email via ${process.env.EMAIL_PROVIDER}(basic)`] : [])].join(', ')}`));

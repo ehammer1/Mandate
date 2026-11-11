@@ -15,6 +15,7 @@ import { ethers } from 'ethers';
 import { readDoc, postDoc } from './notices.js';
 import { renderExplainer } from './explain.js';
 import { countdown } from './time.js';
+import { attachPicker, attachmentsHtml, wireAttachments, uploadService } from './attach.js';
 
 const REGISTRY_ABI = [
   'function mandateCount() view returns (uint256)',
@@ -66,6 +67,7 @@ export function wireMandates(ctx) {
     const cards = [];
     for (let id = Number(count); id >= Math.max(1, Number(count) - 19); id--) {
       const [m, overdue] = await Promise.all([r.getMandate(id), r.isOverdue(id)]);
+      await uploadService(state.config);
       const goal = await readDoc(state.config, state.provider, m.specCID);
       const st = Number(m.status);
       const open = st === 1 || st === 2;
@@ -83,14 +85,14 @@ export function wireMandates(ctx) {
 
       const parts = [];
       parts.push(`<p class="eyebrow">Mandate ${id} · ${esc(label)}${open && !overdue ? ` · due ${esc(day(m.deadline))} (${countdown(m.deadline)})` : ` · deadline ${esc(day(m.deadline))}${overdue ? ` (${countdown(m.deadline, 'overdue · was due ')})` : ''}`}</p>
-        <h3>${esc(goal.title)}</h3>${goal.body ? `<p>${esc(goal.body)}</p>` : ''}
+        <h3>${esc(goal.title)}</h3>${goal.body ? `<p>${esc(goal.body)}</p>` : ''}${attachmentsHtml(state.config, goal, esc)}
         <p class="muted">Responsible: <span class="code">${esc(short(m.responsible))}</span>${mine ? ' (you)' : ''} · ${m.threshold} independent check${Number(m.threshold) === 1 ? '' : 's'} needed</p>
         <p><strong>Budget:</strong> ${e ? `${esc(eth(locked))} held${contributed > locked && st !== 3 ? ` (of ${esc(eth(contributed))} backed${clawed ? `, ${esc(eth(clawed))} forfeited for lateness` : ''})` : ''}` : 'nobody has backed it yet'}${terms ? `. Paid to the responsible party once verified; refunded if repealed; ${Number(terms[0]) / 100}% forfeited to the public treasury every ${Math.round(Number(terms[1]) / 86_400)} day${Number(terms[1]) === 86_400 ? '' : 's'} while overdue.` : ''}</p>`);
-      if (evidence) parts.push(`<div class="card"><p class="eyebrow">Evidence submitted (check ${m.round})</p><p>${esc(evidence.body || evidence.title)}</p><p class="muted">${m.approvals} approval${Number(m.approvals) === 1 ? '' : 's'}, ${m.rejections} rejection${Number(m.rejections) === 1 ? '' : 's'} of ${m.threshold} needed</p></div>`);
+      if (evidence) parts.push(`<div class="card"><p class="eyebrow">Evidence submitted (check ${m.round})</p><p>${esc(evidence.body || evidence.title)}</p>${attachmentsHtml(state.config, evidence, esc)}<p class="muted">${m.approvals} approval${Number(m.approvals) === 1 ? '' : 's'}, ${m.rejections} rejection${Number(m.rejections) === 1 ? '' : 's'} of ${m.threshold} needed</p></div>`);
 
       // Actions for this person.
       const acts = [];
-      if (mine && st === 1) acts.push(`<label for="evidence-${id}">What was done (with links to photos, documents or data)</label><textarea id="evidence-${id}" rows="3"></textarea><button class="primary" data-act="evidence" data-id="${id}">Submit for checking</button>`);
+      if (mine && st === 1) acts.push(`<label for="evidence-${id}">What was done (with links to photos, documents or data)</label><textarea id="evidence-${id}" rows="3"></textarea><p class="note">Add photos or documents as proof: before and after photos, invoices, reports.</p><div data-attach="evidence-${id}"></div><button class="primary" data-act="evidence" data-id="${id}">Submit for checking</button>`);
       if (isVerifier && st === 2 && !mine && !attested) acts.push(`<label for="reason-${id}">Your reasons (published with your decision)</label><textarea id="reason-${id}" rows="3"></textarea><div class="row"><button class="primary" data-act="approve" data-id="${id}">Approve: it's done</button><button data-act="reject" data-id="${id}">Reject: not done</button></div>`);
       if (isVerifier && attested) acts.push('<p class="muted">You have checked this round.</p>');
       if (open && f) acts.push(`<div class="row"><label>Back it with <input type="text" id="back-${id}" inputmode="decimal" placeholder="0.001" style="width:120px" /> ETH</label><button data-act="back" data-id="${id}">Back this mandate</button></div>`);
@@ -104,11 +106,14 @@ export function wireMandates(ctx) {
     }
     list.innerHTML = cards.join('') || '<p class="muted">No mandates yet. A mandate is created when a binding poll passes.</p>';
     for (const b of list.querySelectorAll('button[data-act]')) b.onclick = () => act(b, Number(b.dataset.id), b.dataset.act);
+    for (const el of list.querySelectorAll('[data-attach]')) pickers[el.dataset.attach] = attachPicker(el, { state, esc });
+    wireAttachments(list, state.config);
     for (const box of list.querySelectorAll('.thread-box')) state.feedback?.thread(box, 'mandate', Number(box.dataset.id)).catch(() => {});
     for (const box of list.querySelectorAll('.rating-box')) state.feedback?.rating(box, 'mandate', Number(box.dataset.id)).catch(() => {});
     for (const box of list.querySelectorAll('.explain-box')) renderExplainer({ state, esc, status }, box, 'mandate', Number(box.dataset.id)).catch(() => {});
   }
 
+  const pickers = {};
   async function act(button, id, kind) {
     const el = $(`mandate-status-${id}`);
     button.disabled = true;
@@ -130,7 +135,8 @@ export function wireMandates(ctx) {
         const text = $(`evidence-${id}`).value.trim();
         if (!text) throw new Error('Describe what was done first.');
         status(el, 'Publishing your evidence: confirm if asked…');
-        const ref = await postDoc(state.config, signer, { title: `Evidence for mandate ${id}`, body: text });
+        const files = pickers[`evidence-${id}`]?.list() || [];
+        const ref = await postDoc(state.config, signer, { title: `Evidence for mandate ${id}`, body: text, ...(files.length ? { attachments: files } : {}) });
         ok = await ctx.sendTx(el, 'Submit for checking', () => r.submitEvidence(id, ref));
       } else if (kind === 'approve' || kind === 'reject') {
         const text = $(`reason-${id}`).value.trim();

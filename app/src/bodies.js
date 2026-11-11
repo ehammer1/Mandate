@@ -19,6 +19,7 @@ import { countdown } from './time.js';
 import { readDoc, postDoc } from './notices.js';
 import { categoryChip, categoryFromHash, categoryOptions } from './priority.js';
 import { ORG_TEMPLATES, RULE_WORDS } from './org-templates.js';
+import { attachPicker, attachmentsHtml, wireAttachments, uploadService } from './attach.js';
 
 const RULES = 'tuple(string name, string kind, uint32 seats, uint16 quorumPct, uint16 passPct, bool passOfSeats, uint16 overridePct, uint32 noticeMinutes, uint32 voteMinutes, uint32 executiveMinutes, address executive, bool silenceApproves, uint8 residentTier, bool explainDissent, bool reasonsRequired, address clerk, bool active, bool allowAlternates, bool selfGoverned)';
 const MOTION = 'tuple(uint256 bodyId, string ref, bytes32 category, address proposer, uint64 noticeAt, uint64 opensAt, uint64 closesAt, uint256 residentPoll, uint8 stage, uint64 executiveBy, uint64 overrideBy, uint32 version, uint32 electorate, bool overridden, string executiveRef)';
@@ -187,7 +188,7 @@ async function motionHtml(cfg, provider, g, id, esc, names, now) {
   return {
     m, st, r, counts, who, choice, overrideChoice, doc,
     html: `<p class="eyebrow">Motion ${id} · <strong>${STAGES[st]}</strong> · ${clock}</p>
-      <h3>${esc(doc.title)} ${categoryChip(categoryFromHash(m.category), esc)}</h3>${doc.body ? `<p>${esc(doc.body)}</p>` : ''}
+      <h3>${esc(doc.title)} ${categoryChip(categoryFromHash(m.category), esc)}</h3>${doc.body ? `<p>${esc(doc.body)}</p>` : ''}${attachmentsHtml(cfg, doc, esc)}
       ${doc.from && Number(doc.from.motion) ? `<p class="note">Comes from ${esc(String(doc.from.body || 'another body'))}, which adopted it ${Number(doc.from.yes)}–${Number(doc.from.no)} (motion ${Number(doc.from.motion)}).</p>` : ''}
       ${resLine}
       ${action && Number(action.kind) ? `<p class="note"><strong>Changes the body itself:</strong> ${Number(action.kind) === 1 ? `${esc(names[action.account.toLowerCase()] || short(action.account))} ${roleWords(action.roles).length ? `becomes ${roleWords(action.roles).join(' and ')}` : 'loses every role'}${Number(action.until) ? ` until ${new Date(Number(action.until) * 1000).toLocaleDateString()}` : ''}` : `${action.alternate === ethers.ZeroAddress ? 'no alternate' : esc(names[action.alternate.toLowerCase()] || short(action.alternate))} for ${esc(names[action.account.toLowerCase()] || short(action.account))}`}. No executive signature needed.</p>` : ''}
@@ -234,7 +235,7 @@ export function wireBodies(ctx) {
     const g = reg();
     if (!g) return (box.innerHTML = '<p class="muted">Government bodies are not set up on this deployment yet.</p>');
     box.innerHTML = '<p class="muted">Loading…</p>';
-    const [n, mc, block, names] = await Promise.all([g.bodyCount(), g.motionCount(), state.provider.getBlock('latest'), nameBook(state.config, state.provider)]);
+    const [n, mc, block, names] = await Promise.all([g.bodyCount(), g.motionCount(), state.provider.getBlock('latest'), nameBook(state.config, state.provider), uploadService(state.config)]);
     const now = Number(block.timestamp);
     const account = me().toLowerCase();
     if (!Number(n)) return (box.innerHTML = '<p class="muted">No bodies yet. A registrar sets them up under Admin.</p>');
@@ -292,6 +293,7 @@ export function wireBodies(ctx) {
         ${(mine || chair || clerk) && r.active ? `<details class="propose"><summary><strong>Put an item on the agenda</strong></summary><div class="stack">
           <label>Title <input type="text" data-f="title" /></label><label>Full text<textarea data-f="body" rows="4"></textarea></label>
           <label>Topic <select data-f="cat">${categoryOptions()}</select></label>
+          <details class="attach-wrap"><summary>📎 Attach the bill text, a map, photos…</summary><div data-attach></div></details>
           ${r.selfGoverned ? `<label>This item changes the body itself <select data-f="action"><option value="0">No: an ordinary item</option><option value="1">Give or remove someone's roles</option><option value="2">Name a member's alternate</option></select></label>
           <div class="stack" data-show="1" hidden><label>Their account (0x…) <input type="text" data-f="roleAccount" autocomplete="off" spellcheck="false" /></label>
             <div class="row"><label><input type="checkbox" data-f="roleChair" /> Chair</label><label><input type="checkbox" data-f="roleClerk" /> Clerk</label><label><input type="checkbox" data-f="roleStaff" /> Staff</label></div>
@@ -301,8 +303,8 @@ export function wireBodies(ctx) {
           <p class="note">It is published at once; voting opens after the ${dur(r.noticeMinutes)} notice period${Number(r.residentTier) === 255 ? '' : ', while residents vote on it'}.</p>
           <button class="primary" data-propose="${b}">Publish to the agenda</button><p class="status" role="status"></p></div></details>` : ''}
         ${rec ? `<details class="propose"><summary>Drafts (${bodyDrafts.length})</summary><div class="stack">
-          ${bodyDrafts.map((d, i) => `<div class="card stack"><p class="eyebrow">Draft ${d.id} · by ${esc(names[d.by.toLowerCase()] || short(d.by))} · ${countdown(d.at)}</p><p><strong>${esc(draftDocs[i].title)}</strong></p>${draftDocs[i].body ? `<p>${esc(draftDocs[i].body)}</p>` : ''}${(mine || chair || clerk) && r.active ? `<button data-sponsor="${b}:${d.id}">Sponsor: put it on the agenda</button>` : ''}<p class="status" role="status"></p></div>`).join('') || '<p class="muted">No drafts.</p>'}
-          ${mine || chair || clerk || staff ? `<label>New draft: title <input type="text" data-f="draftTitle" /></label><label>Text<textarea data-f="draftBody" rows="3"></textarea></label><button data-draft="${b}">Submit draft</button>` : ''}
+          ${bodyDrafts.map((d, i) => `<div class="card stack"><p class="eyebrow">Draft ${d.id} · by ${esc(names[d.by.toLowerCase()] || short(d.by))} · ${countdown(d.at)}</p><p><strong>${esc(draftDocs[i].title)}</strong></p>${draftDocs[i].body ? `<p>${esc(draftDocs[i].body)}</p>` : ''}${attachmentsHtml(state.config, draftDocs[i], esc)}${(mine || chair || clerk) && r.active ? `<button data-sponsor="${b}:${d.id}">Sponsor: put it on the agenda</button>` : ''}<p class="status" role="status"></p></div>`).join('') || '<p class="muted">No drafts.</p>'}
+          ${mine || chair || clerk || staff ? `<label>New draft: title <input type="text" data-f="draftTitle" /></label><label>Text<textarea data-f="draftBody" rows="3"></textarea></label><details class="attach-wrap"><summary>📎 Attach files</summary><div data-attach></div></details><button data-draft="${b}">Submit draft</button>` : ''}
           <p class="status" role="status"></p></div></details>
         <details class="propose"><summary>Closed sessions (${bodySessions.length})${bodySessions.some((x) => x.overdue) ? ' <span class="warn">▲ minutes overdue</span>' : ''}</summary><div class="stack">
           <p class="note">Where the law allows a meeting without the public, it is still on the record: why it was closed, and a sealed fingerprint of its minutes, which must be published unchanged by the date shown.</p>
@@ -320,6 +322,8 @@ export function wireBodies(ctx) {
       </section>`);
     }
     box.innerHTML = cards.join('');
+    for (const el of box.querySelectorAll('[data-attach]')) el._picker = attachPicker(el, { state, esc });
+    wireAttachments(box, state.config);
     wire(box);
   }
 
@@ -408,7 +412,13 @@ export function wireBodies(ctx) {
         action = { kind, account: field(b, 'altMember'), alternate: alt ? ethers.getAddress(alt) : ethers.ZeroAddress, roles: 0, until: 0 };
       }
       status(el, 'Publishing the full text…');
-      const ref = await postDoc(state.config, ctx.activeSigner(), { title, body: field(b, 'body'), category: field(b, 'cat'), options: ['Yes', 'No'] }).catch((e) => status(el, e.message, 'error'));
+      let files;
+      try {
+        files = card(b).querySelector('[data-attach]')?._picker?.list() || [];
+      } catch (e) {
+        return status(el, e.message, 'error');
+      }
+      const ref = await postDoc(state.config, ctx.activeSigner(), { title, body: field(b, 'body'), category: field(b, 'cat'), options: ['Yes', 'No'], ...(files.length ? { attachments: files } : {}) }).catch((e) => status(el, e.message, 'error'));
       const cat = ethers.id(field(b, 'cat') || 'general');
       if (ref) after(await send(el, 'Put on the agenda', (k) => (action ? k.proposeAction(Number(b.dataset.propose), ref, cat, action) : k.propose(Number(b.dataset.propose), ref, cat))));
     };
@@ -425,7 +435,13 @@ export function wireBodies(ctx) {
       const el = st(b);
       if (!field(b, 'draftTitle')) return status(el, 'Give the draft a title.', 'error');
       status(el, 'Publishing the draft…');
-      const ref = await postDoc(state.config, ctx.activeSigner(), { title: field(b, 'draftTitle'), body: field(b, 'draftBody'), options: ['Yes', 'No'], draft: true }).catch((e) => status(el, e.message, 'error'));
+      let files;
+      try {
+        files = card(b).querySelector('[data-attach]')?._picker?.list() || [];
+      } catch (e) {
+        return status(el, e.message, 'error');
+      }
+      const ref = await postDoc(state.config, ctx.activeSigner(), { title: field(b, 'draftTitle'), body: field(b, 'draftBody'), options: ['Yes', 'No'], draft: true, ...(files.length ? { attachments: files } : {}) }).catch((e) => status(el, e.message, 'error'));
       if (ref) after(await recordsSend(el, 'Submit draft', (k) => k.submitDraft(Number(b.dataset.draft), ref)));
     };
     for (const b of box.querySelectorAll('[data-sponsor]')) b.onclick = async () => {
@@ -694,7 +710,7 @@ export function wireBodies(ctx) {
 export async function bodiesDashboard(cfg, provider, esc) {
   if (!cfg.bodiesAddress) return '<p class="muted">Not set up on this deployment.</p>';
   const g = new ethers.Contract(cfg.bodiesAddress, BODIES_ABI, provider);
-  const [n, mc, block, names] = await Promise.all([g.bodyCount(), g.motionCount(), provider.getBlock('latest'), nameBook(cfg, provider)]);
+  const [n, mc, block, names] = await Promise.all([g.bodyCount(), g.motionCount(), provider.getBlock('latest'), nameBook(cfg, provider), uploadService(cfg)]);
   if (!Number(n)) return '<p class="muted">No bodies set up yet.</p>';
   const now = Number(block.timestamp);
   const out = [];

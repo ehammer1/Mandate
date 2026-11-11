@@ -127,4 +127,36 @@ async function answer(item, question, opts = {}) {
   return { ...data, quotes: c.kept, model };
 }
 
-module.exports = { explain, answer, checkQuotes, SCHEMA };
+const READ_SCHEMA = {
+  type: 'object',
+  properties: {
+    kind: { type: 'string', enum: ['photo', 'document', 'screenshot', 'other'] },
+    alt: { type: 'string', description: 'One plain sentence describing what it shows, for people using screen readers' },
+    text: { type: 'string', description: 'All readable text, copied exactly in reading order; empty if none' },
+    summary: { type: 'string', description: 'Two or three neutral, plain-language sentences on what it is and says' },
+    personal_info: { type: 'boolean', description: 'true if it shows private details: a private person\'s face, ID or account numbers, a home address, phone number, signature, medical or financial details' },
+    personal_info_note: { type: 'string', description: 'If personal_info: what, briefly, so the uploader can check; otherwise empty' },
+  },
+  required: ['kind', 'alt', 'text', 'summary', 'personal_info', 'personal_info_note'],
+  additionalProperties: false,
+};
+
+/**
+ * Read a photo or document a resident is about to publish: its text (searchable), a short
+ * summary, a description for screen readers, and a warning if it shows private details.
+ */
+async function readUpload(bytes, type, opts = {}) {
+  const client = opts.client || new Anthropic();
+  const data = Buffer.from(bytes).toString('base64');
+  const block = type === 'application/pdf' ? { type: 'document', source: { type: 'base64', media_type: type, data } } : { type: 'image', source: { type: 'base64', media_type: type, data } };
+  const { data: out, model } = await ask(client, {
+    system: 'You help residents publish photos and documents on a public civic record. Describe and transcribe faithfully and neutrally; never guess at text you cannot read. Flag private details so the uploader can decide before it becomes public.',
+    content: [block, { type: 'text', text: 'Read this file for the public record.' }],
+    schema: READ_SCHEMA,
+    effort: 'low',
+    maxTokens: 8000,
+  });
+  return { ...out, text: String(out.text || '').slice(0, 20_000), model };
+}
+
+module.exports = { explain, answer, readUpload, checkQuotes, SCHEMA };

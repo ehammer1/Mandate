@@ -22,7 +22,7 @@ const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '
   '.webmanifest': 'application/manifest+json', '.wasm': 'application/wasm', '.zkey': 'application/octet-stream', '.css': 'text/css' };
 
 /**
- * @param {{ config?: object, ipfs?: Record<string,string> }} [opts]
+ * @param {{ config?: object, ipfs?: Record<string, string | { type: string, body: Buffer }> }} [opts]
  *   config: served as /config.json instead of app/config.json
  *   ipfs:   cid -> content, served at /ipfs/<cid> (local demos and tests)
  */
@@ -34,9 +34,10 @@ function createAppServer(opts = {}) {
       return res.end(JSON.stringify(opts.config));
     }
     if (url.startsWith('/ipfs/') && opts.ipfs) {
-      const body = opts.ipfs[url.slice(6)];
-      res.writeHead(body ? 200 : 404, { 'Content-Type': 'application/json' });
-      return res.end(body || '{}');
+      const entry = opts.ipfs[url.slice(6)];
+      const file = entry && typeof entry === 'object' && entry.body ? entry : null; // { type, body } for photos and PDFs
+      res.writeHead(entry ? 200 : 404, { 'Content-Type': file ? file.type : 'application/json', 'Access-Control-Allow-Origin': '*' });
+      return res.end(file ? file.body : entry || '{}');
     }
     let base = APP;
     let rel = url === '/' ? 'index.html' : url.slice(1);

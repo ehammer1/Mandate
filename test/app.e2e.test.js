@@ -124,6 +124,21 @@ before(async () => {
     rollKey: ROLL_KEY,
     mailer: postbox,
     mailPerIpHour: 1000,
+    // Files go to a stand-in for IPFS: the app's own test server serves them back.
+    uploads: require('../services/identity/uploads').createUploads({
+      store: {
+        pin: async (bytes, name, type) => {
+          const cid = `bafy${require('crypto').createHash('sha256').update(bytes).digest('hex').slice(0, 40)}`;
+          appIpfs[cid] = { type, body: Buffer.from(bytes) };
+          return cid;
+        },
+        unpin: async (cid) => delete appIpfs[cid],
+      },
+      appConfig: () => appOpts.config,
+      provider,
+      read: async (bytes, type) => ({ kind: type === 'application/pdf' ? 'document' : 'photo', alt: 'A deep pothole on Elm Street', text: 'ELM ST', summary: 'A photo of a pothole next to a street sign.', personal_info: type !== 'application/pdf', personal_info_note: 'a car licence plate', model: 'claude-opus-5-5' }),
+      adminToken: 'takedown-token',
+    }),
     log: () => {},
   });
   await new Promise((r) => idService.listen(idPort, '127.0.0.1', r));
@@ -1081,6 +1096,49 @@ test('most requested petitions are ranked, and times count down live', async () 
   await dash.waitForFunction((t) => document.querySelector('#requested .countdown').textContent !== t, first, { timeout: 5000 });
   assert.deepEqual(errors, []);
   await dash.close();
+});
+
+test('photos and documents: take, scan, AI reads them, fingerprints check out, takedowns hide them', async () => {
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAAAFklEQVR4nGM4YaNBEmIY1TCqYfhqAAAeBCwQMwPSngAAAABJRU5ErkJggg==', 'base64');
+  await page.click('#nav-petitions');
+  if (!(await page.$eval('#screen-petitions details', (d) => d.open))) await page.click('#screen-petitions details summary');
+  await page.fill('#petition-title', 'Fix the pothole on Elm Street');
+  await page.waitForSelector('#petition-attach [data-pick="library"]', { state: 'attached', timeout: 30_000 });
+  await page.setInputFiles('#petition-attach [data-pick="library"]', { name: 'pothole.png', mimeType: 'image/png', buffer: png });
+  await page.waitForSelector('#petition-attach .attach-list li', { timeout: 120_000 });
+  assert.equal(await page.inputValue('#petition-attach [data-alt="0"]'), 'A deep pothole on Elm Street'); // AI wrote the description
+  assert.match(await page.textContent('#petition-attach'), /AI noticed private details: a car licence plate/);
+  // A two-page scan becomes one PDF.
+  await page.setInputFiles('#petition-attach [data-pick="scan"]', { name: 'p1.png', mimeType: 'image/png', buffer: png });
+  await page.waitForSelector('#petition-attach >> text=1 page scanned');
+  await page.setInputFiles('#petition-attach p.note [data-pick="scan"]', { name: 'p2.png', mimeType: 'image/png', buffer: png });
+  await page.waitForSelector('#petition-attach >> text=2 pages scanned');
+  await page.click('#petition-attach [data-done]');
+  await page.waitForSelector('#petition-attach .attach-list li:nth-child(2) >> text=scan-2-pages.pdf', { timeout: 120_000 });
+  await page.click('#btn-petition');
+  await page.waitForSelector('#petition-status >> text=Petition started', { timeout: 60_000 });
+  const pid = await c.feedback.petitionCount();
+  await page.waitForSelector(`#petition-${pid} .attachments img[alt="A deep pothole on Elm Street"]`, { timeout: 60_000 });
+  const rec = JSON.parse(await c.notices.read((await c.feedback.getPetition(pid)).ref.slice(3)));
+  assert.equal(rec.attachments?.length, 2, JSON.stringify(rec.attachments?.map((x) => [x.name, x.type, x.cid])));
+  assert.match(await page.textContent(`#petition-${pid} .attachments`), /scan-2-pages\.pdf/);
+  await page.click(`#petition-${pid} .attachments [data-check] >> nth=0`);
+  await page.waitForSelector(`#petition-${pid} >> text=Matches its fingerprint on the public record`, { timeout: 30_000 });
+  // The published document carries each file's fingerprint and what AI read.
+  const doc = JSON.parse(await c.notices.read((await c.feedback.getPetition(pid)).ref.slice(3)));
+  assert.equal(doc.attachments.length, 2);
+  assert.match(doc.attachments[0].sha256, /^[0-9a-f]{64}$/);
+  assert.equal(doc.attachments[1].type, 'application/pdf');
+  assert.equal(doc.attachments[0].ai.summary, 'A photo of a pothole next to a street sign.');
+  // A takedown: the file stops being served, and the app says so.
+  const res = await fetch(`${appConfig.identityService}/upload/remove`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer takedown-token' }, body: JSON.stringify({ cid: doc.attachments[0].cid, reason: 'licence plate' }) });
+  assert.equal(res.status, 200);
+  await page.reload();
+  await page.click('#btn-device');
+  await page.waitForSelector('#screen-home:not([hidden])');
+  await page.click('#nav-petitions');
+  await page.waitForSelector(`#petition-${pid} >> text=A file here was taken down`, { timeout: 60_000 });
+  await shot('19-attachments');
 });
 
 test('government bodies: set up from a template, public agenda with notice, roll-call vote, on the dashboard', async () => {

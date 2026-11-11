@@ -47,9 +47,16 @@ services:
         sync: false
       - key: EMAIL_FROM            # sender address, e.g. "Mandate <signup@yourdomain.org>"
         sync: false
-      # Residents' questions about polls and mandates, answered by Claude from the published text.
+      # Residents' questions about polls and mandates, answered by Claude from the published text;
+      # also reads uploaded photos and documents (text, summary, description, privacy check).
       - key: ANTHROPIC_API_KEY
         sync: false
+      # Photos and documents: stored on IPFS through Pinata (pinata.cloud, API Keys, a JWT).
+      - key: PINATA_JWT
+        sync: false
+      # Takedowns of uploaded files (see docs/uploads.md).
+      - key: UPLOAD_ADMIN_TOKEN
+        generateValue: true
       # Mobile ID sign-up (state mobile driver's licences): off until trusted issuer roots are set.
       - key: MDL_IACA_URL
         sync: false          # a PEM bundle of the states' IACA root certificates (e.g. from AAMVA's Digital Trust Service)

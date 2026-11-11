@@ -9,6 +9,7 @@ import { commentProof, ratingProof, signatureProof, topicOf } from '../../client
 import { readDoc } from './notices.js';
 import { countdown } from './time.js';
 import { categoryChip, categoryOf } from './priority.js';
+import { attachPicker, attachmentsHtml, wireAttachments, uploadService } from './attach.js';
 
 const FEEDBACK_ABI = [
   'function identity() view returns (address)',
@@ -75,14 +76,22 @@ export function wireFeedback(ctx) {
     box.innerHTML = `<details class="thread"><summary>Comments (${n})</summary><div class="stack"><div class="comments">Loading…</div>
       <label for="c-${kind}-${id}">Add a comment (anonymous: others see only whether you are a member or ID-checked)</label>
       <textarea id="c-${kind}-${id}" rows="2" maxlength="1500"></textarea>
+      <details class="attach-wrap"><summary>📎 Add a photo or document</summary><div data-attach></div></details>
       <button data-post>Post</button><p class="status" role="status"></p></div></details>`;
     const det = box.querySelector('details');
+    let picker = null;
+    const wrap = box.querySelector('.attach-wrap');
+    wrap.addEventListener('toggle', () => {
+      if (wrap.open && !picker) picker = attachPicker(wrap.querySelector('[data-attach]'), { state, esc });
+    });
     const load = async () => {
+      await uploadService(state.config);
       const list = n ? await f.comments(topic, Math.max(0, n - 50), 50) : [];
       const docs = await Promise.all(list.map((cm) => readDoc(state.config, state.provider, cm.ref)));
       box.querySelector('.comments').innerHTML = list.length
-        ? list.map((cm, i) => `<div class="comment"><p class="meta">${esc(TIER_WHO[Number(cm.tier)] || 'Member')} · ${esc(when(cm.at))}</p><p>${esc(docs[i].body || docs[i].title)}</p></div>`).join('')
+        ? list.map((cm, i) => `<div class="comment"><p class="meta">${esc(TIER_WHO[Number(cm.tier)] || 'Member')} · ${esc(when(cm.at))}</p><p>${esc(docs[i].body || docs[i].title)}</p>${attachmentsHtml(state.config, docs[i], esc)}</div>`).join('')
         : '<p class="muted">No comments yet.</p>';
+      wireAttachments(box.querySelector('.comments'), state.config);
     };
     det.addEventListener('toggle', () => det.open && load().catch(() => {}), { once: true });
     const el = box.querySelector('.status');
@@ -94,10 +103,12 @@ export function wireFeedback(ctx) {
         const tier = await tierNow();
         if (tier < 0) throw new Error('Join first to comment.');
         status(el, 'Publishing your comment privately…');
-        const ref = await publish({ title: `Comment on ${kind} ${id}`, body: text });
+        const files = picker ? picker.list() : [];
+        const ref = await publish({ title: `Comment on ${kind} ${id}`, body: text, ...(files.length ? { attachments: files } : {}) });
         const proof = await commentProof({ provider: state.provider, feedback: f, identity: state.identity, tier, topic, ref, artifactsBase: state.config.artifactsBase || undefined });
         await relay('/feedback', { method: 'comment', args: [topic, tier, ref], proof });
         box.querySelector('textarea').value = '';
+        picker?.clear();
         status(el, 'Posted.', 'ok');
         await thread(box, kind, id);
         box.querySelector('details').open = true;
@@ -141,7 +152,10 @@ export function wireFeedback(ctx) {
   // -------------------------------------------------------------- petitions
 
   let sortBy = 'top';
+  let petitionPicker = null;
   async function renderPetitions() {
+    if (!petitionPicker && $('petition-attach')) petitionPicker = attachPicker($('petition-attach'), { state, esc });
+    await uploadService(state.config);
     const list = $('petition-list');
     const f = fb();
     if (!f) return (list.innerHTML = '<p class="muted">Petitions are not set up on this deployment.</p>');
@@ -167,7 +181,7 @@ export function wireFeedback(ctx) {
       const opened = p.pollId > 0n;
       cards.push(`<article class="card stack" id="petition-${id}">
         <p class="eyebrow">${sortBy === 'top' && !opened ? `#${rank + 1} most requested · ` : ''}Petition ${id} · ${esc(PETITION_KINDS[Number(p.action)] || 'A vote')} · started ${countdown(p.createdAt)} · signed by ${esc(TIER_WHO[Number(p.tier)].toLowerCase())}s</p>
-        <h3>${esc(doc.title)} ${categoryChip(categoryOf(doc), esc)}</h3>${doc.body ? `<p>${esc(doc.body)}</p>` : ''}
+        <h3>${esc(doc.title)} ${categoryChip(categoryOf(doc), esc)}</h3>${doc.body ? `<p>${esc(doc.body)}</p>` : ''}${attachmentsHtml(state.config, doc, esc)}
         <p><strong>${p.signatures} of ${p.needed}</strong> signatures</p>
         <div class="tally"><span>Progress</span><span class="track"><span class="fill" style="display:block;width:${pct}%"></span></span><span class="v">${pct}%</span></div>
         ${opened ? `<p class="ok">Enough signatures: poll ${p.pollId} opened by itself. Go to Polls to vote.</p>` : signed ? '<p class="ok">You signed this. Nobody can see who signed.</p>' : tier >= Number(p.tier) ? `<button class="primary" data-sign="${id}">Sign anonymously</button>` : `<p class="note">${tier < 0 ? 'Join first to sign.' : `Only ${esc(TIER_WHO[Number(p.tier)].toLowerCase())}s can sign this petition.`}</p>`}
@@ -182,6 +196,7 @@ export function wireFeedback(ctx) {
       b.onclick = () => { sortBy = v; renderPetitions(); };
     }
     if ($('petition-filter')) $('petition-filter').onchange = () => renderPetitions();
+    wireAttachments(list, state.config);
     for (const b of list.querySelectorAll('[data-sign]')) {
       b.onclick = async () => {
         const id = Number(b.dataset.sign);
@@ -226,11 +241,13 @@ export function wireFeedback(ctx) {
     }
     try {
       status(el, 'Publishing the petition…');
-      const ref = await publish({ title, body: why, category: $('petition-category').value });
+      const files = petitionPicker ? petitionPicker.list() : [];
+      const ref = await publish({ title, body: why, category: $('petition-category').value, ...(files.length ? { attachments: files } : {}) });
       const tier = action === 0 ? Number($('petition-tier').value) : Math.max(1, Number($('petition-tier').value));
       await relay('/feedback', { method: 'petition', args: [tier, action, data, ref] });
       status(el, 'Petition started. Share it: when enough residents sign, the poll opens by itself.', 'ok');
       for (const id of ['petition-title', 'petition-body', 'petition-target']) $(id).value = '';
+      petitionPicker?.clear();
       await renderPetitions();
     } catch (e) {
       status(el, e.message, 'error');

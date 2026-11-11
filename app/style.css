@@ -97,3 +97,13 @@ table.data th, table.data td { text-align: left; padding: 6px 4px; border-top: 1
 .attn-tools { gap: 12px; margin: 6px 0 0; font-size: 14px; }
 .attn-tools button { min-height: 36px; padding: 4px 12px; font-size: 14px; }
 .attn-tools button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); }
+
+.attach-buttons { gap: 8px; flex-wrap: wrap; }
+label.button { display: inline-flex; align-items: center; min-height: 44px; padding: 8px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); cursor: pointer; font-weight: 600; }
+.attach-thumb { width: 56px; height: 56px; object-fit: cover; border-radius: 8px; vertical-align: middle; }
+.attachments { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; margin: 8px 0; }
+.attachment { margin: 0; }
+.attachment img { width: 100%; height: 140px; object-fit: cover; border-radius: 10px; border: 1px solid var(--line); }
+.attachment figcaption { font-size: 13px; color: var(--muted); margin-top: 4px; }
+.attachment .ai-text { white-space: pre-wrap; max-height: 240px; overflow: auto; font-size: 13px; background: var(--bg); padding: 8px; border-radius: 8px; }
+button.link { background: none; border: 0; padding: 0; min-height: 0; color: var(--accent); text-decoration: underline; font-size: 13px; cursor: pointer; }
