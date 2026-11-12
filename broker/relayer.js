@@ -63,6 +63,9 @@ const VOTE_ABI = [
   'error NullifierUsed()',
   'error InvalidProof()',
   'error UnknownPoll()',
+  'error ChangesClosed()',
+  'error OnlineClosed()',
+  'error BadRanking()',
 ];
 
 const MAX_BODY = 16 * 1024;

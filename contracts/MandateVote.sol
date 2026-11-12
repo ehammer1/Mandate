@@ -12,6 +12,10 @@ interface ISemaphoreGroupsView {
     function getMerkleTreeSize(uint256 groupId) external view returns (uint256);
 }
 
+interface IVoterGroupsView {
+    function isGroup(uint256 id) external view returns (bool);
+}
+
 interface IIdentityGroups {
     function semaphore() external view returns (address);
     function isGroup(uint256 id) external view returns (bool);
@@ -130,6 +134,26 @@ contract MandateVote is AccessControl, ReentrancyGuard {
         uint16 weightPct; // how much a checked ballot counts (100 = the same as any other), fixed at creation
     }
 
+    /// @notice How a poll runs, chosen by whoever opens it (fixed for the poll's life).
+    struct Settings {
+        uint32 changeCutoff; // seconds before the close after which a cast ballot can't be changed; NO_CHANGES = never
+        uint8 channels; // ONLINE_AND_PAPER, ONLINE_ONLY or PAPER_ONLY (online ballots refused)
+        bool ranked; // voters rank the choices (advisory polls with 3 or more choices)
+    }
+
+    /// @notice Everything needed to open a poll with settings (one argument, so it stays readable).
+    struct NewPoll {
+        uint256 groupId;
+        uint64 duration;
+        uint32 quorum;
+        uint8 options;
+        Action action;
+        bytes actionData;
+        string questionCID;
+        uint256 bond;
+        Settings settings;
+    }
+
     struct Ballot {
         uint256 merkleTreeDepth;
         uint256 merkleTreeRoot;
@@ -145,6 +169,19 @@ contract MandateVote is AccessControl, ReentrancyGuard {
     IERC20 public immutable bondToken;
     address public immutable treasury;
     uint256 public minBond;
+
+    uint32 public constant NO_CHANGES = type(uint32).max;
+    uint8 public constant ONLINE_AND_PAPER = 0;
+    uint8 public constant ONLINE_ONLY = 1;
+    uint8 public constant PAPER_ONLY = 2;
+
+    /// @notice Smaller voter lists (districts, wards, union locals) a poll may be limited to.
+    IVoterGroupsView public voterGroups;
+    mapping(uint256 => Settings) public settingsOf;
+    // Ranked ballots: each distinct ranking and how many ballots chose it (rankings packed 4 bits a
+    // place, first choice lowest: option + 1 in each place, 0 after the last ranked choice).
+    mapping(uint256 => uint256[]) private _rankings;
+    mapping(uint256 => mapping(uint256 => uint256)) private _rankCount;
 
     uint256 public pollCount;
     mapping(uint256 => Poll) private _polls;
@@ -165,6 +202,8 @@ contract MandateVote is AccessControl, ReentrancyGuard {
     mapping(uint256 => mapping(uint256 => uint256)) private _delegatedChecked; // the same, from checked voters
     mapping(uint256 => mapping(uint256 => uint256)) private _checkTally; // poll -> option (YES, NO) -> checked ballots
 
+    event PollConfigured(uint256 indexed id, uint32 changeCutoff, uint8 channels, bool ranked);
+    event VoterGroupsSet(address groups);
     event PollCreated(
         uint256 indexed id, uint256 indexed groupId, uint256 snapshotRoot, Action action, uint64 end, string questionCID
     );
@@ -207,6 +246,9 @@ contract MandateVote is AccessControl, ReentrancyGuard {
     error CheckTooSmall(uint256 minChecked);
     error RuleVotersNotEligible();
     error NoCharter();
+    error ChangesClosed();
+    error OnlineClosed();
+    error BadRanking();
 
     constructor(address admin, address identity_, address verifier_, address bondToken_, address treasury_, uint256 minBond_, address charter_) {
         if (admin == address(0) || identity_ == address(0) || verifier_ == address(0) || bondToken_ == address(0) || treasury_ == address(0)) {
@@ -226,6 +268,12 @@ contract MandateVote is AccessControl, ReentrancyGuard {
     function setDelegates(address registry) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (address(delegates) != address(0)) revert DelegatesAlreadySet();
         delegates = IDelegates(registry);
+    }
+
+    /// @notice Connect the voter-groups registry (districts, wards...). Polls limited to one are advisory.
+    function setVoterGroups(address registry) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        voterGroups = IVoterGroupsView(registry);
+        emit VoterGroupsSet(registry);
     }
 
     function setMinBond(uint256 amount) external onlyRole(DEFAULT_ADMIN_ROLE) {
@@ -258,6 +306,20 @@ contract MandateVote is AccessControl, ReentrancyGuard {
         _applyRules(groupId, false, 0, duration, quorum, action, actionData);
         id = _create(groupId, duration, quorum, options, action, actionData, questionCID, bond);
         _afterCreate(id, action);
+    }
+
+    /**
+     * @notice Open a poll with its own settings: until when votes can be changed, whether it is
+     *         online, on paper or both, and ranked choices. Otherwise the same as createPoll.
+     */
+    function createPollWith(NewPoll calldata n) external nonReentrant returns (uint256 id) {
+        Settings calldata st = n.settings;
+        if (st.channels > PAPER_ONLY || (st.ranked && (n.action != Action.Advisory || n.options < 3))) revert InvalidParams();
+        _applyRules(n.groupId, false, 0, n.duration, n.quorum, n.action, n.actionData);
+        id = _create(n.groupId, n.duration, n.quorum, n.options, n.action, n.actionData, n.questionCID, n.bond);
+        _afterCreate(id, n.action);
+        settingsOf[id] = st;
+        emit PollConfigured(id, st.changeCutoff, st.channels, st.ranked);
     }
 
     /**
@@ -310,7 +372,11 @@ contract MandateVote is AccessControl, ReentrancyGuard {
             revert InvalidParams();
         }
         if (action != Action.Advisory && options != 2) revert InvalidParams();
-        if (!identity.isGroup(groupId)) revert UnknownGroup();
+        if (!identity.isGroup(groupId)) {
+            // A smaller voter list (a district, a ward): advisory only.
+            if (address(voterGroups) == address(0) || !voterGroups.isGroup(groupId)) revert UnknownGroup();
+            if (action != Action.Advisory) revert InvalidParams();
+        }
         uint256 size = groups.getMerkleTreeSize(groupId);
         if (size == 0) revert EmptyGroup();
 
@@ -349,6 +415,8 @@ contract MandateVote is AccessControl, ReentrancyGuard {
     function castBallot(uint256 id, Ballot calldata b) external {
         Poll storage p = _get(id);
         if (block.timestamp >= p.end || p.finalized) revert NotOpen();
+        Settings storage st = settingsOf[id];
+        if (st.channels == PAPER_ONLY) revert OnlineClosed();
         uint256 checkRoot = _checks[id].root;
         bool checked = checkRoot != 0 && b.merkleTreeRoot == checkRoot;
         if (b.merkleTreeRoot != p.snapshotRoot && !checked) revert WrongRoot();
@@ -357,10 +425,13 @@ contract MandateVote is AccessControl, ReentrancyGuard {
         if (delegated) {
             // Anonymous delegation: counted the way the delegate publicly stated before the close.
             if (p.options != 2 || address(delegates) == address(0) || !delegates.isDelegate(b.message - DELEGATE_BASE)) revert NotADelegate();
+        } else if (st.ranked) {
+            _checkRanking(b.message, p.options);
         } else if (b.message >= p.options) revert BadOption();
         if (b.merkleTreeDepth < MIN_DEPTH || b.merkleTreeDepth > MAX_DEPTH) revert BadDepth();
         uint256 previous = _choice[id][b.nullifier];
         if (previous == b.message + 1) revert NullifierUsed(); // the same choice again: nothing to change
+        if (previous != 0 && (st.changeCutoff == NO_CHANGES || block.timestamp + st.changeCutoff >= p.end)) revert ChangesClosed();
 
         bool ok = verifier.verifyProof(
             [b.points[0], b.points[1]],
@@ -373,7 +444,7 @@ contract MandateVote is AccessControl, ReentrancyGuard {
 
         nullifierUsed[id][b.nullifier] = true;
         if (previous != 0) {
-            _uncount(id, previous - 1, _choiceChecked[id][b.nullifier]);
+            _uncount(id, previous - 1, _choiceChecked[id][b.nullifier], st.ranked);
             emit BallotChanged(id, b.nullifier, previous - 1, b.message);
         }
         _choice[id][b.nullifier] = b.message + 1;
@@ -386,6 +457,9 @@ contract MandateVote is AccessControl, ReentrancyGuard {
             }
             _delegated[id][d] += 1;
             if (checked) _delegatedChecked[id][d] += 1;
+        } else if (st.ranked) {
+            _tally[id][(b.message & 0xF) - 1] += 1; // first choices, as the live count
+            if (_rankCount[id][b.message]++ == 0) _rankings[id].push(b.message);
         } else {
             _tally[id][b.message] += 1;
             if (checked) _checkTally[id][b.message] += 1;
@@ -394,14 +468,32 @@ contract MandateVote is AccessControl, ReentrancyGuard {
     }
 
     /// Remove an earlier ballot from the counts when its voter changes their vote.
-    function _uncount(uint256 id, uint256 option, bool checked) private {
-        if (option >= DELEGATE_BASE) {
+    function _uncount(uint256 id, uint256 option, bool checked, bool ranked) private {
+        if (ranked) {
+            _tally[id][(option & 0xF) - 1] -= 1;
+            _rankCount[id][option] -= 1;
+        } else if (option >= DELEGATE_BASE) {
             uint256 d = option - DELEGATE_BASE;
             _delegated[id][d] -= 1;
             if (checked) _delegatedChecked[id][d] -= 1;
         } else {
             _tally[id][option] -= 1;
             if (checked) _checkTally[id][option] -= 1;
+        }
+    }
+
+    /// A ranking lists distinct choices, first choice first, with no gaps (it need not rank them all).
+    function _checkRanking(uint256 m, uint8 options) private pure {
+        if (m == 0 || m >> (4 * uint256(options)) != 0) revert BadRanking();
+        uint256 seen;
+        for (uint256 r = 0; r < options; r++) {
+            uint256 v = (m >> (4 * r)) & 0xF;
+            if (v == 0) {
+                if (m >> (4 * r) != 0) revert BadRanking(); // a gap, then more choices
+                break;
+            }
+            if (v > options || seen & (1 << v) != 0) revert BadRanking();
+            seen |= 1 << v;
         }
     }
 
@@ -556,6 +648,14 @@ contract MandateVote is AccessControl, ReentrancyGuard {
         ids = _delegatesUsed[id];
         ballots = new uint256[](ids.length);
         for (uint256 k = 0; k < ids.length; k++) ballots[k] = _delegated[id][ids[k]];
+    }
+
+    /// @notice Ranked polls: every distinct ranking cast and how many ballots chose it (results by
+    ///         instant runoff are computed from these, by anyone, the same way).
+    function rankings(uint256 id) external view returns (uint256[] memory codes, uint256[] memory counts) {
+        codes = _rankings[id];
+        counts = new uint256[](codes.length);
+        for (uint256 k = 0; k < codes.length; k++) counts[k] = _rankCount[id][codes[k]];
     }
 
     function tally(uint256 id) external view returns (uint256[] memory counts) {

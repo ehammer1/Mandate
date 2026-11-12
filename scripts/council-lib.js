@@ -21,7 +21,7 @@ async function handOver(signer, c, council, { revoke = [], log = () => {} } = {}
     await tx.wait();
     log(`${label}: ${tx.hash}`);
   };
-  const roleHolders = [c.identity, c.registry, c.vote, c.market, c.charter, c.budget, c.officials, c.bodies, c.tallies].filter(Boolean);
+  const roleHolders = [c.identity, c.registry, c.vote, c.market, c.charter, c.budget, c.officials, c.bodies, c.tallies, c.voterGroups].filter(Boolean);
   for (const k of roleHolders) {
     if (!(await k.hasRole(ADMIN, council))) await send(`council made admin of ${await k.getAddress()}`, k.grantRole(ADMIN, council));
   }

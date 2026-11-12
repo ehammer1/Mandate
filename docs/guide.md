@@ -47,6 +47,14 @@ The permanent address of a published text (a question, petition or comment) on t
 Buying, selling or forcing votes is a crime: report it to your election office or the police. Never hand over your voter key or backup code. You can quietly change your online vote until the poll closes, and where paper is final, a paper ballot at a polling place replaces any online vote, so nobody can be sure how you voted.
 **What if someone votes online and on paper?**
 Each poll states its rule, chosen by the community when it opens. **Paper is final** (the usual choice): the paper ballot counts and any online vote from the same person is left out. **Last vote counts**: whichever they cast last counts; paper ballots then go in an envelope marked with the voter's check-in code, and if that voter votes online afterwards, clerks set the envelope aside unopened. Either way each person is counted once, and the check-in matches the paper voter to the voter list without revealing who they are.
+**What is ranked choice, and how is it counted?**
+You rank the choices in order: your favourite first. If no choice has more than half of the first choices, the one with the fewest drops out and its ballots move to each voter's next choice, round by round, until one has a majority (an "instant runoff"). Every ranking is public without saying who cast it, so anyone can recount it. Ranked polls are advisory.
+**Can I change my vote?**
+Usually yes, privately, until the poll closes: only your latest vote counts. Each poll states its own rule: some stop changes a day or an hour before the close so the count settles, and some make the first vote final. Online-only and paper-only polls say so too.
+**What is a smaller voter list?**
+A list for decisions only some people make: a district or ward, a union local, a school's parents. Everyone on it must already be on the main voter list, so nobody can be added who isn't, and each person still votes once. A clerk or organizer manages it in Admin. Polls for a smaller list are advisory.
+**Can I vote by mail?**
+Where your community offers it: on the poll, open "Check in", choose the mail option, and write the code it shows on your return envelope (not on the ballot). Clerks match envelopes to check-ins, so each person is counted once, and the same rule about online and paper votes applies.
 **How do I check my vote was counted?**
 On a poll you voted in, tap **Check my vote**: your phone finds your own ballot in the public count, using a one-time code only your voter key can recompute. **Copy receipt** gives a code anyone can check in Search to confirm that ballot was counted, without learning who cast it; anyone you show it to can also see its choice, so keep it to yourself.
 **How do I share or find a specific poll, proposal or item?**

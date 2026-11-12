@@ -10,6 +10,8 @@
 import { ethers } from 'ethers';
 import { readDoc } from './notices.js';
 import { finalRule } from './tallies.js';
+import { readSettings } from './pollsettings.js';
+import { decodeRanking } from '../../client/ballot.js';
 
 const VOTE = [
   'event BallotCast(uint256 indexed id, uint256 option, uint256 nullifier)',
@@ -47,6 +49,7 @@ export async function receiptHtml(state, esc, pollId, nullifier, labels = ['Yes'
   if (!b) return '<p class="warn">No ballot with this code in this poll.</p>';
   const explorer = state.config.explorer && b.txHash ? ` <a href="${esc(`${state.config.explorer.replace(/\/+$/, '')}/tx/${b.txHash}`)}" target="_blank" rel="noopener">See it on the blockchain</a>` : '';
   let choice = b.option === null ? 'recorded' : labels[b.option] ? `<strong>${esc(labels[b.option])}</strong>` : '';
+  if (b.option !== null && (await readSettings(state, pollId)).ranked) choice = decodeRanking(b.option).map((o, i) => `${i + 1}. <strong>${esc(labels[o] ?? `Choice ${o + 1}`)}</strong>`).join(', ');
   if (b.option !== null && b.option >= DELEGATE_BASE) {
     let who = `delegate ${b.option - DELEGATE_BASE}`;
     if (state.config.officialsAddress) {

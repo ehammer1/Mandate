@@ -38,15 +38,19 @@ const PAGE = 500;
  */
 const CHECK_ABI = 'function getCheck(uint256) view returns (tuple(uint256 groupId, uint256 root, uint256 electorate, uint32 quorum, bool disputed) ck, uint256[2] counts)';
 
-async function groupAtSnapshot({ registry, groupId, electorate, snapshotRoot }) {
+const VOTER_GROUPS_ABI = ['function leaves(uint256 groupId, uint256 start, uint256 count) view returns (uint256[] commitments, uint64[] removedAt)'];
+
+/** `voterGroups`: the smaller-lists registry (districts, wards), for polls limited to one. */
+async function groupAtSnapshot({ registry, groupId, electorate, snapshotRoot, voterGroups }) {
   let tier = -1;
   for (const t of [0, 1, 2]) if ((await registry.groupId(t)) === BigInt(groupId)) tier = t;
-  if (tier === -1) throw new Error('poll group is not an IdentityRegistry group');
+  if (tier === -1 && !voterGroups) throw new Error('poll group is not an IdentityRegistry group');
+  const page = tier === -1 ? (start, n) => voterGroups.leaves(groupId, start, n) : (start, n) => registry.leaves(tier, start, n);
 
   const leaves = [];
   const removedAt = [];
   for (let start = 0; start < Number(electorate); start += PAGE) {
-    const [c, r] = await registry.leaves(tier, start, Math.min(PAGE, Number(electorate) - start));
+    const [c, r] = await page(start, Math.min(PAGE, Number(electorate) - start));
     leaves.push(...c);
     removedAt.push(...r.map(Number));
   }
@@ -96,8 +100,17 @@ async function buildBallot({ provider, vote, pollId, identity, option, artifacts
   } catch {
     /* a deployment without cross-checks */
   }
+  // A poll limited to a smaller list (a district, a ward) rebuilds that list instead.
+  let voterGroups;
+  try {
+    const at = await new ethers.Contract(await vote.getAddress(), ['function voterGroups() view returns (address)'], provider).voterGroups();
+    if (at !== ethers.ZeroAddress) voterGroups = new ethers.Contract(at, VOTER_GROUPS_ABI, provider);
+  } catch {
+    /* an older voting contract */
+  }
   group ||= await groupAtSnapshot({
     registry,
+    voterGroups,
     groupId: poll.groupId,
     electorate: poll.electorate,
     snapshotRoot: poll.snapshotRoot,
@@ -116,4 +129,46 @@ async function buildBallot({ provider, vote, pollId, identity, option, artifacts
   };
 }
 
-module.exports = { buildBallot, groupAtSnapshot, artifactsAt, envArtifacts, REGISTRY_ABI };
+/**
+ * Ranked ballots: the order of choices (0-based option numbers, first choice first) packed into
+ * one number, 4 bits a place. [2, 0] -> 0x13 ("choice 3 first, then choice 1").
+ */
+function encodeRanking(order) {
+  if (!order.length || new Set(order).size !== order.length || order.some((o) => !Number.isInteger(o) || o < 0 || o > 14)) throw new Error('rank distinct choices');
+  return order.reduce((m, o, r) => m + (BigInt(o + 1) << BigInt(4 * r)), 0n);
+}
+function decodeRanking(m) {
+  const out = [];
+  for (let x = BigInt(m); x > 0n; x >>= 4n) out.push(Number(x & 15n) - 1);
+  return out;
+}
+
+/**
+ * Instant runoff from the public ranking counts: drop the choice with the fewest first
+ * preferences, move its ballots to their next choice still running, until one has a majority of
+ * the ballots still counting. Ties for last drop the higher-numbered choice (a stated rule).
+ * @returns {{ winner: number|null, rounds: { counts: number[], eliminated: number|null, exhausted: number }[] }}
+ */
+function instantRunoff(options, codes, counts) {
+  const ballots = codes.map((c, i) => ({ order: decodeRanking(c), n: Number(counts[i]) })).filter((b) => b.n > 0);
+  const running = new Set(Array.from({ length: options }, (_, i) => i));
+  const rounds = [];
+  for (;;) {
+    const tally = Array(options).fill(0);
+    let exhausted = 0;
+    for (const b of ballots) {
+      const top = b.order.find((o) => running.has(o));
+      if (top === undefined) exhausted += b.n;
+      else tally[top] += b.n;
+    }
+    const live = tally.reduce((a, x) => a + x, 0);
+    const leader = [...running].sort((a, b) => tally[b] - tally[a] || a - b)[0];
+    if (leader === undefined || live === 0) return { winner: null, rounds: [...rounds, { counts: tally, eliminated: null, exhausted }] };
+    if (tally[leader] * 2 > live || running.size === 1) return { winner: leader, rounds: [...rounds, { counts: tally, eliminated: null, exhausted }] };
+    const last = [...running].sort((a, b) => tally[a] - tally[b] || b - a)[0];
+    running.delete(last);
+    rounds.push({ counts: tally, eliminated: last, exhausted });
+  }
+}
+
+module.exports = { buildBallot, groupAtSnapshot, artifactsAt, envArtifacts, REGISTRY_ABI, VOTER_GROUPS_ABI, encodeRanking, decodeRanking, instantRunoff };

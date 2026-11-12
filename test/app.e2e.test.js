@@ -1490,6 +1490,47 @@ test('a community can choose "last vote counts": a later online vote replaces a 
   assert.match(await page.textContent(`#poll-${pollId} .tallies-box`), /Everyone, online and on paper: Yes 1 · No 0/);
 });
 
+test('poll settings: ranked choice, paper only, and a first vote that is final', async () => {
+  const post = async (doc) => {
+    const text = JSON.stringify(doc);
+    await (await c.notices.post(text)).wait();
+    return `nb:${ethers.keccak256(ethers.toUtf8Bytes(text))}`;
+  };
+  const make = async (doc, settings, options = 2) => {
+    await (await c.vote.createPollWith({ groupId: await c.identity.groupId(1), duration: 86_400, quorum: 1, options, action: 0, actionData: '0x', questionCID: await post(doc), bond: 0, settings: { changeCutoff: 0, channels: 0, ranked: false, ...settings } })).wait();
+    return c.vote.pollCount();
+  };
+  const ranked = await make({ title: 'Which park project first?', options: ['Skate park', 'Community garden', 'Splash pad'] }, { ranked: true }, 3);
+  const paper = await make({ title: 'Rename the library?', options: ['Yes', 'No'] }, { channels: 2 });
+  const firm = await make({ title: 'Keep the farmers market on Main?', options: ['Yes', 'No'] }, { changeCutoff: 2 ** 32 - 1 });
+
+  await page.click('#nav-polls');
+  await page.waitForSelector(`#poll-${ranked} .ranker`, { timeout: 60_000 });
+  assert.match(await page.textContent(`#poll-${ranked}`), /Ranked choice/);
+  // Rank: Splash pad first, then Skate park.
+  await page.click(`#poll-${ranked} .rank-opt[data-option="2"]`);
+  await page.click(`#poll-${ranked} .rank-opt[data-option="0"]`);
+  assert.match(await page.textContent(`#poll-${ranked} .ranking`), /Splash pad[\s\S]*Skate park/);
+  await page.click(`#poll-${ranked} [data-ranked]`);
+  await page.waitForFunction((id) => /Leading: Splash pad/.test(document.querySelector(`#poll-${id} .ranked-results`)?.textContent || ''), String(ranked), { timeout: 120_000 });
+  const [codes] = await c.vote.rankings(ranked);
+  assert.deepEqual(codes.map(Number), [0x13]); // 3rd choice first, then the 1st
+  await page.click(`#poll-${ranked} [data-checkvote]`);
+  await page.waitForSelector(`#poll-${ranked} [data-receipt] >> text=Counted`, { timeout: 60_000 });
+  await page.click(`#poll-${ranked} [data-receipt] details.reveal summary`);
+  assert.match(await page.textContent(`#poll-${ranked} [data-receipt] details.reveal`), /1\. Splash pad, 2\. Skate park/);
+
+  // Paper only: no online choices, a clear note.
+  assert.match(await page.textContent(`#poll-${paper}`), /On paper only/);
+  assert.equal(await page.locator(`#poll-${paper} button.choice`).count(), 0);
+
+  // First vote final: after voting, no "Change my vote".
+  assert.match(await page.textContent(`#poll-${firm}`), /Your first vote is final/);
+  await page.click(`#poll-${firm} button.choice[data-option="0"]`);
+  await page.waitForSelector(`#poll-${firm} [data-checkvote]`, { timeout: 120_000 });
+  assert.equal(await page.locator(`#poll-${firm} details.change-vote`).count(), 0);
+});
+
 test('search finds items by number, address, text reference and words; FAQ in Help', async () => {
   await page.click('#nav-polls');
   await page.fill('#home-search-q', 'poll 1');

@@ -13,6 +13,7 @@ import { Identity } from '@semaphore-protocol/identity';
 import * as keys from './keys.js';
 import { poseidon2 } from 'poseidon-lite/poseidon2';
 import { buildBallot } from '../../client/ballot.js';
+import { readSettings, settingsNote, changesOpen, rankedPickerHtml, wireRankers, rankedResultsHtml, groupInfo, groupOptionsHtml, hasSettings, wireVoterGroups, V5_ABI, ERRORS as V5_ERRORS } from './pollsettings.js';
 import { enrolStartUrl, ownershipProof } from '../../client/enrol.js';
 import { voterCodeQr } from '../../client/clerk.js';
 import QRCode from 'qrcode';
@@ -603,7 +604,7 @@ async function fetchQuestion(cid) {
   return readDoc(state.config, state.provider, cid);
 }
 
-const VOTE_ERRORS = new ethers.Interface(['error PollTooShort(uint64)', 'error QuorumTooLow(uint256)', 'error CrossCheckRequired()', 'error CheckTooSmall(uint256)', 'error RuleVotersNotEligible()', 'error OutOfBounds(bytes32,uint256,uint256,uint256)', 'error UnknownRule(bytes32)']);
+const VOTE_ERRORS = new ethers.Interface(['error InvalidParams()', 'error UnknownGroup()', 'error EmptyGroup()', 'error PollTooShort(uint64)', 'error QuorumTooLow(uint256)', 'error CrossCheckRequired()', 'error CheckTooSmall(uint256)', 'error RuleVotersNotEligible()', 'error OutOfBounds(bytes32,uint256,uint256,uint256)', 'error UnknownRule(bytes32)']);
 const MANDATE_ACTION = 2;
 const RULE_ACTION = 4;
 const shortAddr = (a) => `${a.slice(0, 6)}…${a.slice(-4)}`;
@@ -730,12 +731,15 @@ async function refreshPolls() {
     state.rules = await loadRules(state.config, state.provider).catch(() => []);
     const cards = [];
     const soon = [];
+    const labelsById = {};
     for (let id = count; id >= 1n && cards.length < 20; id--) {
       const [p, tally] = await Promise.all([state.vote.getPoll(id), state.vote.tally(id)]);
       const [ck, ckCounts] = await state.vote.getCheck(id).catch(() => [{ root: 0n }, [0n, 0n]]);
       const checkTier = ck.root ? groups.findIndex((g) => g === ck.groupId) : -1;
       const q = await fetchQuestion(p.questionCID);
       const labels = optionLabels(p, q);
+      labelsById[id] = labels;
+      const st = await readSettings(state, id); // the poll's own rules (ranked, paper/online, changes)
       const open = !p.finalized && now < p.end;
       const scope = await state.vote.scopeOf(id);
       const myNullifier = state.identity ? await nullifierFor(scope) : null;
@@ -750,12 +754,19 @@ async function refreshPolls() {
       const latestWins = finalRule(q, state.config) === 'latest';
       const paperLocks = Boolean(paperPlace) && !latestWins; // paper is final: no online voting after check-in
       const pollTier = groups.findIndex((g) => g === p.groupId);
-      const who = GROUP_LABEL[pollTier] || 'Members';
-      const eligibleTier = myTier >= pollTier;
+      let who = GROUP_LABEL[pollTier] || 'Members';
+      let eligibleTier = myTier >= pollTier;
+      if (pollTier === -1) {
+        // A smaller voter list (a district, a ward): its name, and whether this voter is on it.
+        const gi = await groupInfo(state, p.groupId, state.identity?.commitment).catch(() => null);
+        if (gi) [who, eligibleTier] = [gi.name, gi.member];
+      }
+      const onlineOk = st.channels !== 2;
+      const canChange = changesOpen(st, p, now);
       if (open && !voted && eligibleTier && Number(p.end) - Number(now) < 48 * 3600) soon.push({ id, end: p.end });
       const total = tally.reduce((a, b) => a + b, 0n);
       const results = labels.map((l, i) => `<li><span>${esc(l)}</span><span>${tally[i] ?? 0n}</span></li>`).join('');
-      const buttons = labels.map((l, i) => `<button class="choice" data-poll="${id}" data-option="${i}">${esc(l)}</button>`).join('');
+      const buttons = st.ranked ? rankedPickerHtml(id, labels, esc) : `<div class="choices">${labels.map((l, i) => `<button class="choice" data-poll="${id}" data-option="${i}">${esc(l)}</button>`).join('')}</div>`;
       cards.push(`<article class="card poll" id="poll-${id}">
         <p class="eyebrow">${open ? `Open until ${esc(when(p.end))} · ${countdown(p.end, 'closes ', 'polls')}` : p.finalized ? (ck.disputed ? 'Closed · contested' : p.passed ? 'Closed · passed' : 'Closed · did not pass') : 'Voting ended · awaiting result'} · ${esc(who)}</p>
         <h3>${esc(q.title)} ${categoryChip(categoryOf(q), esc)}</h3>
@@ -774,16 +785,18 @@ async function refreshPolls() {
         ${!open && !p.finalized ? `<button class="finalize" data-poll="${id}">Record the result</button>` : ''}
         ${paperPlace && !latestWins ? `<p class="ok">You checked in at <strong>${esc(paperPlace)}</strong> to vote on paper. Your paper ballot is your vote and it is final: online votes for this poll don't count. Your check-in code: <span class="code big" data-paper-code>${String(myNullifier).slice(-6)}</span></p>` : ''}
         ${paperPlace && latestWins ? `<p class="ok">You checked in at <strong>${esc(paperPlace)}</strong> to vote on paper. Put your ballot in the envelope marked with your check-in code: <span class="code big" data-paper-code>${String(myNullifier).slice(-6)}</span></p><p class="note">This poll counts your latest vote. If you vote online after checking in, your paper envelope is set aside unopened and your online vote counts instead.</p>` : ''}
-        ${open && !voted && eligibleTier && !paperLocks ? `<div class="choices">${buttons}</div>` : ''}
+        ${settingsNote(st, p, now, esc)}
+        ${open && !voted && eligibleTier && !paperLocks && onlineOk ? buttons : ''}
         ${open && !voted && !eligibleTier ? `<p class="note">${myTier < 0 ? 'Join first to vote in polls.' : `Only ${esc(who.toLowerCase())} can vote in this poll. ${pollTier === 2 ? 'Verify your ID with the city clerk, a library desk or a mobile ID to get full voting rights.' : 'Verify your ID to vote in it.'}`}</p>` : ''}
         ${voted ? `<div class="receipt-box stack" data-id="${id}" data-nullifier="${myNullifier}"><p class="ok">Your vote is recorded. Nobody can see which way you voted.</p>
           <div class="row"><button type="button" data-checkvote>Check my vote</button> ${copyBtn(receiptCode(id, myNullifier), 'Copy receipt')}</div>
-          ${open && eligibleTier && !paperLocks ? `<details class="change-vote"><summary>Change my vote</summary><p class="note">Until the poll closes you can change your vote, privately; only your latest vote counts. If anyone pressured you to vote a certain way, you can quietly change it.</p><div class="choices">${buttons}</div></details>` : ''}
+          ${open && eligibleTier && !paperLocks && onlineOk && canChange ? `<details class="change-vote"><summary>Change my vote</summary><p class="note">${st.changeCutoff ? 'Until the cutoff above' : 'Until the poll closes'} you can change your vote, privately; only your latest vote counts. If anyone pressured you to vote a certain way, you can quietly change it.</p>${buttons}</details>` : ''}
           <p class="note">The receipt lets anyone confirm this ballot was counted (in Search), without learning who cast it. Anyone you show it to can also see its choice, so keep it to yourself.</p>
           <p class="note"><strong>Never share your voter key or backup code.</strong> Anyone who asks for it, or offers anything for your vote, may be trying to buy or control it; buying and selling votes is a crime. You can always change your online vote until the poll closes, or vote on paper.</p><div data-receipt></div></div>` : ''}
         <p class="status" id="poll-status-${id}" role="status"></p>
         <details><summary>Current count (${total} of ${p.electorate} eligible, quorum ${p.quorum})</summary><ul class="tally">${results}</ul></details>
-        <div class="tallies-box" data-id="${id}" data-online="${esc(JSON.stringify(tally.map(String)))}" data-labels="${esc(JSON.stringify(labels))}" data-canvote="${eligibleTier && open && !p.finalized && !paperPlace ? 1 : 0}" data-final="${latestWins ? 'latest' : 'paper'}"></div>
+        <div class="tallies-box" data-id="${id}" data-online="${esc(JSON.stringify(tally.map(String)))}" data-labels="${esc(JSON.stringify(labels))}" data-canvote="${eligibleTier && open && !p.finalized && !paperPlace && st.channels !== 1 ? 1 : 0}" data-final="${latestWins ? 'latest' : 'paper'}"></div>
+        ${st.ranked ? `<div class="card stack ranked-results" data-id="${id}"><p class="muted">Counting the rankings…</p></div>` : ''}
         <div class="officials-box" data-id="${id}" data-canvote="${open && !voted && eligibleTier && Number(p.options) === 2 ? 1 : 0}"></div>
         <div class="explain-box" data-id="${id}"></div>
         <div class="thread-box" data-kind="poll" data-id="${id}"></div>
@@ -803,7 +816,9 @@ async function refreshPolls() {
       fresh ? `<p class="ok">${fresh} new poll${fresh === 1 ? '' : 's'} since your last visit.</p>` : '',
     ].join('');
     list.innerHTML = (banner ? `<div class="card">${banner}</div>` : '') + (cards.join('') || '<p class="muted">No polls yet.</p>') + `<details class="card"><summary><strong>Stay informed</strong></summary><div class="stack">${informedHtml(state.config)}</div></details>`;
-    for (const b of list.querySelectorAll('button.choice')) b.onclick = () => castVote(BigInt(b.dataset.poll), Number(b.dataset.option), b);
+    for (const b of list.querySelectorAll('button.choice[data-option]')) b.onclick = () => castVote(BigInt(b.dataset.poll), Number(b.dataset.option), b);
+    wireRankers(list, (pid) => labelsById[pid] || [], castVote, esc);
+    for (const box of list.querySelectorAll('.ranked-results')) rankedResultsHtml(state, BigInt(box.dataset.id), labelsById[box.dataset.id] || [], esc).then((h) => (box.innerHTML = h), () => (box.innerHTML = ''));
     for (const box of list.querySelectorAll('.thread-box')) state.feedback.thread(box, box.dataset.kind, Number(box.dataset.id)).catch(() => {});
     wireAttachments(list, state.config);
     for (const box of list.querySelectorAll('.receipt-box')) {
@@ -885,7 +900,7 @@ async function castVote(pollId, option, button) {
         return;
       }
       if (res.status === 422) {
-        lastError = `The ballot was rejected (${body.error}).`;
+        lastError = V5_ERRORS[body.error] ? `The ballot was rejected: ${V5_ERRORS[body.error]}` : `The ballot was rejected (${body.error}).`;
         break; // a contract rejection will be the same at every relayer
       }
       lastError = body.message || `Relayer error ${res.status}`;
@@ -1148,6 +1163,12 @@ async function refreshAdmin() {
     <p class="${eth === 0n ? 'warn' : 'muted'}">${Number(ethers.formatEther(eth)).toFixed(6)} test ETH for fees${eth === 0n ? ': this account needs a little test ETH before it can act.' : ''}</p>`;
   addCopyButton($('admin-address'));
   $('admin-poll').hidden = !r.proposer;
+  if (r.proposer && !$('poll-group').dataset.loaded) {
+    // The smaller voter lists (districts, wards) join "Who can vote".
+    $('poll-group').dataset.loaded = '1';
+    groupOptionsHtml(state, esc).then((h) => h && $('poll-group').insertAdjacentHTML('beforeend', h)).catch(() => {});
+  }
+  if (!(await hasSettings(state).catch(() => false))) $('poll-settings').hidden = true; // an older voting contract
   $('admin-budget').hidden = !r.budgetProposer;
   $('admin-roles').hidden = !(r.admin || r.councilMember);
   // With a council, role changes are proposals (unless this account is still a direct admin).
@@ -1165,6 +1186,7 @@ async function refreshAdmin() {
   await state.officials.admin().catch(() => {});
   await state.bodies.admin().catch(() => {});
   await state.tallies?.render();
+  await state.voterGroups?.render();
   await renderAdminTodo().catch(() => {});
   if (!state.pollPicker && $('poll-attach')) state.pollPicker = attachPicker($('poll-attach'), { state, esc });
 }
@@ -1194,6 +1216,7 @@ async function sendAdminTx(statusEl, label, build) {
 
 /** Cross-checks only make sense against a stricter group than who can vote. */
 function syncCrossCheck() {
+  if ($('poll-group').value.startsWith('g:')) return void ($('poll-check-box').hidden = true); // a smaller list: no cross-check
   const tier = Number($('poll-group').value);
   $('poll-check-box').hidden = tier >= 2;
   for (const o of $('poll-check').options) o.disabled = Number(o.value) >= 0 && Number(o.value) <= tier;
@@ -1203,6 +1226,7 @@ function syncCrossCheck() {
 
 function wireAdmin() {
   $('poll-group').addEventListener('change', syncCrossCheck);
+  $('poll-ballot').addEventListener('change', () => ($('poll-ranked-box').hidden = $('poll-ballot').value !== 'ranked'));
   $('poll-check').addEventListener('change', syncCrossCheck);
   syncCrossCheck();
   $('nav-admin').onclick = async () => {
@@ -1236,8 +1260,17 @@ function wireAdmin() {
     const existing = $('poll-question').value.trim();
     const days = Number($('poll-days').value);
     const quorum = Number($('poll-quorum').value);
-    const tier = Number($('poll-group').value);
+    const custom = $('poll-group').value.startsWith('g:') ? BigInt($('poll-group').value.slice(2)) : null; // a smaller voter list
+    const tier = custom === null ? Number($('poll-group').value) : -1;
     const action = Number($('poll-kind').value);
+    const ranked = $('poll-ballot').value === 'ranked';
+    const choices = ranked ? $('poll-choices').value.split('\n').map((x) => x.trim()).filter(Boolean) : ['Yes', 'No'];
+    const changes = $('poll-changes').value;
+    const settings = { changeCutoff: changes === 'none' ? 2 ** 32 - 1 : Number(changes), channels: Number($('poll-channels').value), ranked };
+    const special = custom !== null || ranked || settings.changeCutoff || settings.channels;
+    if (ranked && (choices.length < 3 || choices.length > 8 || new Set(choices).size !== choices.length)) return status(el, 'List 3 to 8 different choices, one per line.', 'error');
+    if ((ranked || custom !== null) && action !== 0) return status(el, ranked ? 'Ranked-choice polls are advisory: choose "Advisory" for what a Yes does.' : 'Polls for a smaller voter list are advisory: choose "Advisory" for what a Yes does.', 'error');
+    if (special && !(await hasSettings(state))) return status(el, 'These poll settings need the upgraded voting contract, which this deployment does not have yet.', 'error');
     if (!title && !existing) return status(el, 'Write the question.', 'error');
     if (existing && !/^nb:0x[0-9a-fA-F]{64}$/.test(existing) && !/^(Qm|baf)[a-zA-Z0-9]{40,}$/.test(existing)) return status(el, 'The "existing question reference" box is only for a published question\'s reference (it starts with nb:0x…). To ask a new question, type it in the Question box at the top and leave that box empty.', 'error');
     if (!(days > 0) || !(quorum >= 1)) return status(el, 'Fill in the days and quorum.', 'error');
@@ -1279,11 +1312,12 @@ function wireAdmin() {
       mandate = { responsible: ethers.getAddress(who), days: mdays, checks };
     }
     // The voting contract below needs these before the question is published.
-    const groupId = await state.registry.groupId(tier);
+    const groupId = custom ?? (await state.registry.groupId(tier));
     const checkTier = $('poll-check-box').hidden ? -1 : Number($('poll-check').value);
+    if (checkTier >= 0 && special) return status(el, 'A cross-checked poll uses the standard settings (Yes or No, online and paper, changes until the close). Turn off the cross-check or the other settings.', 'error');
     const checkMin = Number($('poll-check-min').value);
     if (checkTier >= 0 && (checkTier <= tier || !(checkMin >= 1))) return status(el, 'The cross-check must use a stricter group than who can vote, and need at least 1 checked vote.', 'error');
-    const vote = new ethers.Contract(state.config.voteAddress, ['function createPoll(uint256,uint64,uint32,uint8,uint8,bytes,string,uint256)', 'function createCheckedPoll(uint256,uint256,uint32,uint64,uint32,uint8,bytes,string,uint256)'], state.provider);
+    const vote = new ethers.Contract(state.config.voteAddress, ['function createPoll(uint256,uint64,uint32,uint8,uint8,bytes,string,uint256)', 'function createCheckedPoll(uint256,uint256,uint32,uint64,uint32,uint8,bytes,string,uint256)', ...V5_ABI], state.provider);
     const dataFor = (r) =>
       mandate
         ? ethers.AbiCoder.defaultAbiCoder().encode(
@@ -1294,7 +1328,9 @@ function wireAdmin() {
     const call = async (r) =>
       checkTier >= 0
         ? ['createCheckedPoll', [groupId, await state.registry.groupId(checkTier), checkMin, Math.round(days * 86_400), quorum, action, dataFor(r), r, 0]]
-        : ['createPoll', [groupId, Math.round(days * 86_400), quorum, 2, action, dataFor(r), r, 0]];
+        : special
+          ? ['createPollWith', [{ groupId, duration: Math.round(days * 86_400), quorum, options: choices.length, action, actionData: dataFor(r), questionCID: r, bond: 0, settings }]]
+          : ['createPoll', [groupId, Math.round(days * 86_400), quorum, 2, action, dataFor(r), r, 0]];
     // Check the community's rules first (a simulation): if they forbid this poll, say which
     // rule, and publish nothing.
     try {
@@ -1307,14 +1343,15 @@ function wireAdmin() {
       } catch {
         /* not a rules error */
       }
-      return status(el, `Open poll failed: ${RULE_ERRORS[name] || name || e.shortMessage || e.message}`, 'error');
+      const more = { InvalidParams: 'Check the settings: ranked polls need 3 to 8 choices and must be advisory; polls for a smaller list must be advisory.', UnknownGroup: 'That voter list does not exist.', EmptyGroup: 'Nobody is on that voter list yet: add voters first.' };
+      return status(el, `Open poll failed: ${RULE_ERRORS[name] || more[name] || name || e.shortMessage || e.message}`, 'error');
     }
     let ref = existing;
     if (title) {
       try {
         status(el, 'Publishing the question: confirm if asked…');
         const files = state.pollPicker ? state.pollPicker.list() : [];
-        ref = await postDoc(state.config, activeSigner(), { title, body, options: ['Yes', 'No'], category: $('poll-category').value, ...($('poll-final')?.value === 'latest' ? { final: 'latest' } : {}), ...(mandate ? { mandate } : {}), ...(files.length ? { attachments: files } : {}) });
+        ref = await postDoc(state.config, activeSigner(), { title, body, options: choices, category: $('poll-category').value, ...($('poll-final')?.value === 'latest' ? { final: 'latest' } : {}), ...(mandate ? { mandate } : {}), ...(files.length ? { attachments: files } : {}) });
       } catch (e) {
         return status(el, `Could not publish the question: ${e.shortMessage || e.message}`, 'error');
       }
@@ -1324,7 +1361,7 @@ function wireAdmin() {
       return vote.connect(signer)[fn](...args);
     };
     if (await sendAdminTx(el, 'Open poll', open)) {
-      for (const id of ['poll-title', 'poll-body', 'poll-question', 'poll-responsible']) $(id).value = '';
+      for (const id of ['poll-title', 'poll-body', 'poll-question', 'poll-responsible', 'poll-choices']) $(id).value = '';
     }
   };
 
@@ -1402,6 +1439,7 @@ async function boot() {
   startTicker(state.provider);
   state.help = wireHelp({ state, $, show });
   state.tallies = wireTallies({ state, $, status, esc, activeSigner, activeAddress });
+  state.voterGroups = wireVoterGroups({ state, $, status, esc, activeSigner, activeAddress });
   const runSearch = async (q) => {
     show('screen-search');
     $('search-q').value = q;

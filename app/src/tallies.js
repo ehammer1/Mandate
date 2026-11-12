@@ -56,6 +56,10 @@ const short = (a) => `${a.slice(0, 6)}…${a.slice(-4)}`;
 const num = (n) => Number(n).toLocaleString();
 /** The code shown on the voter's phone after check-in, and on the clerk's list: last 6 digits. */
 export const checkInCode = (nullifier) => String(nullifier).slice(-6);
+// Mail-in ballots are a "place" whose name says so: voters check in on their phone at home and
+// write the code on the return envelope; clerks match envelopes to check-ins the same way.
+const MAIL = 'By mail:';
+export const isMail = (name) => String(name).startsWith(MAIL);
 
 const contract = (cfg, runner) => (cfg.talliesAddress ? new ethers.Contract(cfg.talliesAddress, TALLIES_ABI, runner) : null);
 
@@ -134,6 +138,7 @@ export async function pollTallies(box, ctx, pollId, labels, online, canVote, fin
     ? `<details class="checkin"><summary><strong>Voting on paper at a polling place? Check in</strong></summary><div class="stack">
         <p class="note">Check in at the desk before you get a paper ballot. Your phone proves privately that you are on the voter list, the same way an online vote does, without saying who you are. ${final === 'latest' ? 'Your paper ballot goes in an envelope marked with your check-in code. This poll counts your latest vote: if you vote online after checking in, your envelope is set aside unopened and the online vote counts.' : 'If you also vote online, only your paper ballot counts.'}</p>
         <label>Polling place <select data-place>${places.map((p, i) => `<option value="${i}">${esc(p)}</option>`).join('')}</select></label>
+        ${places.some(isMail) ? '<p class="note"><strong>Voting by mail?</strong> Choose the mail option and check in at home: write the code it shows on your return envelope (not on the ballot), then mail it. Clerks match each envelope to a check-in, so nobody is counted twice.</p>' : ''}
         <button class="primary" data-checkin>Check in</button><p class="status" role="status"></p><div data-code></div></div></details>`
     : '';
   box.innerHTML = `<div class="card stack tallies">
@@ -157,7 +162,7 @@ export async function pollTallies(box, ctx, pollId, labels, online, canVote, fin
       const proof = await checkInProof({ provider: state.provider, identityAddress: state.config.identityAddress, voteAddress: state.config.voteAddress, identity: state.identity, pollId, place, artifactsBase: state.config.artifactsBase || undefined });
       ctx.status(el, 'Checking in…');
       const out = await ctx.relay('/checkin', { pollId: String(pollId), place, proof });
-      ctx.status(el, 'Checked in. Show this code to the clerk, then take your paper ballot.', 'ok');
+      ctx.status(el, isMail(box.querySelector(`[data-place] option[value="${place}"]`)?.textContent || '') ? 'Checked in for a mail ballot. Write this code on your return envelope (not on the ballot), then mail it.' : 'Checked in. Show this code to the clerk, then take your paper ballot.', 'ok');
       box.querySelector('[data-code]').innerHTML = `<p class="code big" aria-label="Check-in code">${esc(out.code || checkInCode(proof.nullifier))}</p>`;
       if (ctx.onCheckedIn) setTimeout(ctx.onCheckedIn, 1500); // show the poll as voted on paper (the code stays there)
     } catch (e) {
@@ -300,10 +305,12 @@ export function wireTallies(ctx) {
     $('btn-tally-place').onclick = async () => {
       const el = $('tally-status');
       const id = Number($('tally-contest').value);
-      const name = $('tally-new-place').value.trim();
+      let name = $('tally-new-place').value.trim();
       if (!id || !name) return status(el, 'Choose a contest and name the polling place, precinct or meeting.', 'error');
+      if ($('tally-mail')?.checked && !isMail(name)) name = `${MAIL} ${name}`;
       if (await send(el, 'Add place', (c) => c.addPlace(id, name))) {
         $('tally-new-place').value = '';
+        if ($('tally-mail')) $('tally-mail').checked = false;
         drawContest();
       }
     };

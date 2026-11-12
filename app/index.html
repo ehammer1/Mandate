@@ -384,6 +384,20 @@
             <p class="note">If the checked voters clearly choose the other side from everyone, the result is held as contested and a binding action does not run.</p>
           </div>
         </div>
+        <div id="poll-settings" class="stack">
+          <label for="poll-ballot">Ballot</label>
+          <select id="poll-ballot"><option value="yesno">Yes or No</option><option value="ranked">Ranked choice: voters rank several choices</option></select>
+          <div id="poll-ranked-box" class="stack" hidden>
+            <label for="poll-choices">The choices, one per line (3 to 8)</label>
+            <textarea id="poll-choices" rows="4" placeholder="Skate park&#10;Community garden&#10;Splash pad"></textarea>
+            <p class="note">Advisory. Counted by instant runoff: if no choice has more than half of the first choices, the one with the fewest drops out and its ballots move to their next choice, until one has a majority.</p>
+          </div>
+          <label for="poll-channels">How people vote</label>
+          <select id="poll-channels"><option value="0">Online and on paper</option><option value="1">Online only</option><option value="2">On paper only (at polling places)</option></select>
+          <label for="poll-changes">Changing a vote</label>
+          <select id="poll-changes"><option value="0">Allowed until the poll closes</option><option value="86400">Allowed until 1 day before it closes</option><option value="3600">Allowed until 1 hour before it closes</option><option value="none">Not allowed: the first vote is final</option></select>
+          <p class="muted">Letting people change their vote protects anyone pressured or paid to vote a certain way: they can quietly change it later. A cutoff gives a settled count before the close.</p>
+        </div>
         <div class="row">
           <label>Days <input type="text" id="poll-days" value="7" inputmode="decimal" style="width:90px" /></label>
           <label>Quorum <input type="text" id="poll-quorum" value="1" inputmode="numeric" style="width:90px" /> <a href="#help-quorum" class="whats" data-help="quorum">What's this?</a></label>
@@ -480,6 +494,7 @@
         <button id="btn-body-alternate">Save alternate</button><p class="status" id="body-role-status" role="status"></p>
       </div>
 
+      <div class="card stack" id="admin-groups" hidden></div>
       <div class="card stack" id="admin-tallies" hidden>
         <h3>Paper ballots and in-person results</h3>
         <p class="note">Record counts from polling places, precincts or meetings. One clerk records, another confirms; a photo of the signed tally sheet goes with it. For a Mandate poll, paper voters check in on their phones first, so the paper register matches the voter list and nobody is counted twice.</p>
@@ -496,6 +511,7 @@
         </div></details>
         <label for="tally-contest">Contest</label><select id="tally-contest"></select>
         <div class="row"><select id="tally-place" style="width:auto"></select><input type="text" id="tally-new-place" placeholder="New place, e.g. Main Library" style="width:200px" /><button id="btn-tally-place">Add place</button></div>
+        <label class="row"><input type="checkbox" id="tally-mail" style="width:auto;min-height:0" /> Mail-in ballots (voters check in on their phone and write the code on the return envelope)</label>
         <div id="tally-checkins"></div>
         <div id="tally-counts" class="row"></div>
         <label>Ballots cast here (including blank and spoiled) <input type="text" id="tally-ballots" inputmode="numeric" style="width:110px" /></label>

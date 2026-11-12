@@ -115,6 +115,10 @@ async function deployAll(signer, opts = {}) {
   // Officials and public delegates: positions, anonymous delegation, emergency measures.
   contracts.officials = await deploy(signer, 'Officials', {}, me, await vote.getAddress(), await identity.getAddress());
   await send(vote.setDelegates(await contracts.officials.getAddress()));
+  // Smaller voter lists (districts, wards, union locals) for advisory polls: subsets of the main list.
+  contracts.voterGroups = await deploy(signer, 'VoterGroups', {}, me, await identity.getAddress());
+  await send(contracts.voterGroups.grantRole(await contracts.voterGroups.GROUP_CREATOR_ROLE(), me));
+  await send(vote.setVoterGroups(await contracts.voterGroups.getAddress()));
   await send(vote.grantRole(await vote.PROPOSER_ROLE(), await contracts.officials.getAddress())); // ratification polls for emergencies
   await send(contracts.officials.grantRole(await contracts.officials.REGISTRAR_ROLE(), opts.registrar || me));
   // Government bodies and organizations: their own rules, public agendas and roll-call votes.
@@ -215,6 +219,7 @@ if (require.main === module) {
       bodyRecordsAddress: addresses.bodyRecords,
       talliesAddress: addresses.tallies,
       progressAddress: addresses.progress,
+      voterGroupsAddress: addresses.voterGroups,
       escrowFactoryAddress: addresses.escrows,
       relayers: (process.env.RELAYERS || '').split(',').map((s) => s.trim()).filter(Boolean),
       ipfsGateway: process.env.IPFS_GATEWAY || 'https://gateway.pinata.cloud',

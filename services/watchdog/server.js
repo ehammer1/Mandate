@@ -57,6 +57,7 @@ const ABIS = {
   vote: [
     'event PollCreated(uint256 indexed id, uint256 indexed groupId, uint256 snapshotRoot, uint8 action, uint64 end, string questionCID)',
     'event PollFinalized(uint256 indexed id, bool passed, uint256 totalBallots)',
+    'event VoterGroupsSet(address groups)',
     'event ActionFailed(uint256 indexed id, uint8 action, bytes reason)',
     'event PollCrossChecked(uint256 indexed id, uint256 indexed checkGroupId, uint256 checkRoot, uint32 checkQuorum)',
     'event PollDisputed(uint256 indexed id, uint256 yes, uint256 no, uint256 checkYes, uint256 checkNo)',
@@ -130,6 +131,12 @@ const ABIS = {
     'event MotionDecided(uint256 indexed motionId, uint8 stage, uint32 yes, uint32 no, uint32 abstain)',
     'event ExecutiveActed(uint256 indexed motionId, bool signed, string ref)',
   ],
+  voterGroups: [
+    'event GroupCreated(uint256 indexed groupId, string name, address manager, uint8 baseTier)',
+    'event ManagerChanged(uint256 indexed groupId, address manager)',
+    'event MembersAdded(uint256 indexed groupId, uint256 count)',
+    'event MemberRemoved(uint256 indexed groupId, uint256 commitment)',
+  ],
   progress: [
     'event MilestoneAdded(uint256 indexed mandateId, uint256 index, string title, uint64 due)',
     'event MilestoneDone(uint256 indexed mandateId, uint256 index, string ref)',
@@ -145,7 +152,7 @@ const ROLE_EVENTS = [
   'event RoleGranted(bytes32 indexed role, address indexed account, address indexed sender)',
   'event RoleRevoked(bytes32 indexed role, address indexed account, address indexed sender)',
 ];
-const CONTRACT_LABEL = { identity: 'identity registry', vote: 'voting', registry: 'mandate registry', market: 'decision markets', council: 'council', charter: 'charter (voting rules)', budget: 'civic budget', feedback: 'petitions and comments', officials: 'officials registry', bodies: 'government bodies', bodyRecords: 'body records', tallies: 'paper and in-person results', progress: 'mandate progress' };
+const CONTRACT_LABEL = { identity: 'identity registry', vote: 'voting', registry: 'mandate registry', market: 'decision markets', council: 'council', charter: 'charter (voting rules)', budget: 'civic budget', feedback: 'petitions and comments', officials: 'officials registry', bodies: 'government bodies', bodyRecords: 'body records', tallies: 'paper and in-person results', progress: 'mandate progress', voterGroups: 'smaller voter lists' };
 
 /**
  * @param {object} o
@@ -449,7 +456,7 @@ if (require.main === module) {
     const startBlock = env('START_BLOCK') ? Number(env('START_BLOCK')) : cfg.startBlock ? Number(cfg.startBlock) : Math.max(0, head - Number(env('LOOKBACK_BLOCKS') || 43_200));
     const dog = createWatchdog({
       provider,
-      addresses: { identity: cfg.identityAddress, vote: cfg.voteAddress, registry: cfg.registryAddress, market: cfg.marketAddress, council: cfg.councilAddress, charter: cfg.charterAddress, budget: cfg.budgetAddress, feedback: cfg.feedbackAddress, officials: cfg.officialsAddress, bodies: cfg.bodiesAddress, bodyRecords: cfg.bodyRecordsAddress, tallies: cfg.talliesAddress, progress: cfg.progressAddress },
+      addresses: { identity: cfg.identityAddress, vote: cfg.voteAddress, registry: cfg.registryAddress, market: cfg.marketAddress, council: cfg.councilAddress, charter: cfg.charterAddress, budget: cfg.budgetAddress, feedback: cfg.feedbackAddress, officials: cfg.officialsAddress, bodies: cfg.bodiesAddress, bodyRecords: cfg.bodyRecordsAddress, tallies: cfg.talliesAddress, progress: cfg.progressAddress, voterGroups: cfg.voterGroupsAddress },
       startBlock,
       blockSpan: Number(env('LOG_BLOCK_SPAN') || 200),
       enrolPerHour: Number(env('ENROL_PER_HOUR') || 50),

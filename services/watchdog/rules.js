@@ -147,6 +147,14 @@ function rulesForEvent(ev, ctx) {
         facts: { poll: String(a.id), action, binding, questionCID: a.questionCID },
       }];
     }
+    case 'VoterGroupsSet':
+      return [{ ...base, rule: 'role-change', severity: 'high', title: `Voting contract connected to smaller voter lists at ${short(a.groups)}: polls can now be limited to its groups`, facts: { groups: a.groups } }];
+    case 'GroupCreated':
+      return [{ ...base, rule: 'voter-group', severity: 'medium', title: `Smaller voter list "${a.name}" created (members must be ${['basic members', 'verified residents', 'residents with full voting rights'][Number(a.baseTier)] || 'listed'} or higher), managed by ${short(a.manager)}`, facts: { groupId: String(a.groupId), name: a.name, manager: a.manager } }];
+    case 'ManagerChanged':
+      return [{ ...base, rule: 'voter-group', severity: 'medium', title: `Smaller voter list ${String(a.groupId).slice(0, 8)}… now managed by ${short(a.manager)}`, facts: { groupId: String(a.groupId), manager: a.manager } }];
+    case 'MemberRemoved':
+      return [{ ...base, rule: 'voter-group', severity: 'info', title: `A voter was removed from smaller voter list ${String(a.groupId).slice(0, 8)}…`, facts: { groupId: String(a.groupId) } }];
     case 'PollFinalized':
       return [{ ...base, rule: 'poll-closed', severity: 'info', title: `Poll ${a.id} closed: ${a.passed ? 'passed' : 'did not pass'} with ${a.totalBallots} ballots`, facts: { poll: String(a.id), passed: a.passed, ballots: String(a.totalBallots) } }];
     case 'MandatePaused':
