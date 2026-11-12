@@ -19,7 +19,7 @@ const ROOT = path.join(__dirname, '..');
 const APP = path.join(ROOT, 'app');
 const ARTIFACTS = path.dirname(require.resolve('@zk-kit/semaphore-artifacts/package.json', { paths: [ROOT] }));
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.json': 'application/json', '.map': 'application/json',
-  '.webmanifest': 'application/manifest+json', '.wasm': 'application/wasm', '.zkey': 'application/octet-stream', '.css': 'text/css' };
+  '.webmanifest': 'application/manifest+json', '.wasm': 'application/wasm', '.zkey': 'application/octet-stream', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png' };
 
 /**
  * @param {{ config?: object, ipfs?: Record<string, string | { type: string, body: Buffer }> }} [opts]
