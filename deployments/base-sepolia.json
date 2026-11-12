@@ -10,19 +10,20 @@
     "identity": "0x47501C8558349aeB6a7139ADaF8Eb88f2A6BB9B4",
     "credits": "0x0fd384570c082ABb8eb1Da5f7994d1246872AA52",
     "registry": "0xc2d1e92A23d46e81091CC90e0394952D98e71CA7",
-    "vote": "0xb1D5556302079E03F53cc5b175986a94E4599441",
+    "vote": "0x382F903c48b5Ff64F8ACd03E9B2203476806d3a6",
     "market": "0xf5C6155608E6eD37e50Bf666495501454D77831f",
     "council": "0xcF1e7E83B050e5B1f5f9ed9a976D9666F4619EC6",
     "notices": "0xAC12845D280E5cC0aBa10B84A6FBfA2074e5CF94",
     "escrows": "0x7BCDd0E8917445E6AE84Fc1f31307F6dD23A8c74",
     "charter": "0x2890c293dFE694D3d4cDa992074205e3CdE4B3C8",
     "budget": "0xB470252aCFcFe460fa4F3Cab6d3fBE10dF849c96",
-    "feedback": "0xaB60b54B8B1F97936D5B2A1652368c33E924d373",
-    "officials": "0x24b6ffc8D5a82175D8695074436bF702c2fa1eBB",
-    "bodies": "0xd17b9c611872b555D2C1de77F19BbF9905A80E35",
-    "bodyRecords": "0xBaF7f0c088c3b15Ab20d4ba6c5F6bF2Cfa21aF15",
-    "tallies": "0x7266CFb43A832C2AF968473F7628c0d0d32bb5Ff",
-    "progress": "0xd65F3A846FAF6D26f7df486644E227d723a71156"
+    "feedback": "0x3730254830c89755A06051861B94B5db95c88054",
+    "officials": "0x8740abDbcF0df70267169B7bbd0c37b102943cc6",
+    "bodies": "0x7D737e982096D8FE1AA82005a61A903B2bCF3559",
+    "bodyRecords": "0xd435A2aE28dfAeC0e0c5Ad11c1E8992BeF6f069E",
+    "tallies": "0x81edACD8164377A5465117dA09aeABAc2775141a",
+    "progress": "0xd65F3A846FAF6D26f7df486644E227d723a71156",
+    "voterGroups": "0xD80B0d8C33701A5135c353C514D7855e6A6ff489"
   },
   "startBlock": 56415036,
   "previousVotes": [
@@ -63,6 +64,15 @@
       "bodies": "0x75fc9E3665db5C34E860c9AE8bFAA9F6586b84cA",
       "bodyRecords": "0xa2Eb258F34e92460a07238Db47E0309B20C398Db",
       "tallies": "0xe46816EE36118ACAcd155C3a9332083e8054E18a"
+    },
+    {
+      "replacedAt": "2026-11-12T14:39:37.970Z",
+      "vote": "0xb1D5556302079E03F53cc5b175986a94E4599441",
+      "feedback": "0xaB60b54B8B1F97936D5B2A1652368c33E924d373",
+      "officials": "0x24b6ffc8D5a82175D8695074436bF702c2fa1eBB",
+      "bodies": "0xd17b9c611872b555D2C1de77F19BbF9905A80E35",
+      "bodyRecords": "0xBaF7f0c088c3b15Ab20d4ba6c5F6bF2Cfa21aF15",
+      "tallies": "0x7266CFb43A832C2AF968473F7628c0d0d32bb5Ff"
     }
   ],
   "oldCouncilPending": {
@@ -73,12 +83,12 @@
     "stepDown": "13"
   },
   "pendingCouncilChanges": [
-    "3",
-    "4",
-    "5",
-    "6",
-    "7",
-    "8",
-    "9"
+    "10",
+    "11",
+    "12",
+    "13",
+    "14",
+    "15",
+    "16"
   ]
 }
