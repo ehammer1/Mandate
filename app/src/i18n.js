@@ -121,7 +121,7 @@ function skipped(el) {
 }
 
 function note(text) {
-  const k = collecting && keyOf(text);
+  const k = collecting && LANG === 'en' && keyOf(text); // only English text makes a key
   if (k) seen.add(k.key);
 }
 
