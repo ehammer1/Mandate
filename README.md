@@ -1,4 +1,4 @@
-<p align="center"><img src="app/icons/logo.svg" alt="Mandate" width="120" /></p>
+<p align="center"><img src="app/icons/lockup.svg" alt="Mandate Protocol" width="320" /></p>
 
 # Mandate
 

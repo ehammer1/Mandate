@@ -1,11 +1,11 @@
-# Mandate name and logo
+# Mandate Protocol name and logo
 
 The Mandate software is open source under the Apache License 2.0: anyone may use, copy, change
 and share the code. That license does **not** grant rights to the Mandate name or logo
 (Apache 2.0, section 6).
 
-"Mandate"™ and the Mandate logo (the joined *m* and *p* in a ring of nodes, in `app/icons/` and
-`brand/`) are trademarks of the project's owner.
+"Mandate Protocol"™, "Mandate"™ and the Mandate Protocol logo (the joined *m* and *p* in a ring
+of nodes, alone or with the name, in `app/icons/` and `brand/`) are trademarks of the project's owner.
 
 **You may, without asking:**
 - say truthfully that your project is "based on Mandate" or "compatible with Mandate";
