@@ -3,6 +3,8 @@
  * updated every second while the page is open.
  */
 
+import { rel } from './i18n.js';
+
 function span(secs) {
   const d = Math.abs(secs);
   const days = Math.floor(d / 86_400);
@@ -30,13 +32,14 @@ function mark(el, at, now) {
 /** "in 2d 3h 05m" before the moment, "4m 10s ago" after it. */
 export function relative(at, now = nowSecs()) {
   const diff = Number(at) - now;
-  if (Math.abs(diff) < 5) return 'just now';
-  return diff >= 0 ? `in ${span(diff)}` : `${span(diff)} ago`;
+  if (Math.abs(diff) < 5) return rel.now();
+  return diff >= 0 ? rel.future(span(diff)) : rel.past(span(diff));
 }
 
 /** A live countdown element. `label` wraps it, e.g. countdown(t) or countdown(t, 'closes ') */
 export function countdown(at, prefix = '', onZero = '') {
-  return `<span class="countdown" data-countdown="${Number(at)}" data-prefix="${prefix}"${onZero ? ` data-onzero="${onZero}"` : ''}>${prefix}${relative(at)}</span>`;
+  const p = rel.prefix(prefix);
+  return `<span class="countdown" translate="no" data-countdown="${Number(at)}" data-prefix="${p}"${onZero ? ` data-onzero="${onZero}"` : ''}>${p}${relative(at)}</span>`;
 }
 
 /** When a countdown marked with `onZero` runs out, that part of the page refreshes itself. */

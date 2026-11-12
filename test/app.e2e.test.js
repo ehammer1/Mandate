@@ -21,6 +21,7 @@ const mail = createMemorySender();
 const postbox = require('../services/identity/mail').createMemoryMailer();
 const net = require('node:net');
 const fs = require('node:fs');
+const collectors = [];
 const os = require('node:os');
 const path = require('node:path');
 const QRCode = require('qrcode');
@@ -159,6 +160,25 @@ before(async () => {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
   await context.grantPermissions(['camera'], { origin: appUrl.replace(/\/$/, '') });
   page = await context.newPage();
+  if (process.env.I18N_COLLECT) {
+    // Translation check: note every piece of app text shown, on every page, for the dictionary.
+    const collect = (pg) => {
+      const dump = () => pg.evaluate(() => [...(window.__i18nSeen || [])]).then((k) => fs.appendFileSync(process.env.I18N_COLLECT, `${JSON.stringify(k)}\n`)).catch(() => {});
+      pg.on('request', (r) => r.isNavigationRequest() && r.frame() === pg.mainFrame() && dump());
+      const close = pg.close.bind(pg);
+      pg.close = async (...a) => (await dump(), close(...a));
+      collectors.push(dump);
+      return pg;
+    };
+    await context.addInitScript(() => localStorage.setItem('mandate.i18n-collect', '1'));
+    collect(page);
+    const newPage = browser.newPage.bind(browser);
+    browser.newPage = async (...a) => {
+      const pg = await newPage(...a);
+      await pg.addInitScript(() => localStorage.setItem('mandate.i18n-collect', '1'));
+      return collect(pg);
+    };
+  }
   // A stand-in browser wallet that announces itself the standard way (EIP-6963) and
   // forwards requests to the local chain, signing as an unlocked test account.
   await context.addInitScript(({ rpc, account }) => {
@@ -192,6 +212,7 @@ before(async () => {
 });
 
 after(async () => {
+  for (const d of collectors) await d();
   await browser?.close();
   for (const s of servers) {
     s.closeAllConnections?.();
@@ -1556,4 +1577,35 @@ test('stay informed: closing-soon reminder, calendar and news feeds, a printable
   assert.ok(await sheet.evaluate(() => document.querySelector('#qr').width > 0)); // the QR code is drawn
   await sheet.screenshot({ path: process.env.APP_SCREENSHOT_DIR ? `${process.env.APP_SCREENSHOT_DIR}/18-notice.png` : require('node:os').tmpdir() + '/notice.png' });
   await sheet.close();
+});
+
+test('en español: one tap switches the whole app; what people wrote stays as written', { skip: !/:\s*"/.test(fs.readFileSync(require('node:path').join(__dirname, '..', 'app', 'src', 'i18n-es.js'), 'utf8')) && 'no Spanish dictionary yet' }, async () => {
+  await page.click('#nav-polls');
+  await page.waitForSelector('#lang-switch [data-lang="es"]');
+  const title = (await page.textContent('#poll-list article.poll h3')).trim(); // a question someone wrote
+  await page.click('#lang-switch [data-lang="es"]');
+  await page.waitForFunction(() => document.documentElement.lang === 'es' && /Votaciones/.test(document.querySelector('#nav-polls').textContent), null, { timeout: 60_000 });
+  assert.equal(await page.isVisible('#screen-home'), true); // switched in place: still signed in
+  await page.waitForSelector('#poll-list article.poll h3', { timeout: 60_000 });
+  assert.equal((await page.textContent('#poll-list article.poll h3')).trim(), title);
+  assert.match(await page.textContent('#poll-list article.poll .eyebrow'), /(Abierta hasta|Cerrada|Votación terminada)/);
+  assert.match(await page.textContent('#poll-list .countdown'), /^(.* )?(en|hace) \d|ahora mismo/);
+  await page.click('#nav-help');
+  await page.waitForSelector('#help-faq summary >> text=Preguntas frecuentes', { timeout: 30_000 });
+  // Search finds help in Spanish too.
+  await page.click('#nav-search');
+  await page.fill('#search-q', 'quórum');
+  await page.click('#search-form button');
+  await page.waitForSelector('#search-results li', { timeout: 30_000 });
+  // The dashboard follows the same choice.
+  const dash = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  await dash.goto(`${appUrl}dashboard.html`);
+  await dash.evaluate(() => localStorage.setItem('mandate.lang', 'es'));
+  await dash.reload();
+  await dash.waitForSelector('#h-downloads >> text=Descargar', { timeout: 60_000 });
+  await dash.close();
+  // And back to English.
+  await page.click('#lang-switch [data-lang="en"]');
+  await page.waitForFunction(() => document.documentElement.lang === 'en', null, { timeout: 60_000 });
+  await page.waitForSelector('#nav-polls >> text=Polls');
 });

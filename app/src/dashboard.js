@@ -5,6 +5,7 @@
  * public RPCs limit) plus the watchdog's published alerts. No sign-in, no voter data.
  */
 
+import { startI18n, langSwitchHtml, wireLangSwitch } from './i18n.js';
 import { ethers } from 'ethers';
 import { describeCall, COUNCIL_ABI, readProposal, shortenAddresses } from './council.js';
 import { readDoc } from './notices.js';
@@ -31,6 +32,10 @@ import { bodiesDashboard } from './bodies.js';
 import { talliesDashboard } from './tallies.js';
 import { countdown, startTicker, clockOffset } from './time.js';
 import { trackItems, toggleFollow } from './reminders.js';
+
+startI18n();
+if (typeof document !== 'undefined' && document.getElementById('lang-switch')) document.getElementById('lang-switch').innerHTML = langSwitchHtml();
+wireLangSwitch(document);
 
 async function mostRequested() {
   if (!state.cfg.feedbackAddress) return '<p class="muted">Petitions are not set up on this deployment.</p>';

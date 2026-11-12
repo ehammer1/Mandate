@@ -3,11 +3,16 @@
  * what it changes in plain words, every value it sets, the reason given, who has approved,
  * and what happens next. Read-only and public, so it can be shared before anyone decides.
  */
+import { startI18n, langSwitchHtml, wireLangSwitch } from './i18n.js';
 import { ethers } from 'ethers';
 import { COUNCIL_ABI, readProposal, describeCall, callDetails, shortenAddresses, proposalUrl } from './council.js';
 import { readDoc } from './notices.js';
 import { copyBtn, wireCopy } from './copy.js';
 import { countdown, startTicker } from './time.js';
+
+startI18n();
+if (typeof document !== 'undefined' && document.getElementById('lang-switch')) document.getElementById('lang-switch').innerHTML = langSwitchHtml();
+wireLangSwitch(document);
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);

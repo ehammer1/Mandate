@@ -46,7 +46,7 @@ export async function renderProgress(box, ctx, id, { mine = false, active = true
   const ups = [...updates].slice(-5).reverse().map((u, i) => `<li><p class="eyebrow">${Number(u.percent)}% · ${esc(day(u.at))} (${countdown(u.at)})</p>${docs[i].body ? `<p>${esc(docs[i].body)}</p>` : ''}${attachmentsHtml(state.config, docs[i], esc)}</li>`);
   box.innerHTML = `<div class="stack progress-card">
     <p><strong>Progress:</strong> ${updates.length ? `${Number(percent)}% done, as last reported ${countdown(last)}` : 'no update reported yet'}${milestones.length ? ` · ${milestones.filter((s) => Number(s.doneAt)).length} of ${milestones.length} milestones done` : ''}</p>
-    <div class="bar" role="progressbar" aria-valuenow="${Number(percent)}" aria-valuemin="0" aria-valuemax="100"><span style="width:${Number(percent)}%"></span></div>
+    <div class="pbar" role="progressbar" aria-valuenow="${Number(percent)}" aria-valuemin="0" aria-valuemax="100"><span style="width:${Number(percent)}%"></span></div>
     ${stale ? `<p class="warn">No progress update in the last ${STALE_DAYS} days.</p>` : ''}
     ${ms.length ? `<details${ms.some((x) => x.includes('overdue')) ? ' open' : ''}><summary>Milestones (${ms.length})</summary><ul class="list milestones">${ms.join('')}</ul></details>` : ''}
     ${ups.length ? `<details><summary>Updates (${updates.length})</summary><ul class="list">${ups.join('')}</ul></details>` : ''}

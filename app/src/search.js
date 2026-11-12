@@ -10,6 +10,7 @@ import { readDoc } from './notices.js';
 import { readProposal, describeCall } from './council.js';
 import { BODIES_ABI } from './bodies.js';
 import { HELP } from './help-content.js';
+import { t, translateHtml } from './i18n.js';
 import { parseReceipt, receiptHtml } from './receipt.js';
 
 const POLL = ['function pollCount() view returns (uint256)', 'function getPoll(uint256) view returns (tuple(uint256 groupId, uint256 snapshotRoot, uint256 electorate, uint64 start, uint64 end, uint32 quorum, uint8 options, uint8 action, bool finalized, bool passed, address proposer, uint256 bond, string questionCID, bytes actionData))'];
@@ -101,7 +102,7 @@ async function buildIndex(state) {
     }
   })());
   await Promise.all(jobs.map((j) => j.catch(() => {})));
-  for (const h of HELP) add({ kind: 'help', id: h.id, label: 'Help', title: h.title, extra: h.html.replace(/<[^>]+>/g, ' '), status: '', hash: `#help-${h.id}` });
+  for (const h of HELP) add({ kind: 'help', id: h.id, label: 'Help', title: t(h.title), extra: `${translateHtml(h.html)} ${h.html}`.replace(/<[^>]+>/g, ' '), status: '', hash: `#help-${h.id}` });
   cache = { at: Date.now(), items };
   return items;
 }

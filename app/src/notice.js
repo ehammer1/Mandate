@@ -2,9 +2,14 @@
  * app/src/notice.js - a printable notice for libraries, city hall and community boards:
  * what is open for a vote now, when it closes, and a QR code to the app.
  */
+import { startI18n, langSwitchHtml, wireLangSwitch } from './i18n.js';
 import { ethers } from 'ethers';
 import QRCode from 'qrcode';
 import { readDoc } from './notices.js';
+
+startI18n();
+if (typeof document !== 'undefined' && document.getElementById('lang-switch')) document.getElementById('lang-switch').innerHTML = langSwitchHtml();
+wireLangSwitch(document);
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);

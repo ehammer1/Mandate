@@ -7,6 +7,7 @@
  * who voted.
  */
 
+import { startI18n, langSwitchHtml, wireLangSwitch } from './i18n.js';
 import { ethers } from 'ethers';
 import { Identity } from '@semaphore-protocol/identity';
 import * as keys from './keys.js';
@@ -36,6 +37,11 @@ import { attachPicker, attachmentsHtml, wireAttachments, uploadService } from '.
 import { countdown, startTicker, clockOffset } from './time.js';
 import { trackItems, toggleFollow, wireSettings } from './reminders.js';
 import { collectAttention, attentionHtml, categoryFilterHtml, categoryChip, categoryOf } from './priority.js';
+
+startI18n();
+if (typeof document !== 'undefined' && document.getElementById('lang-switch')) document.getElementById('lang-switch').innerHTML = langSwitchHtml();
+wireLangSwitch(document, { live: true }); // no reload: the voter's key stays unlocked
+document.addEventListener('langchange', () => $('btn-refresh')?.click()); // dates and countdown labels
 
 const VOTE_ABI = [
   'function castBallot(uint256 id, tuple(uint256 merkleTreeDepth, uint256 merkleTreeRoot, uint256 nullifier, uint256 message, uint256 scope, uint256[8] points) b)',
