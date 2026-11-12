@@ -5,7 +5,8 @@ and share the code. That license does **not** grant rights to the Mandate name o
 (Apache 2.0, section 6).
 
 "Mandate Protocol"™, "Mandate"™ and the Mandate Protocol logo (the joined *m* and *p* in a ring
-of nodes, alone or with the name, in `app/icons/` and `brand/`) are trademarks of the project's owner.
+of nodes, alone or with the name, in `app/icons/` and `brand/`) are trademarks of the project's owner, Eric Tisthammer, in use since 2026 (first used publicly
+in this repository and at ehammer1.github.io/Mandate). Not yet registered: shown with ™, not ®.
 
 **You may, without asking:**
 - say truthfully that your project is "based on Mandate" or "compatible with Mandate";
