@@ -4,8 +4,111 @@ PRODID:-//Mandate//Public deadlines//EN
 CALSCALE:GREGORIAN
 X-WR-CALNAME:Mandate: votes and deadlines
 BEGIN:VEVENT
+UID:council-0xcF1e7E83B050e5B1f5f9ed9a976D9666F4619EC6-10@mandate
+DTSTAMP:20261113T034545Z
+DTSTART:20261113T041431Z
+DTEND:20261113T044431Z
+SUMMARY:Council change #10 can run
+DESCRIPTION:Let the new voting contract (poll settings\, ranked choice\, 
+ district lists) create\, pause\, revise and repeal mandates. Any member c
+ an still cancel it before then. https://ehammer1.github.io/Mandate/
+URL:https://ehammer1.github.io/Mandate/
+BEGIN:VALARM
+TRIGGER;RELATED=END:-P1D
+ACTION:DISPLAY
+DESCRIPTION:1 day left: Council change #10 can run
+END:VALARM
+BEGIN:VALARM
+TRIGGER;RELATED=END:-PT8H
+ACTION:DISPLAY
+DESCRIPTION:8 hours left: Council change #10 can run
+END:VALARM
+BEGIN:VALARM
+TRIGGER;RELATED=END:-PT1H
+ACTION:DISPLAY
+DESCRIPTION:1 hour left: Council change #10 can run
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:council-0xcF1e7E83B050e5B1f5f9ed9a976D9666F4619EC6-11@mandate
+DTSTAMP:20261113T034545Z
+DTSTART:20261113T041502Z
+DTEND:20261113T044502Z
+SUMMARY:Council change #11 can run
+DESCRIPTION:Let the new voting contract veto market decisions. Any member
+  can still cancel it before then. https://ehammer1.github.io/Mandate/
+URL:https://ehammer1.github.io/Mandate/
+BEGIN:VALARM
+TRIGGER;RELATED=END:-P1D
+ACTION:DISPLAY
+DESCRIPTION:1 day left: Council change #11 can run
+END:VALARM
+BEGIN:VALARM
+TRIGGER;RELATED=END:-PT8H
+ACTION:DISPLAY
+DESCRIPTION:8 hours left: Council change #11 can run
+END:VALARM
+BEGIN:VALARM
+TRIGGER;RELATED=END:-PT1H
+ACTION:DISPLAY
+DESCRIPTION:1 hour left: Council change #11 can run
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:council-0xcF1e7E83B050e5B1f5f9ed9a976D9666F4619EC6-12@mandate
+DTSTAMP:20261113T034545Z
+DTSTART:20261113T041510Z
+DTEND:20261113T044510Z
+SUMMARY:Council change #12 can run
+DESCRIPTION:Let the new voting contract change the voting rules (by a pas
+ sed rule-change poll). Any member can still cancel it before then. https:
+ //ehammer1.github.io/Mandate/
+URL:https://ehammer1.github.io/Mandate/
+BEGIN:VALARM
+TRIGGER;RELATED=END:-P1D
+ACTION:DISPLAY
+DESCRIPTION:1 day left: Council change #12 can run
+END:VALARM
+BEGIN:VALARM
+TRIGGER;RELATED=END:-PT8H
+ACTION:DISPLAY
+DESCRIPTION:8 hours left: Council change #12 can run
+END:VALARM
+BEGIN:VALARM
+TRIGGER;RELATED=END:-PT1H
+ACTION:DISPLAY
+DESCRIPTION:1 hour left: Council change #12 can run
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:council-0xcF1e7E83B050e5B1f5f9ed9a976D9666F4619EC6-13@mandate
+DTSTAMP:20261113T034545Z
+DTSTART:20261113T041518Z
+DTEND:20261113T044518Z
+SUMMARY:Council change #13 can run
+DESCRIPTION:The council answers to the new voting contract: residents ele
+ ct\, recall and remove power through it. Any member can still cancel it b
+ efore then. https://ehammer1.github.io/Mandate/
+URL:https://ehammer1.github.io/Mandate/
+BEGIN:VALARM
+TRIGGER;RELATED=END:-P1D
+ACTION:DISPLAY
+DESCRIPTION:1 day left: Council change #13 can run
+END:VALARM
+BEGIN:VALARM
+TRIGGER;RELATED=END:-PT8H
+ACTION:DISPLAY
+DESCRIPTION:8 hours left: Council change #13 can run
+END:VALARM
+BEGIN:VALARM
+TRIGGER;RELATED=END:-PT1H
+ACTION:DISPLAY
+DESCRIPTION:1 hour left: Council change #13 can run
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
 UID:round-0xB470252aCFcFe460fa4F3Cab6d3fBE10dF849c96-1@mandate
-DTSTAMP:20261113T033015Z
+DTSTAMP:20261113T034545Z
 DTSTART:20261211T060312Z
 DTEND:20261211T063312Z
 SUMMARY:Budget round closes: Neighborhood projects

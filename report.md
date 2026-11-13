@@ -1,8 +1,8 @@
 # Mandate audit report
 
-Generated 2026-11-12T14:45:47.000Z · last 24 hours · 23 high, 14 medium, 0 info
+Generated 2026-11-13T03:45:42.000Z · last 24 hours · 29 high, 18 medium, 0 info
 
-23 alert(s) need attention.
+29 alert(s) need attention.
 - ADMIN role granted to 0xC782…f834 on voting
 - ADMIN role granted to 0xC782…f834 on officials registry
 - ADMIN role granted to 0xC782…f834 on government bodies
@@ -26,7 +26,13 @@ Generated 2026-11-12T14:45:47.000Z · last 24 hours · 23 high, 14 medium, 0 inf
 - Council change #14 proposed by 0xC782…f834: revoke GOVERNOR from 0xb1D5…9441 on mandate registry (removes power: can run as soon as approved)
 - Council change #15 proposed by 0xC782…f834: revoke VETO from 0xb1D5…9441 on decision markets (removes power: can run as soon as approved)
 - Council change #16 proposed by 0xC782…f834: revoke GOVERNOR from 0xb1D5…9441 on charter (voting rules) (removes power: can run as soon as approved)
-14 other event(s) were recorded (see the list).
+- Council change #10 approved: it can run from 2026-11-13 04:44 UTC (grant GOVERNOR to 0x382F…d3a6 on mandate registry). Members can still cancel it until then.
+- Council change #11 approved: it can run from 2026-11-13 04:45 UTC (grant VETO to 0x382F…d3a6 on decision markets). Members can still cancel it until then.
+- Council change #12 approved: it can run from 2026-11-13 04:45 UTC (grant GOVERNOR to 0x382F…d3a6 on charter (voting rules)). Members can still cancel it until then.
+- Council change #13 approved: it can run from 2026-11-13 04:45 UTC (make the council answer to voting (residents elect, recall and remove power through it)). Members can still cancel it until then.
+- Council change #14 approved: it can run from 2026-11-13 03:45 UTC (revoke GOVERNOR from 0xb1D5…9441 on mandate registry). Members can still cancel it until then.
+- Council change #15 approved: it can run from 2026-11-13 03:45 UTC (revoke VETO from 0xb1D5…9441 on decision markets). Members can still cancel it until then.
+18 other event(s) were recorded (see the list).
 
 ## All alerts
 
@@ -67,5 +73,15 @@ Generated 2026-11-12T14:45:47.000Z · last 24 hours · 23 high, 14 medium, 0 inf
 - **high** Council change #14 proposed by 0xC782…f834: revoke GOVERNOR from 0xb1D5…9441 on mandate registry (removes power: can run as soon as approved) ([tx](https://sepolia.basescan.org/tx/0x72a9724ce8ace847624b938183ed7f16aa13e4a2b2d912653033ffdf4b340d41))
 - **high** Council change #15 proposed by 0xC782…f834: revoke VETO from 0xb1D5…9441 on decision markets (removes power: can run as soon as approved) ([tx](https://sepolia.basescan.org/tx/0x4c60ed8064c930c178f64086cfe746730ee602774ecbc89fcb686fece91921ea))
 - **high** Council change #16 proposed by 0xC782…f834: revoke GOVERNOR from 0xb1D5…9441 on charter (voting rules) (removes power: can run as soon as approved) ([tx](https://sepolia.basescan.org/tx/0xb257edbed4474cd74c0f44848abefb65f2141697ec0d9b993acff51c34728406))
+- **medium** Council change #3 cancelled by 0x433B…476F: grant GOVERNOR to 0xb1D5…9441 on mandate registry ([tx](https://sepolia.basescan.org/tx/0xe96b36bae45501faeb62d350fc4b05788d3c47a881035141623adfa15b9c8f08))
+- **medium** Council change #4 cancelled by 0x433B…476F: grant VETO to 0xb1D5…9441 on decision markets ([tx](https://sepolia.basescan.org/tx/0xea5027c8a2c7a884181f3323debca396b4da4e7cac10808f78ecadc9a7035a4a))
+- **medium** Council change #5 cancelled by 0x433B…476F: grant GOVERNOR to 0xb1D5…9441 on charter (voting rules) ([tx](https://sepolia.basescan.org/tx/0x1490d563720649e769f71fac6fb5a2215aebf4339cf088949b33e38ecfaacc78))
+- **medium** Council change #6 cancelled by 0x433B…476F: make the council answer to voting (residents elect, recall and remove power through it) ([tx](https://sepolia.basescan.org/tx/0x077e47f90ea02a6254a00e269471e6ba69a00be94f9e31cd4fa58b58bb090fe4))
+- **high** Council change #10 approved: it can run from 2026-11-13 04:44 UTC (grant GOVERNOR to 0x382F…d3a6 on mandate registry). Members can still cancel it until then. ([tx](https://sepolia.basescan.org/tx/0x2cae8447fff8eb15a9112f6d6e8dfceb9f26968771ceb4097988145ec6651dc8))
+- **high** Council change #11 approved: it can run from 2026-11-13 04:45 UTC (grant VETO to 0x382F…d3a6 on decision markets). Members can still cancel it until then. ([tx](https://sepolia.basescan.org/tx/0xb22aec46d9cec11a040242020314b1cc2bf30340c96a810ebe5caa839c5f2b54))
+- **high** Council change #12 approved: it can run from 2026-11-13 04:45 UTC (grant GOVERNOR to 0x382F…d3a6 on charter (voting rules)). Members can still cancel it until then. ([tx](https://sepolia.basescan.org/tx/0x79395c6c011897ac94f1148ed66a3970ecbb2669c55f5e1a50842a91bc385346))
+- **high** Council change #13 approved: it can run from 2026-11-13 04:45 UTC (make the council answer to voting (residents elect, recall and remove power through it)). Members can still cancel it until then. ([tx](https://sepolia.basescan.org/tx/0x0d3c7cebdae5d53f790a32ed0e31c1462d7e5fbedb9865a2244d49360f935635))
+- **high** Council change #14 approved: it can run from 2026-11-13 03:45 UTC (revoke GOVERNOR from 0xb1D5…9441 on mandate registry). Members can still cancel it until then. ([tx](https://sepolia.basescan.org/tx/0x1a43417ce5a67f889a2195d6020cc3d2db444a7033e59e599851cfcc3800b9be))
+- **high** Council change #15 approved: it can run from 2026-11-13 03:45 UTC (revoke VETO from 0xb1D5…9441 on decision markets). Members can still cancel it until then. ([tx](https://sepolia.basescan.org/tx/0xa2577ad0ac961ed5853545fc88d3a01e5c0e995eea0bc0c56f52022edbf8bb65))
 
 Summary written by: fixed rules.
