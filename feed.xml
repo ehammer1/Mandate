@@ -4,7 +4,39 @@
   <subtitle>Every poll, mandate, budget round, petition and change of power, from the public blockchain record.</subtitle>
   <id>urn:mandate:feed</id>
   <link href="https://ehammer1.github.io/Mandate/"/>
-  <updated>2026-11-13T03:45:36.000Z</updated>
+  <updated>2026-11-13T03:46:05.000Z</updated>
+  <entry>
+    <id>urn:mandate:council-executed:0x05a44ed3852e68f9bf79e87b57453c8bec31dcd0a502b5c144c11954994ac481:1794541565</id>
+    <title>Council change #14 carried out: revoke GOVERNOR from 0xb1D5…9441 on mandate registry</title>
+    <updated>2026-11-13T03:46:05.000Z</updated>
+    <link href="https://sepolia.basescan.org/tx/0x05a44ed3852e68f9bf79e87b57453c8bec31dcd0a502b5c144c11954994ac481"/>
+    <category term="high"/>
+    <summary>Urgent: Council change #14 carried out: revoke GOVERNOR from 0xb1D5…9441 on mandate registry</summary>
+  </entry>
+  <entry>
+    <id>urn:mandate:council-executed:0x12af5d6dae09247b68f0bc890d798a420f25df7e18ffdac5903ddb6bbf09c71e:1794541559</id>
+    <title>Council change #15 carried out: revoke VETO from 0xb1D5…9441 on decision markets</title>
+    <updated>2026-11-13T03:45:59.000Z</updated>
+    <link href="https://sepolia.basescan.org/tx/0x12af5d6dae09247b68f0bc890d798a420f25df7e18ffdac5903ddb6bbf09c71e"/>
+    <category term="high"/>
+    <summary>Urgent: Council change #15 carried out: revoke VETO from 0xb1D5…9441 on decision markets</summary>
+  </entry>
+  <entry>
+    <id>urn:mandate:council-executed:0xad5324a20e7571523b95556cb3b95d7f4d39ff40306e55b46499dea8d5683772:1794541548</id>
+    <title>Council change #16 carried out: revoke GOVERNOR from 0xb1D5…9441 on charter (voting rules)</title>
+    <updated>2026-11-13T03:45:48.000Z</updated>
+    <link href="https://sepolia.basescan.org/tx/0xad5324a20e7571523b95556cb3b95d7f4d39ff40306e55b46499dea8d5683772"/>
+    <category term="high"/>
+    <summary>Urgent: Council change #16 carried out: revoke GOVERNOR from 0xb1D5…9441 on charter (voting rules)</summary>
+  </entry>
+  <entry>
+    <id>urn:mandate:council-scheduled:0x2fc222d4921a7febc84a761f489705a0743318f7e40cf39c844dfd5c13b19c75:1794541543</id>
+    <title>Council change #16 approved: it can run from 2026-11-13 03:45 UTC (revoke GOVERNOR from 0xb1D5…9441 on charter (voting rules)). Members can still cancel it until then.</title>
+    <updated>2026-11-13T03:45:43.000Z</updated>
+    <link href="https://sepolia.basescan.org/tx/0x2fc222d4921a7febc84a761f489705a0743318f7e40cf39c844dfd5c13b19c75"/>
+    <category term="high"/>
+    <summary>Urgent: Council change #16 approved: it can run from 2026-11-13 03:45 UTC (revoke GOVERNOR from 0xb1D5…9441 on charter (voting rules)). Members can still cancel it until then.</summary>
+  </entry>
   <entry>
     <id>urn:mandate:council-scheduled:0xa2577ad0ac961ed5853545fc88d3a01e5c0e995eea0bc0c56f52022edbf8bb65:1794541536</id>
     <title>Council change #15 approved: it can run from 2026-11-13 03:45 UTC (revoke VETO from 0xb1D5…9441 on decision markets). Members can still cancel it until then.</title>
@@ -772,37 +804,5 @@
     <link href="https://sepolia.basescan.org/tx/0x312e19ab7cff6b0059350c3047824c91206881ce2bb74eb4c47952c3f1478057"/>
     <category term="high"/>
     <summary>Urgent: ADMIN role granted to 0xcF1e…9EC6 on officials registry</summary>
-  </entry>
-  <entry>
-    <id>urn:mandate:role-change:0xc3405059665099fa4e6cabdf22bdcfade00cd119e52953fed2444731c6e2de3b:1794372913</id>
-    <title>ADMIN role revoked from 0xC782…f834 on civic budget</title>
-    <updated>2026-11-11T04:55:13.000Z</updated>
-    <link href="https://sepolia.basescan.org/tx/0xc3405059665099fa4e6cabdf22bdcfade00cd119e52953fed2444731c6e2de3b"/>
-    <category term="high"/>
-    <summary>Urgent: ADMIN role revoked from 0xC782…f834 on civic budget</summary>
-  </entry>
-  <entry>
-    <id>urn:mandate:role-change:0xd91d5fdd0204a71987962643dfe08ec15eaf65e6e1d3e131616e178f468a2785:1794372908</id>
-    <title>ADMIN role granted to 0xcF1e…9EC6 on civic budget</title>
-    <updated>2026-11-11T04:55:08.000Z</updated>
-    <link href="https://sepolia.basescan.org/tx/0xd91d5fdd0204a71987962643dfe08ec15eaf65e6e1d3e131616e178f468a2785"/>
-    <category term="high"/>
-    <summary>Urgent: ADMIN role granted to 0xcF1e…9EC6 on civic budget</summary>
-  </entry>
-  <entry>
-    <id>urn:mandate:role-change:0xb9c9b314a77d72557e67f5c2b756ad46ef23af79239932f689a09c2a37142048:1794372904</id>
-    <title>ADMIN role revoked from 0xC782…f834 on charter (voting rules)</title>
-    <updated>2026-11-11T04:55:04.000Z</updated>
-    <link href="https://sepolia.basescan.org/tx/0xb9c9b314a77d72557e67f5c2b756ad46ef23af79239932f689a09c2a37142048"/>
-    <category term="high"/>
-    <summary>Urgent: ADMIN role revoked from 0xC782…f834 on charter (voting rules)</summary>
-  </entry>
-  <entry>
-    <id>urn:mandate:role-change:0x915d0b52cab05e2a3805e571475cb5316d40780c28fa4a6858e5cd6c96a897a7:1794372899</id>
-    <title>ADMIN role granted to 0xcF1e…9EC6 on charter (voting rules)</title>
-    <updated>2026-11-11T04:54:59.000Z</updated>
-    <link href="https://sepolia.basescan.org/tx/0x915d0b52cab05e2a3805e571475cb5316d40780c28fa4a6858e5cd6c96a897a7"/>
-    <category term="high"/>
-    <summary>Urgent: ADMIN role granted to 0xcF1e…9EC6 on charter (voting rules)</summary>
   </entry>
 </feed>

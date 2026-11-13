@@ -1,5 +1,62 @@
 [
  {
+  "tx": "0x05a44ed3852e68f9bf79e87b57453c8bec31dcd0a502b5c144c11954994ac481",
+  "block": 58098483,
+  "time": 1794541565,
+  "contract": "council",
+  "event": "Executed",
+  "rule": "council-executed",
+  "severity": "high",
+  "title": "Council change #14 carried out: revoke GOVERNOR from 0xb1D5…9441 on mandate registry",
+  "facts": {
+   "proposal": "14"
+  },
+  "id": "council-executed:0x05a44ed3852e68f9bf79e87b57453c8bec31dcd0a502b5c144c11954994ac481:1794541565"
+ },
+ {
+  "tx": "0x12af5d6dae09247b68f0bc890d798a420f25df7e18ffdac5903ddb6bbf09c71e",
+  "block": 58098452,
+  "time": 1794541559,
+  "contract": "council",
+  "event": "Executed",
+  "rule": "council-executed",
+  "severity": "high",
+  "title": "Council change #15 carried out: revoke VETO from 0xb1D5…9441 on decision markets",
+  "facts": {
+   "proposal": "15"
+  },
+  "id": "council-executed:0x12af5d6dae09247b68f0bc890d798a420f25df7e18ffdac5903ddb6bbf09c71e:1794541559"
+ },
+ {
+  "tx": "0xad5324a20e7571523b95556cb3b95d7f4d39ff40306e55b46499dea8d5683772",
+  "block": 58098397,
+  "time": 1794541548,
+  "contract": "council",
+  "event": "Executed",
+  "rule": "council-executed",
+  "severity": "high",
+  "title": "Council change #16 carried out: revoke GOVERNOR from 0xb1D5…9441 on charter (voting rules)",
+  "facts": {
+   "proposal": "16"
+  },
+  "id": "council-executed:0xad5324a20e7571523b95556cb3b95d7f4d39ff40306e55b46499dea8d5683772:1794541548"
+ },
+ {
+  "tx": "0x2fc222d4921a7febc84a761f489705a0743318f7e40cf39c844dfd5c13b19c75",
+  "block": 58098372,
+  "time": 1794541543,
+  "contract": "council",
+  "event": "Queued",
+  "rule": "council-scheduled",
+  "severity": "high",
+  "title": "Council change #16 approved: it can run from 2026-11-13 03:45 UTC (revoke GOVERNOR from 0xb1D5…9441 on charter (voting rules)). Members can still cancel it until then.",
+  "facts": {
+   "proposal": "16",
+   "readyAt": 1794541543
+  },
+  "id": "council-scheduled:0x2fc222d4921a7febc84a761f489705a0743318f7e40cf39c844dfd5c13b19c75:1794541543"
+ },
+ {
   "tx": "0xa2577ad0ac961ed5853545fc88d3a01e5c0e995eea0bc0c56f52022edbf8bb65",
   "block": 58098336,
   "time": 1794541536,
