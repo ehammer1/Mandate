@@ -1,5 +1,123 @@
 [
  {
+  "tx": "0xcb7fa86ca7cfd36f09b62a5ab2477f3ee1edcc1760b6821553145775e8b81045",
+  "block": 58167629,
+  "time": 1794555394,
+  "contract": "council",
+  "event": "Executed",
+  "rule": "council-executed",
+  "severity": "high",
+  "title": "Council change #11 carried out: grant VETO to 0x382F…d3a6 on decision markets",
+  "facts": {
+   "proposal": "11"
+  },
+  "id": "council-executed:0xcb7fa86ca7cfd36f09b62a5ab2477f3ee1edcc1760b6821553145775e8b81045:1794555394"
+ },
+ {
+  "tx": "0xcb7fa86ca7cfd36f09b62a5ab2477f3ee1edcc1760b6821553145775e8b81045",
+  "block": 58167629,
+  "time": 1794555394,
+  "contract": "decision markets",
+  "event": "RoleGranted",
+  "rule": "role-change",
+  "severity": "medium",
+  "title": "VETO role granted to 0x382F…d3a6 on decision markets",
+  "facts": {
+   "role": "VETO",
+   "account": "0x382F903c48b5Ff64F8ACd03E9B2203476806d3a6",
+   "by": "0xcF1e7E83B050e5B1f5f9ed9a976D9666F4619EC6"
+  },
+  "id": "role-change:0xcb7fa86ca7cfd36f09b62a5ab2477f3ee1edcc1760b6821553145775e8b81045:1794555394"
+ },
+ {
+  "tx": "0x555799fe5c5409b635588858089e392e40c16358ec88e02bea28a896c3a734b8",
+  "block": 58167574,
+  "time": 1794555383,
+  "contract": "council",
+  "event": "Executed",
+  "rule": "council-executed",
+  "severity": "high",
+  "title": "Council change #10 carried out: grant GOVERNOR to 0x382F…d3a6 on mandate registry",
+  "facts": {
+   "proposal": "10"
+  },
+  "id": "council-executed:0x555799fe5c5409b635588858089e392e40c16358ec88e02bea28a896c3a734b8:1794555383"
+ },
+ {
+  "tx": "0x555799fe5c5409b635588858089e392e40c16358ec88e02bea28a896c3a734b8",
+  "block": 58167574,
+  "time": 1794555383,
+  "contract": "mandate registry",
+  "event": "RoleGranted",
+  "rule": "role-change",
+  "severity": "medium",
+  "title": "GOVERNOR role granted to 0x382F…d3a6 on mandate registry",
+  "facts": {
+   "role": "GOVERNOR",
+   "account": "0x382F903c48b5Ff64F8ACd03E9B2203476806d3a6",
+   "by": "0xcF1e7E83B050e5B1f5f9ed9a976D9666F4619EC6"
+  },
+  "id": "role-change:0x555799fe5c5409b635588858089e392e40c16358ec88e02bea28a896c3a734b8:1794555383"
+ },
+ {
+  "tx": "0xc57a87bbf5b5352744db905242e636045cbbc660f4a81c951bfa359c0f971e05",
+  "block": 58167533,
+  "time": 1794555375,
+  "contract": "council",
+  "event": "Executed",
+  "rule": "council-executed",
+  "severity": "high",
+  "title": "Council change #12 carried out: grant GOVERNOR to 0x382F…d3a6 on charter (voting rules)",
+  "facts": {
+   "proposal": "12"
+  },
+  "id": "council-executed:0xc57a87bbf5b5352744db905242e636045cbbc660f4a81c951bfa359c0f971e05:1794555375"
+ },
+ {
+  "tx": "0xc57a87bbf5b5352744db905242e636045cbbc660f4a81c951bfa359c0f971e05",
+  "block": 58167533,
+  "time": 1794555375,
+  "contract": "charter (voting rules)",
+  "event": "RoleGranted",
+  "rule": "role-change",
+  "severity": "high",
+  "title": "GOVERNOR role granted to 0x382F…d3a6 on charter (voting rules)",
+  "facts": {
+   "role": "GOVERNOR",
+   "account": "0x382F903c48b5Ff64F8ACd03E9B2203476806d3a6",
+   "by": "0xcF1e7E83B050e5B1f5f9ed9a976D9666F4619EC6"
+  },
+  "id": "role-change:0xc57a87bbf5b5352744db905242e636045cbbc660f4a81c951bfa359c0f971e05:1794555375"
+ },
+ {
+  "tx": "0x82b270cb6331c565055cec0da08646e20dad04711063824e3c869fe2da4e94e3",
+  "block": 58167489,
+  "time": 1794555366,
+  "contract": "council",
+  "event": "Executed",
+  "rule": "council-executed",
+  "severity": "high",
+  "title": "Council change #13 carried out: make the council answer to voting (residents elect, recall and remove power through it)",
+  "facts": {
+   "proposal": "13"
+  },
+  "id": "council-executed:0x82b270cb6331c565055cec0da08646e20dad04711063824e3c869fe2da4e94e3:1794555366"
+ },
+ {
+  "tx": "0x82b270cb6331c565055cec0da08646e20dad04711063824e3c869fe2da4e94e3",
+  "block": 58167489,
+  "time": 1794555366,
+  "contract": "council",
+  "event": "ElectorateChanged",
+  "rule": "council-settings",
+  "severity": "high",
+  "title": "The council changed which voting contract can elect and recall it, to 0x382F…d3a6. Check this was publicly agreed.",
+  "facts": {
+   "electorate": "0x382F903c48b5Ff64F8ACd03E9B2203476806d3a6"
+  },
+  "id": "council-settings:0x82b270cb6331c565055cec0da08646e20dad04711063824e3c869fe2da4e94e3:1794555366"
+ },
+ {
   "tx": "0x05a44ed3852e68f9bf79e87b57453c8bec31dcd0a502b5c144c11954994ac481",
   "block": 58098483,
   "time": 1794541565,

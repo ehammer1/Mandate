@@ -1,8 +1,8 @@
 # Mandate audit report
 
-Generated 2026-11-13T04:00:16.000Z · last 24 hours · 33 high, 18 medium, 0 info
+Generated 2026-11-13T07:45:55.000Z · last 24 hours · 39 high, 20 medium, 0 info
 
-33 alert(s) need attention.
+39 alert(s) need attention.
 - ADMIN role granted to 0xC782…f834 on voting
 - ADMIN role granted to 0xC782…f834 on officials registry
 - ADMIN role granted to 0xC782…f834 on government bodies
@@ -36,7 +36,13 @@ Generated 2026-11-13T04:00:16.000Z · last 24 hours · 33 high, 18 medium, 0 inf
 - Council change #16 carried out: revoke GOVERNOR from 0xb1D5…9441 on charter (voting rules)
 - Council change #15 carried out: revoke VETO from 0xb1D5…9441 on decision markets
 - Council change #14 carried out: revoke GOVERNOR from 0xb1D5…9441 on mandate registry
-18 other event(s) were recorded (see the list).
+- The council changed which voting contract can elect and recall it, to 0x382F…d3a6. Check this was publicly agreed.
+- Council change #13 carried out: make the council answer to voting (residents elect, recall and remove power through it)
+- GOVERNOR role granted to 0x382F…d3a6 on charter (voting rules)
+- Council change #12 carried out: grant GOVERNOR to 0x382F…d3a6 on charter (voting rules)
+- Council change #10 carried out: grant GOVERNOR to 0x382F…d3a6 on mandate registry
+- Council change #11 carried out: grant VETO to 0x382F…d3a6 on decision markets
+20 other event(s) were recorded (see the list).
 
 ## All alerts
 
@@ -91,5 +97,13 @@ Generated 2026-11-13T04:00:16.000Z · last 24 hours · 33 high, 18 medium, 0 inf
 - **high** Council change #16 carried out: revoke GOVERNOR from 0xb1D5…9441 on charter (voting rules) ([tx](https://sepolia.basescan.org/tx/0xad5324a20e7571523b95556cb3b95d7f4d39ff40306e55b46499dea8d5683772))
 - **high** Council change #15 carried out: revoke VETO from 0xb1D5…9441 on decision markets ([tx](https://sepolia.basescan.org/tx/0x12af5d6dae09247b68f0bc890d798a420f25df7e18ffdac5903ddb6bbf09c71e))
 - **high** Council change #14 carried out: revoke GOVERNOR from 0xb1D5…9441 on mandate registry ([tx](https://sepolia.basescan.org/tx/0x05a44ed3852e68f9bf79e87b57453c8bec31dcd0a502b5c144c11954994ac481))
+- **high** The council changed which voting contract can elect and recall it, to 0x382F…d3a6. Check this was publicly agreed. ([tx](https://sepolia.basescan.org/tx/0x82b270cb6331c565055cec0da08646e20dad04711063824e3c869fe2da4e94e3))
+- **high** Council change #13 carried out: make the council answer to voting (residents elect, recall and remove power through it) ([tx](https://sepolia.basescan.org/tx/0x82b270cb6331c565055cec0da08646e20dad04711063824e3c869fe2da4e94e3))
+- **high** GOVERNOR role granted to 0x382F…d3a6 on charter (voting rules) ([tx](https://sepolia.basescan.org/tx/0xc57a87bbf5b5352744db905242e636045cbbc660f4a81c951bfa359c0f971e05))
+- **high** Council change #12 carried out: grant GOVERNOR to 0x382F…d3a6 on charter (voting rules) ([tx](https://sepolia.basescan.org/tx/0xc57a87bbf5b5352744db905242e636045cbbc660f4a81c951bfa359c0f971e05))
+- **medium** GOVERNOR role granted to 0x382F…d3a6 on mandate registry ([tx](https://sepolia.basescan.org/tx/0x555799fe5c5409b635588858089e392e40c16358ec88e02bea28a896c3a734b8))
+- **high** Council change #10 carried out: grant GOVERNOR to 0x382F…d3a6 on mandate registry ([tx](https://sepolia.basescan.org/tx/0x555799fe5c5409b635588858089e392e40c16358ec88e02bea28a896c3a734b8))
+- **medium** VETO role granted to 0x382F…d3a6 on decision markets ([tx](https://sepolia.basescan.org/tx/0xcb7fa86ca7cfd36f09b62a5ab2477f3ee1edcc1760b6821553145775e8b81045))
+- **high** Council change #11 carried out: grant VETO to 0x382F…d3a6 on decision markets ([tx](https://sepolia.basescan.org/tx/0xcb7fa86ca7cfd36f09b62a5ab2477f3ee1edcc1760b6821553145775e8b81045))
 
 Summary written by: fixed rules.
