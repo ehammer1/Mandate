@@ -1,47 +1,32 @@
 # Mandate audit report
 
-Generated 2026-11-13T09:46:15.000Z · last 24 hours · 38 high, 27 medium, 0 info
+Generated 2026-11-13T14:46:11.000Z · last 24 hours · 39 high, 27 medium, 0 info
 
-38 alert(s) need attention.
-- ADMIN role granted to 0xC782…f834 on identity registry
-- ADMIN role granted to 0xC782…f834 on mandate registry
-- ADMIN role granted to 0xC782…f834 on charter (voting rules)
-- ADMIN role granted to 0xC782…f834 on voting
-- ADMIN role granted to 0xC782…f834 on civic budget
-- ADMIN role granted to 0xC782…f834 on decision markets
-- GOVERNOR role granted to 0xbAcc…18ac on charter (voting rules)
-- ADMIN role granted to 0xC782…f834 on officials registry
-- ADMIN role granted to 0xC782…f834 on smaller voter lists
-- Voting contract connected to smaller voter lists at 0x245a…cfa5: polls can now be limited to its groups
-- ADMIN role granted to 0xC782…f834 on government bodies
-- ADMIN role granted to 0xC782…f834 on paper and in-person results
-- Identity source "Demo front desk" (0xd868…6fD0) approved, up to verified tier
-- 0x433B…476F joined the council
-- 0xb8e5…Cb71 joined the council
-- 0xC782…f834 joined the council
-- The council now needs 2 approvals per change
-- The council waiting period is now 24 hours
-- ADMIN role granted to 0xA018…028c on identity registry
-- ADMIN role granted to 0xA018…028c on mandate registry
-- ADMIN role granted to 0xA018…028c on voting
-- ADMIN role granted to 0xA018…028c on decision markets
-- ADMIN role granted to 0xA018…028c on charter (voting rules)
-- ADMIN role granted to 0xA018…028c on civic budget
-- ADMIN role granted to 0xA018…028c on officials registry
-- ADMIN role granted to 0xA018…028c on government bodies
-- ADMIN role granted to 0xA018…028c on paper and in-person results
-- ADMIN role granted to 0xA018…028c on smaller voter lists
-- ADMIN role revoked from 0xC782…f834 on identity registry
-- ADMIN role revoked from 0xC782…f834 on mandate registry
-- ADMIN role revoked from 0xC782…f834 on voting
-- ADMIN role revoked from 0xC782…f834 on decision markets
-- ADMIN role revoked from 0xC782…f834 on charter (voting rules)
-- ADMIN role revoked from 0xC782…f834 on civic budget
-- ADMIN role revoked from 0xC782…f834 on officials registry
-- ADMIN role revoked from 0xC782…f834 on government bodies
-- ADMIN role revoked from 0xC782…f834 on paper and in-person results
-- ADMIN role revoked from 0xC782…f834 on smaller voter lists
-27 other event(s) were recorded (see the list).
+# Daily audit note: 13 November 2026
+
+**Yes, today needs attention.** Within about six minutes, one account set up and then handed over control of every part of the system, a new council was formed, and the council's first proposal is now waiting.
+
+**One account gave itself full control, then gave it up.** Starting at 09:20, account 0xC782…f834 granted *itself* the ADMIN role on nine parts of the system: identity registry, mandate registry, charter (voting rules), voting, civic budget, decision markets, officials registry, smaller voter lists, and paper and in-person results. No other account approved these grants. This matters because ADMIN is the highest level of control over each part. Between 09:23 and 09:25 the same account removed all of its own ADMIN roles, along with its other roles. According to these records, it no longer holds any of them.
+
+**A second account now has full control.** At 09:22–09:23, 0xC782…f834 granted the ADMIN role on all nine parts to account 0xA018…028c. That account was also given permission to propose votes. Residents should know that this single account now holds top-level control everywhere. The alerts do not say who or what this account is.
+
+**A council was formed.** At 09:22, three accounts joined the council: 0x433B…476F, 0xb8e5…Cb71, and 0xC782…f834. The council now needs 2 approvals for each change, and there is a 24-hour waiting period before changes take effect. This matters because the council is a check on changes, and the waiting period gives the public time to see them coming.
+
+**Authority over the voting rules was granted.** Account 0xbAcc…18ac was given the GOVERNOR role on the charter, which sets the voting rules.
+
+**A new identity source was approved.** "Demo front desk" (0xd868…6fD0) can now verify residents up to the "verified" tier. This matters because identity sources decide who counts as an eligible resident.
+
+**Voting can now be limited to smaller groups.** The voting contract was connected to a list of smaller voter groups (0x245a…cfa5), so polls can now be restricted to those groups.
+
+**The council has its first proposal pending.** At 14:36, 0xC782…f834 proposed council change #1: approve 0x7b12…2889 as the identity source "Online sign-up", up to the basic tier. It is not marked as fast-tracked, so it needs 2 council approvals and the 24-hour waiting period before it can take effect.
+
+**Other changes.** Several accounts gained roles today:
+- 0xbAcc…18ac and 0xD0c4…F5A3 were made GOVERNORs on the mandate registry.
+- 0xbAcc…18ac was given VETO on decision markets.
+- Permission to propose votes was given to 0x3b7D…6E49, 0xee34…2050, 0x2087…743B, 0xA018…028c and "Demo front desk" (0xd868…6fD0). "Demo front desk" may also propose budget items.
+- "Demo front desk" also received unnamed roles on the officials registry, government bodies, smaller voter lists, and paper and in-person results. The records show these roles only as codes, not names.
+
+Separately, the watchdog's GitHub access token expires on 10 December 2026, in 26 days, and needs to be renewed so monitoring continues.
 
 ## All alerts
 
@@ -110,5 +95,6 @@ Generated 2026-11-13T09:46:15.000Z · last 24 hours · 38 high, 27 medium, 0 inf
 - **medium** 0xc26be8e0016d7720ca689986256cecb8764bcfd041a3c876681d44dc4d9d7519 role revoked from 0xC782…f834 on smaller voter lists ([tx](https://sepolia.basescan.org/tx/0x8b4be1e5256513faaa51cde0035db1b0f4dd2704087380754542c72daaef84ef))
 - **medium** 0xd603cc2d39ea2ab57038652f29ac8e7fd0e40e6a9b0f81de9bbc4acc6780d962 role revoked from 0xC782…f834 on paper and in-person results ([tx](https://sepolia.basescan.org/tx/0x10740549bf3cca95843b40c517a7e0831ff8b71c47f6b3e9ab7730aae875800f))
 - **medium** Watchdog GitHub token (Render) expires on 2026-12-10, in 26 days: GitHub (ehammer1) > Settings > Developer settings > Fine-grained tokens > regenerate the watchdog token (only ehammer1/Mandate, Contents read and write), then paste it into GITHUB_TOKEN on Render's mandate-watchdog
+- **high** Council change #1 proposed by 0xC782…f834: approve 0x7b12…2889 as identity source "Online sign-up" (up to basic tier) ([tx](https://sepolia.basescan.org/tx/0x81ec531f2b1c8f2b4db0d92a1d2c67bfda5238bb01ce4e2ba7f017b16d6b314f))
 
-Summary written by: fixed rules.
+Summary written by: AI (claude-opus-5-5); the alerts themselves come from fixed rules.
