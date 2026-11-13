@@ -4,6 +4,7 @@
  * and what happens next. Read-only and public, so it can be shared before anyone decides.
  */
 import { startI18n, langSwitchHtml, wireLangSwitch } from './i18n.js';
+import { startCounter } from './analytics.js';
 import { ethers } from 'ethers';
 import { COUNCIL_ABI, readProposal, describeCall, callDetails, shortenAddresses, proposalUrl } from './council.js';
 import { readDoc } from './notices.js';
@@ -34,6 +35,7 @@ const NEXT = [
   const prefix = q.get('c') === 'prevcouncil' ? 'prevcouncil' : 'council';
   const id = Number(q.get('id') || /\d+/.exec(location.hash)?.[0]);
   const cfg = await (await fetch(`config.json?t=${Date.now()}`, { cache: 'no-store' })).json();
+  startCounter(cfg);
   const address = prefix === 'council' ? cfg.councilAddress : cfg.previousCouncilAddress;
   if (!address || !id) throw new Error('This link does not name a council change.');
   const provider = new ethers.JsonRpcProvider(cfg.rpcUrl, undefined, { staticNetwork: true });

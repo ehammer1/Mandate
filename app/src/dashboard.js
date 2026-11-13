@@ -6,6 +6,7 @@
  */
 
 import { startI18n, langSwitchHtml, wireLangSwitch } from './i18n.js';
+import { startCounter } from './analytics.js';
 import { ethers } from 'ethers';
 import { describeCall, COUNCIL_ABI, readProposal, shortenAddresses } from './council.js';
 import { readDoc } from './notices.js';
@@ -362,6 +363,7 @@ async function refresh() {
 async function boot() {
   const res = await fetch(`config.json?t=${Date.now()}`, { cache: 'no-store' });
   state.cfg = await res.json();
+  startCounter(state.cfg);
   state.provider = new ethers.JsonRpcProvider(state.cfg.rpcUrl, undefined, { staticNetwork: true, cacheTimeout: -1 });
   renderContracts();
   $('informed').innerHTML = informedHtml(state.cfg);

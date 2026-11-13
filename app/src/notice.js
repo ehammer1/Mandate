@@ -3,6 +3,7 @@
  * what is open for a vote now, when it closes, and a QR code to the app.
  */
 import { startI18n, langSwitchHtml, wireLangSwitch } from './i18n.js';
+import { startCounter } from './analytics.js';
 import { ethers } from 'ethers';
 import QRCode from 'qrcode';
 import { readDoc } from './notices.js';
@@ -17,6 +18,7 @@ const when = (secs) => new Date(Number(secs) * 1000).toLocaleString(undefined, {
 
 (async () => {
   const cfg = await (await fetch(`config.json?t=${Date.now()}`, { cache: 'no-store' })).json();
+  startCounter(cfg);
   const provider = new ethers.JsonRpcProvider(cfg.rpcUrl, undefined, { staticNetwork: true });
   const appUrl = new URL('./', location.href).toString();
   $('address').textContent = appUrl;

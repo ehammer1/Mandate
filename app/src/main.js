@@ -8,6 +8,7 @@
  */
 
 import { startI18n, langSwitchHtml, wireLangSwitch } from './i18n.js';
+import { startCounter } from './analytics.js';
 import { ethers } from 'ethers';
 import { Identity } from '@semaphore-protocol/identity';
 import * as keys from './keys.js';
@@ -88,6 +89,7 @@ async function loadConfig() {
   if (!res.ok) throw new Error('This app is not configured yet (config.json missing).');
   const cfg = await res.json();
   state.config = cfg;
+  startCounter(cfg);
   state.provider = new ethers.JsonRpcProvider(cfg.rpcUrl, undefined, { staticNetwork: true, cacheTimeout: -1 });
   startTicker(state.provider);
   wireSettings($('reminder-settings'));
