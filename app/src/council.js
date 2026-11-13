@@ -6,6 +6,7 @@
 import { ethers } from 'ethers';
 import { countdown } from './time.js';
 import { copyBtn } from './copy.js';
+import { withOrg } from './community.js';
 
 export const COUNCIL_ABI = [
   'function isMember(address) view returns (bool)',
@@ -150,7 +151,7 @@ export function callDetails(cfg, target, data) {
 }
 
 /** Where a proposal can be read in full (shareable). */
-export const proposalUrl = (prefix, id) => `${new URL('./', location.href).href}proposal.html?${prefix === 'council' ? '' : `c=${prefix}&`}id=${id}`;
+export const proposalUrl = (prefix, id) => withOrg(`proposal.html?${prefix === 'council' ? '' : `c=${prefix}&`}id=${id}`);
 
 /**
  * @param {object} ctx  { state, $, status, esc, activeSigner, activeAddress }

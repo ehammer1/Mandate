@@ -31,6 +31,15 @@ for attempt in 1 2 3; do
   # from there instead of starting over (then report the failure).
   scan_status=0
   (cd "$APP_DIR" && STATE_DIR="$WORK/data" node services/watchdog/server.js --once) || scan_status=$?
+  # Every other community, each in its own folder (c/<slug>/), with its own contracts.
+  if [ -n "${CONFIG_URL:-}" ]; then
+    slugs="$(cd "$APP_DIR" && node -e "require('./services/lib/communities').loadCommunities(require('./services/lib/communities').indexUrlFrom(process.env.CONFIG_URL, process.env.COMMUNITIES_URL)).then((l) => console.log(l.map((c) => c.slug).join(' '))).catch(() => {})" || true)"
+    for slug in $slugs; do
+      mkdir -p "$WORK/data/c/$slug"
+      community_url="$(dirname "$CONFIG_URL")/communities/$slug.json"
+      (cd "$APP_DIR" && CONFIG_URL="$community_url" STATE_DIR="$WORK/data/c/$slug" node services/watchdog/server.js --once) || echo "[watchdog-cron] community $slug: scan stopped early"
+    done
+  fi
   cd "$WORK/data"
   git config user.name "mandate-watchdog"
   git config user.email "watchdog@users.noreply.github.com"

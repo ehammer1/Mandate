@@ -432,21 +432,35 @@ if (require.main === module) {
     voteAddress = ethers.getAddress(voteAddress);
     console.log(`[relayer] paying fees from ${signer.address}`);
     const addr = (a) => (ethers.isAddress(a || '') ? ethers.getAddress(a) : undefined);
-    const build = (vote, budget, fb, tal = talliesAddress) =>
+    const build = (vote, budget, fb, tal = talliesAddress, nb = noticeBoardAddress) =>
       createRelayer({
         provider,
         signer,
         voteAddress: vote,
         budgetAddress: addr(budget),
         feedbackAddress: addr(fb),
-        noticeBoardAddress: addr(noticeBoardAddress),
+        noticeBoardAddress: addr(nb),
         talliesAddress: addr(tal),
         rateLimitPerMin: Number(process.env.RATE_LIMIT_PER_MIN || 30),
         corsOrigin: process.env.CORS_ORIGIN || '*',
         confirmations: Number(process.env.CONFIRMATIONS || 1),
         log: (m) => console.log(`${new Date().toISOString()} [relayer] ${m}`),
       });
+    const { createRouter, syncCommunities, indexUrlFrom } = require('../services/lib/communities');
     const server = build(voteAddress, budgetAddress, feedbackAddress);
+    // Other communities are served under /c/<slug>/, each with its own contracts.
+    const router = createRouter(server.listeners('request')[0]);
+    server.removeAllListeners('request');
+    server.on('request', router);
+    const indexUrl = indexUrlFrom(configUrl, clean('COMMUNITIES_URL'));
+    if (indexUrl) {
+      const sync = () =>
+        syncCommunities(router, indexUrl, (c) => build(ethers.getAddress(c.voteAddress), addr(c.budgetAddress) || '', addr(c.feedbackAddress) || '', addr(c.talliesAddress) || '', addr(c.noticeBoardAddress) || '').listeners('request')[0], {
+          log: (m) => console.log(`[relayer] ${m}`),
+        }).catch((e) => console.log(`[relayer] community list unavailable: ${e.message}`));
+      await sync();
+      setInterval(sync, 5 * 60 * 1000).unref();
+    }
     const port = Number(process.env.PORT || 8787);
     server.listen(port, () => console.log(`[relayer] listening on :${port} for ${voteAddress}`));
 
@@ -463,8 +477,7 @@ if (require.main === module) {
           const current = ethers.isAddress(budgetAddress || '') ? ethers.getAddress(budgetAddress) : '';
           if (v === voteAddress && b === current && f === (addr(feedbackAddress) || '') && t === (addr(talliesAddress) || '')) return;
           const next = build(v, b, f, t).listeners('request')[0];
-          server.removeAllListeners('request');
-          server.on('request', next);
+          router.setDefault(next);
           console.log(`[relayer] now serving voting ${v}${b ? ` and civic budget ${b}` : ''}`);
           voteAddress = v;
           budgetAddress = b;

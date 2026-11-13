@@ -1,0 +1,53 @@
+name: Request a free pilot
+description: Ask for your own Promissa space for a city, school, union, association or nonprofit.
+title: "Pilot request: [organization name]"
+labels: ["pilot-request"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for your interest. **This page is public:** please don't post phone numbers, home addresses or anything private. We'll reply here.
+        Pilots are free for 8 weeks, advisory, and run on a public test network.
+  - type: input
+    id: org
+    attributes:
+      label: Organization name
+      placeholder: e.g. Lincoln High School PTA
+    validations: { required: true }
+  - type: dropdown
+    id: type
+    attributes:
+      label: Type of organization
+      options: [City or town, County, School board or school, Union or union local, Homeowners or tenants association, Nonprofit or co-op, Other]
+    validations: { required: true }
+  - type: input
+    id: size
+    attributes:
+      label: About how many members or residents could vote?
+      placeholder: e.g. 400
+  - type: textarea
+    id: questions
+    attributes:
+      label: What would you like to decide or track?
+      description: 2 to 4 questions or decisions for the pilot.
+    validations: { required: true }
+  - type: checkboxes
+    id: options
+    attributes:
+      label: What do you need?
+      options:
+        - label: Online voting
+        - label: Paper ballots at a polling place
+        - label: Mail-in ballots
+        - label: Spanish
+        - label: Smaller lists (wards, districts, grades, locals)
+  - type: textarea
+    id: people
+    attributes:
+      label: Council members and clerks (optional now)
+      description: Their account addresses (0x...) if they have them; we can help set these up later. Names are optional.
+  - type: input
+    id: contact
+    attributes:
+      label: Public contact
+      description: A role or a public email for the organization (not a personal one), or leave blank and we'll reply here.

@@ -7,6 +7,7 @@
 
 import { startI18n, langSwitchHtml, wireLangSwitch } from './i18n.js';
 import { startCounter } from './analytics.js';
+import { loadConfig, keepOrgInLinks } from './community.js';
 import { ethers } from 'ethers';
 import { describeCall, COUNCIL_ABI, readProposal, shortenAddresses } from './council.js';
 import { readDoc } from './notices.js';
@@ -37,6 +38,7 @@ import { trackItems, toggleFollow } from './reminders.js';
 startI18n();
 if (typeof document !== 'undefined' && document.getElementById('lang-switch')) document.getElementById('lang-switch').innerHTML = langSwitchHtml();
 wireLangSwitch(document);
+keepOrgInLinks(document);
 
 async function mostRequested() {
   if (!state.cfg.feedbackAddress) return '<p class="muted">Petitions are not set up on this deployment.</p>';
@@ -361,8 +363,8 @@ async function refresh() {
 }
 
 async function boot() {
-  const res = await fetch(`config.json?t=${Date.now()}`, { cache: 'no-store' });
-  state.cfg = await res.json();
+  state.cfg = await loadConfig();
+  if (state.cfg.communityName && document.getElementById('community-name')) Object.assign(document.getElementById('community-name'), { textContent: state.cfg.communityName, hidden: false });
   startCounter(state.cfg);
   state.provider = new ethers.JsonRpcProvider(state.cfg.rpcUrl, undefined, { staticNetwork: true, cacheTimeout: -1 });
   renderContracts();

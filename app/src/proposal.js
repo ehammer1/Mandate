@@ -5,6 +5,7 @@
  */
 import { startI18n, langSwitchHtml, wireLangSwitch } from './i18n.js';
 import { startCounter } from './analytics.js';
+import { loadConfig, keepOrgInLinks, appBase } from './community.js';
 import { ethers } from 'ethers';
 import { COUNCIL_ABI, readProposal, describeCall, callDetails, shortenAddresses, proposalUrl } from './council.js';
 import { readDoc } from './notices.js';
@@ -14,6 +15,7 @@ import { countdown, startTicker } from './time.js';
 startI18n();
 if (typeof document !== 'undefined' && document.getElementById('lang-switch')) document.getElementById('lang-switch').innerHTML = langSwitchHtml();
 wireLangSwitch(document);
+keepOrgInLinks(document);
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -34,7 +36,7 @@ const NEXT = [
   const q = new URLSearchParams(location.search);
   const prefix = q.get('c') === 'prevcouncil' ? 'prevcouncil' : 'council';
   const id = Number(q.get('id') || /\d+/.exec(location.hash)?.[0]);
-  const cfg = await (await fetch(`config.json?t=${Date.now()}`, { cache: 'no-store' })).json();
+  const cfg = await loadConfig();
   startCounter(cfg);
   const address = prefix === 'council' ? cfg.councilAddress : cfg.previousCouncilAddress;
   if (!address || !id) throw new Error('This link does not name a council change.');

@@ -9,6 +9,7 @@
 
 import { startI18n, langSwitchHtml, wireLangSwitch } from './i18n.js';
 import { startCounter } from './analytics.js';
+import { loadConfig as loadCommunityConfig, withOrg, keepOrgInLinks, orgKey, ORG } from './community.js';
 import { ethers } from 'ethers';
 import { Identity } from '@semaphore-protocol/identity';
 import * as keys from './keys.js';
@@ -42,7 +43,8 @@ import { collectAttention, attentionHtml, categoryFilterHtml, categoryChip, cate
 
 startI18n();
 if (typeof document !== 'undefined' && document.getElementById('lang-switch')) document.getElementById('lang-switch').innerHTML = langSwitchHtml();
-wireLangSwitch(document, { live: true }); // no reload: the voter's key stays unlocked
+wireLangSwitch(document, { live: true });
+keepOrgInLinks(document); // no reload: the voter's key stays unlocked
 document.addEventListener('langchange', () => $('btn-refresh')?.click()); // dates and countdown labels
 
 const VOTE_ABI = [
@@ -85,10 +87,9 @@ function esc(s) {
 const when = (secs) => new Date(Number(secs) * 1000).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 
 async function loadConfig() {
-  const res = await fetch(`config.json?t=${Date.now()}`, { cache: 'no-store' }); // bypass CDN caching of settings
-  if (!res.ok) throw new Error('This app is not configured yet (config.json missing).');
-  const cfg = await res.json();
+  const cfg = await loadCommunityConfig(); // this community's settings (?org=), bypassing caches
   state.config = cfg;
+  if (cfg.communityName && document.getElementById('community-name')) Object.assign(document.getElementById('community-name'), { textContent: cfg.communityName, hidden: false });
   startCounter(cfg);
   state.provider = new ethers.JsonRpcProvider(cfg.rpcUrl, undefined, { staticNetwork: true, cacheTimeout: -1 });
   startTicker(state.provider);
@@ -136,15 +137,15 @@ async function signedIn(k, backupCode) {
 
 /** Open the item a shared link points to: #poll-3, #petition-2, #mandate-1, #council-4, #motion-5, #help-quorum... */
 async function openFromLink(hash) {
-  if (hash === '#dashboard-officials') return void window.open('dashboard.html#h-officials', '_blank');
+  if (hash === '#dashboard-officials') return void window.open(withOrg('dashboard.html#h-officials'), '_blank');
   const m = /^#(poll|petition|mandate|council|prevcouncil|motion|body|help)-([\w-]+)$/.exec(hash || '');
   if (!m) return;
   const [, kind, id] = m;
   if (kind === 'help') return state.help.open(id);
   const target = id === '0' ? (kind === 'council' ? 'admin-council' : 'admin-prevcouncil') : `${kind}-${id}`;
   if (kind === 'council' || kind === 'prevcouncil') {
-    if ($('nav-admin').hidden && id !== '0') return void (location.href = `proposal.html?${kind === 'council' ? '' : 'c=prevcouncil&'}id=${id}`);
-    if ($('nav-admin').hidden) return void (location.href = 'dashboard.html#h-council');
+    if ($('nav-admin').hidden && id !== '0') return void (location.href = withOrg(`proposal.html?${kind === 'council' ? '' : 'c=prevcouncil&'}id=${id}`));
+    if ($('nav-admin').hidden) return void (location.href = withOrg('dashboard.html#h-council'));
     return goToTarget(target);
   }
   if (kind === 'motion' || kind === 'body') return goToTarget(target);
@@ -380,7 +381,7 @@ async function renderJoinOnline() {
       } catch {
         /* storage unavailable: they'll unlock manually */
       }
-      location.href = enrolStartUrl({ serviceUrl: url, providerId: b.dataset.join, identity: state.identity, returnUrl: location.origin + location.pathname });
+      location.href = enrolStartUrl({ serviceUrl: url, providerId: b.dataset.join, identity: state.identity, returnUrl: withOrg(location.origin + location.pathname) });
     };
   }
 }
@@ -684,10 +685,10 @@ async function refreshAttention() {
 async function goTo(key) {
   const [kind, id] = key.split(':');
   const target = { poll: [null, `poll-${id}`], measure: [null, null], petition: ['nav-petitions', `petition-${id}`], mandate: ['nav-mandates', `mandate-${id}`], budget: ['nav-budget', null], motion: ['nav-bodies', `motion-${id}`], session: ['nav-bodies', null], council: ['nav-admin', 'admin-council'] }[kind] || [null, null];
-  if (kind === 'council' && $('nav-admin').hidden) return void window.open(`proposal.html?id=${id}`, '_blank'); // not a member: read it in full
+  if (kind === 'council' && $('nav-admin').hidden) return void window.open(withOrg(`proposal.html?id=${id}`), '_blank'); // not a member: read it in full
   if (kind === 'council') return goToTarget(`council-${id}`); // that change itself, opened and highlighted
   if (target[0] && $(target[0]) && !$(target[0]).hidden) $(target[0]).click();
-  else if (target[0]) return void window.open(`dashboard.html#h-${kind === 'motion' ? 'bodies' : kind}`, '_blank');
+  else if (target[0]) return void window.open(withOrg(`dashboard.html#h-${kind === 'motion' ? 'bodies' : kind}`), '_blank');
   for (let i = 0; i < 40 && target[1]; i++) {
     const el = $(target[1]);
     if (el && !el.closest('[hidden]')) return el.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -807,8 +808,8 @@ async function refreshPolls() {
     // Closing soon (polls this person can still vote in) and what's new since the last visit.
     let seen = 0;
     try {
-      seen = Number(localStorage.getItem('mandate.seenPolls') || 0);
-      localStorage.setItem('mandate.seenPolls', String(count));
+      seen = Number(localStorage.getItem(orgKey('mandate.seenPolls')) || 0);
+      localStorage.setItem(orgKey('mandate.seenPolls'), String(count));
     } catch {
       /* private window */
     }

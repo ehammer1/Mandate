@@ -1225,4 +1225,6 @@ export default {
   "Interested in a pilot?": "¿Le interesa una prueba piloto?",
   "Open an issue on GitHub (github.com/ehammer{0}/Mandate/issues) with your organization's name, or read the": "Abra un reporte en GitHub (github.com/ehammer{0}/Mandate/issues) con el nombre de su organización, o lea el",
   "one-page overview": "resumen de una página",
+  "Request a free pilot": "Solicite una prueba piloto gratuita",
+  "with a short public form, or read the": "con un breve formulario público, o lea el",
 };

@@ -4,6 +4,7 @@
  */
 import { startI18n, langSwitchHtml, wireLangSwitch } from './i18n.js';
 import { startCounter } from './analytics.js';
+import { loadConfig, keepOrgInLinks, appBase } from './community.js';
 import { ethers } from 'ethers';
 import QRCode from 'qrcode';
 import { readDoc } from './notices.js';
@@ -11,16 +12,17 @@ import { readDoc } from './notices.js';
 startI18n();
 if (typeof document !== 'undefined' && document.getElementById('lang-switch')) document.getElementById('lang-switch').innerHTML = langSwitchHtml();
 wireLangSwitch(document);
+keepOrgInLinks(document);
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const when = (secs) => new Date(Number(secs) * 1000).toLocaleString(undefined, { dateStyle: 'full', timeStyle: 'short' });
 
 (async () => {
-  const cfg = await (await fetch(`config.json?t=${Date.now()}`, { cache: 'no-store' })).json();
+  const cfg = await loadConfig();
   startCounter(cfg);
   const provider = new ethers.JsonRpcProvider(cfg.rpcUrl, undefined, { staticNetwork: true });
-  const appUrl = new URL('./', location.href).toString();
+  const appUrl = appBase();
   $('address').textContent = appUrl;
   await QRCode.toCanvas($('qr'), appUrl, { width: 150, margin: 1 });
   $('when').textContent = `Printed ${new Date().toLocaleString(undefined, { dateStyle: 'long', timeStyle: 'short' })}. Check the app for the latest.`;

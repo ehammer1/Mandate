@@ -22,6 +22,7 @@ const postbox = require('../services/identity/mail').createMemoryMailer();
 const net = require('node:net');
 const fs = require('node:fs');
 const collectors = [];
+let appOptsRef;
 const os = require('node:os');
 const path = require('node:path');
 const QRCode = require('qrcode');
@@ -151,6 +152,7 @@ before(async () => {
   appConfig = appOpts.config;
   appIpfs = appOpts.ipfs;
   app = createAppServer(appOpts); // reads appOpts on every request
+  appOptsRef = appOpts;
   const appPort = await listen(app);
   appOpts.config.ipfsGateway = `http://localhost:${appPort}`; // the app's own server doubles as the IPFS gateway
   appUrl = `http://localhost:${appPort}/`; // passkeys need a domain name, not an IP
@@ -1649,4 +1651,27 @@ test('en español: one tap switches the whole app; what people wrote stays as wr
   await page.click('#lang-switch [data-lang="en"]');
   await page.waitForFunction(() => document.documentElement.lang === 'en', null, { timeout: 60_000 });
   await page.waitForSelector('#nav-polls >> text=Polls');
+});
+
+test('another community on the same app: its own contracts, its name in the header, links keep ?org=', async () => {
+  const { createCommunity, communityConfig, normalizeSpec } = require('../scripts/new-community');
+  const admin = await provider.getSigner(0);
+  const spec = normalizeSpec({ slug: 'ward-3', name: 'Ward 3 Residents', council: { members: [admin.address] }, seasoningDays: 1, rules: { MIN_POLL_MINUTES: 10 } });
+  const made = await createCommunity(admin, spec);
+  appOptsRef.communities = { 'ward-3': { ...communityConfig(spec, made.addresses, made.startBlock, appConfig), relayers: appConfig.relayers, identityService: appConfig.identityService } };
+  const p2 = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  const errors = [];
+  p2.on('pageerror', (e) => errors.push(e.message));
+  await p2.goto(`${appUrl}dashboard.html?org=ward-3`);
+  await p2.waitForSelector('#community-name:not([hidden]) >> text=Ward 3 Residents', { timeout: 60_000 });
+  await p2.waitForSelector('#polls >> text=No polls yet', { timeout: 60_000 }); // its own, empty voting contract
+  const href = await p2.evaluate(() => { const a = [...document.querySelectorAll('footer a')].find((x) => /App/.test(x.textContent)); a.click(); return location.href; });
+  await p2.waitForURL(/\?org=ward-3/, { timeout: 30_000 });
+  assert.ok(href);
+  assert.match(p2.url(), /org=ward-3/);
+  await p2.goto(`${appUrl}?org=nowhere`);
+  await p2.waitForFunction(() => /No community called "nowhere"/.test(document.body.textContent), null, { timeout: 30_000 });
+  assert.deepEqual(errors.filter((e) => !/nowhere/.test(e)), []);
+  await p2.close();
+  delete appOptsRef.communities;
 });

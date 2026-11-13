@@ -139,3 +139,5 @@ form[role=search] input[type=search] { width: auto; min-width: 0; -webkit-appear
 
 .lang-switch { min-height: 36px; padding: 4px 12px; font-size: .9rem; }
 .tagline { color: var(--teal); font-weight: 600; margin-top: -4px; }
+.org-name { display: block; font-size: 13px; font-weight: 600; color: var(--muted); margin-top: 2px; }
+.brand:has(.org-name:not([hidden])) { flex-direction: column; align-items: flex-start; gap: 0; }

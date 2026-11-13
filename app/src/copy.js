@@ -2,6 +2,7 @@
  * app/src/copy.js - one-tap copying of addresses, codes and links, and a small "jump to"
  * helper that scrolls to an item and highlights it.
  */
+import { appBase } from './community.js';
 
 const escAttr = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
@@ -48,7 +49,7 @@ export function wireCopy(root = document) {
  * agenda item): "🔗 Copy link" opens the app at that item.
  */
 export function itemTools({ anchor, idText, ref, explorer, address }) {
-  const url = `${new URL('./', location.href).href}#${anchor}`;
+  const url = `${appBase()}#${anchor}`;
   return `<p class="row item-tools">${copyBtn(url, '🔗 Copy link')} ${copyBtn(idText, 'Copy ID')}${ref ? ` ${copyBtn(ref, 'Copy text reference')}` : ''}${explorer && address ? ` <a href="${escAttr(`${explorer.replace(/\/+$/, '')}/address/${address}`)}" target="_blank" rel="noopener">View on the blockchain</a>` : ''}</p>`;
 }
 

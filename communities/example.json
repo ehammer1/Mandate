@@ -1,0 +1,18 @@
+{
+  "slug": "lincoln-high",
+  "name": "Lincoln High School PTA",
+  "type": "school",
+  "council": {
+    "members": ["0x1111111111111111111111111111111111111111", "0x2222222222222222222222222222222222222222", "0x3333333333333333333333333333333333333333"],
+    "threshold": 2,
+    "delayHours": 24,
+    "termDays": 365
+  },
+  "clerks": [{ "address": "0x4444444444444444444444444444444444444444", "name": "Front office" }],
+  "pollOpeners": ["0x4444444444444444444444444444444444444444"],
+  "registrars": [],
+  "groupCreators": ["0x4444444444444444444444444444444444444444"],
+  "onlineSignup": true,
+  "seasoningDays": 1,
+  "rules": { "MIN_POLL_MINUTES": 60 }
+}

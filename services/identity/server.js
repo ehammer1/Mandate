@@ -864,26 +864,28 @@ if (require.main === module) {
     const reg = new ethers.Contract(identityAddress, IDENTITY_ABI, provider);
     const me = await reg.issuers(signer.address);
     console.log(`[identity] issuer address ${signer.address}${me.active ? ` (approved as "${me.name}")` : ' (NOT approved yet: an admin must approve it in the app: Admin -> Give someone a role -> Clerk)'}`);
-    const server = createIdentityService({
+    const mdl = await mdlFromEnv();
+    // One sign-up service per community: its own voter list, the same issuer key and pepper.
+    const make = (identityAddress, publicUrl, appConfig, isDefault) => createIdentityService({
       providers,
-      publicUrl: need('PUBLIC_URL'),
+      publicUrl,
       pepper: need('IDENTITY_PEPPER'),
       signer,
       identityAddress: ethers.getAddress(identityAddress),
       allowedReturnOrigins: need('ALLOWED_RETURN_ORIGINS').split(',').map((s) => s.trim()),
       emailPolicy: createEmailPolicy({ allow: process.env.EMAIL_DOMAINS_ALLOW, block: process.env.EMAIL_DOMAINS_BLOCK }),
       emailSender: senderFromEnv(),
-      clerkAnchor: () => anchor,
-      appConfig: () => appCfg,
+      clerkAnchor: () => (isDefault ? anchor : appConfig()?.clerkAnchor || 'id'),
+      appConfig,
       askEnabled: !!clean(process.env.ANTHROPIC_API_KEY),
-      mdl: await mdlFromEnv(),
+      mdl,
       mailer: require('./mail').mailerFromEnv(),
-      roll: () => roll,
+      roll: () => (isDefault ? roll : null), // the voter roll belongs to the original community
       rollKey: clean(process.env.ROLL_KEY) || undefined,
       uploads: clean(process.env.PINATA_JWT)
         ? require('./uploads').createUploads({
           store: require('./uploads').pinata(clean(process.env.PINATA_JWT)),
-          appConfig: () => appCfg,
+          appConfig,
           provider,
           perDay: Number(process.env.UPLOADS_PER_DAY || 10),
           minTier: Number(process.env.UPLOAD_MIN_TIER || 0),
@@ -894,6 +896,22 @@ if (require.main === module) {
         })
         : undefined,
     });
+    const server = make(identityAddress, need('PUBLIC_URL'), () => appCfg, true);
+    const { createRouter, syncCommunities, indexUrlFrom } = require('../lib/communities');
+    const router = createRouter(server.listeners('request')[0]);
+    server.removeAllListeners('request');
+    server.on('request', router);
+    const indexUrl = indexUrlFrom(clean(process.env.CONFIG_URL), clean(process.env.COMMUNITIES_URL));
+    if (indexUrl) {
+      const cfgs = new Map();
+      const base = need('PUBLIC_URL').replace(/\/+$/, '');
+      const sync = () =>
+        syncCommunities(router, indexUrl, (c, slug) => (cfgs.set(slug, c), make(c.identityAddress, `${base}/c/${slug}`, () => cfgs.get(slug), false).listeners('request')[0]), {
+          log: (m) => console.log(`[identity] ${m}`),
+        }).catch((e) => console.log(`[identity] community list unavailable: ${e.message}`));
+      await sync();
+      setInterval(sync, 5 * 60_000).unref();
+    }
     const port = Number(process.env.PORT || 8790);
     server.listen(port, () => console.log(`[identity] listening on :${port}; issuer ${signer.address}; providers: ${[...providers.map((p) => `${p.name}(${p.tier ? 'verified' : 'basic'})`), ...(process.env.EMAIL_PROVIDER ? [`Email via ${process.env.EMAIL_PROVIDER}(basic)`] : [])].join(', ')}`));
   })().catch((e) => {

@@ -24,11 +24,17 @@ const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '
 /**
  * @param {{ config?: object, ipfs?: Record<string, string | { type: string, body: Buffer }> }} [opts]
  *   config: served as /config.json instead of app/config.json
+ *   communities: slug -> config, served as /communities/<slug>.json (tests)
  *   ipfs:   cid -> content, served at /ipfs/<cid> (local demos and tests)
  */
 function createAppServer(opts = {}) {
   return http.createServer((req, res) => {
     const url = decodeURIComponent(new URL(req.url, 'http://x').pathname);
+    const community = /^\/communities\/([a-z0-9-]+)\.json$/.exec(url);
+    if (community && opts.communities && opts.communities[community[1]]) {
+      res.writeHead(200, { 'Content-Type': TYPES['.json'] });
+      return res.end(JSON.stringify(opts.communities[community[1]]));
+    }
     if (url === '/config.json' && opts.config) {
       res.writeHead(200, { 'Content-Type': TYPES['.json'] });
       return res.end(JSON.stringify(opts.config));
