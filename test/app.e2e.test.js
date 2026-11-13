@@ -1671,7 +1671,22 @@ test('another community on the same app: its own contracts, its name in the head
   assert.match(p2.url(), /org=ward-3/);
   await p2.goto(`${appUrl}?org=nowhere`);
   await p2.waitForFunction(() => /No community called "nowhere"/.test(document.body.textContent), null, { timeout: 30_000 });
+  // Its own web address: the community opens there with no ?org= in the link.
+  appOptsRef.communitiesIndex = { communities: [{ slug: 'ward-3', name: 'Ward 3 Residents', domain: 'vote.ward3.test' }] };
+  // (The browser won't let a page on a public address reach this machine's test chain directly,
+  // so the chain is passed through the same address here; real communities use a public chain.)
+  appOptsRef.communities['ward-3'].rpcUrl = 'http://vote.ward3.test/rpc';
+  await p2.route('http://vote.ward3.test/**', async (route) => {
+    const u = new URL(route.request().url());
+    const to = u.pathname === '/rpc' ? appConfig.rpcUrl : new URL(u.pathname + u.search, appUrl).href;
+    await route.fulfill({ response: await route.fetch({ url: to }) });
+  });
+  await p2.goto('http://vote.ward3.test/dashboard.html');
+  await p2.waitForSelector('#community-name:not([hidden]) >> text=Ward 3 Residents', { timeout: 60_000 });
+  await p2.waitForSelector('#polls >> text=No polls yet', { timeout: 60_000 });
+  assert.doesNotMatch(p2.url(), /org=/);
   assert.deepEqual(errors.filter((e) => !/nowhere/.test(e)), []);
   await p2.close();
   delete appOptsRef.communities;
+  delete appOptsRef.communitiesIndex;
 });

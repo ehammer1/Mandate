@@ -10,7 +10,7 @@ const path = require('node:path');
 const http = require('node:http');
 const ganache = require('ganache');
 const { ethers } = require('ethers');
-const { createCommunity, communityConfig, addToIndex, normalizeSpec } = require('../scripts/new-community');
+const { createCommunity, communityConfig, addToIndex, normalizeSpec, normalizeDomain, setDomain } = require('../scripts/new-community');
 const { createRelayer } = require('../broker/relayer');
 const { createRouter, syncCommunities } = require('../services/lib/communities');
 
@@ -71,6 +71,28 @@ test('the app config and the community list point at the right community', () =>
   addToIndex(path.join(dir, 'index.json'), { slug: 'lincoln-high', name: 'Lincoln High School PTA' });
   addToIndex(path.join(dir, 'index.json'), spec); // again: replaced, not duplicated
   assert.deepEqual(JSON.parse(fs.readFileSync(path.join(dir, 'index.json'), 'utf8')).communities.map((c) => c.slug), ['lincoln-high', 'ward-3']);
+});
+
+test('a community can have its own web address', () => {
+  assert.equal(normalizeDomain('https://Vote.LincolnHigh.org/'), 'vote.lincolnhigh.org');
+  assert.equal(normalizeDomain(''), '');
+  for (const bad of ['lincolnhigh', 'vote lincoln.org', 'me.github.io', 'http://']) assert.throws(() => normalizeDomain(bad), /web address/);
+  const spec = normalizeSpec({ slug: 'lincoln-high', name: 'Lincoln High School PTA', council: { members }, domain: 'vote.lincolnhigh.org' });
+  assert.equal(communityConfig(spec, made['lincoln-high'].addresses, 1).appUrl, 'https://vote.lincolnhigh.org/');
+  assert.equal(communityConfig({ ...spec, domain: '' }, made['lincoln-high'].addresses, 1).appUrl, 'https://ehammer1.github.io/Mandate/?org=lincoln-high');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'domains-'));
+  const index = () => JSON.parse(fs.readFileSync(path.join(dir, 'index.json'), 'utf8')).communities;
+  fs.writeFileSync(path.join(dir, 'ward-3.json'), JSON.stringify({ communityName: 'Ward 3 Residents', appUrl: 'https://ehammer1.github.io/Mandate/?org=ward-3' }));
+  addToIndex(path.join(dir, 'index.json'), spec);
+  assert.equal(index()[0].domain, 'vote.lincolnhigh.org');
+  addToIndex(path.join(dir, 'index.json'), { slug: 'lincoln-high', name: 'Lincoln High School PTA' }); // no domain given: kept
+  assert.equal(index()[0].domain, 'vote.lincolnhigh.org');
+  assert.throws(() => addToIndex(path.join(dir, 'index.json'), { slug: 'ward-3', name: 'Ward 3', domain: 'vote.lincolnhigh.org' }), /already used/);
+  assert.equal(setDomain(dir, 'ward-3', 'ward3.example.org'), 'https://ward3.example.org/');
+  assert.equal(index().find((c) => c.slug === 'ward-3').domain, 'ward3.example.org');
+  assert.equal(setDomain(dir, 'ward-3', ''), 'https://ehammer1.github.io/Mandate/?org=ward-3'); // and back
+  assert.equal(index().find((c) => c.slug === 'ward-3').domain, undefined);
+  assert.throws(() => setDomain(dir, 'nobody', 'x.example.org'), /no community/);
 });
 
 test('one relay serves every community under its own path, without mixing them', async () => {

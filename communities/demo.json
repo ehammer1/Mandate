@@ -1,0 +1,18 @@
+{
+  "slug": "demo",
+  "name": "Promissa Demo Town",
+  "type": "city",
+  "council": {
+    "members": ["0x433B8c945c9f4664870fFD3dA3Ea8d16dD41476F", "0xb8e5DA10ce9BE2A0dc3D86cB180c0E605491Cb71", "0xC782e1690D4B6c4C2Aba21283a6271477690f834"],
+    "threshold": 2,
+    "delayHours": 1,
+    "termDays": 365
+  },
+  "clerks": [{ "address": "0xd868af53ed4685ea6b991c64e15c9390c7456fd0", "name": "Demo front desk" }],
+  "pollOpeners": ["0xd868af53ed4685ea6b991c64e15c9390c7456fd0"],
+  "registrars": ["0xd868af53ed4685ea6b991c64e15c9390c7456fd0"],
+  "groupCreators": ["0xd868af53ed4685ea6b991c64e15c9390c7456fd0"],
+  "onlineSignup": true,
+  "seasoningDays": 1,
+  "rules": { "MIN_POLL_MINUTES": 10 }
+}

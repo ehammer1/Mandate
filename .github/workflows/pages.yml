@@ -1,5 +1,9 @@
 # Publishes the voter web app (app/) to GitHub Pages.
 # One-time setup: repository Settings -> Pages -> Source: "GitHub Actions".
+# Optional: communities with their own web address (vote.lincolnhigh.org) are served from
+# Cloudflare Pages, which allows many addresses for free. Add the repository secrets
+# CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID (see docs/new-community.md) and each build is
+# published there too; without them that step is skipped.
 name: Voter app (GitHub Pages)
 
 on:
@@ -20,6 +24,8 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      CF_READY: ${{ secrets.CLOUDFLARE_API_TOKEN != '' && secrets.CLOUDFLARE_ACCOUNT_ID != '' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -42,6 +48,13 @@ jobs:
       - uses: actions/upload-pages-artifact@v3
         with:
           path: app
+      - name: Also publish to Cloudflare Pages, for communities' own web addresses (only once set up)
+        if: env.CF_READY == 'true'
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy app --project-name=${{ vars.CLOUDFLARE_PAGES_PROJECT || 'promissa' }} --branch=main --commit-dirty=true
 
   deploy:
     needs: build

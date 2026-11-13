@@ -1,0 +1,10 @@
+{
+  "communities": [
+    {
+      "slug": "demo",
+      "name": "Promissa Demo Town",
+      "type": "city",
+      "addedAt": "2026-11-13"
+    }
+  ]
+}

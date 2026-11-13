@@ -3,7 +3,9 @@
  *
  * The same app serves many communities (a city, a school board, a union local), each with its own
  * contracts: ?org=<slug> in the address picks communities/<slug>.json instead of config.json, and
- * every link the app makes keeps ?org=, so shared links open the right community.
+ * every link the app makes keeps ?org=, so shared links open the right community. A community
+ * can also have its own web address (vote.lincolnhigh.org): communities/index.json lists each
+ * community's `domain`, and a visit on that address opens that community with no ?org= at all.
  */
 export const ORG = (() => {
   try {
@@ -16,8 +18,30 @@ export const ORG = (() => {
 
 export const configPath = () => (ORG ? `communities/${ORG}.json` : 'config.json');
 
+// The shared addresses (and local testing), where a community is picked only by ?org=.
+const SHARED_HOST = /(^|\.)github\.io$|^localhost$|^127\.0\.0\.1$|^\[::1\]$/;
+const bare = (h) => String(h || '').toLowerCase().replace(/^www\./, '').replace(/\.$/, '');
+
+/** On a community's own web address: which community it is (or '' if none matches). */
+async function communityForDomain(host) {
+  if (SHARED_HOST.test(host)) return '';
+  try {
+    const res = await fetch(`communities/index.json?t=${Date.now()}`, { cache: 'no-store' });
+    if (!res.ok) return '';
+    const hit = ((await res.json()).communities || []).find((c) => c.domain && bare(c.domain) === bare(host));
+    return hit && /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/.test(hit.slug) ? hit.slug : '';
+  } catch {
+    return '';
+  }
+}
+
 /** This page's settings (bypassing caches, so a change shows at once). */
 export async function loadConfig() {
+  const own = ORG ? '' : await communityForDomain(location.hostname);
+  if (own) {
+    const r = await fetch(`communities/${own}.json?t=${Date.now()}`, { cache: 'no-store' });
+    if (r.ok) return r.json();
+  }
   const res = await fetch(`${configPath()}?t=${Date.now()}`, { cache: 'no-store' });
   if (!res.ok) throw new Error(ORG ? `No community called "${ORG}" here. Check the link.` : 'This app is not configured yet (config.json missing).');
   return res.json();

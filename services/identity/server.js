@@ -865,6 +865,15 @@ if (require.main === module) {
     const me = await reg.issuers(signer.address);
     console.log(`[identity] issuer address ${signer.address}${me.active ? ` (approved as "${me.name}")` : ' (NOT approved yet: an admin must approve it in the app: Admin -> Give someone a role -> Clerk)'}`);
     const mdl = await mdlFromEnv();
+    // A community with its own web address (vote.lincolnhigh.org) may send people back there too.
+    const ownOrigin = (cfg) => {
+      try {
+        const u = new URL(cfg?.appUrl || '');
+        return u.protocol === 'https:' && !u.search ? [u.origin] : [];
+      } catch {
+        return [];
+      }
+    };
     // One sign-up service per community: its own voter list, the same issuer key and pepper.
     const make = (identityAddress, publicUrl, appConfig, isDefault) => createIdentityService({
       providers,
@@ -872,7 +881,7 @@ if (require.main === module) {
       pepper: need('IDENTITY_PEPPER'),
       signer,
       identityAddress: ethers.getAddress(identityAddress),
-      allowedReturnOrigins: need('ALLOWED_RETURN_ORIGINS').split(',').map((s) => s.trim()),
+      allowedReturnOrigins: [...need('ALLOWED_RETURN_ORIGINS').split(',').map((s) => s.trim()), ...ownOrigin(appConfig())],
       emailPolicy: createEmailPolicy({ allow: process.env.EMAIL_DOMAINS_ALLOW, block: process.env.EMAIL_DOMAINS_BLOCK }),
       emailSender: senderFromEnv(),
       clerkAnchor: () => (isDefault ? anchor : appConfig()?.clerkAnchor || 'id'),
