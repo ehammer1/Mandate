@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Pricing · Promissa Protocol</title>
+  <meta name="description" content="Free for voters, free to self-host, free pilots. Planned hosted plans for organizations and cities." />
+  <meta name="theme-color" content="#262a6e" />
+  <link rel="icon" href="icons/favicon.svg" type="image/svg+xml" />
+  <link rel="icon" href="icons/favicon-32.png" sizes="32x32" type="image/png" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+  <meta property="og:image" content="https://ehammer1.github.io/Mandate/icons/og.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    .sheet { max-width: 860px; margin: 0 auto; padding: 24px 16px; }
+    .plans { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; margin: 18px 0; }
+    .plan { border: 1px solid var(--line); border-radius: 12px; padding: 16px; background: var(--panel); }
+    .plan h3 { margin: 0 0 2px; }
+    .plan .price { font-size: 1.5rem; font-weight: 700; color: var(--accent); margin: 6px 0; }
+    .plan .who { color: var(--muted); margin: 0 0 8px; font-size: .92rem; }
+    .plan ul { padding-left: 18px; margin: 6px 0 0; }
+    .plan li { margin: 4px 0; font-size: .95rem; }
+    .badge { display: inline-block; font-size: .78rem; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); }
+    .badge.now { background: var(--teal); color: #fff; }
+    table.data { width: 100%; border-collapse: collapse; }
+    table.data th, table.data td { text-align: left; padding: 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  </style>
+</head>
+<body>
+  <main class="sheet stack">
+    <p class="row"><a class="button" href="./">← Back to the app</a> <a class="button" href="one-pager.html">About (one page)</a> <span id="lang-switch"></span></p>
+    <img src="icons/lockup.svg" alt="Promissa Protocol" width="240" height="75" />
+    <h1>Pricing</h1>
+    <p class="tagline">We the sovereign people, on the record.</p>
+    <p>Voting is always free. The software is open source and free to run yourself. We charge only, and only later, for optional hosting and help.</p>
+
+    <h2>Available now</h2>
+    <div class="plans">
+      <div class="plan"><span class="badge now">Now</span><h3>Voters</h3><p class="price">Always free</p><p class="who">Everyone</p>
+        <ul><li>Vote, sign petitions, check your vote was counted</li><li>No fees, no ads, no app store</li></ul></div>
+      <div class="plan"><span class="badge now">Now</span><h3>Pilot</h3><p class="price">Free for 8 weeks</p><p class="who">The first 5 organizations: a city, school board, association, union local or nonprofit</p>
+        <ul><li>Setup and two 1-hour training sessions</li><li>Hosting during the pilot</li><li>Email support</li><li>Advisory votes on a public test network</li></ul></div>
+      <div class="plan"><span class="badge now">Now</span><h3>Self-hosted</h3><p class="price">Free</p><p class="who">Anyone with an IT person</p>
+        <ul><li>Every feature, open source (Apache 2.0)</li><li>Help pages, guide and GitHub</li></ul></div>
+    </div>
+
+    <h2>Planned hosted plans</h2>
+    <p class="muted">Not open yet: these are the prices we plan, so organizations can budget. Ask us if you'd like to be told when they open.</p>
+    <div class="plans">
+      <div class="plan"><span class="badge">Planned</span><h3>Community</h3><p class="price">Free</p><p class="who">Up to 500 members: PTAs, HOAs, clubs, union locals</p>
+        <ul><li>Advisory polls, petitions, public dashboard</li><li>Help pages and GitHub</li></ul></div>
+      <div class="plan"><span class="badge">Planned</span><h3>Organization</h3><p class="price">$25/month</p><p class="who">Up to 5,000 members · or $250/year</p>
+        <ul><li>Everything: paper and mail check-in, smaller voter lists, ranked choice</li><li>Email support, reply within 2 business days</li></ul></div>
+      <div class="plan"><span class="badge">Planned</span><h3>City</h3><p class="price">$99/month</p><p class="who">Towns and cities · or $990/year</p>
+        <ul><li>Everything, plus setup and training</li><li>English and Spanish</li><li>Help with public notices and records</li></ul></div>
+    </div>
+
+    <h2>Optional help</h2>
+    <table class="data">
+      <thead><tr><th>Service</th><th>Price</th></tr></thead>
+      <tbody>
+        <tr><td>Setup and training, small group</td><td>$150 one-time</td></tr>
+        <tr><td>Setup and training, city</td><td>$500 one-time</td></tr>
+        <tr><td>Phone or chat support on a vote day</td><td>$100 a day</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Good to know</h2>
+    <ul>
+      <li>Network fees are covered: voters never pay anything.</li>
+      <li>No ads, ever, anywhere near voting.</li>
+      <li>Your records stay public and downloadable, whatever plan you are on, and you can move to self-hosting at any time.</li>
+      <li>Pilots are advisory and run on a public test network until an independent security audit is complete.</li>
+    </ul>
+    <p><strong>Interested in a pilot?</strong> Open an issue on GitHub (github.com/ehammer1/Mandate/issues) with your organization's name, or read the <a href="one-pager.html">one-page overview</a>.</p>
+  </main>
+  <footer style="text-align:center;margin:24px 16px;font-size:.85rem"><a href="./">App</a> · <a href="dashboard.html">Live dashboard</a> · <a href="privacy.html">Privacy</a> · <a href="terms.html">Terms</a><br><span class="muted">Promissa Protocol™ © 2026 · <a href="https://github.com/ehammer1/Mandate/blob/main/TRADEMARKS.md">Name and logo</a></span></footer>
+  <script type="module" src="dist/one-pager.js"></script>
+</body>
+</html>
