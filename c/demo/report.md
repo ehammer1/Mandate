@@ -1,0 +1,114 @@
+# Mandate audit report
+
+Generated 2026-11-13T09:46:15.000Z · last 24 hours · 38 high, 27 medium, 0 info
+
+38 alert(s) need attention.
+- ADMIN role granted to 0xC782…f834 on identity registry
+- ADMIN role granted to 0xC782…f834 on mandate registry
+- ADMIN role granted to 0xC782…f834 on charter (voting rules)
+- ADMIN role granted to 0xC782…f834 on voting
+- ADMIN role granted to 0xC782…f834 on civic budget
+- ADMIN role granted to 0xC782…f834 on decision markets
+- GOVERNOR role granted to 0xbAcc…18ac on charter (voting rules)
+- ADMIN role granted to 0xC782…f834 on officials registry
+- ADMIN role granted to 0xC782…f834 on smaller voter lists
+- Voting contract connected to smaller voter lists at 0x245a…cfa5: polls can now be limited to its groups
+- ADMIN role granted to 0xC782…f834 on government bodies
+- ADMIN role granted to 0xC782…f834 on paper and in-person results
+- Identity source "Demo front desk" (0xd868…6fD0) approved, up to verified tier
+- 0x433B…476F joined the council
+- 0xb8e5…Cb71 joined the council
+- 0xC782…f834 joined the council
+- The council now needs 2 approvals per change
+- The council waiting period is now 24 hours
+- ADMIN role granted to 0xA018…028c on identity registry
+- ADMIN role granted to 0xA018…028c on mandate registry
+- ADMIN role granted to 0xA018…028c on voting
+- ADMIN role granted to 0xA018…028c on decision markets
+- ADMIN role granted to 0xA018…028c on charter (voting rules)
+- ADMIN role granted to 0xA018…028c on civic budget
+- ADMIN role granted to 0xA018…028c on officials registry
+- ADMIN role granted to 0xA018…028c on government bodies
+- ADMIN role granted to 0xA018…028c on paper and in-person results
+- ADMIN role granted to 0xA018…028c on smaller voter lists
+- ADMIN role revoked from 0xC782…f834 on identity registry
+- ADMIN role revoked from 0xC782…f834 on mandate registry
+- ADMIN role revoked from 0xC782…f834 on voting
+- ADMIN role revoked from 0xC782…f834 on decision markets
+- ADMIN role revoked from 0xC782…f834 on charter (voting rules)
+- ADMIN role revoked from 0xC782…f834 on civic budget
+- ADMIN role revoked from 0xC782…f834 on officials registry
+- ADMIN role revoked from 0xC782…f834 on government bodies
+- ADMIN role revoked from 0xC782…f834 on paper and in-person results
+- ADMIN role revoked from 0xC782…f834 on smaller voter lists
+27 other event(s) were recorded (see the list).
+
+## All alerts
+
+- **high** ADMIN role granted to 0xC782…f834 on identity registry ([tx](https://sepolia.basescan.org/tx/0xd9fb7700dd638ee3c825367f825bf7b3b0a3bcc3eaa5b569ade70ff308f645c9))
+- **high** ADMIN role granted to 0xC782…f834 on mandate registry ([tx](https://sepolia.basescan.org/tx/0x0a977736b47c9c1b6c45ea8aff7d1a445cfb24caa0ca041db83480c595c132e5))
+- **high** ADMIN role granted to 0xC782…f834 on charter (voting rules) ([tx](https://sepolia.basescan.org/tx/0x44288824ea76f0887a048019528d89e1d5c0b94c606602204da12e5d1dd8d87a))
+- **high** ADMIN role granted to 0xC782…f834 on voting ([tx](https://sepolia.basescan.org/tx/0x2d2029a6b1cea7f92d96ff2c373cee4517296b74f95c759ac0c9466f6b789ea5))
+- **high** ADMIN role granted to 0xC782…f834 on civic budget ([tx](https://sepolia.basescan.org/tx/0xdc897630d2c1469da88e7ea8f050c6f5aa35b967e1630bcaa4497c9fac573eec))
+- **high** ADMIN role granted to 0xC782…f834 on decision markets ([tx](https://sepolia.basescan.org/tx/0x535a764ad2f487b8f42d0ab818869188f71967df61b94004cc7268f56a48d59d))
+- **medium** GOVERNOR role granted to 0xbAcc…18ac on mandate registry ([tx](https://sepolia.basescan.org/tx/0xff7f1ae1730d5580379025ea57367e250962a86e7a1c86679ae7d83844b237f2))
+- **medium** GOVERNOR role granted to 0xD0c4…F5A3 on mandate registry ([tx](https://sepolia.basescan.org/tx/0xb8a3854ff0a83c56d02c2c76ae14c5ec6f747b1ae800215958400ad28af034e0))
+- **medium** VETO role granted to 0xbAcc…18ac on decision markets ([tx](https://sepolia.basescan.org/tx/0x284b345a085e2a7d7bf88836c3dc4a9814e0306ab0df66da679fe39f9e237914))
+- **medium** PROPOSER role granted to 0xC782…f834 on voting ([tx](https://sepolia.basescan.org/tx/0x942cb362705f07e9da957a851fcc3022da929019ec97cd63b34336119c9c4fa3))
+- **medium** PROPOSER role granted to 0xC782…f834 on civic budget ([tx](https://sepolia.basescan.org/tx/0x684a4df1fead5e762c0de909cace54c127ff6577850103c46bac3fc4d501d0dc))
+- **high** GOVERNOR role granted to 0xbAcc…18ac on charter (voting rules) ([tx](https://sepolia.basescan.org/tx/0x4550ec10335d7c5ffacd1c13210cbe85d13608270c3d624a934e1fc38fda458a))
+- **high** ADMIN role granted to 0xC782…f834 on officials registry ([tx](https://sepolia.basescan.org/tx/0x287dd8c7c82a6a10adca3450af866f50282aaf2e691773a8fc28c49843a45e83))
+- **high** ADMIN role granted to 0xC782…f834 on smaller voter lists ([tx](https://sepolia.basescan.org/tx/0xba4be6114f6bd121197e9458d6544bdc098d62b853e969113069bad3ca541789))
+- **medium** 0xc26be8e0016d7720ca689986256cecb8764bcfd041a3c876681d44dc4d9d7519 role granted to 0xC782…f834 on smaller voter lists ([tx](https://sepolia.basescan.org/tx/0x4a3633c6c3d5b7ada9c1bbe9b932b709180983e7f35cf9b6b15329c25a37dea0))
+- **high** Voting contract connected to smaller voter lists at 0x245a…cfa5: polls can now be limited to its groups ([tx](https://sepolia.basescan.org/tx/0x373ef491148248bbbcd1568e252d311da2d7752a7a0d79de3f355e23e2e3d5c6))
+- **medium** PROPOSER role granted to 0x3b7D…6E49 on voting ([tx](https://sepolia.basescan.org/tx/0x4c963cee03ad690ccd3c3243c3164dc166257b1e827c55517ae06f35301a920f))
+- **medium** 0xedcc084d3dcd65a1f7f23c65c46722faca6953d28e43150a467cf43e5c309238 role granted to 0xC782…f834 on officials registry ([tx](https://sepolia.basescan.org/tx/0x977d408719b9f92ea197ee5c18ef6ace9166b9306bf53901941d42d8e7149470))
+- **high** ADMIN role granted to 0xC782…f834 on government bodies ([tx](https://sepolia.basescan.org/tx/0xfba069afb79c5b7bcd17c8eb8c291c0c5920f9db6ec52bfed061db1e669a4aad))
+- **medium** 0xedcc084d3dcd65a1f7f23c65c46722faca6953d28e43150a467cf43e5c309238 role granted to 0xC782…f834 on government bodies ([tx](https://sepolia.basescan.org/tx/0xfba069afb79c5b7bcd17c8eb8c291c0c5920f9db6ec52bfed061db1e669a4aad))
+- **medium** PROPOSER role granted to 0xee34…2050 on voting ([tx](https://sepolia.basescan.org/tx/0x8a316ce8af712d12b2f05a7cb6e997ba0a3610f46ce3e9e5409bd72adfc0aaf3))
+- **medium** PROPOSER role granted to 0x2087…743B on voting ([tx](https://sepolia.basescan.org/tx/0xb40b9a20c57a551e29a0af900393287a7563c61a8735e216299d0f9f1571d7e3))
+- **high** ADMIN role granted to 0xC782…f834 on paper and in-person results ([tx](https://sepolia.basescan.org/tx/0xd18a5b1e4755567f44a9b5ff901e2119197c66f11204279e19cb2cc3e49cbec5))
+- **medium** 0xd603cc2d39ea2ab57038652f29ac8e7fd0e40e6a9b0f81de9bbc4acc6780d962 role granted to 0xC782…f834 on paper and in-person results ([tx](https://sepolia.basescan.org/tx/0xd18a5b1e4755567f44a9b5ff901e2119197c66f11204279e19cb2cc3e49cbec5))
+- **medium** ISSUER role granted to 0xd868…6fD0 on identity registry ([tx](https://sepolia.basescan.org/tx/0x7dbcd1a7fa4ce7e96b9a254be26409d2a649541fbd9a36718977172d428297b9))
+- **high** Identity source "Demo front desk" (0xd868…6fD0) approved, up to verified tier ([tx](https://sepolia.basescan.org/tx/0x7dbcd1a7fa4ce7e96b9a254be26409d2a649541fbd9a36718977172d428297b9))
+- **medium** PROPOSER role granted to 0xd868…6fD0 on voting ([tx](https://sepolia.basescan.org/tx/0xbb67d06f92d1e866bd57dd17b1fb2eba764d5671979d6e91e6d042e74fedc9d7))
+- **medium** PROPOSER role granted to 0xd868…6fD0 on civic budget ([tx](https://sepolia.basescan.org/tx/0xdc9e56808b16e57604c9179971da8430719fd28e3554152d3ab325631fd405bf))
+- **medium** 0xedcc084d3dcd65a1f7f23c65c46722faca6953d28e43150a467cf43e5c309238 role granted to 0xd868…6fD0 on officials registry ([tx](https://sepolia.basescan.org/tx/0xb2331c240d6e15d1cfc03720b11df687435e725e88888a9dc0d5b35e42fc7b25))
+- **medium** 0xedcc084d3dcd65a1f7f23c65c46722faca6953d28e43150a467cf43e5c309238 role granted to 0xd868…6fD0 on government bodies ([tx](https://sepolia.basescan.org/tx/0xfa8014b95a10f165d3ef0682ca1f9b58cc959f6796f4f91a46ff078e9c73e3d7))
+- **medium** 0xd603cc2d39ea2ab57038652f29ac8e7fd0e40e6a9b0f81de9bbc4acc6780d962 role granted to 0xd868…6fD0 on paper and in-person results ([tx](https://sepolia.basescan.org/tx/0xb0bb68e8b9d714124b3f2f5530bcae13a5083cce3b76b0e60ebb6ba8662bd34d))
+- **medium** 0xc26be8e0016d7720ca689986256cecb8764bcfd041a3c876681d44dc4d9d7519 role granted to 0xd868…6fD0 on smaller voter lists ([tx](https://sepolia.basescan.org/tx/0x7b71e917a308ce84151e00cad3782f6de75cb62882d3be65014b4490e85ecd8d))
+- **high** 0x433B…476F joined the council ([tx](https://sepolia.basescan.org/tx/0xaf53bdc2e90762f9833bc0b44eba1f72e628971f182096ba98e47744c99f96ca))
+- **high** 0xb8e5…Cb71 joined the council ([tx](https://sepolia.basescan.org/tx/0xaf53bdc2e90762f9833bc0b44eba1f72e628971f182096ba98e47744c99f96ca))
+- **high** 0xC782…f834 joined the council ([tx](https://sepolia.basescan.org/tx/0xaf53bdc2e90762f9833bc0b44eba1f72e628971f182096ba98e47744c99f96ca))
+- **high** The council now needs 2 approvals per change ([tx](https://sepolia.basescan.org/tx/0xaf53bdc2e90762f9833bc0b44eba1f72e628971f182096ba98e47744c99f96ca))
+- **high** The council waiting period is now 24 hours ([tx](https://sepolia.basescan.org/tx/0xaf53bdc2e90762f9833bc0b44eba1f72e628971f182096ba98e47744c99f96ca))
+- **medium** PROPOSER role granted to 0xA018…028c on voting ([tx](https://sepolia.basescan.org/tx/0x59d2db752d75f4a4c230c13d5fcf2e8dacada02b9fd01948410eb739b151647d))
+- **high** ADMIN role granted to 0xA018…028c on identity registry ([tx](https://sepolia.basescan.org/tx/0xa80f7a5a9f9588b1cdcd089a5c43c2a9fff212ddc40b9cc83e0566ff5d6498ae))
+- **high** ADMIN role granted to 0xA018…028c on mandate registry ([tx](https://sepolia.basescan.org/tx/0x12ae8884bba932a85518d9dd4b8623489552555ebd2240a91bee220f19c81f7d))
+- **high** ADMIN role granted to 0xA018…028c on voting ([tx](https://sepolia.basescan.org/tx/0xeb66f29491ce17cec45b63b31854552738caa48c3240f84e15c2abd12bfc78c6))
+- **high** ADMIN role granted to 0xA018…028c on decision markets ([tx](https://sepolia.basescan.org/tx/0x5d0d53a8d803128ebcf200ad1e548bdc6481d8dc1f24f9a84687cd70cbdbab1e))
+- **high** ADMIN role granted to 0xA018…028c on charter (voting rules) ([tx](https://sepolia.basescan.org/tx/0x5cb13a3d5b6b5da4c71d3c0c70210b126a33a6f48d5da10fc9369400a4f69050))
+- **high** ADMIN role granted to 0xA018…028c on civic budget ([tx](https://sepolia.basescan.org/tx/0x14ee1322a3f26681c897ceda151a866ab32476049de73e2c664898466f05a4e8))
+- **high** ADMIN role granted to 0xA018…028c on officials registry ([tx](https://sepolia.basescan.org/tx/0xf225efd4d01d7ec0b75b179a0f28881a723e7def3e49394e3fb6f6a576c2d43c))
+- **high** ADMIN role granted to 0xA018…028c on government bodies ([tx](https://sepolia.basescan.org/tx/0x07dbcf909536a5e1cdb69b035d2b05495308c09076e92a19a24d5254c0e4dce3))
+- **high** ADMIN role granted to 0xA018…028c on paper and in-person results ([tx](https://sepolia.basescan.org/tx/0xb67a7433cd7a48728aa10d33d4e777fbe5e3461cc3182df234b32df801278e14))
+- **high** ADMIN role granted to 0xA018…028c on smaller voter lists ([tx](https://sepolia.basescan.org/tx/0xd64ba7608684bf46834b1badf2e35d4166a738a1adc88bce6414c662713769f3))
+- **high** ADMIN role revoked from 0xC782…f834 on identity registry ([tx](https://sepolia.basescan.org/tx/0xaceabc3b5d6014650b66e083e334bae29ecfdae44629cb1ada7d196c92f4e1c8))
+- **high** ADMIN role revoked from 0xC782…f834 on mandate registry ([tx](https://sepolia.basescan.org/tx/0xb551023e8f8bdac7fc154ee5925b6fde92055048c9cd3f2ece38ad33f229bda0))
+- **high** ADMIN role revoked from 0xC782…f834 on voting ([tx](https://sepolia.basescan.org/tx/0xd70f895319586a33664324c620ae748a9e31968fc36895988de986eb76d7de00))
+- **high** ADMIN role revoked from 0xC782…f834 on decision markets ([tx](https://sepolia.basescan.org/tx/0x4eee459e5a6842094df9f64da9feb045cd5197838e590183042d452b5d1be61c))
+- **high** ADMIN role revoked from 0xC782…f834 on charter (voting rules) ([tx](https://sepolia.basescan.org/tx/0x90e76ba44648d4dd7ac9c9ac9990ad1b755cdf07e236dd97cb75a31800090731))
+- **high** ADMIN role revoked from 0xC782…f834 on civic budget ([tx](https://sepolia.basescan.org/tx/0xa8b2577e86181e5f83eb6ca778c7b46273fa56fda82feaf211259334cc81654e))
+- **high** ADMIN role revoked from 0xC782…f834 on officials registry ([tx](https://sepolia.basescan.org/tx/0x5f59f4cc1503eef47d228fe8e91239c8565481d460221bca4e12c78599142a2d))
+- **high** ADMIN role revoked from 0xC782…f834 on government bodies ([tx](https://sepolia.basescan.org/tx/0x2a3e66b4c0b7e601000a07582cf30384edd54c5d4584dd121089815c7191087f))
+- **high** ADMIN role revoked from 0xC782…f834 on paper and in-person results ([tx](https://sepolia.basescan.org/tx/0xe1bac7dcc24cd6a4cf68679eb600fb4ff3af979f5523c7a2c98c5ba9399d3b4f))
+- **high** ADMIN role revoked from 0xC782…f834 on smaller voter lists ([tx](https://sepolia.basescan.org/tx/0x5ee4a8dda385eb2c1f36040ce6a2a1c60463c2bafaffe951c50cca47fcfb1182))
+- **medium** PROPOSER role revoked from 0xC782…f834 on voting ([tx](https://sepolia.basescan.org/tx/0xa0af2d7e2347a8717059b96a63a1477b7c3034d44f9988aafd1ad52c139eaf40))
+- **medium** PROPOSER role revoked from 0xC782…f834 on civic budget ([tx](https://sepolia.basescan.org/tx/0xe06d30bbae5f0464da7e8d3cb34bfb5efd8152de1b2dc4e12d8505b0d6e694bc))
+- **medium** 0xedcc084d3dcd65a1f7f23c65c46722faca6953d28e43150a467cf43e5c309238 role revoked from 0xC782…f834 on officials registry ([tx](https://sepolia.basescan.org/tx/0x89b09808088d893f4db6b48b6102680cefd995d151cdf58d065130c2d8111ad5))
+- **medium** 0xedcc084d3dcd65a1f7f23c65c46722faca6953d28e43150a467cf43e5c309238 role revoked from 0xC782…f834 on government bodies ([tx](https://sepolia.basescan.org/tx/0x2185530a6f2fe5a980cb1a2ec839123fa82a48545395a9bdabcbbf71f44451a1))
+- **medium** 0xc26be8e0016d7720ca689986256cecb8764bcfd041a3c876681d44dc4d9d7519 role revoked from 0xC782…f834 on smaller voter lists ([tx](https://sepolia.basescan.org/tx/0x8b4be1e5256513faaa51cde0035db1b0f4dd2704087380754542c72daaef84ef))
+- **medium** 0xd603cc2d39ea2ab57038652f29ac8e7fd0e40e6a9b0f81de9bbc4acc6780d962 role revoked from 0xC782…f834 on paper and in-person results ([tx](https://sepolia.basescan.org/tx/0x10740549bf3cca95843b40c517a7e0831ff8b71c47f6b3e9ab7730aae875800f))
+- **medium** Watchdog GitHub token (Render) expires on 2026-12-10, in 26 days: GitHub (ehammer1) > Settings > Developer settings > Fine-grained tokens > regenerate the watchdog token (only ehammer1/Mandate, Contents read and write), then paste it into GITHUB_TOKEN on Render's mandate-watchdog
+
+Summary written by: fixed rules.
