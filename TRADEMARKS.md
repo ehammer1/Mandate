@@ -4,7 +4,7 @@ The Promissa software is open source under the Apache License 2.0: anyone may us
 and share the code. That license does **not** grant rights to the Promissa name or logo
 (Apache 2.0, section 6).
 
-"Promissa Protocol"™, "Promissa"™, the tagline "We the people, on the record" and the Promissa
+"Promissa Protocol"™, "Promissa"™, the tagline "We the sovereign people, on the record" and the Promissa
 Protocol logo (two back-to-back p's whose stems wrap into a ring of nodes, alone or with the
 name, in `app/icons/` and `brand/`) are trademarks of the project's owner, Eric Tisthammer, first
 used publicly on 13 November 2026 at ehammer1.github.io/Mandate. Not yet registered: shown with ™,

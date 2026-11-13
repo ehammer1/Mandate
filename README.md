@@ -2,7 +2,7 @@
 
 # Promissa Protocol
 
-> **We the people, on the record.** The people decide; the protocol makes sure it happens.
+> **We the sovereign people, on the record.** The people decide; the protocol makes sure it happens.
 
 *Formerly "Mandate". In the app, a **mandate** is still the word for a commitment the public votes for.*
 

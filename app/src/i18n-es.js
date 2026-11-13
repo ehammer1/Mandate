@@ -1169,6 +1169,6 @@ export default {
   "Only residents with full voting rights": "Solo residentes con plenos derechos de voto",
   "Only totals are published": "Solo se publican los totales",
   "Poll {0} opened": "Votación {0} abierta",
-  "We the people, on the record.": "Nosotros, el pueblo, en el registro público.",
-  "WE THE PEOPLE, ON THE RECORD": "NOSOTROS, EL PUEBLO, EN EL REGISTRO PÚBLICO",
+  "We the sovereign people, on the record.": "Nosotros, el pueblo soberano, en el registro público.",
+  "WE THE SOVEREIGN PEOPLE, ON THE RECORD": "NOSOTROS, EL PUEBLO SOBERANO, EN EL REGISTRO PÚBLICO",
 };
