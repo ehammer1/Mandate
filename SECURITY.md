@@ -1,6 +1,6 @@
 # Security
 
-Mandate Protocol has **not yet had an independent security audit**. Until it has, use it for
+Promissa Protocol has **not yet had an independent security audit**. Until it has, use it for
 advisory votes and pilots only, as the pilot guide describes.
 
 ## Reporting a vulnerability

@@ -232,11 +232,11 @@ export function wireDownloads(root, cfg, provider) {
         if (key === 'all') {
           const out = { network: cfg.chainName || cfg.chainId, downloaded: new Date().toISOString(), contracts: Object.fromEntries(Object.entries(cfg).filter(([k, v]) => /Address$/.test(k) && v)) };
           for (const [k, d] of Object.entries(DATASETS)) out[k] = await d.load(cfg, provider);
-          save(`mandate-data-${stamp}.json`, JSON.stringify(out, null, 2), 'application/json');
+          save(`promissa-data-${stamp}.json`, JSON.stringify(out, null, 2), 'application/json');
         } else {
           const rows = await DATASETS[key].load(cfg, provider);
-          if (b.dataset.format === 'csv') save(`mandate-${key}-${stamp}.csv`, `﻿${toCsv(rows)}`, 'text/csv;charset=utf-8');
-          else save(`mandate-${key}-${stamp}.json`, JSON.stringify(rows, null, 2), 'application/json');
+          if (b.dataset.format === 'csv') save(`promissa-${key}-${stamp}.csv`, `﻿${toCsv(rows)}`, 'text/csv;charset=utf-8');
+          else save(`promissa-${key}-${stamp}.json`, JSON.stringify(rows, null, 2), 'application/json');
           if (!rows.length) return void ((status.textContent = 'Downloaded: the list is empty so far.'), (status.className = 'status ok'));
         }
         status.textContent = 'Downloaded.';

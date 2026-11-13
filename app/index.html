@@ -3,9 +3,9 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Mandate Voter</title>
+  <title>Promissa Voter</title>
   <meta name="description" content="Vote privately on public decisions from your phone or computer. No wallet needed." />
-  <meta name="theme-color" content="#0f5132" />
+  <meta name="theme-color" content="#262a6e" />
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="stylesheet" href="style.css" />
   <link rel="icon" href="icons/favicon.svg" type="image/svg+xml" />
@@ -17,7 +17,7 @@
 <body>
   <header>
     <div class="bar">
-      <div class="brand"><img src="icons/lockup.svg" alt="Mandate Protocol" width="160" height="54" /></div>
+      <div class="brand"><picture><source srcset="icons/lockup-white.svg" media="(prefers-color-scheme: dark)" /><img src="icons/lockup.svg" alt="Promissa Protocol" width="168" height="53" /></picture></div>
       <span id="lang-switch"></span>
       <nav id="nav" hidden aria-label="Main">
         <button id="nav-polls">Polls</button>
@@ -42,6 +42,7 @@
     <section id="screen-signin" data-screen hidden>
       <p class="status card" id="return-notice" role="status" hidden></p>
       <h1>Vote on public decisions, privately</h1>
+      <p class="tagline">We the people, on the record.</p>
       <p>No app store, no wallet, no crypto. Your phone or computer unlocks a private voter key with Face ID, your fingerprint, or your device PIN.</p>
       <div class="card stack" id="welcome-back" hidden>
         <p class="big" style="margin:0">Welcome back</p>
@@ -91,7 +92,7 @@
       <div class="card" id="backup-panel" hidden>
         <p class="big warn">Save your backup code</p>
         <p id="backup-intro">This key lives only in this browser. Write this down; it is the only way to vote from another device or recover.</p>
-        <p class="note"><strong>Keep it private.</strong> Never give it to anyone, including someone who offers money or favors for your vote: whoever has it can see and change how you vote. Mandate staff will never ask for it.</p>
+        <p class="note"><strong>Keep it private.</strong> Never give it to anyone, including someone who offers money or favors for your vote: whoever has it can see and change how you vote. Promissa staff will never ask for it.</p>
         <p class="code" id="backup-code"></p>
         <button id="btn-print-code" hidden>Print this code</button>
       </div>
@@ -213,7 +214,7 @@
 
     <section id="screen-help" data-screen hidden>
       <h1>Help</h1>
-      <p>How to use Mandate, step by step, and what the words mean. Values in the guide are your community's current rules.</p>
+      <p>How to use Promissa, step by step, and what the words mean. Values in the guide are your community's current rules.</p>
       <label for="help-search">Search the guide</label>
       <input type="search" id="help-search" placeholder="e.g. quorum, petition, council" autocomplete="off" />
       <div id="help-list"></div>
@@ -253,7 +254,7 @@
       <div id="clerk-steps" hidden>
         <div class="card stack">
           <h3>1. Voter code</h3>
-          <p class="note">Ask the person to open "My voter code" in the Mandate app and show you the QR code.</p>
+          <p class="note">Ask the person to open "My voter code" in the Promissa app and show you the QR code.</p>
           <div class="row"><button class="primary" id="btn-clerk-scan">Scan QR code</button></div>
           <video id="clerk-video" playsinline muted hidden style="width:100%;max-height:320px;border-radius:12px;background:#000"></video>
           <label for="clerk-code">Or paste the code</label>
@@ -497,10 +498,10 @@
       <div class="card stack" id="admin-groups" hidden></div>
       <div class="card stack" id="admin-tallies" hidden>
         <h3>Paper ballots and in-person results</h3>
-        <p class="note">Record counts from polling places, precincts or meetings. One clerk records, another confirms; a photo of the signed tally sheet goes with it. For a Mandate poll, paper voters check in on their phones first, so the paper register matches the voter list and nobody is counted twice.</p>
+        <p class="note">Record counts from polling places, precincts or meetings. One clerk records, another confirms; a photo of the signed tally sheet goes with it. For a Promissa poll, paper voters check in on their phones first, so the paper register matches the voter list and nobody is counted twice.</p>
         <details><summary><strong>Set up a contest</strong></summary><div class="stack">
           <label for="tally-kind">What is being counted</label>
-          <select id="tally-kind"><option value="poll">Paper votes for a Mandate poll</option><option value="election">An official election contest</option><option value="meeting">A vote at a public meeting</option></select>
+          <select id="tally-kind"><option value="poll">Paper votes for a Promissa poll</option><option value="election">An official election contest</option><option value="meeting">A vote at a public meeting</option></select>
           <div id="tally-poll-row" class="stack"><label>Poll number <input type="text" id="tally-poll" inputmode="numeric" style="width:100px" /></label></div>
           <div id="tally-new-row" class="stack" hidden>
             <label for="tally-title">Name</label><input type="text" id="tally-title" placeholder="e.g. City Council, District 3 (Nov 3 general election)" />
@@ -551,7 +552,7 @@
 
       <div class="card stack" id="admin-prevcouncil" hidden>
         <h3>Previous council</h3>
-        <p class="note">Mandate moved to a new council. These last changes on the previous one finish the move; once they have run, this section can be ignored.</p>
+        <p class="note">Promissa moved to a new council. These last changes on the previous one finish the move; once they have run, this section can be ignored.</p>
         <div id="prevcouncil-summary"></div>
         <div class="row"><button id="btn-prevcouncil-refresh">Refresh</button><span class="status" id="prevcouncil-status" role="status"></span></div>
         <div id="prevcouncil-list" class="stack"></div>
@@ -591,7 +592,7 @@
     </section>
   </main>
   <div id="toasts" aria-live="assertive"></div>
-  <footer style="text-align:center;margin:24px 16px;font-size:.85rem"><a href="dashboard.html">Live dashboard</a> · <a href="one-pager.html">About (one page)</a> · <a href="privacy.html">Privacy</a> · <a href="terms.html">Terms</a> · <a href="https://github.com/ehammer1/Mandate">Source code</a><br><span class="muted">Mandate Protocol™ © 2026 · <a href="https://github.com/ehammer1/Mandate/blob/main/TRADEMARKS.md">Name and logo</a></span></footer>
+  <footer style="text-align:center;margin:24px 16px;font-size:.85rem"><a href="dashboard.html">Live dashboard</a> · <a href="one-pager.html">About (one page)</a> · <a href="privacy.html">Privacy</a> · <a href="terms.html">Terms</a> · <a href="https://github.com/ehammer1/Mandate">Source code</a><br><span class="muted">Promissa Protocol™ © 2026 · <a href="https://github.com/ehammer1/Mandate/blob/main/TRADEMARKS.md">Name and logo</a></span></footer>
 
   <script type="module" src="dist/main.js"></script>
 </body>

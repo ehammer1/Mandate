@@ -1,20 +1,22 @@
-# Mandate Protocol name and logo
+# Promissa Protocol name and logo
 
-The Mandate software is open source under the Apache License 2.0: anyone may use, copy, change
-and share the code. That license does **not** grant rights to the Mandate name or logo
+The Promissa software is open source under the Apache License 2.0: anyone may use, copy, change
+and share the code. That license does **not** grant rights to the Promissa name or logo
 (Apache 2.0, section 6).
 
-"Mandate Protocol"™, "Mandate"™ and the Mandate Protocol logo (the joined *m* and *p* in a ring
-of nodes, alone or with the name, in `app/icons/` and `brand/`) are trademarks of the project's owner, Eric Tisthammer, in use since 2026 (first used publicly
-in this repository and at ehammer1.github.io/Mandate). Not yet registered: shown with ™, not ®.
+"Promissa Protocol"™, "Promissa"™, the tagline "We the people, on the record" and the Promissa
+Protocol logo (two back-to-back p's whose stems wrap into a ring of nodes, alone or with the
+name, in `app/icons/` and `brand/`) are trademarks of the project's owner, Eric Tisthammer, first
+used publicly on 13 November 2026 at ehammer1.github.io/Mandate. Not yet registered: shown with ™,
+not ®. (The project was earlier called "Mandate".)
 
 **You may, without asking:**
-- say truthfully that your project is "based on Mandate" or "compatible with Mandate";
-- use the name and logo to refer to the official Mandate project, its app and its dashboard;
+- say truthfully that your project is "based on Promissa" or "compatible with Promissa";
+- use the name and logo to refer to the official Promissa project, its app and its dashboard;
 - run an unmodified copy for your own community, with the name and logo as they are.
 
 **Please ask first before:**
-- offering a hosted or commercial service under the Mandate name or logo;
+- offering a hosted or commercial service under the Promissa name or logo;
 - using the name or logo for a modified version (give your version its own name and logo);
 - using the name or logo in your own product, company or domain name, or on merchandise;
 - changing the logo or combining it with other marks.
@@ -23,4 +25,4 @@ Ask by opening an issue on GitHub (github.com/ehammer1/Mandate/issues).
 
 Using the name or logo in ways that suggest an official endorsement, or for a version whose
 voting or privacy works differently, is not allowed: residents must be able to trust that
-"Mandate" means this code, which they can check.
+"Promissa" means this code, which they can check.

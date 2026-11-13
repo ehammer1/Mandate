@@ -53,7 +53,7 @@ const NEXT = [
   const explorer = cfg.explorer?.replace(/\/+$/, '');
   const addrHtml = (a) => `<span class="code">${esc(a)}</span> ${copyBtn(a)}${explorer ? ` <a href="${esc(`${explorer}/address/${a}`)}" target="_blank" rel="noopener">view</a>` : ''}`;
   const approvedAt = Number(p.readyAt) ? Number(p.readyAt) - (p.fast ? 0 : Number(delay)) : 0;
-  document.title = `${name} change #${id} · Mandate`;
+  document.title = `${name} change #${id} · Promissa`;
   $('proposal').innerHTML = `<div class="card stack" id="${prefix}-${id}">
     <p class="eyebrow">${esc(name)} change #${id} · ${esc(STATES[st] || '')}${st >= 1 && st <= 3 ? ` · ${approvals} of ${threshold} approvals` : ''}</p>
     <h1 style="font-size:1.4rem">${esc(describeCall(cfg, p.target, p.data))}</h1>

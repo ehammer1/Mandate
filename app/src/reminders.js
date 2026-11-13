@@ -58,7 +58,7 @@ const trigger = (secs) => (secs % 86_400 === 0 ? `-P${secs / 86_400}D` : secs % 
 
 /** One deadline as an .ics file with an alert at each chosen time before it. */
 export function icsFor(item, offsets = settings.offsets, url = location.href.split('#')[0]) {
-  const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Mandate//Reminder//EN', 'BEGIN:VEVENT', `UID:${ics(keyOf(item))}-${item.at}@mandate`, `DTSTAMP:${stamp(Date.now() / 1000)}`, `DTSTART:${stamp(item.at - 900)}`, `DTEND:${stamp(item.at)}`, `SUMMARY:${ics(item.calendarTitle || item.title)}`, `DESCRIPTION:${ics(`${item.plain || ''} ${url}`.trim())}`, `URL:${ics(url)}`];
+  const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Promissa//Reminder//EN', 'BEGIN:VEVENT', `UID:${ics(keyOf(item))}-${item.at}@mandate`, `DTSTAMP:${stamp(Date.now() / 1000)}`, `DTSTART:${stamp(item.at - 900)}`, `DTEND:${stamp(item.at)}`, `SUMMARY:${ics(item.calendarTitle || item.title)}`, `DESCRIPTION:${ics(`${item.plain || ''} ${url}`.trim())}`, `URL:${ics(url)}`];
   for (const o of offsets) lines.push('BEGIN:VALARM', `TRIGGER;RELATED=END:${trigger(o)}`, 'ACTION:DISPLAY', `DESCRIPTION:${ics(`${WORD[o] || ''} left: ${item.title}`)}`, 'END:VALARM');
   lines.push('END:VEVENT', 'END:VCALENDAR');
   return lines.join('\r\n') + '\r\n';
@@ -98,7 +98,7 @@ function show({ item, left }) {
   const text = `${h} left: ${item.title}`;
   try {
     if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-      const n = new Notification('Mandate', { body: text, tag: keyOf(item) });
+      const n = new Notification('Promissa', { body: text, tag: keyOf(item) });
       n.onclick = () => window.focus();
     }
   } catch {
@@ -141,8 +141,8 @@ export function wireSettings(box) {
       <div class="filters" role="group" aria-label="Alert times">${OFFSETS.map(([o, w]) => `<button data-off="${o}" aria-pressed="${settings.offsets.includes(o)}">${w} before</button>`).join('')}</div>
       <label for="remind-scope">For</label>
       <select id="remind-scope"><option value="urgent"${settings.scope === 'urgent' ? ' selected' : ''}>Urgent and soon items, and anything I follow</option><option value="followed"${settings.scope === 'followed' ? ' selected' : ''}>Only items I follow (tap 🔔 on an item)</option><option value="all"${settings.scope === 'all' ? ' selected' : ''}>Everything with a deadline</option></select>
-      ${perm === 'granted' ? '<p class="ok">Notifications are on for this device.</p>' : perm === 'denied' ? '<p class="note">Notifications are blocked for this site in your browser settings; alerts still show here while the app is open.</p>' : perm === 'unsupported' ? '<p class="note">This browser cannot show notifications. On iPhone: Share, then "Add to Home Screen", and open Mandate from there. Or use "Add to calendar" on any item, or the calendar feed below.</p>' : '<button id="btn-notify">Turn on notifications</button>'}
-      <p class="note">Alerts arrive while Mandate is open or installed on your home screen. For alerts when it is closed, use "📅 Add to calendar" on an item, or subscribe to the calendar feed (on iPhone, turn off "Remove Alerts" for the subscription in Settings, Calendar, Accounts).</p>`;
+      ${perm === 'granted' ? '<p class="ok">Notifications are on for this device.</p>' : perm === 'denied' ? '<p class="note">Notifications are blocked for this site in your browser settings; alerts still show here while the app is open.</p>' : perm === 'unsupported' ? '<p class="note">This browser cannot show notifications. On iPhone: Share, then "Add to Home Screen", and open Promissa from there. Or use "Add to calendar" on any item, or the calendar feed below.</p>' : '<button id="btn-notify">Turn on notifications</button>'}
+      <p class="note">Alerts arrive while Promissa is open or installed on your home screen. For alerts when it is closed, use "📅 Add to calendar" on an item, or subscribe to the calendar feed (on iPhone, turn off "Remove Alerts" for the subscription in Settings, Calendar, Accounts).</p>`;
     for (const b of box.querySelectorAll('[data-off]')) {
       b.onclick = () => {
         const o = Number(b.dataset.off);

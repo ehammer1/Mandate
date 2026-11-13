@@ -5,7 +5,7 @@ The same guide is in the app (Help). Rule values shown there are your community'
 <a id="start"></a>
 ## Getting started
 
-Mandate lets residents vote privately, ask for votes, follow what officials and councils do, and check that promises are kept. Everything except how you voted is public.
+Promissa lets residents vote privately, ask for votes, follow what officials and councils do, and check that promises are kept. Everything except how you voted is public.
 
 1. **Make your voter key.** Tap *Join*. Your key lives on this phone, protected by Face ID or a passcode (a "passkey"). Write down the **backup code**: it is the only way to vote from another device.
 2. **Get on the voter list.** Sign in with Google, Microsoft or email (you become a *member*), or verify at a clerk desk, by mobile ID or by a code mailed to your registered address (you become an *ID-checked resident*). After the new-resident wait, ID-checked residents get *full voting rights*.
@@ -17,7 +17,7 @@ You never need an account or money to vote. The optional *Account* is for offici
 ## Frequently asked questions
 
 **Is my vote really secret?**
-Yes. Your phone sends a mathematical proof that you are on the voter list and have not voted yet, never who you are. Nobody, including the people who run Mandate, can link a ballot to a person.
+Yes. Your phone sends a mathematical proof that you are on the voter list and have not voted yet, never who you are. Nobody, including the people who run Promissa, can link a ballot to a person.
 
 **Can someone vote twice, or invent fake voters?**
 Each voter key can vote once per poll, enforced by the blockchain. Each ID or account can join the list once. Online sign-ups are easier to fake, which is why binding polls use ID-checked residents or a [cross-check](#cross-check).
@@ -29,9 +29,9 @@ On the new device, open the app, tap "Other ways to sign in", enter your backup 
 No. Voting, signing petitions and commenting are free; the service pays the network fees. Money is only for backing a mandate with funds, which is optional.
 
 **Is this an official election?**
-No. Mandate runs on a public test network for advisory polls, petitions and public records. Binding uses depend on a community adopting them under its own law, after an independent security audit.
+No. Promissa runs on a public test network for advisory polls, petitions and public records. Binding uses depend on a community adopting them under its own law, after an independent security audit.
 
-**Who controls Mandate?**
+**Who controls Promissa?**
 No single person. Admin powers belong to a council whose changes are public, need several approvals and wait before they run; residents can elect and recall its members, and an independent watchdog flags every change of power. The code is open source.
 
 **Why can't I see the Admin tab?**

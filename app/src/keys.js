@@ -69,7 +69,7 @@ export function savedMethod() {
   return load().method || null;
 }
 
-/** True if this browser remembers a Mandate passkey (even if a browser-saved key is in use now). */
+/** True if this browser remembers a Promissa passkey (even if a browser-saved key is in use now). */
 export function hasSavedPasskey() {
   return !!load().credentialId;
 }
@@ -84,7 +84,7 @@ export function hasSavedPasskey() {
 export async function createPasskey({ remember = true, onPhone = false, displayName } = {}) {
   const known = remember ? load().credentialId : null;
   if (known) return unlockWithPasskey();
-  const label = displayName || `Mandate voter · ${new Date().toISOString().slice(0, 10)}`;
+  const label = displayName || `Promissa voter · ${new Date().toISOString().slice(0, 10)}`;
   // onPhone (shared computers): ask the browser to create the passkey on the person's phone
   // via a QR code, not on this computer.
   const selection = { residentKey: 'required', userVerification: 'required', ...(onPhone ? { authenticatorAttachment: 'cross-platform' } : {}) };
@@ -92,7 +92,7 @@ export async function createPasskey({ remember = true, onPhone = false, displayN
   try {
     cred = await navigator.credentials.create({
     publicKey: {
-      rp: { name: 'Mandate' },
+      rp: { name: 'Promissa' },
       user: { id: random(16), name: label, displayName: label },
       challenge: random(32),
       pubKeyCredParams: [

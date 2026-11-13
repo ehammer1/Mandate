@@ -1,6 +1,6 @@
 :root {
   --bg: #f6f7f5; --panel: #ffffff; --ink: #14201a; --muted: #56645c; --line: #d6ddd8;
-  --accent: #0f6b45; --accent-ink: #ffffff; --accent-soft: #e3f1ea;
+  --accent: #262a6e; --accent-ink: #ffffff; --accent-soft: #e8e9f6; --teal: #14a99a;
   --ok: #0f6b45; --warn: #8a5a00; --error: #b3261e;
   --radius: 12px; --pad: 16px;
   color-scheme: light dark;
@@ -8,13 +8,13 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: #0e1411; --panel: #161e1a; --ink: #e6efe9; --muted: #9db0a5; --line: #2a3630;
-    --accent: #4fc48c; --accent-ink: #06130c; --accent-soft: #173226;
+    --accent: #9ba1f2; --accent-ink: #0e1033; --accent-soft: #23264d; --teal: #3cc8b6;
     --ok: #4fc48c; --warn: #e8b04a; --error: #ff8a80;
   }
 }
 :root[data-theme="dark"] {
   --bg: #0e1411; --panel: #161e1a; --ink: #e6efe9; --muted: #9db0a5; --line: #2a3630;
-  --accent: #4fc48c; --accent-ink: #06130c; --accent-soft: #173226;
+  --accent: #9ba1f2; --accent-ink: #0e1033; --accent-soft: #23264d; --teal: #3cc8b6;
   --ok: #4fc48c; --warn: #e8b04a; --error: #ff8a80;
 }
 * { box-sizing: border-box; }
@@ -138,3 +138,4 @@ form[role=search] { flex-wrap: nowrap; }
 form[role=search] input[type=search] { width: auto; min-width: 0; -webkit-appearance: none; appearance: none; }
 
 .lang-switch { min-height: 36px; padding: 4px 12px; font-size: .9rem; }
+.tagline { color: var(--teal); font-weight: 600; margin-top: -4px; }

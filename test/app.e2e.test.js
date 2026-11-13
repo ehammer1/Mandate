@@ -1449,7 +1449,7 @@ test('paper ballots: check in on the phone, clerks record and confirm, each pers
   await dash.goto(`${appUrl}dashboard.html#h-downloads`);
   await dash.waitForSelector('#downloads [data-download="polls"][data-format="csv"]');
   const [dl] = await Promise.all([dash.waitForEvent('download', { timeout: 120_000 }), dash.click('#downloads [data-download="polls"][data-format="csv"]')]);
-  assert.match(dl.suggestedFilename(), /^mandate-polls-\d{4}-\d{2}-\d{2}\.csv$/);
+  assert.match(dl.suggestedFilename(), /^promissa-polls-\d{4}-\d{2}-\d{2}\.csv$/);
   const csv = fs.readFileSync(await dl.path(), 'utf8');
   assert.match(csv, /^\ufeffpoll,question,status/);
   assert.match(csv, new RegExp(`\\n${pollId},Open the pool on Sundays\\?,open,.*,Yes: 1; No: 0,1,Yes: 0; No: 1,`));

@@ -1,12 +1,14 @@
-<p align="center"><img src="app/icons/lockup.svg" alt="Mandate Protocol" width="320" /></p>
+<p align="center"><img src="app/icons/lockup.svg" alt="Promissa Protocol" width="320" /></p>
 
-# Mandate
+# Promissa Protocol
 
-> **The people decide. The protocol makes sure it happens.**
+> **We the people, on the record.** The people decide; the protocol makes sure it happens.
 
-Mandate is a governance protocol for any centralized institution: a city, an agency,
+*Formerly "Mandate". In the app, a **mandate** is still the word for a commitment the public votes for.*
+
+Promissa Protocol is a governance protocol for any centralized institution: a city, an agency,
 a school board, a cooperative. It closes the loop that ordinary voting leaves open.
-Most systems stop once a decision is made. Mandate records what was decided, who must
+Most systems stop once a decision is made. Promissa records what was decided, who must
 deliver it and by when, checks the evidence independently, and enforces the result.
 
 ```

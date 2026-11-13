@@ -62,7 +62,7 @@ export const ORG_TEMPLATES = {
   },
   nation: {
     label: 'Nation (federal)', who: 'citizens', rules: RULES.state,
-    about: 'Two chambers and a head of state with a veto. Residents\' votes are advisory unless the constitution says otherwise; Mandate puts every step and every member\'s vote on the record.',
+    about: 'Two chambers and a head of state with a veto. Residents\' votes are advisory unless the constitution says otherwise; Promissa puts every step and every member\'s vote on the record.',
     bodies: [
       { base: 'legislature', name: '{org} House', seats: 435, then: 1 },
       { base: 'legislature', name: '{org} Senate', seats: 100, executive: 'President', overridePct: 67 },
@@ -110,7 +110,7 @@ export const ORG_TEMPLATES = {
   },
   company: {
     label: 'Company', who: 'employees (advisory) and shareholders', rules: RULES.member,
-    about: 'A board of directors decides with the CEO; employees can be asked first. Note: Mandate counts one person, one vote, so share-weighted shareholder votes are not supported.',
+    about: 'A board of directors decides with the CEO; employees can be asked first. Note: Promissa counts one person, one vote, so share-weighted shareholder votes are not supported.',
     bodies: [
       { base: 'committee', name: '{org} Employee Council', seats: 9, residentTier: 0, then: 1 },
       { base: 'nonprofit', name: '{org} Board of Directors', seats: 7, executive: 'CEO', overridePct: 67, silenceApproves: true },

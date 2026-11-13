@@ -74,7 +74,7 @@ export async function connectWalletConnect(config) {
     rpcMap: { [Number(config.chainId)]: config.rpcUrl },
     showQrModal: true,
     metadata: {
-      name: 'Mandate',
+      name: 'Promissa',
       description: 'Vote privately on public decisions',
       url: location.origin + location.pathname.replace(/[^/]*$/, ''),
       icons: [],

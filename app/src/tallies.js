@@ -51,7 +51,7 @@ const ERRORS = {
   BadProof: 'Your voter list changed a moment ago; please try again.',
 };
 const IFACE = new ethers.Interface(TALLIES_ABI.filter((x) => x.startsWith('error')));
-export const KIND = ['', 'Mandate poll', 'Official election', 'Meeting vote'];
+export const KIND = ['', 'Promissa poll', 'Official election', 'Meeting vote'];
 const short = (a) => `${a.slice(0, 6)}…${a.slice(-4)}`;
 const num = (n) => Number(n).toLocaleString();
 /** The code shown on the voter's phone after check-in, and on the clerk's list: last 6 digits. */

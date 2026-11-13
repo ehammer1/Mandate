@@ -86,8 +86,8 @@ async function pagesToPdf(pages) {
     const page = pdf.addPage([p.width, p.height]);
     page.drawImage(img, { x: 0, y: 0, width: p.width, height: p.height });
   }
-  pdf.setProducer('Mandate');
-  pdf.setCreator('Mandate');
+  pdf.setProducer('Promissa');
+  pdf.setCreator('Promissa');
   return new Uint8Array(await pdf.save());
 }
 
