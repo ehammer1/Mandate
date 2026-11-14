@@ -4,7 +4,15 @@
   <subtitle>Every poll, mandate, budget round, petition and change of power, from the public blockchain record.</subtitle>
   <id>urn:mandate:feed</id>
   <link href="https://ehammer1.github.io/Mandate/"/>
-  <updated>2026-11-13T14:36:15.000Z</updated>
+  <updated>2026-11-14T14:09:54.000Z</updated>
+  <entry>
+    <id>urn:mandate:council-scheduled:0x544dd5b77c4e0e522e00966cbcff2340b77b5c8223285286c5f1d560d9acb490:1794665394</id>
+    <title>Council change #1 approved: it can run from 2026-11-15 14:09 UTC (approve 0x7b12…2889 as identity source &quot;Online sign-up&quot; (up to basic tier)). Members can still cancel it until then.</title>
+    <updated>2026-11-14T14:09:54.000Z</updated>
+    <link href="https://sepolia.basescan.org/tx/0x544dd5b77c4e0e522e00966cbcff2340b77b5c8223285286c5f1d560d9acb490"/>
+    <category term="high"/>
+    <summary>Urgent: Council change #1 approved: it can run from 2026-11-15 14:09 UTC (approve 0x7b12…2889 as identity source &quot;Online sign-up&quot; (up to basic tier)). Members can still cancel it until then.</summary>
+  </entry>
   <entry>
     <id>urn:mandate:council-proposal:0x81ec531f2b1c8f2b4db0d92a1d2c67bfda5238bb01ce4e2ba7f017b16d6b314f:1794580575</id>
     <title>Council change #1 proposed by 0xC782…f834: approve 0x7b12…2889 as identity source &quot;Online sign-up&quot; (up to basic tier)</title>

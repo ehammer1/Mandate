@@ -3,4 +3,30 @@ VERSION:2.0
 PRODID:-//Mandate//Public deadlines//EN
 CALSCALE:GREGORIAN
 X-WR-CALNAME:Mandate: votes and deadlines
+BEGIN:VEVENT
+UID:council-0xA0187E7476C4c36653e6418E3F2df6A4Cd94028c-1@mandate
+DTSTAMP:20261114T141556Z
+DTSTART:20261115T133954Z
+DTEND:20261115T140954Z
+SUMMARY:Council change #1 can run
+DESCRIPTION:Turn on online sign-up: approve the sign-up service (0x7b12…2
+ 889) as a clerk desk for basic sign-ups. Any member can still cancel it b
+ efore then. https://ehammer1.github.io/Mandate/
+URL:https://ehammer1.github.io/Mandate/
+BEGIN:VALARM
+TRIGGER;RELATED=END:-P1D
+ACTION:DISPLAY
+DESCRIPTION:1 day left: Council change #1 can run
+END:VALARM
+BEGIN:VALARM
+TRIGGER;RELATED=END:-PT8H
+ACTION:DISPLAY
+DESCRIPTION:8 hours left: Council change #1 can run
+END:VALARM
+BEGIN:VALARM
+TRIGGER;RELATED=END:-PT1H
+ACTION:DISPLAY
+DESCRIPTION:1 hour left: Council change #1 can run
+END:VALARM
+END:VEVENT
 END:VCALENDAR
