@@ -55,7 +55,7 @@ function normalizeSpec(spec) {
   if (new Set(members).size !== members.length) throw new Error('council.members: an address is listed twice');
   const threshold = c.threshold ?? Math.floor(members.length / 2) + 1;
   if (!(threshold >= 1 && threshold <= members.length)) throw new Error('council.threshold: between 1 and the number of members');
-  s.council = { members, threshold, delaySeconds: Math.round(Number(c.delayHours ?? 24) * 3600), termDays: Number(c.termDays || 0), ratifyDays: Number(c.ratifyDays ?? 7) };
+  s.council = { members, threshold, delaySeconds: c.delaySeconds ?? Math.round(Number(c.delayHours ?? 24) * 3600), termDays: Number(c.termDays || 0), ratifyDays: Number(c.ratifyDays ?? 7) };
   s.clerks = (s.clerks || []).map((k) => ({ address: addrs([k], 'clerks')[0], name: String(k.name || 'Clerk desk').slice(0, 60), fullRights: k.fullRights !== false }));
   s.pollOpeners = addrs(s.pollOpeners, 'pollOpeners');
   s.registrars = addrs(s.registrars, 'registrars');

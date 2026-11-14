@@ -35,6 +35,11 @@ test('a spec is checked before anything is spent', () => {
   assert.throws(() => normalizeSpec({ slug: 'ok-one', name: 'X', council: { members, threshold: 9 } }), /threshold/);
   assert.throws(() => normalizeSpec({ slug: 'ok-one', name: 'X', council: { members }, seasoningDays: 0 }), /1 to 365/);
   assert.equal(normalizeSpec({ slug: 'ok-one', name: 'X', council: { members } }).council.threshold, 2);
+  // Checking a spec twice (the script does) keeps its settings, e.g. a 1-hour waiting period.
+  const once = normalizeSpec({ slug: 'ok-one', name: 'X', council: { members, delayHours: 1, termDays: 30 }, seasoningDays: 5 });
+  assert.deepEqual(normalizeSpec(once).council, once.council);
+  assert.equal(normalizeSpec(once).council.delaySeconds, 3600);
+  assert.equal(normalizeSpec(once).seasoningDays, 5);
 });
 
 test('each community has its own contracts, run by its own council; the deployer keeps nothing', async () => {
