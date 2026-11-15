@@ -1,5 +1,52 @@
 [
  {
+  "tx": "0x625abead2885c79fbf86b4a2cfeeb060b32a0d8c7bad0e00d855ef68e11f78d7",
+  "block": 59152344,
+  "time": 1794752337,
+  "contract": "council",
+  "event": "Executed",
+  "rule": "council-executed",
+  "severity": "high",
+  "title": "Council change #1 carried out: approve 0x7b12…2889 as identity source \"Online sign-up\" (up to basic tier)",
+  "facts": {
+   "proposal": "1"
+  },
+  "id": "council-executed:0x625abead2885c79fbf86b4a2cfeeb060b32a0d8c7bad0e00d855ef68e11f78d7:1794752337"
+ },
+ {
+  "tx": "0x625abead2885c79fbf86b4a2cfeeb060b32a0d8c7bad0e00d855ef68e11f78d7",
+  "block": 59152344,
+  "time": 1794752337,
+  "contract": "identity registry",
+  "event": "IssuerSet",
+  "rule": "identity-source",
+  "severity": "high",
+  "title": "Identity source \"Online sign-up\" (0x7b12…2889) approved, up to basic tier",
+  "facts": {
+   "issuer": "0x7b12B4ffe042902AC1b6916dc990EDbab5532889",
+   "name": "Online sign-up",
+   "maxTier": 0,
+   "active": true
+  },
+  "id": "identity-source:0x625abead2885c79fbf86b4a2cfeeb060b32a0d8c7bad0e00d855ef68e11f78d7:1794752337"
+ },
+ {
+  "tx": "0x625abead2885c79fbf86b4a2cfeeb060b32a0d8c7bad0e00d855ef68e11f78d7",
+  "block": 59152344,
+  "time": 1794752337,
+  "contract": "identity registry",
+  "event": "RoleGranted",
+  "rule": "role-change",
+  "severity": "medium",
+  "title": "ISSUER role granted to 0x7b12…2889 on identity registry",
+  "facts": {
+   "role": "ISSUER",
+   "account": "0x7b12B4ffe042902AC1b6916dc990EDbab5532889",
+   "by": "0xA0187E7476C4c36653e6418E3F2df6A4Cd94028c"
+  },
+  "id": "role-change:0x625abead2885c79fbf86b4a2cfeeb060b32a0d8c7bad0e00d855ef68e11f78d7:1794752337"
+ },
+ {
   "tx": "0x544dd5b77c4e0e522e00966cbcff2340b77b5c8223285286c5f1d560d9acb490",
   "block": 58717628,
   "time": 1794665394,
