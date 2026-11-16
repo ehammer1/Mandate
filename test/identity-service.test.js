@@ -87,8 +87,8 @@ after(async () => {
 });
 
 /** What the voter app does: sign (service, code, time) with the voter key, then follow redirects. */
-async function signIn(identity, providerId, { tamper } = {}) {
-  let url = enrolStartUrl({ serviceUrl, providerId, identity, returnUrl: APP });
+async function signIn(identity, providerId, { tamper, via = serviceUrl } = {}) {
+  let url = enrolStartUrl({ serviceUrl: via, providerId, identity, returnUrl: APP });
   if (tamper) url = url.replace(`commitment=${identity.commitment}`, `commitment=${identity.commitment + 1n}`);
   for (let i = 0; i < 6; i++) {
     const res = await fetch(url, { redirect: 'manual' });
@@ -117,6 +117,31 @@ test('Google-style sign-in enrolls the voter code at the basic tier, once per ac
   // The same code again: refused before any sign-in.
   idp.setUser({ sub: 'someone-else', email: 'someone@outlook.com', email_verified: true });
   assert.match((await signIn(me, 'testlogin')).enroll_error, /already enrolled/);
+});
+
+test('sign-in works for a community served under /c/<name> (the return address keeps its path)', async () => {
+  const { createRouter } = require('../services/lib/communities');
+  const port = await freePort();
+  const base = `http://127.0.0.1:${port}`;
+  const community = createIdentityService({
+    providers: [{ id: 'testlogin', name: 'Test Login', issuer: idp.issuer(), clientId: 'mandate-test', clientSecret: 's3cret', tier: 0, scope: 'openid email', requireEmailVerified: true }],
+    publicUrl: `${base}/c/ward-9`,
+    pepper: 'y'.repeat(64),
+    signer: issuerKey,
+    identityAddress: await c.identity.getAddress(),
+    allowedReturnOrigins: [new URL(APP).origin],
+    rateLimitPerMin: 1000,
+    allowInsecure: true,
+    log: () => {},
+  });
+  const router = createRouter((req, res) => (res.writeHead(404), res.end()));
+  router.set('ward-9', community.listeners('request')[0]);
+  const server = require('node:http').createServer(router);
+  await new Promise((r) => server.listen(port, '127.0.0.1', r));
+  closers.push(server);
+  idp.setUser({ sub: 'ward9-resident', email: 'resident@gmail.com', email_verified: true });
+  const r = await signIn(new Identity('ward-9-resident'), 'testlogin', { via: `${base}/c/ward-9` });
+  assert.equal(r.enrolled, 'basic', JSON.stringify(r));
 });
 
 test('refuses unverified emails, someone else’s voter code, and unknown return sites', async () => {

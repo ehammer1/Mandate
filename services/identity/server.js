@@ -292,7 +292,10 @@ function createIdentityService(o) {
 
   // GET|POST /callback
   async function callback(req, res, url) {
-    let currentUrl = url;
+    // Rebuild the address from our own callback URL: behind the community router the request
+    // path has lost its /c/<slug> prefix, and the provider checks it matches the one we sent.
+    let currentUrl = new URL(callbackUrl);
+    currentUrl.search = url.search;
     if (req.method === 'POST') {
       // Providers using response_mode=form_post (Apple with scopes) post the result.
       const body = await readBody(req);
