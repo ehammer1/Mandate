@@ -54,11 +54,16 @@
         <button class="primary" id="btn-join-email">Join with my email</button>
         <div class="stack" id="join-choice" hidden>
           <p style="margin:0"><strong>Step 1 of 2: where should your voter key live?</strong> Your voter key is private and is never sent to us. After you pick, your browser or phone asks you to confirm.</p>
-          <button class="primary" id="btn-join-here">Save it on this device</button>
+          <button class="primary" id="btn-join-here">Save it on this device (recommended)</button>
           <p class="note">Unlocked with Face ID, your fingerprint or your device PIN. It syncs through your Apple, Google or Microsoft account, so your other devices vote as the same person.</p>
           <button id="btn-join-phone">Save it on my phone instead (scan a QR code)</button>
-          <button id="btn-join-browser">No passkey: keep it in this browser</button>
-          <p class="note">For browsers without passkeys. You'll get a backup code to save: it's the only way to vote from another device.</p>
+          <details id="join-no-passkey">
+            <summary>My device can't use passkeys</summary>
+            <div class="stack" style="margin-top:10px">
+              <p class="note warn"><strong>Only if your device can't use passkeys.</strong> This key lives only in this browser: clearing the browser's data, or closing a private tab, erases it. You'll be shown a backup code next: keep a copy, or you'll have to replace your key by signing in again.</p>
+              <button id="btn-join-browser">Keep my key in this browser instead</button>
+            </div>
+          </details>
           <p class="note">Already have a backup code? <a href="#device-option" id="link-restore">Restore it</a> instead of making a new key.</p>
         </div>
         <p class="note">Then you'll get a 6-digit code by email. You can also join with a Google or Microsoft account, or in person at the city clerk or a library.</p>

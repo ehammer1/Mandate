@@ -583,6 +583,8 @@ test('newcomer: "Join with my email" asks where to keep the voter key, then land
   assert.equal(await page.isVisible('#btn-join-email'), false);
   assert.equal(await page.evaluate(() => document.activeElement?.id), 'btn-join-here');
   assert.equal(await page.isVisible('#btn-join-phone'), true); // a computer: offer the phone too
+  assert.equal(await page.isVisible('#btn-join-browser'), false); // a browser-only key is tucked away, with a warning
+  assert.match(await page.textContent('#join-no-passkey'), /Only if your device can't use passkeys/);
   // Closing the browser's window makes no key behind the person's back.
   await page.evaluate(() => {
     const real = navigator.credentials.create.bind(navigator.credentials);
@@ -1728,6 +1730,7 @@ test('a key saved in this browser is reopened, never replaced, when someone join
   await page.evaluate(() => localStorage.clear());
   await page.reload();
   await page.click('#btn-join-email');
+  await page.evaluate(() => { document.getElementById('join-no-passkey').open = true; });
   await page.click('#btn-join-browser');
   await page.waitForSelector('#screen-home:not([hidden])');
   const first = (await page.textContent('#backup-code')).trim();
@@ -1744,6 +1747,7 @@ test('a key saved in this browser is reopened, never replaced, when someone join
   // So does the "No passkey" choice, if someone picks it again.
   await page.click('#btn-signout');
   await page.evaluate(() => { document.getElementById('join-choice').hidden = false; });
+  await page.evaluate(() => { document.getElementById('join-no-passkey').open = true; });
   await page.click('#btn-join-browser');
   await same();
   // And a returning visit leads with "Welcome back".
@@ -1773,6 +1777,7 @@ test('lost voter key: the same email replaces it, and the backup code can go to 
   await page.evaluate(() => localStorage.clear());
   await page.reload();
   await page.click('#btn-join-email');
+  await page.evaluate(() => { document.getElementById('join-no-passkey').open = true; });
   await page.click('#btn-join-browser');
   await page.waitForSelector('#screen-home:not([hidden])');
   // The backup code can be copied, to keep in the phone's Passwords app.

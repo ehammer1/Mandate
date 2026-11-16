@@ -256,6 +256,7 @@ function wireSignIn() {
     if (keys.hasSavedPasskey()) return joinWith(() => keys.createPasskey(), 'Unlock your existing voter key…');
     if (keys.hasSavedDeviceKey()) return joinWith(() => keys.unlockDeviceKey(), '');
     $('join-choice').hidden = false;
+    $('join-no-passkey').open = $('btn-join-here').hidden; // no passkeys here: the only way, so open it
     $('btn-join-email').hidden = true;
     status(s, '');
     ($('btn-join-here').hidden ? $('btn-join-browser') : $('btn-join-here')).focus();
