@@ -4,7 +4,15 @@
   <subtitle>Every poll, mandate, budget round, petition and change of power, from the public blockchain record.</subtitle>
   <id>urn:mandate:feed</id>
   <link href="https://ehammer1.github.io/Mandate/"/>
-  <updated>2026-11-15T14:18:57.000Z</updated>
+  <updated>2026-11-16T10:46:50.000Z</updated>
+  <entry>
+    <id>urn:mandate:revocation:0x625d6e59fe66c89bc6e4f6fc3151d83633aa2e7f1193338c4ab13eeb5053ed69:1794826010</id>
+    <title>A member was removed from the voter list by 0x7b12…2889</title>
+    <updated>2026-11-16T10:46:50.000Z</updated>
+    <link href="https://sepolia.basescan.org/tx/0x625d6e59fe66c89bc6e4f6fc3151d83633aa2e7f1193338c4ab13eeb5053ed69"/>
+    <category term="medium"/>
+    <summary>A member was removed from the voter list by 0x7b12…2889</summary>
+  </entry>
   <entry>
     <id>urn:mandate:council-executed:0x625abead2885c79fbf86b4a2cfeeb060b32a0d8c7bad0e00d855ef68e11f78d7:1794752337</id>
     <title>Council change #1 carried out: approve 0x7b12…2889 as identity source &quot;Online sign-up&quot; (up to basic tier)</title>
