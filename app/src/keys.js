@@ -70,6 +70,11 @@ export function savedMethod() {
 }
 
 /** True if this browser remembers a Promissa passkey (even if a browser-saved key is in use now). */
+/** Is a voter key saved in this browser (the "no passkey" kind)? */
+export function hasSavedDeviceKey() {
+  return !!load().deviceSecret;
+}
+
 export function hasSavedPasskey() {
   return !!load().credentialId;
 }

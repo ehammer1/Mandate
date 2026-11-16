@@ -381,6 +381,8 @@ export default {
   "Jobs and business": "Empleo y negocios",
   "Join": "Unirse",
   "Join with my email": "Unirme con mi correo electrónico",
+  "This browser already has your voter key. To vote from another device, use your backup code (Show my backup code, once you are in).": "Este navegador ya tiene su clave de votante. Para votar desde otro dispositivo, use su código de respaldo (Mostrar mi código de respaldo, una vez dentro).",
+  "Automatic account, created from your voter key in this browser. No company holds this key.": "Cuenta automática, creada a partir de su clave de votante en este navegador. Ninguna empresa tiene esta clave.",
   "Show my backup code": "Mostrar mi código de respaldo",
   "Step 1 of 2: where should your voter key live?": "Paso 1 de 2: ¿dónde debe guardarse su clave de votante?",
   "Your voter key is private and is never sent to us. After you pick, your browser or phone asks you to confirm.": "Su clave de votante es privada y nunca se nos envía. Después de elegir, su navegador o teléfono le pedirá confirmar.",

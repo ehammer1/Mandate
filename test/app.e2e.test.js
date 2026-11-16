@@ -1722,3 +1722,35 @@ test('another community on the same app: its own contracts, its name in the head
   delete appOptsRef.communities;
   delete appOptsRef.communitiesIndex;
 });
+
+test('a key saved in this browser is reopened, never replaced, when someone joins or comes back', async () => {
+  await page.click('#btn-signout');
+  await page.evaluate(() => localStorage.clear());
+  await page.reload();
+  await page.click('#btn-join-email');
+  await page.click('#btn-join-browser');
+  await page.waitForSelector('#screen-home:not([hidden])');
+  const first = (await page.textContent('#backup-code')).trim();
+  assert.match(first, /^MV2-/);
+  const same = async () => {
+    await page.waitForSelector('#screen-home:not([hidden])');
+    await page.click('#btn-show-backup');
+    assert.equal((await page.textContent('#backup-code')).trim(), first);
+  };
+  // Joining again on the same page reopens it.
+  await page.click('#btn-signout');
+  await page.click('#btn-join-email');
+  await same();
+  // So does the "No passkey" choice, if someone picks it again.
+  await page.click('#btn-signout');
+  await page.evaluate(() => { document.getElementById('join-choice').hidden = false; });
+  await page.click('#btn-join-browser');
+  await same();
+  // And a returning visit leads with "Welcome back".
+  await page.click('#btn-signout');
+  await page.reload();
+  assert.equal(await page.isVisible('#welcome-back'), true);
+  assert.equal(await page.isVisible('#new-here'), false);
+  await page.click('#btn-welcome-unlock');
+  await same();
+});

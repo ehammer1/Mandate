@@ -230,6 +230,7 @@ function wireSignIn() {
   $('btn-join-email').onclick = () => {
     // Already have a passkey here? Unlock it rather than making another.
     if (keys.hasSavedPasskey()) return joinWith(() => keys.createPasskey(), 'Unlock your existing voter key…');
+    if (keys.hasSavedDeviceKey()) return joinWith(() => keys.unlockDeviceKey(), '');
     $('join-choice').hidden = false;
     $('btn-join-email').hidden = true;
     status(s, '');
@@ -237,7 +238,8 @@ function wireSignIn() {
   };
   $('btn-join-here').onclick = () => joinWith(() => keys.createPasskey(), 'Confirm with Face ID, your fingerprint or your PIN when asked…');
   $('btn-join-phone').onclick = () => joinWith(() => keys.createPasskey({ onPhone: true }), 'Scan the QR code with your phone, then confirm on the phone…');
-  $('btn-join-browser').onclick = () => joinWith(() => keys.createDeviceKey(), '');
+  // Never replace a key already saved here: that would lose the voter (and their backup code).
+  $('btn-join-browser').onclick = () => joinWith(() => (keys.hasSavedDeviceKey() ? keys.unlockDeviceKey() : keys.createDeviceKey()), '');
   $('btn-unlock').onclick = () => trySignIn(() => keys.unlockWithPasskey(), s);
   $('btn-public').onclick = () => trySignIn(() => keys.unlockWithPasskey({ remember: false }), s);
   // Shared computers: create the passkey on the person's phone, or a session-only written code.
@@ -995,7 +997,9 @@ async function refreshAccount() {
   addCopyButton($('account-address'));
   $('account-kind').textContent = state.external
     ? `Connected: ${state.external.label}`
-    : 'Automatic account, created from your passkey. No company holds this key.';
+    : state.keys?.method === 'passkey'
+      ? 'Automatic account, created from your passkey. No company holds this key.'
+      : 'Automatic account, created from your voter key in this browser. No company holds this key.';
   $('btn-auto-wallet').hidden = !state.external;
   try {
     const [eth, credits] = await Promise.all([
@@ -1519,6 +1523,13 @@ async function boot() {
     $('welcome-back').hidden = false;
     $('new-here').hidden = true;
     $('btn-welcome-unlock').onclick = () => $('btn-unlock').click();
+  }
+  else if (keys.hasSavedDeviceKey()) {
+    // The same for a key saved in this browser: unlock it, never make a second one.
+    $('welcome-back').hidden = false;
+    $('new-here').hidden = true;
+    $('btn-welcome-unlock').onclick = () => trySignIn(() => keys.unlockDeviceKey(), $('signin-status'));
+    document.querySelector('#welcome-back .note').textContent = 'This browser already has your voter key. To vote from another device, use your backup code (Show my backup code, once you are in).';
   }
   if (keys.savedMethod() === 'device') {
     // Someone who uses a key saved in this browser should see how to unlock it straight away.
