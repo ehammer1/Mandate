@@ -108,14 +108,10 @@
         <p class="note"><strong>Keep it private.</strong> Never give it to anyone, including someone who offers money or favors for your vote: whoever has it can see and change how you vote. Promissa staff will never ask for it.</p>
         <p class="code" id="backup-code"></p>
         <button id="btn-print-code" hidden>Print this code</button>
-        <form id="save-code-form" class="stack" action="#" autocomplete="on">
-          <p class="note" style="margin-bottom:0"><strong>Easiest: save it to your passwords</strong> (iCloud Keychain, Google Password Manager), protected by Face ID or your fingerprint. If this browser forgets your key, sign in with "Restore from a backup code" and your phone fills it in.</p>
-          <label for="save-code-user">Save it under (your email, or any name you'll recognize)</label>
-          <input type="text" id="save-code-user" name="username" autocomplete="username" spellcheck="false" autocapitalize="off" />
-          <label for="save-code-pass">Backup code (filled in for you)</label>
-          <input type="password" id="save-code-pass" name="password" autocomplete="new-password" />
-          <button type="submit">Save to my passwords</button>
-        </form>
+        <div id="save-code" class="stack">
+          <p class="note" style="margin-bottom:0"><strong>Keep a copy in your passwords</strong>, protected by Face ID or your fingerprint. Tap Copy, then open the Passwords app (or Settings → Passwords, or Google Password Manager), tap +, enter the website <strong id="save-code-site">this site</strong>, any username (your email works), and paste the code as the password. Later, "Restore from a backup code" offers it for you.</p>
+          <button id="btn-copy-code">Copy the backup code</button>
+        </div>
         <p class="status" id="save-code-status" role="status"></p>
       </div>
       <p class="status" id="home-notice" role="status"></p>

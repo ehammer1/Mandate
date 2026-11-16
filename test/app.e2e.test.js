@@ -1775,14 +1775,12 @@ test('lost voter key: the same email replaces it, and the backup code can go to 
   await page.click('#btn-join-email');
   await page.click('#btn-join-browser');
   await page.waitForSelector('#screen-home:not([hidden])');
-  // "Save to my passwords" holds this key's backup code, and sends nothing anywhere.
-  const code = (await page.textContent('#backup-code')).trim();
-  assert.equal(await page.inputValue('#save-code-pass'), code);
-  assert.equal(await page.getAttribute('#save-code-pass', 'autocomplete'), 'new-password');
-  const before = page.url();
-  await page.click('#save-code-form button[type=submit]');
-  await page.waitForSelector('#save-code-status >> text=tap Save');
-  assert.equal(page.url(), before);
+  // The backup code can be copied, to keep in the phone's Passwords app.
+  assert.match((await page.textContent('#backup-code')).trim(), /^MV2-/);
+  assert.equal(await page.isVisible('#btn-copy-code'), true);
+  assert.equal(await page.textContent('#save-code-site'), new URL(page.url()).hostname);
+  await page.click('#btn-copy-code');
+  await page.waitForSelector('#save-code-status:has-text("Copied"), #save-code-status:has-text("copy it by hand")');
   // The same email again: refused, with an offer to replace the lost key, which works.
   await joinByEmail('lost.key@proton.me');
   await page.waitForSelector('#replace-offer >> text=Lost the voter key you joined with?', { timeout: 60_000 });

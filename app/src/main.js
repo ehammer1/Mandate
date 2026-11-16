@@ -102,32 +102,22 @@ async function loadConfig() {
 // ------------------------------------------------------------------ sign in
 
 /**
- * "Save to my passwords": a username + password form holding the backup code, so the phone's
- * password manager (iCloud Keychain, Google Password Manager) offers to keep it. Nothing is sent
- * anywhere: the form is never submitted to a server. Not offered on shared computers.
+ * Keep a copy of the backup code in the phone's password manager. Browsers don't let a page
+ * save a password for you, so: copy it, and add it in the Passwords app under this site; the
+ * restore box then offers it after Face ID. Not offered on shared computers.
  */
 function prepareSaveCode(code, offer) {
-  const form = $('save-code-form');
-  form.hidden = !offer || !code;
+  $('save-code').hidden = !offer || !code;
   status($('save-code-status'), '');
-  if (form.hidden) return;
-  $('save-code-pass').value = code;
-  if (!$('save-code-user').value) {
-    const email = $('join-email')?.value?.trim();
-    $('save-code-user').value = email || `Promissa voter${state.config?.communityName ? ` (${state.config.communityName})` : ''}`;
-  }
-  form.onsubmit = async (e) => {
-    e.preventDefault();
-    const user = $('save-code-user').value.trim() || 'Promissa voter';
+  if ($('save-code').hidden) return;
+  $('save-code-site').textContent = location.hostname;
+  $('btn-copy-code').onclick = async () => {
     try {
-      // Chrome, Edge and Android: ask the password manager directly.
-      if (window.PasswordCredential) await navigator.credentials.store(new window.PasswordCredential({ id: user, password: code, name: 'Promissa voter key' }));
+      await navigator.clipboard.writeText(code);
+      status($('save-code-status'), 'Copied. Now open the Passwords app, tap +, and paste it as the password for this site.', 'ok');
     } catch {
-      /* fall back to the browser's own offer below */
+      status($('save-code-status'), 'Your browser would not copy it: select the code above and copy it by hand.', 'warn');
     }
-    // Safari offers to save a submitted username + password form once it goes away.
-    form.hidden = true;
-    status($('save-code-status'), 'If your phone or browser offered to save it, tap Save. To check: iPhone Settings → Passwords (or the Passwords app), or Google Password Manager. Search for "github.io".', 'ok');
   };
 }
 
