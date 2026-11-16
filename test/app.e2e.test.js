@@ -1754,3 +1754,41 @@ test('a key saved in this browser is reopened, never replaced, when someone join
   await page.click('#btn-welcome-unlock');
   await same();
 });
+
+test('lost voter key: the same email replaces it, and the backup code can go to the password manager', async () => {
+  const joinByEmail = async (email) => {
+    await page.waitForSelector('#join-online #join-email');
+    await page.fill('#join-email', email);
+    await page.click('#btn-email-send');
+    await page.waitForFunction(() => /Code sent/.test(document.querySelector('#email-status').textContent));
+    await page.fill('#join-code', mail.lastCodeFor(email));
+    await page.click('#btn-email-verify');
+  };
+  const isBasic = () => page.waitForFunction(() => /^Basic/.test(document.querySelector('#membership .big')?.textContent || ''), null, { timeout: 60_000 });
+  // The browser key from the last test joins with an email...
+  await joinByEmail('lost.key@proton.me');
+  await isBasic();
+  // ...then this browser forgets it (a private tab closed) and makes a new key.
+  await page.click('#btn-signout');
+  await page.evaluate(() => localStorage.clear());
+  await page.reload();
+  await page.click('#btn-join-email');
+  await page.click('#btn-join-browser');
+  await page.waitForSelector('#screen-home:not([hidden])');
+  // "Save to my passwords" holds this key's backup code, and sends nothing anywhere.
+  const code = (await page.textContent('#backup-code')).trim();
+  assert.equal(await page.inputValue('#save-code-pass'), code);
+  assert.equal(await page.getAttribute('#save-code-pass', 'autocomplete'), 'new-password');
+  const before = page.url();
+  await page.click('#save-code-form button[type=submit]');
+  await page.waitForSelector('#save-code-status >> text=tap Save');
+  assert.equal(page.url(), before);
+  // The same email again: refused, with an offer to replace the lost key, which works.
+  await joinByEmail('lost.key@proton.me');
+  await page.waitForSelector('#replace-offer >> text=Lost the voter key you joined with?', { timeout: 60_000 });
+  await page.click('#btn-replace-key');
+  await page.waitForSelector('#home-notice >> text=your lost voter key was replaced', { timeout: 60_000 });
+  await isBasic();
+  // And the restore form is ready for the password manager to fill.
+  assert.equal(await page.getAttribute('#restore-code', 'autocomplete'), 'current-password');
+});

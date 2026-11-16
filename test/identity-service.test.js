@@ -502,3 +502,46 @@ test('verify by mail (voter-roll city): details must match the registration incl
   assert.equal(stolen.status, 409); // registration already used (and the code wouldn't match anyway)
   anchor = 'id';
 });
+
+test('lost voter key: signing in again with the same account replaces the old key, once per cooldown', async () => {
+  // Joined with Google, then lost that key (e.g. a private tab was closed).
+  const lost = new Identity('lost-key');
+  idp.setUser({ sub: 'loser-1', email: 'lou@gmail.com', email_verified: true });
+  assert.equal((await signIn(lost, 'testlogin')).enrolled, 'basic');
+
+  // A new key, same Google account: refused, with an offer to replace.
+  const fresh = new Identity('fresh-key');
+  const r = await signIn(fresh, 'testlogin');
+  assert.match(r.enroll_error, /already been used/);
+  assert.ok(r.replace, JSON.stringify(r));
+  assert.equal((await post('/replace', { token: 'made-up' })).status, 410);
+  const ok = await post('/replace', { token: r.replace });
+  assert.equal(ok.status, 200, JSON.stringify(ok.json));
+  assert.equal(ok.json.replaced, true);
+  assert.equal((await c.identity.members(lost.commitment)).active, false, 'old key still on the voter list');
+  assert.equal((await c.identity.members(fresh.commitment)).active, true);
+  assert.equal(await c.identity.commitmentOfAccount((await c.identity.members(fresh.commitment)).accountHash), fresh.commitment);
+  assert.equal((await post('/replace', { token: r.replace })).status, 410, 'a token works once');
+
+  // Again straight away: refused, so someone who took over the account can't keep swapping.
+  const third = new Identity('third-key');
+  const r3 = await signIn(third, 'testlogin');
+  assert.ok(r3.replace);
+  const again = await post('/replace', { token: r3.replace });
+  assert.equal(again.status, 429);
+  assert.match(again.json.error, /recently/);
+  assert.equal((await c.identity.members(fresh.commitment)).active, true);
+
+  // Email sign-up offers the same, in its reply.
+  const mailer1 = new Identity('mail-first');
+  const s1 = await post('/email/start', { ...ownership(mailer1), email: 'max.lost@outlook.com' });
+  assert.equal((await post('/email/verify', { session: s1.json.session, code: mail.lastCodeFor('max.lost@outlook.com') })).status, 200);
+  const mailer2 = new Identity('mail-second');
+  const s2 = await post('/email/start', { ...ownership(mailer2), email: 'max.lost@outlook.com' });
+  const v2 = await post('/email/verify', { session: s2.json.session, code: mail.lastCodeFor('max.lost@outlook.com') });
+  assert.equal(v2.status, 409);
+  assert.ok(v2.json.replace);
+  assert.equal((await post('/replace', { token: v2.json.replace })).json.replaced, true);
+  assert.equal((await c.identity.members(mailer1.commitment)).active, false);
+  assert.equal((await c.identity.members(mailer2.commitment)).active, true);
+});

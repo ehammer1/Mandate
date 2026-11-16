@@ -58,7 +58,8 @@
           <p class="note">Unlocked with Face ID, your fingerprint or your device PIN. It syncs through your Apple, Google or Microsoft account, so your other devices vote as the same person.</p>
           <button id="btn-join-phone">Save it on my phone instead (scan a QR code)</button>
           <button id="btn-join-browser">No passkey: keep it in this browser</button>
-          <p class="note">For browsers without passkeys. You'll get a backup code to write down: it's the only way to vote from another device.</p>
+          <p class="note">For browsers without passkeys. You'll get a backup code to save: it's the only way to vote from another device.</p>
+          <p class="note">Already have a backup code? <a href="#device-option" id="link-restore">Restore it</a> instead of making a new key.</p>
         </div>
         <p class="note">Then you'll get a 6-digit code by email. You can also join with a Google or Microsoft account, or in person at the city clerk or a library.</p>
       </div>
@@ -87,9 +88,13 @@
         <div class="stack" style="margin-top:12px">
           <button id="btn-device">Use a key saved in this browser (your own device only)</button>
           <p class="note">For browsers without passkeys. You will get a backup code; write it down to use another device.</p>
-          <label for="restore-code">Restore from a backup code</label>
-          <input type="text" id="restore-code" autocomplete="off" spellcheck="false" placeholder="MV2-…" />
-          <button id="btn-restore">Restore</button>
+          <form id="restore-form" class="stack" action="#" autocomplete="on">
+            <label for="restore-user">Restore from a backup code. Saved it to your passwords? Tap the boxes and your phone fills them in.</label>
+            <input type="text" id="restore-user" name="username" autocomplete="username" spellcheck="false" autocapitalize="off" placeholder="Name you saved it under (optional)" />
+            <input type="password" id="restore-code" name="password" autocomplete="current-password" spellcheck="false" placeholder="MV2-…" aria-label="Backup code" />
+            <label class="row" style="gap:8px;font-weight:400"><input type="checkbox" id="restore-show" /> Show the code as I type</label>
+            <button id="btn-restore" type="submit">Restore</button>
+          </form>
         </div>
       </details>
       <p class="status" id="signin-status" role="status"></p>
@@ -103,6 +108,15 @@
         <p class="note"><strong>Keep it private.</strong> Never give it to anyone, including someone who offers money or favors for your vote: whoever has it can see and change how you vote. Promissa staff will never ask for it.</p>
         <p class="code" id="backup-code"></p>
         <button id="btn-print-code" hidden>Print this code</button>
+        <form id="save-code-form" class="stack" action="#" autocomplete="on">
+          <p class="note" style="margin-bottom:0"><strong>Easiest: save it to your passwords</strong> (iCloud Keychain, Google Password Manager), protected by Face ID or your fingerprint. If this browser forgets your key, sign in with "Restore from a backup code" and your phone fills it in.</p>
+          <label for="save-code-user">Save it under (your email, or any name you'll recognize)</label>
+          <input type="text" id="save-code-user" name="username" autocomplete="username" spellcheck="false" autocapitalize="off" />
+          <label for="save-code-pass">Backup code (filled in for you)</label>
+          <input type="password" id="save-code-pass" name="password" autocomplete="new-password" />
+          <button type="submit">Save to my passwords</button>
+        </form>
+        <p class="status" id="save-code-status" role="status"></p>
       </div>
       <p class="status" id="home-notice" role="status"></p>
       <p class="eyebrow" id="signin-method"></p>

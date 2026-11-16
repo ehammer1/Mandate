@@ -50,7 +50,12 @@ const IDENTITY_ABI = [
   'function commitmentOfAccount(bytes32) view returns (uint256)',
   'function commitmentOfDoc(bytes32) view returns (uint256)',
   'function issuers(address) view returns (uint8 maxTier, bool active, string name)',
+  'function revoke(uint256 commitment, uint256[][] siblings)',
+  'function leaves(uint8 tier, uint256 start, uint256 count) view returns (uint256[] commitments, uint64[] removedAt)',
+  'function leafCount(uint8 tier) view returns (uint256)',
   'error AccountAlreadyUsed(uint256 commitment)',
+  'error NotEnrolled()',
+  'error NotAuthorized()',
   'error DocumentAlreadyUsed(uint256 commitment)',
   'error AlreadyEnrolled()',
   'error IssuerInactive()',
@@ -196,10 +201,105 @@ function createIdentityService(o) {
     return commitment;
   }
 
+  // ------------------------------------------------------ lost voter keys
+  //
+  // A sign-in account (Google, Microsoft, email) joins once. If its voter key is lost (a
+  // private tab closed, a phone without a passkey), proving the same account again may
+  // replace the old key with a new one: the old one is removed from the voter list and the
+  // new one added. Only basic members this service enrolled; clerk-desk members go back to a
+  // clerk. Polls already open keep their frozen list, so nobody gets a second vote in them.
+  // The swap is public (Revoked + Enrolled), and each account may do it once per cooldown.
+  const replaceTokens = new Map(); // token -> { at, commitment, hash, label }
+  const lastReplaced = new Map(); // account hash -> time
+  const REPLACE_TTL = 10 * 60 * 1000;
+  const replaceCooldown = o.replaceCooldownMs ?? 24 * 3600 * 1000;
+
+  /** Can this account's old key be replaced here? Returns a one-time token, or null. */
+  async function offerReplace(commitment, hash, label, oldCommitment) {
+    if (o.allowReplace === false) return null;
+    const m = await registry.members(oldCommitment);
+    if (!m.active || Number(m.tier) !== 0 || m.issuer.toLowerCase() !== (await o.signer.getAddress()).toLowerCase()) return null;
+    const token = crypto.randomBytes(18).toString('base64url');
+    replaceTokens.set(token, { at: Date.now(), commitment: commitment.toString(), hash, label });
+    for (const [k, v] of replaceTokens) if (Date.now() - v.at > REPLACE_TTL) replaceTokens.delete(k);
+    return token;
+  }
+
+  /** The siblings revoke() needs: the old key's place in each group it is in, today. */
+  async function siblingsFor(commitment, tier) {
+    const { Group } = require('@semaphore-protocol/group');
+    const out = [];
+    for (let t = 0; t < 3; t++) {
+      if (t > tier) {
+        out.push([]);
+        continue;
+      }
+      const n = Number(await registry.leafCount(t));
+      const leaves = [];
+      const removed = [];
+      for (let start = 0; start < n; start += 500) {
+        const [c, r] = await registry.leaves(t, start, Math.min(500, n - start));
+        leaves.push(...c);
+        removed.push(...r.map(Number));
+      }
+      const group = new Group(leaves);
+      removed.forEach((r, i) => r > 0 && group.removeMember(i));
+      const i = leaves.findIndex((x) => x === BigInt(commitment));
+      if (i < 0) throw new Error('old voter code not found in its group');
+      out.push(group.generateMerkleProof(i).siblings);
+    }
+    return out;
+  }
+
+  // POST /replace { token } -> { enrolled: 'basic', tx, replaced: true }
+  async function replaceKey(body) {
+    const r = replaceTokens.get(String(body.token || ''));
+    replaceTokens.delete(String(body.token || ''));
+    if (!r || Date.now() - r.at > REPLACE_TTL) return [410, { error: 'This offer has expired. Please sign in again.' }];
+    const since = Date.now() - (lastReplaced.get(r.hash) || 0);
+    if (since < replaceCooldown) {
+      const hours = Math.ceil((replaceCooldown - since) / 3600_000);
+      return [429, { error: `This ${r.label} replaced its voter key recently. To protect you if someone else has your ${r.label}, it can be done again in about ${hours} hour${hours === 1 ? '' : 's'}, or ask a clerk.` }];
+    }
+    const oldCommitment = await registry.commitmentOfAccount(r.hash);
+    if (oldCommitment === 0n) {
+      // The old key is already gone: an ordinary enrollment.
+      try {
+        return [200, { enrolled: 'basic', tx: await enroll(BigInt(r.commitment), 0, r.hash, r.label) }];
+      } catch (e) {
+        return [e.status || 502, { error: e.userMessage || 'Enrollment failed. Please try again later.' }];
+      }
+    }
+    const m = await registry.members(oldCommitment);
+    if (!m.active || Number(m.tier) !== 0) return [409, { error: `This ${r.label} belongs to a member signed up at a clerk desk. Please ask a clerk to replace the voter code.` }];
+    if ((await registry.members(BigInt(r.commitment))).issuer !== ethers.ZeroAddress) return [409, { error: 'This voter code is already enrolled.' }];
+    try {
+      const run = queue.then(async () => {
+        const siblings = await siblingsFor(oldCommitment, Number(m.tier));
+        const out = await registry.revoke(oldCommitment, siblings);
+        await out.wait();
+        const add = await registry.enroll(BigInt(r.commitment), 0, r.hash, 0);
+        await add.wait();
+        return add.hash;
+      });
+      queue = run.catch(() => {});
+      const tx = await run;
+      lastReplaced.set(r.hash, Date.now());
+      log(`replaced a lost voter key (${r.label}) tx=${tx}`);
+      return [200, { enrolled: 'basic', tx, replaced: true }];
+    } catch (e) {
+      log(`replace failed: ${e?.revert?.name || e.shortMessage || e.message}`);
+      return [502, { error: 'Replacing the voter key failed on the network. Please try again later.' }];
+    }
+  }
+
   /** Enroll on-chain, one transaction at a time. Returns the tx hash or throws { userMessage }. */
   async function enroll(commitment, tier, hash, label) {
     const used = tier === 1 ? await registry.commitmentOfDoc(hash) : await registry.commitmentOfAccount(hash);
-    if (used !== 0n) throw Object.assign(new Error('used'), { userMessage: `This ${label} has already been used to enroll someone.`, status: 409 });
+    if (used !== 0n) {
+      const replace = tier === 0 ? await offerReplace(commitment, hash, label, used).catch(() => null) : null;
+      throw Object.assign(new Error('used'), { userMessage: `This ${label} has already been used to enroll someone.`, status: 409, replace });
+    }
     try {
       const run = queue.then(async () => {
         const tx = await registry.enroll(commitment, tier, hash, 0);
@@ -341,7 +441,7 @@ function createIdentityService(o) {
       log(`enrolled a voter via ${p.id} (tier ${p.tier}) tx=${txHash}`);
       return backTo(res, s.returnUrl, { enrolled: p.tier === 1 ? 'verified' : 'basic', provider: p.name, tx: txHash });
     } catch (e) {
-      return backTo(res, s.returnUrl, { enroll_error: e.userMessage || 'Enrollment failed. Please try again later.' });
+      return backTo(res, s.returnUrl, { enroll_error: e.userMessage || 'Enrollment failed. Please try again later.', ...(e.replace ? { replace: e.replace } : {}) });
     }
   }
 
@@ -670,7 +770,7 @@ function createIdentityService(o) {
       log(`enrolled a voter via email tx=${tx}`);
       return [200, { enrolled: 'basic', tx }];
     } catch (e) {
-      return [e.status || 502, { error: e.userMessage || 'Enrollment failed. Please try again later.' }];
+      return [e.status || 502, { error: e.userMessage || 'Enrollment failed. Please try again later.', ...(e.replace ? { replace: e.replace } : {}) }];
     }
   }
 
@@ -768,7 +868,7 @@ function createIdentityService(o) {
         const [status, out] = await o.uploads.upload(bytes, req.headers, url.searchParams);
         return json(status, out);
       }
-      if (url.pathname.startsWith('/email/') || url.pathname.startsWith('/clerk/') || url.pathname.startsWith('/mdl/') || url.pathname.startsWith('/roll/') || url.pathname === '/ask') {
+      if (url.pathname.startsWith('/email/') || url.pathname.startsWith('/clerk/') || url.pathname.startsWith('/mdl/') || url.pathname.startsWith('/roll/') || url.pathname === '/ask' || url.pathname === '/replace') {
         // Called from the voter app's page: allow its origin only.
         const origin = req.headers.origin || '';
         const cors = o.allowedReturnOrigins.includes(origin) ? { 'Access-Control-Allow-Origin': origin, Vary: 'Origin' } : {};
@@ -789,7 +889,7 @@ function createIdentityService(o) {
         } catch {
           return json(400, { error: 'Invalid request.' });
         }
-        const route = { '/email/start': () => emailStart(body, ip), '/email/verify': () => emailVerify(body), '/clerk/doc-hash': () => clerkDocHash(body), '/clerk/roll-match': () => clerkRollMatch(body), '/mdl/start': () => mdlStart(body), '/mdl/finish': () => mdlFinish(body, origin), '/roll/mail/start': () => rollMailStart(body, ip), '/roll/mail/verify': () => rollMailVerify(body), '/ask': () => askQuestion(body, ip) }[url.pathname];
+        const route = { '/email/start': () => emailStart(body, ip), '/email/verify': () => emailVerify(body), '/clerk/doc-hash': () => clerkDocHash(body), '/clerk/roll-match': () => clerkRollMatch(body), '/mdl/start': () => mdlStart(body), '/mdl/finish': () => mdlFinish(body, origin), '/roll/mail/start': () => rollMailStart(body, ip), '/roll/mail/verify': () => rollMailVerify(body), '/ask': () => askQuestion(body, ip), '/replace': () => replaceKey(body) }[url.pathname];
         const [status, out] = route ? await route() : [404, { error: 'Not found' }];
         return json(status, out);
       }

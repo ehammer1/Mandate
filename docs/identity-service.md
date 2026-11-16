@@ -67,6 +67,24 @@ records from Resend, CNAMEs set to **DNS only**, not proxied; receiving off), wi
 
 SendGrid (`EMAIL_PROVIDER=sendgrid`) and Postmark (`postmark`) work the same way.
 
+## Lost voter keys
+
+A Google, Microsoft or email account joins once. If someone loses the voter key they joined
+with (a private browser tab closed, a phone without a passkey), signing in again with the
+same account shows **"Replace my lost voter key with this one"**:
+
+- The service removes the old voter code from the voter list and adds the new one.
+- Only basic members this service enrolled. People signed up at a clerk desk go back to a clerk.
+- Polls already open keep their frozen voter list, so nobody gets a second vote in them; the
+  new key votes in polls opened afterwards.
+- Once per account per 24 hours (`replaceCooldownMs`), so someone who took over the account
+  can't keep swapping. The watchdog reports every removal publicly.
+- The service never stores anyone's voter key or backup code, so it cannot hand one back:
+  that is what keeps ballots secret.
+
+People can also keep their backup code in their phone's password manager ("Save to my
+passwords" in the app). That copy is theirs alone, on their device, never on this service.
+
 ## Run it on Render
 
 The blueprint in `render.yaml` includes `mandate-identity`. Render generates

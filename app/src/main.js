@@ -101,6 +101,36 @@ async function loadConfig() {
 
 // ------------------------------------------------------------------ sign in
 
+/**
+ * "Save to my passwords": a username + password form holding the backup code, so the phone's
+ * password manager (iCloud Keychain, Google Password Manager) offers to keep it. Nothing is sent
+ * anywhere: the form is never submitted to a server. Not offered on shared computers.
+ */
+function prepareSaveCode(code, offer) {
+  const form = $('save-code-form');
+  form.hidden = !offer || !code;
+  status($('save-code-status'), '');
+  if (form.hidden) return;
+  $('save-code-pass').value = code;
+  if (!$('save-code-user').value) {
+    const email = $('join-email')?.value?.trim();
+    $('save-code-user').value = email || `Promissa voter${state.config?.communityName ? ` (${state.config.communityName})` : ''}`;
+  }
+  form.onsubmit = async (e) => {
+    e.preventDefault();
+    const user = $('save-code-user').value.trim() || 'Promissa voter';
+    try {
+      // Chrome, Edge and Android: ask the password manager directly.
+      if (window.PasswordCredential) await navigator.credentials.store(new window.PasswordCredential({ id: user, password: code, name: 'Promissa voter key' }));
+    } catch {
+      /* fall back to the browser's own offer below */
+    }
+    // Safari offers to save a submitted username + password form once it goes away.
+    form.hidden = true;
+    status($('save-code-status'), 'If your phone or browser offered to save it, tap Save. To check: iPhone Settings → Passwords (or the Passwords app), or Google Password Manager. Search for "github.io".', 'ok');
+  };
+}
+
 async function signedIn(k, backupCode) {
   state.keys = k;
   state.identity = new Identity(k.votingKey);
@@ -119,6 +149,7 @@ async function signedIn(k, backupCode) {
         ? 'This code is your voter key, and the only copy: nothing is saved on this computer. Write it down or print it now, and keep it private. Next time, choose "Shared or public computer" and type it in.'
         : 'This key lives only in this browser. Write this down; it is the only way to vote from another device or recover.';
     $('btn-print-code').hidden = k.method !== 'public';
+    prepareSaveCode(backupCode, k.method !== 'public');
     $('backup-panel').hidden = false;
   } else {
     $('backup-panel').hidden = true;
@@ -129,14 +160,17 @@ async function signedIn(k, backupCode) {
     $('backup-code').textContent = keys.savedBackupCode() || '';
     $('backup-intro').textContent = 'This key lives only in this browser. Write this down; it is the only way to vote from another device or recover.';
     $('btn-print-code').hidden = true;
+    prepareSaveCode(keys.savedBackupCode() || '', true);
     $('backup-panel').hidden = false;
     $('btn-show-backup').hidden = true;
     $('backup-panel').scrollIntoView({ block: 'start' });
   };
   $('nav').hidden = false;
   show('screen-home');
+  $('replace-offer')?.remove();
   if (state.notice) {
     status($('home-notice'), state.notice.text, state.notice.kind === 'ok' ? 'ok' : 'error');
+    if (state.notice.replace) offerReplaceKey(state.notice.replace, $('home-notice'));
     state.notice = null;
   } else status($('home-notice'), '');
   await refreshStatus();
@@ -253,7 +287,17 @@ function wireSignIn() {
   };
   $('btn-public-restore').onclick = () => trySignIn(() => keys.restoreFromBackup($('public-code').value, { remember: false }), s);
   $('btn-device').onclick = () => trySignIn(() => (keys.savedMethod() === 'device' ? keys.unlockDeviceKey() : keys.createDeviceKey()), s);
-  $('btn-restore').onclick = () => trySignIn(() => keys.restoreFromBackup($('restore-code').value), s);
+  $('restore-form').onsubmit = (e) => {
+    e.preventDefault();
+    return trySignIn(() => keys.restoreFromBackup($('restore-code').value), s);
+  };
+  $('restore-show').onchange = () => ($('restore-code').type = $('restore-show').checked ? 'text' : 'password');
+  $('link-restore').onclick = (e) => {
+    e.preventDefault();
+    $('device-option').open = true;
+    $('restore-code').scrollIntoView({ block: 'center' });
+    $('restore-code').focus();
+  };
   $('btn-signout').onclick = () => signOut();
   function signOut(reason) {
     Object.assign(state, { keys: null, identity: null, wallet: null, external: null, roles: null, publicMode: false, clerkSession: null, clerkCount: 0 });
@@ -570,6 +614,11 @@ function wireEmailJoin(serviceUrl) {
     status(el, 'Checking the code and enrolling you…');
     try {
       const r = await call('/email/verify', { session, code: $('join-code').value.trim() });
+      if (!r.ok && r.json.replace) {
+        status(el, r.json.error, 'error');
+        $('btn-email-verify').disabled = false;
+        return offerReplaceKey(r.json.replace, el);
+      }
       if (!r.ok) throw new Error(r.json.error);
       status($('home-notice'), 'You joined as a basic member with your email.', 'ok');
       await refreshStatus();
@@ -580,13 +629,47 @@ function wireEmailJoin(serviceUrl) {
   };
 }
 
+/**
+ * "This account was already used": if the person lost the voter key they joined with, offer
+ * to replace it with the one in use now (the sign-up service removes the old one).
+ */
+function offerReplaceKey(token, where) {
+  const base = String(state.config?.identityService || '').replace(/\/+$/, '');
+  if (!token || !base || !where) return;
+  $('replace-offer')?.remove();
+  const box = document.createElement('div');
+  box.className = 'card stack';
+  box.id = 'replace-offer';
+  box.innerHTML = `<p style="margin:0"><strong>Lost the voter key you joined with?</strong> You can replace it with the one you're using now. The old key stops working. Votes already cast still count, and this key votes in polls opened from now on.</p>
+    <button class="primary" id="btn-replace-key">Replace my lost voter key with this one</button>
+    <p class="note">Only do this if you lost the old key. It can be done once a day per account, and it appears on the public record.</p>
+    <p class="status" id="replace-status" role="status"></p>`;
+  where.after(box);
+  $('btn-replace-key').onclick = async () => {
+    $('btn-replace-key').disabled = true;
+    status($('replace-status'), 'Replacing your voter key…');
+    try {
+      const res = await fetch(`${base}/replace`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token }) });
+      const out = await res.json().catch(() => ({ error: 'Unexpected response' }));
+      if (!res.ok) throw new Error(out.error);
+      box.remove();
+      show('screen-home');
+      status($('home-notice'), 'Done: your lost voter key was replaced. The key you are using now is your voter key.', 'ok');
+      await refreshStatus();
+    } catch (e) {
+      status($('replace-status'), e.message || 'Something went wrong. Please try again.', 'error');
+      $('btn-replace-key').disabled = false;
+    }
+  };
+}
+
 /** Coming back from the identity service: #enrolled=basic&provider=Google or #enroll_error=... */
 function readReturnNotice() {
   if (!location.hash || location.hash.length < 2) return null;
   const h = new URLSearchParams(location.hash.slice(1));
   if (!h.has('enrolled') && !h.has('enroll_error')) return null;
   history.replaceState(null, '', location.pathname + location.search);
-  if (h.has('enroll_error')) return { kind: 'error', text: h.get('enroll_error') };
+  if (h.has('enroll_error')) return { kind: 'error', text: h.get('enroll_error'), replace: h.get('replace') || '' };
   const level = h.get('enrolled') === 'verified' ? 'a verified resident' : 'a basic member';
   return { kind: 'ok', text: `You joined as ${level} with ${h.get('provider') || 'your account'}.` };
 }
@@ -598,6 +681,7 @@ async function handleReturn() {
   if (state.identity) {
     show('screen-home');
     status($('home-notice'), notice.text, kind);
+    if (notice.replace) offerReplaceKey(notice.replace, $('home-notice'));
     refreshStatus();
     return;
   }
