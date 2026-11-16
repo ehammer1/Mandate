@@ -186,33 +186,48 @@ function wireSignIn() {
     status(s, 'This browser does not support passkeys. You can use a key saved in this browser instead.', 'warn');
   }
   $('btn-create').onclick = () => trySignIn(() => keys.createPasskey(), s);
-  // One button for newcomers: make the voter key (passkey, or a browser-saved key if the
-  // passkey is cancelled or unsupported), then land on the email box.
-  $('btn-join-email').onclick = async () => {
+  // One button for newcomers: first choose where the voter key lives (so the browser's passkey
+  // window never appears unexplained), then make it and land on the email box.
+  const onComputer = !matchMedia?.('(pointer: coarse)').matches;
+  $('btn-join-phone').hidden = !onComputer || !keys.passkeysAvailable();
+  $('btn-join-here').hidden = !keys.passkeysAvailable();
+  const joinWith = async (make, label) => {
     state.wantEmailJoin = true;
-    // Already have a passkey here? Unlock it rather than making another.
-    status(s, keys.hasSavedPasskey() ? 'Unlock your existing voter key…' : 'Step 1 of 2: save your voter key when your phone asks…');
+    status(s, label);
     let k;
     try {
-      k = keys.passkeysAvailable() ? await keys.createPasskey() : null;
-    } catch {
-      k = null;
-    }
-    if (!k && keys.hasSavedPasskey()) {
-      state.wantEmailJoin = false;
-      return status(s, 'Unlock cancelled. Your existing voter key is still saved; tap again to unlock it.', 'warn');
-    }
-    if (!k) {
-      try {
-        k = await keys.createDeviceKey();
-      } catch (e) {
+      k = await make();
+    } catch (e) {
+      if (e?.name === 'NotAllowedError' || e?.name === 'AbortError') {
+        state.wantEmailJoin = false;
+        return status(s, keys.hasSavedPasskey() ? 'Unlock cancelled. Your existing voter key is still saved; tap again to unlock it.' : 'Cancelled: no voter key was made. Pick one of the options above to try again.', 'warn');
+      }
+      if (e?.code !== 'NO_PRF') {
         state.wantEmailJoin = false;
         return status(s, e.message, 'error');
+      }
+      // This passkey can't hold a voter key: keep one in this browser instead.
+      try {
+        k = await keys.createDeviceKey();
+      } catch (e2) {
+        state.wantEmailJoin = false;
+        return status(s, e2.message, 'error');
       }
     }
     status(s, '');
     await signedIn(k, k.backupCode);
   };
+  $('btn-join-email').onclick = () => {
+    // Already have a passkey here? Unlock it rather than making another.
+    if (keys.hasSavedPasskey()) return joinWith(() => keys.createPasskey(), 'Unlock your existing voter key…');
+    $('join-choice').hidden = false;
+    $('btn-join-email').hidden = true;
+    status(s, '');
+    ($('btn-join-here').hidden ? $('btn-join-browser') : $('btn-join-here')).focus();
+  };
+  $('btn-join-here').onclick = () => joinWith(() => keys.createPasskey(), 'Confirm with Face ID, your fingerprint or your PIN when asked…');
+  $('btn-join-phone').onclick = () => joinWith(() => keys.createPasskey({ onPhone: true }), 'Scan the QR code with your phone, then confirm on the phone…');
+  $('btn-join-browser').onclick = () => joinWith(() => keys.createDeviceKey(), '');
   $('btn-unlock').onclick = () => trySignIn(() => keys.unlockWithPasskey(), s);
   $('btn-public').onclick = () => trySignIn(() => keys.unlockWithPasskey({ remember: false }), s);
   // Shared computers: create the passkey on the person's phone, or a session-only written code.
@@ -230,6 +245,8 @@ function wireSignIn() {
   $('btn-signout').onclick = () => signOut();
   function signOut(reason) {
     Object.assign(state, { keys: null, identity: null, wallet: null, external: null, roles: null, publicMode: false, clerkSession: null, clerkCount: 0 });
+    $('join-choice').hidden = true;
+    $('btn-join-email').hidden = false;
     state.clerk?.nextPerson();
     clearTimeout(idleTimer);
     for (const id of ['voter-code', 'account-address', 'admin-who', 'poll-list', 'membership']) $(id).textContent = '';

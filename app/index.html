@@ -52,7 +52,15 @@
       <div class="card stack" id="new-here">
         <p class="big" style="margin:0">New here?</p>
         <button class="primary" id="btn-join-email">Join with my email</button>
-        <p class="note">Your phone first asks to save a passkey: that's your private voter key, unlocked with Face ID or your fingerprint. Then you'll get a 6-digit code by email. You can also join with a Google or Microsoft account, or in person at the city clerk or a library.</p>
+        <div class="stack" id="join-choice" hidden>
+          <p style="margin:0"><strong>Step 1 of 2: where should your voter key live?</strong> Your voter key is private and is never sent to us. After you pick, your browser or phone asks you to confirm.</p>
+          <button class="primary" id="btn-join-here">Save it on this device</button>
+          <p class="note">Unlocked with Face ID, your fingerprint or your device PIN. It syncs through your Apple, Google or Microsoft account, so your other devices vote as the same person.</p>
+          <button id="btn-join-phone">Save it on my phone instead (scan a QR code)</button>
+          <button id="btn-join-browser">No passkey: keep it in this browser</button>
+          <p class="note">For browsers without passkeys. You'll get a backup code to write down: it's the only way to vote from another device.</p>
+        </div>
+        <p class="note">Then you'll get a 6-digit code by email. You can also join with a Google or Microsoft account, or in person at the city clerk or a library.</p>
       </div>
       <div class="card stack" id="passkey-buttons">
         <button id="btn-unlock">I already have a voter key: unlock it</button>

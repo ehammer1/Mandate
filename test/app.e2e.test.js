@@ -573,9 +573,29 @@ test('join with email: code by email, enrolled without leaving the page', async 
   assert.equal(await page.locator('#poll-1 .choices:not(details .choices) button.choice').count(), 0); // only under "Change my vote"
 });
 
-test('newcomer: "Join with my email" makes the voter key and lands on the email box', async () => {
+test('newcomer: "Join with my email" asks where to keep the voter key, then lands on the email box', async () => {
   await page.click('#btn-signout');
+  await page.evaluate(() => localStorage.clear());
+  await page.reload();
   await page.click('#btn-join-email');
+  // A choice first, in the page: the browser's passkey window never opens unexplained.
+  await page.waitForSelector('#join-choice:not([hidden]) >> text=where should your voter key live');
+  assert.equal(await page.isVisible('#btn-join-email'), false);
+  assert.equal(await page.evaluate(() => document.activeElement?.id), 'btn-join-here');
+  assert.equal(await page.isVisible('#btn-join-phone'), true); // a computer: offer the phone too
+  // Closing the browser's window makes no key behind the person's back.
+  await page.evaluate(() => {
+    const real = navigator.credentials.create.bind(navigator.credentials);
+    navigator.credentials.create = async () => {
+      navigator.credentials.create = real; // only this once
+      throw new DOMException('The person closed the window.', 'NotAllowedError');
+    };
+  });
+  await page.click('#btn-join-here');
+  await page.waitForSelector('#signin-status >> text=no voter key was made', { timeout: 30_000 });
+  assert.equal(await page.evaluate(() => Object.values(localStorage).some((v) => /"method":"device"/.test(v))), false);
+  assert.equal(await page.isVisible('#screen-home'), false);
+  await page.click('#btn-join-here');
   await page.waitForSelector('#screen-home:not([hidden])');
   await page.waitForFunction(() => /Step 2 of 2/.test(document.querySelector('#email-status')?.textContent || ''), null, { timeout: 30_000 });
   assert.equal(await page.evaluate(() => document.activeElement?.id), 'join-email');
@@ -588,7 +608,8 @@ test('no duplicate passkeys: creating again on a device that has one unlocks the
   await page.evaluate(() => localStorage.clear());
   await page.reload();
   const before = await count();
-  await page.click('#btn-join-email'); // first time on this browser: creates a passkey
+  await page.click('#btn-join-email'); // first time on this browser: choose, then it creates a passkey
+  await page.click('#btn-join-here');
   await page.waitForSelector('#screen-home:not([hidden])');
   assert.equal(await count(), before + 1);
   await page.click('[data-go="screen-code"]');
