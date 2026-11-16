@@ -381,6 +381,7 @@ export default {
   "Jobs and business": "Empleo y negocios",
   "Join": "Unirse",
   "Join with my email": "Unirme con mi correo electrónico",
+  "Show my backup code": "Mostrar mi código de respaldo",
   "Step 1 of 2: where should your voter key live?": "Paso 1 de 2: ¿dónde debe guardarse su clave de votante?",
   "Your voter key is private and is never sent to us. After you pick, your browser or phone asks you to confirm.": "Su clave de votante es privada y nunca se nos envía. Después de elegir, su navegador o teléfono le pedirá confirmar.",
   "Save it on this device": "Guardarla en este dispositivo",

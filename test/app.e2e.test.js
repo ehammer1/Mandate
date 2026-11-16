@@ -620,6 +620,16 @@ test('no duplicate passkeys: creating again on a device that has one unlocks the
   await page.click('#device-option summary').catch(() => {});
   await page.click('#btn-device');
   await page.waitForSelector('#screen-home:not([hidden])');
+  // Its backup code can be shown again later (e.g. after a Google sign-in reloaded the page).
+  const shown = (await page.textContent('#backup-code')).trim();
+  assert.match(shown, /^MV2-/);
+  await page.click('#btn-signout');
+  await page.evaluate(() => { document.getElementById('device-option').open = true; });
+  await page.click('#btn-device');
+  await page.waitForSelector('#screen-home:not([hidden])');
+  assert.equal(await page.isVisible('#backup-panel'), false);
+  await page.click('#btn-show-backup');
+  assert.equal((await page.textContent('#backup-code')).trim(), shown);
 
   for (const btn of ['#btn-join-email', '#btn-create']) {
     await page.click('#btn-signout');
@@ -1707,6 +1717,7 @@ test('another community on the same app: its own contracts, its name in the head
   await p2.waitForSelector('#polls >> text=No polls yet', { timeout: 60_000 });
   assert.doesNotMatch(p2.url(), /org=/);
   assert.deepEqual(errors.filter((e) => !/nowhere/.test(e)), []);
+  await p2.unrouteAll({ behavior: 'ignoreErrors' }); // the page may still be polling the chain
   await p2.close();
   delete appOptsRef.communities;
   delete appOptsRef.communitiesIndex;

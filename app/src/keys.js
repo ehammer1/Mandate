@@ -164,6 +164,12 @@ export function backupCodeFor(secret) {
   return encodeBackupCode(secret);
 }
 
+/** The backup code of the key saved in this browser, to show again (null if there is none). */
+export function savedBackupCode() {
+  const s = load().deviceSecret;
+  return s ? backupCodeFor(fromB64url(s)) : null;
+}
+
 export async function restoreFromBackup(code, { remember = true } = {}) {
   const secret = decodeBackupCode(code);
   if (!remember) return deriveKeys(secret, 'public');

@@ -123,6 +123,16 @@ async function signedIn(k, backupCode) {
   } else {
     $('backup-panel').hidden = true;
   }
+  // A key saved in this browser: its backup code can be shown again at any time.
+  $('btn-show-backup').hidden = k.method !== 'device' || !keys.savedBackupCode();
+  $('btn-show-backup').onclick = () => {
+    $('backup-code').textContent = keys.savedBackupCode() || '';
+    $('backup-intro').textContent = 'This key lives only in this browser. Write this down; it is the only way to vote from another device or recover.';
+    $('btn-print-code').hidden = true;
+    $('backup-panel').hidden = false;
+    $('btn-show-backup').hidden = true;
+    $('backup-panel').scrollIntoView({ block: 'start' });
+  };
   $('nav').hidden = false;
   show('screen-home');
   if (state.notice) {
