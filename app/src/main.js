@@ -1500,7 +1500,34 @@ function wireAdmin() {
     const name = $('grant-name').value.trim() || (give ? 'Clerk' : (await reg.issuers(target))[2] || 'Clerk');
     // Each change as (contract, call); admin means council membership when there is a council.
     const changes = [];
-    if (kind === 'issuer') changes.push([reg, 'setIssuer', [target, 1, give, name], give ? 'Approve as clerk' : 'Remove clerk']);
+    // The other roles: [contract address, role name, what it lets someone do].
+    const ROLE_ABI = [...ADMIN_ABI, 'function hasRole(bytes32,address) view returns (bool)'];
+    const OTHER = {
+      tally: [[cfg.talliesAddress, 'CLERK_ROLE', 'record and confirm paper counts']],
+      groups: [[cfg.voterGroupsAddress, 'GROUP_CREATOR_ROLE', 'create smaller voter lists']],
+      budget: [[cfg.budgetAddress, 'PROPOSER_ROLE', 'open budget rounds']],
+      registrar: [[cfg.officialsAddress, 'REGISTRAR_ROLE', 'register officials'], [cfg.bodiesAddress, 'REGISTRAR_ROLE', 'set up government bodies']],
+    };
+    const roleChange = ([at, role, what]) => [new ethers.Contract(at, ROLE_ABI, state.provider), give ? 'grantRole' : 'revokeRole', [ethers.id(role), target], `${give ? 'Allow' : 'Stop'}: ${what}`];
+    if (kind === 'all') {
+      if (give) return status(el, '"Every role" is for removing: choose Remove.', 'error');
+      // Everything this account holds here, each as its own removal (no waiting period).
+      if ((await reg.issuers(target))[1]) changes.push([reg, 'setIssuer', [target, 1, false, name], 'Remove clerk']);
+      const held = async (k, role) => k.hasRole(role, target).catch(() => false);
+      const voteR = new ethers.Contract(cfg.voteAddress, ROLE_ABI, state.provider);
+      if (await held(voteR, ROLE_PROPOSER)) changes.push([vote, 'revokeRole', [ROLE_PROPOSER, target], 'Stop opening polls']);
+      for (const list of Object.values(OTHER)) {
+        for (const r of list) {
+          if (!r[0]) continue;
+          const k = new ethers.Contract(r[0], ROLE_ABI, state.provider);
+          if (await held(k, ethers.id(r[1]))) changes.push(roleChange(r));
+        }
+      }
+      if (!changes.length) return status(el, 'This account has no roles here (other than council membership, which is changed under Admin).', 'warn');
+    } else if (OTHER[kind]) {
+      for (const r of OTHER[kind]) if (r[0]) changes.push(roleChange(r));
+      if (!changes.length) return status(el, 'This community does not have that part set up.', 'error');
+    } else if (kind === 'issuer') changes.push([reg, 'setIssuer', [target, 1, give, name], give ? 'Approve as clerk' : 'Remove clerk']);
     else if (kind === 'proposer') changes.push([vote, give ? 'grantRole' : 'revokeRole', [ROLE_PROPOSER, target], give ? 'Allow opening polls' : 'Stop opening polls']);
     else if (state.roles?.councilMember && !state.roles?.admin) {
       const council = new ethers.Contract(cfg.councilAddress, ['function addMember(address)', 'function removeMember(address)'], state.provider);
@@ -1519,6 +1546,7 @@ function wireAdmin() {
         : await sendAdminTx(el, label, (s) => k.connect(s)[fn](...args));
       if (!ok) return;
     }
+    if (changes.length > 1) status(el, `${changes.length} changes ${viaCouncil ? 'proposed to the council' : 'made'}: ${changes.map((c) => c[3]).join('; ')}.`, 'ok');
     $('grant-reason').value = '';
   };
 

@@ -384,6 +384,29 @@ test('admin from the passkey account, and from a connected wallet', async () => 
   await page.waitForFunction(() => /done/.test(document.querySelector('#grant-status').textContent), null, { timeout: 60_000 });
   assert.equal((await c.identity.issuers(walletAccount)).active, true);
 
+  // Every role is in the menu, and "Every role this account has" removes them all at once.
+  await (await c.tallies.grantRole(ethers.ZeroHash, auto)).wait();
+  const helper = ethers.Wallet.createRandom().address;
+  const grant = async (action, kind, done) => {
+    await page.fill('#grant-address', helper);
+    await page.selectOption('#grant-action', action);
+    await page.selectOption('#grant-kind', kind);
+    await page.fill('#grant-name', 'Helper desk');
+    await page.evaluate(() => { document.getElementById('grant-status').textContent = ''; });
+    await page.click('#btn-grant');
+    await page.waitForFunction((re) => new RegExp(re).test(document.querySelector('#grant-status').textContent), done, { timeout: 60_000 });
+  };
+  await grant('give', 'tally', 'done');
+  await grant('give', 'issuer', 'done');
+  const CLERK = await c.tallies.CLERK_ROLE();
+  assert.equal(await c.tallies.hasRole(CLERK, helper), true);
+  assert.equal((await c.identity.issuers(helper)).active, true);
+  await grant('remove', 'all', '2 changes made');
+  assert.equal(await c.tallies.hasRole(CLERK, helper), false);
+  assert.equal((await c.identity.issuers(helper)).active, false);
+  await grant('remove', 'all', 'no roles here');
+  await page.selectOption('#grant-action', 'give');
+
   await page.click('#nav-account');
   await page.click('#wallet-list button[data-injected]');
   await page.waitForFunction(() => /Connected: Test Wallet/.test(document.querySelector('#account-kind').textContent));
@@ -478,6 +501,8 @@ test('council: one member proposes a new clerk, another approves, it runs after 
   await page.screenshot({ path: `${process.env.APP_SCREENSHOT_DIR || '/tmp'}/7b-todo.png` }).catch(() => {});
   await page.click('#admin-todo a[data-goto="council-1"]');
   await page.waitForSelector('#council-1.flash');
+  // Open changes are one list: what needs you on top, then ready to run, then waiting on others.
+  assert.match(await page.textContent('#council-list .council-section:not([hidden])'), /Needs your approval \(1\)/);
   await page.click('#council-1 button:has-text("Approve")');
   await page.waitForSelector('#council-1 >> text=Waiting period', { timeout: 60_000 });
   assert.equal((await c.identity.issuers(desk)).active, false);
@@ -496,7 +521,7 @@ test('council: one member proposes a new clerk, another approves, it runs after 
   await page.waitForSelector('#admin-todo a[data-goto="council-1"] >> text=Run', { timeout: 30_000 });
   await page.click('#council-1 button:has-text("Run it now")');
   // Done items leave the open list; they are under "Done".
-  await page.waitForSelector('#council-list [data-show="done"][aria-pressed="false"] >> text=Done (1)', { timeout: 60_000 });
+  await page.waitForSelector('#council-list [data-show="done"] >> text=Done (1)', { timeout: 60_000 });
   await page.click('#council-list [data-show="done"]');
   await page.waitForSelector('#council-1 >> text=Done', { timeout: 60_000 });
   // A shared link opens even a finished change (its filter switches to show it).

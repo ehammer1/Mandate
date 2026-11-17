@@ -174,7 +174,9 @@ export async function readProposal(c, id) {
 
 export function wireCouncil(ctx, { addressKey = 'councilAddress', prefix = 'council', box = 'admin-council' } = {}) {
   const { state, status, esc } = ctx;
-  let filter = 'open';
+  // Which list to show: the person's own pick, else the first one with something in it.
+  let filter = null;
+  let picked = false;
   const $ = (id) => ctx.$(id.replace(/^council-/, `${prefix}-`).replace(/^btn-council-/, `btn-${prefix}-`).replace(/^admin-council$/, box));
   const addr = () => state.config[addressKey];
   const council = () => new ethers.Contract(addr(), COUNCIL_ABI, state.provider);
@@ -259,7 +261,8 @@ export function wireCouncil(ctx, { addressKey = 'councilAddress', prefix = 'coun
     bar.setAttribute('aria-label', 'Show changes');
     list.append(bar);
     const now = Date.now() / 1000;
-    const groups = { open: 0, done: 0, closed: 0 };
+    const groups = { needs: 0, waiting: 0, ready: 0, done: 0, closed: 0 };
+    const buckets = { needs: [], waiting: [], ready: [], done: [], closed: [] };
     for (let id = n; id >= Math.max(1, n - 19); id--) {
       const [[p, s, approvals], approvedByMe] = await Promise.all([readProposal(c, id), mine ? c.hasApproved(id, me) : false]);
       const st = Number(s);
@@ -272,7 +275,12 @@ export function wireCouncil(ctx, { addressKey = 'councilAddress', prefix = 'coun
       card.className = 'card stack';
       card.id = `${prefix}-${id}`;
       const pendingUndo = p.emergency && p.executed && !p.lapsed;
-      card.dataset.group = active || (pendingUndo && Number(p.ratifyBy) > now - 7 * 86_400) ? 'open' : st === 4 ? 'done' : 'closed';
+      // Needs your approval -> approved, waiting (for others or the public wait) -> ready to run -> done.
+      card.dataset.group =
+        st === 3 ? 'ready'
+          : active && mine && !approvedByMe ? 'needs'
+            : active || (pendingUndo && Number(p.ratifyBy) > now - 7 * 86_400) ? 'waiting'
+              : st === 4 ? 'done' : 'closed';
       groups[card.dataset.group]++;
       card.innerHTML = `<p class="muted">#${id} · ${esc(STATES[st])}${active ? ` · ${approvals} of ${threshold} approvals` : ''}${esc(when)}${p.fast && active ? ' · removes power: no wait' : ''}</p>
         <p class="big" style="font-size:1.05rem">${esc(describeCall(state.config, p.target, p.data))}</p>
@@ -292,8 +300,11 @@ export function wireCouncil(ctx, { addressKey = 'councilAddress', prefix = 'coun
         if (primary) b.className = 'primary';
         b.onclick = async () => {
           b.disabled = true;
-          if (await fn()) await render();
-          else b.disabled = false;
+          if (await fn()) {
+            await render();
+            // Back to the top of the list: the next change that needs you is there.
+            if (label === 'Approve' || label === 'Run it now') $('council-list').scrollIntoView({ behavior: 'smooth', block: 'start' });
+          } else b.disabled = false;
         };
         row.append(b);
       };
@@ -313,16 +324,48 @@ export function wireCouncil(ctx, { addressKey = 'councilAddress', prefix = 'coun
         });
       }
       if (p.emergency && p.executed && !p.lapsed) button('Undo (not ratified)', () => send(el, 'Undo', (k) => k.lapse(id)));
-      list.append(card);
+      buckets[card.dataset.group].push(card);
     }
+    // Work through the queues oldest first; read the history newest first.
+    let runAll = null;
+    if (buckets.ready.length > 1) {
+      runAll = document.createElement('div');
+      runAll.className = 'row run-all';
+      runAll.innerHTML = `<button class="primary" type="button">Run all ${buckets.ready.length} ready changes</button><p class="status" role="status"></p>`;
+      runAll.querySelector('button').onclick = async () => {
+        const b = runAll.querySelector('button');
+        const el = runAll.querySelector('.status');
+        b.disabled = true;
+        for (const card of buckets.ready) { // oldest first (put in order below)
+          const id = Number(card.id.split('-').pop());
+          if (!(await send(el, `Run #${id}`, (k) => k.execute(id)))) return (b.disabled = false);
+        }
+        await render();
+      };
+    }
+    // The open list, top to bottom: what needs you, what can run now, what is waiting on others.
+    const heading = (g, text) => Object.assign(document.createElement('h4'), { className: 'council-section', textContent: `${text} (${groups[g]})`, hidden: !groups[g] });
+    const sections = { needs: heading('needs', 'Needs your approval'), ready: heading('ready', 'Ready to run'), waiting: heading('waiting', 'Approved, waiting') };
+    list.append(
+      sections.needs, ...buckets.needs.reverse(),
+      sections.ready, ...(runAll ? [runAll] : []), ...buckets.ready.reverse(),
+      sections.waiting, ...buckets.waiting,
+      ...buckets.done, ...buckets.closed,
+    );
+    const OPEN = ['needs', 'ready', 'waiting'];
     const draw = () => {
-      bar.innerHTML = [['open', `Open & pending (${groups.open})`], ['done', `Done (${groups.done})`], ['closed', `Cancelled or expired (${groups.closed})`], ['all', 'All']]
+      if (!picked) filter = OPEN.some((g) => groups[g]) ? 'open' : groups.done ? 'done' : 'open';
+      const open = groups.needs + groups.ready + groups.waiting;
+      bar.innerHTML = [['open', `Open (${open})`], ['done', `Done (${groups.done})`], ['closed', `Cancelled or expired (${groups.closed})`], ['all', 'All']]
         .map(([k, l]) => `<button type="button" data-show="${k}" aria-pressed="${filter === k}">${l}</button>`).join('');
-      for (const c of list.querySelectorAll('.card[data-group]')) c.hidden = filter !== 'all' && c.dataset.group !== filter;
-      for (const b of bar.querySelectorAll('[data-show]')) b.onclick = () => ((filter = b.dataset.show), draw());
+      const shows = (g) => filter === 'all' || filter === g || (filter === 'open' && OPEN.includes(g));
+      for (const c of list.querySelectorAll('.card[data-group]')) c.hidden = !shows(c.dataset.group);
+      for (const [g, h] of Object.entries(sections)) h.hidden = !groups[g] || !shows(g);
+      if (runAll) runAll.hidden = !shows('ready');
+      for (const b of bar.querySelectorAll('[data-show]')) b.onclick = () => ((filter = b.dataset.show), (picked = true), draw());
       const shown = [...list.querySelectorAll('.card[data-group]')].filter((c) => !c.hidden).length;
       let empty = list.querySelector('.empty-note');
-      if (!shown && !empty) list.append(Object.assign(document.createElement('p'), { className: 'muted empty-note', textContent: 'Nothing here. Choose another view above.' }));
+      if (!shown && !empty) list.append(Object.assign(document.createElement('p'), { className: 'muted empty-note', textContent: filter === 'open' ? 'No open changes: nothing needs your approval or is waiting to run.' : 'Nothing here. Choose another view above.' }));
       else if (shown && empty) empty.remove();
     };
     draw();

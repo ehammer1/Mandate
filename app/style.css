@@ -95,6 +95,7 @@ table.data th, table.data td { text-align: left; padding: 6px 4px; border-top: 1
 #toasts { position: fixed; left: 12px; right: 12px; bottom: 12px; display: flex; flex-direction: column; gap: 8px; z-index: 50; pointer-events: none; }
 .toast { pointer-events: auto; background: var(--panel); border: 2px solid var(--warn); border-radius: var(--radius); padding: 12px 14px; display: flex; gap: 12px; align-items: center; justify-content: space-between; box-shadow: 0 6px 24px rgb(0 0 0 / 20%); font-weight: 600; }
 .toast button { min-height: 40px; }
+.countdown { display: inline-block; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .countdown.soon { color: var(--warn); font-weight: 600; }
 .countdown.urgent { color: var(--error); font-weight: 700; }
 .attn-tools { gap: 12px; margin: 6px 0 0; font-size: 14px; }
@@ -141,3 +142,5 @@ form[role=search] input[type=search] { width: auto; min-width: 0; -webkit-appear
 .tagline { color: var(--teal); font-weight: 600; margin-top: -4px; }
 .org-name { display: block; font-size: 13px; font-weight: 600; color: var(--muted); margin-top: 2px; }
 .brand:has(.org-name:not([hidden])) { flex-direction: column; align-items: flex-start; gap: 0; }
+
+.council-section { margin: 14px 0 2px; font-size: .95rem; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }

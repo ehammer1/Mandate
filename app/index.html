@@ -603,7 +603,12 @@
         <select id="grant-kind" style="min-height:48px;font:inherit;border-radius:10px;padding:8px">
           <option value="issuer">Clerk: can enroll voters</option>
           <option value="proposer">Can open polls</option>
+          <option value="tally">Can record and confirm paper counts</option>
+          <option value="groups">Can create smaller voter lists (districts, wards)</option>
+          <option value="budget">Can open budget rounds</option>
+          <option value="registrar">Can register officials and set up government bodies</option>
           <option value="admin">Admin (council member, if there is a council)</option>
+          <option value="all">Every role this account has (remove only)</option>
         </select>
         <label class="row" id="grant-emergency-row" hidden><input type="checkbox" id="grant-emergency" /> Emergency: give it at once; residents must ratify within the council's window or it is undone</label>
         <label for="grant-name">Name (for clerks, shown to voters)</label>

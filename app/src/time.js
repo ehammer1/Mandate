@@ -39,7 +39,9 @@ export function relative(at, now = nowSecs()) {
 /** A live countdown element. `label` wraps it, e.g. countdown(t) or countdown(t, 'closes ') */
 export function countdown(at, prefix = '', onZero = '') {
   const p = rel.prefix(prefix);
-  return `<span class="countdown" translate="no" data-countdown="${Number(at)}" data-prefix="${p}"${onZero ? ` data-onzero="${onZero}"` : ''}>${p}${relative(at)}</span>`;
+  const text = `${p}${relative(at)}`;
+  // A fixed width (it only ever grows), so the words around a ticking countdown stay still.
+  return `<span class="countdown" translate="no" data-countdown="${Number(at)}" data-prefix="${p}" data-w="${text.length + 1}" style="min-width:${text.length + 1}ch"${onZero ? ` data-onzero="${onZero}"` : ''}>${text}</span>`;
 }
 
 /** When a countdown marked with `onZero` runs out, that part of the page refreshes itself. */
@@ -66,6 +68,11 @@ export function startTicker(provider) {
     const now = nowSecs();
     for (const el of document.querySelectorAll('[data-countdown]')) {
       el.textContent = `${el.dataset.prefix || ''}${relative(el.dataset.countdown, now)}`;
+      const w = el.textContent.length + 1;
+      if (w > Number(el.dataset.w || 0)) {
+        el.dataset.w = w;
+        el.style.minWidth = `${w}ch`;
+      }
       mark(el, el.dataset.countdown, now);
       // A few seconds' grace, so the chain has passed the moment too.
       if (el.dataset.onzero && !el.dataset.fired && Number(el.dataset.countdown) - now <= -3) {
