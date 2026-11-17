@@ -3,4 +3,107 @@ VERSION:2.0
 PRODID:-//Mandate//Public deadlines//EN
 CALSCALE:GREGORIAN
 X-WR-CALNAME:Mandate: votes and deadlines
+BEGIN:VEVENT
+UID:council-0xA0187E7476C4c36653e6418E3F2df6A4Cd94028c-17@mandate
+DTSTAMP:20261117T130057Z
+DTSTART:20261118T123015Z
+DTEND:20261118T130015Z
+SUMMARY:Council change #17 can run
+DESCRIPTION:Let 0x4C9a…b71B record and confirm paper counts (demo testing
+ ). Any member can still cancel it before then. https://ehammer1.github.io
+ /Mandate/
+URL:https://ehammer1.github.io/Mandate/
+BEGIN:VALARM
+TRIGGER;RELATED=END:-P1D
+ACTION:DISPLAY
+DESCRIPTION:1 day left: Council change #17 can run
+END:VALARM
+BEGIN:VALARM
+TRIGGER;RELATED=END:-PT8H
+ACTION:DISPLAY
+DESCRIPTION:8 hours left: Council change #17 can run
+END:VALARM
+BEGIN:VALARM
+TRIGGER;RELATED=END:-PT1H
+ACTION:DISPLAY
+DESCRIPTION:1 hour left: Council change #17 can run
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:council-0xA0187E7476C4c36653e6418E3F2df6A4Cd94028c-16@mandate
+DTSTAMP:20261117T130057Z
+DTSTART:20261118T123041Z
+DTEND:20261118T130041Z
+SUMMARY:Council change #16 can run
+DESCRIPTION:Approve 0x4C9a…b71B as a clerk desk\, "Demo front desk 3" (de
+ mo testing). Any member can still cancel it before then. https://ehammer1
+ .github.io/Mandate/
+URL:https://ehammer1.github.io/Mandate/
+BEGIN:VALARM
+TRIGGER;RELATED=END:-P1D
+ACTION:DISPLAY
+DESCRIPTION:1 day left: Council change #16 can run
+END:VALARM
+BEGIN:VALARM
+TRIGGER;RELATED=END:-PT8H
+ACTION:DISPLAY
+DESCRIPTION:8 hours left: Council change #16 can run
+END:VALARM
+BEGIN:VALARM
+TRIGGER;RELATED=END:-PT1H
+ACTION:DISPLAY
+DESCRIPTION:1 hour left: Council change #16 can run
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:council-0xA0187E7476C4c36653e6418E3F2df6A4Cd94028c-15@mandate
+DTSTAMP:20261117T130057Z
+DTSTART:20261118T123047Z
+DTEND:20261118T130047Z
+SUMMARY:Council change #15 can run
+DESCRIPTION:Let 0x433B…476F set up government bodies (demo testing). Any 
+ member can still cancel it before then. https://ehammer1.github.io/Mandat
+ e/
+URL:https://ehammer1.github.io/Mandate/
+BEGIN:VALARM
+TRIGGER;RELATED=END:-P1D
+ACTION:DISPLAY
+DESCRIPTION:1 day left: Council change #15 can run
+END:VALARM
+BEGIN:VALARM
+TRIGGER;RELATED=END:-PT8H
+ACTION:DISPLAY
+DESCRIPTION:8 hours left: Council change #15 can run
+END:VALARM
+BEGIN:VALARM
+TRIGGER;RELATED=END:-PT1H
+ACTION:DISPLAY
+DESCRIPTION:1 hour left: Council change #15 can run
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:council-0xA0187E7476C4c36653e6418E3F2df6A4Cd94028c-14@mandate
+DTSTAMP:20261117T130057Z
+DTSTART:20261118T123055Z
+DTEND:20261118T130055Z
+SUMMARY:Council change #14 can run
+DESCRIPTION:Let 0x433B…476F register officials (demo testing). Any member
+  can still cancel it before then. https://ehammer1.github.io/Mandate/
+URL:https://ehammer1.github.io/Mandate/
+BEGIN:VALARM
+TRIGGER;RELATED=END:-P1D
+ACTION:DISPLAY
+DESCRIPTION:1 day left: Council change #14 can run
+END:VALARM
+BEGIN:VALARM
+TRIGGER;RELATED=END:-PT8H
+ACTION:DISPLAY
+DESCRIPTION:8 hours left: Council change #14 can run
+END:VALARM
+BEGIN:VALARM
+TRIGGER;RELATED=END:-PT1H
+ACTION:DISPLAY
+DESCRIPTION:1 hour left: Council change #14 can run
+END:VALARM
+END:VEVENT
 END:VCALENDAR

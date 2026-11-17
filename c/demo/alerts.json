@@ -1,5 +1,340 @@
 [
  {
+  "tx": "0x4c4d4442cfd97c399c1365180196b831fc51cc2619af0f8e2be17c50820391d7",
+  "block": 59992733,
+  "time": 1794920415,
+  "contract": "council",
+  "event": "Queued",
+  "rule": "council-scheduled",
+  "severity": "high",
+  "title": "Council change #17 approved: it can run from 2026-11-18 13:00 UTC (grant 0xd603cc2d39ea2ab57038652f29ac8e7fd0e40e6a9b0f81de9bbc4acc6780d962 to 0x4C9a…b71B on paper and in-person results). Members can still cancel it until then.",
+  "facts": {
+   "proposal": "17",
+   "readyAt": 1795006815
+  },
+  "id": "council-scheduled:0x4c4d4442cfd97c399c1365180196b831fc51cc2619af0f8e2be17c50820391d7:1794920415"
+ },
+ {
+  "tx": "0xdeee7363abe929f64ab4eaa25aefaa871c5d75a705b9a7526156c75eafbffefa",
+  "block": 59991462,
+  "time": 1794920161,
+  "contract": "council",
+  "event": "Proposed",
+  "rule": "council-proposal",
+  "severity": "high",
+  "title": "Council change #17 proposed by 0xC782…f834: grant 0xd603cc2d39ea2ab57038652f29ac8e7fd0e40e6a9b0f81de9bbc4acc6780d962 to 0x4C9a…b71B on paper and in-person results",
+  "facts": {
+   "proposal": "17",
+   "proposer": "0xC782e1690D4B6c4C2Aba21283a6271477690f834",
+   "target": "0xECD8d167d370a3d179873B7b7f854a37540Df1e5",
+   "value": "0",
+   "data": "0x2f2ff15dd603cc2d39ea2ab57038652f29ac8e7fd0e40e6a9b0f81de9bbc4acc6780d9620000000000000000000000004c9a795fb70e9ed9877082afd74257db3ea1b71b",
+   "description": "Let 0x4C9a…b71B record and confirm paper counts (demo testing)",
+   "fast": false
+  },
+  "id": "council-proposal:0xdeee7363abe929f64ab4eaa25aefaa871c5d75a705b9a7526156c75eafbffefa:1794920161"
+ },
+ {
+  "tx": "0xf8307ef716e21a327d88548510c7169daa3c6145bcc36733a44fe716452b44c2",
+  "block": 59991460,
+  "time": 1794920160,
+  "contract": "council",
+  "event": "Proposed",
+  "rule": "council-proposal",
+  "severity": "high",
+  "title": "Council change #16 proposed by 0xC782…f834: approve 0x4C9a…b71B as identity source \"Demo front desk 3\" (up to verified tier)",
+  "facts": {
+   "proposal": "16",
+   "proposer": "0xC782e1690D4B6c4C2Aba21283a6271477690f834",
+   "target": "0x781954999cF015622cB23982ecEb66FDb726801c",
+   "value": "0",
+   "data": "0x4899cf590000000000000000000000004c9a795fb70e9ed9877082afd74257db3ea1b71b000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000080000000000000000000000000000000000000000000000000000000000000001144656d6f2066726f6e74206465736b2033000000000000000000000000000000",
+   "description": "Approve 0x4C9a…b71B as a clerk desk, \"Demo front desk 3\" (demo testing)",
+   "fast": false
+  },
+  "id": "council-proposal:0xf8307ef716e21a327d88548510c7169daa3c6145bcc36733a44fe716452b44c2:1794920160"
+ },
+ {
+  "tx": "0x133dc18585f4e000c94ef736904a30c8cbea5656678b80c222d5ecf72701e045",
+  "block": 59990636,
+  "time": 1794919996,
+  "contract": "council",
+  "event": "Proposed",
+  "rule": "council-proposal",
+  "severity": "high",
+  "title": "Council change #15 proposed by 0xC782…f834: grant 0xedcc084d3dcd65a1f7f23c65c46722faca6953d28e43150a467cf43e5c309238 to 0x433B…476F on government bodies",
+  "facts": {
+   "proposal": "15",
+   "proposer": "0xC782e1690D4B6c4C2Aba21283a6271477690f834",
+   "target": "0xee349eB9d7c5FcD0B7716c1aa2ABC85946552050",
+   "value": "0",
+   "data": "0x2f2ff15dedcc084d3dcd65a1f7f23c65c46722faca6953d28e43150a467cf43e5c309238000000000000000000000000433b8c945c9f4664870ffd3da3ea8d16dd41476f",
+   "description": "Let 0x433B…476F set up government bodies (demo testing)",
+   "fast": false
+  },
+  "id": "council-proposal:0x133dc18585f4e000c94ef736904a30c8cbea5656678b80c222d5ecf72701e045:1794919996"
+ },
+ {
+  "tx": "0xfb768d9037fa9c406652633d8600b8b3571220b1be09195da6ce92e7d36b7184",
+  "block": 59990614,
+  "time": 1794919991,
+  "contract": "council",
+  "event": "Proposed",
+  "rule": "council-proposal",
+  "severity": "high",
+  "title": "Council change #14 proposed by 0xC782…f834: grant 0xedcc084d3dcd65a1f7f23c65c46722faca6953d28e43150a467cf43e5c309238 to 0x433B…476F on officials registry",
+  "facts": {
+   "proposal": "14",
+   "proposer": "0xC782e1690D4B6c4C2Aba21283a6271477690f834",
+   "target": "0x3b7D249ADBFb3C649a4d82470820751449106E49",
+   "value": "0",
+   "data": "0x2f2ff15dedcc084d3dcd65a1f7f23c65c46722faca6953d28e43150a467cf43e5c309238000000000000000000000000433b8c945c9f4664870ffd3da3ea8d16dd41476f",
+   "description": "Let 0x433B…476F register officials (demo testing)",
+   "fast": false
+  },
+  "id": "council-proposal:0xfb768d9037fa9c406652633d8600b8b3571220b1be09195da6ce92e7d36b7184:1794919991"
+ },
+ {
+  "tx": "0x086a2885ac5804ab465ad8363aa9dc61cabae59b8638b2c640c24fb03f32a97f",
+  "block": 59990545,
+  "time": 1794919977,
+  "contract": "council",
+  "event": "Proposed",
+  "rule": "council-proposal",
+  "severity": "high",
+  "title": "Council change #13 proposed by 0xC782…f834: revoke 0xc26be8e0016d7720ca689986256cecb8764bcfd041a3c876681d44dc4d9d7519 from 0xd868…6fD0 on smaller voter lists (removes power: can run as soon as approved)",
+  "facts": {
+   "proposal": "13",
+   "proposer": "0xC782e1690D4B6c4C2Aba21283a6271477690f834",
+   "target": "0x245a136eA56E0E5499A0f0487D9d1010889ccfa5",
+   "value": "0",
+   "data": "0xd547741fc26be8e0016d7720ca689986256cecb8764bcfd041a3c876681d44dc4d9d7519000000000000000000000000d868af53ed4685ea6b991c64e15c9390c7456fd0",
+   "description": "Remove the lost account 0xd868…6fD0 from creating voter lists",
+   "fast": true
+  },
+  "id": "council-proposal:0x086a2885ac5804ab465ad8363aa9dc61cabae59b8638b2c640c24fb03f32a97f:1794919977"
+ },
+ {
+  "tx": "0xf0fee7cb02a622506b9d68fa5f2f2b8d37e75f091025bf4d769aa05d17fe0e22",
+  "block": 59990523,
+  "time": 1794919973,
+  "contract": "council",
+  "event": "Proposed",
+  "rule": "council-proposal",
+  "severity": "high",
+  "title": "Council change #12 proposed by 0xC782…f834: revoke 0xd603cc2d39ea2ab57038652f29ac8e7fd0e40e6a9b0f81de9bbc4acc6780d962 from 0xd868…6fD0 on paper and in-person results (removes power: can run as soon as approved)",
+  "facts": {
+   "proposal": "12",
+   "proposer": "0xC782e1690D4B6c4C2Aba21283a6271477690f834",
+   "target": "0xECD8d167d370a3d179873B7b7f854a37540Df1e5",
+   "value": "0",
+   "data": "0xd547741fd603cc2d39ea2ab57038652f29ac8e7fd0e40e6a9b0f81de9bbc4acc6780d962000000000000000000000000d868af53ed4685ea6b991c64e15c9390c7456fd0",
+   "description": "Remove the lost account 0xd868…6fD0 from recording paper counts",
+   "fast": true
+  },
+  "id": "council-proposal:0xf0fee7cb02a622506b9d68fa5f2f2b8d37e75f091025bf4d769aa05d17fe0e22:1794919973"
+ },
+ {
+  "tx": "0x27f2169e30e307f49b9401f03312f72d98c50ea03f60ab1fee1045fc9ea98398",
+  "block": 59990521,
+  "time": 1794919973,
+  "contract": "council",
+  "event": "Proposed",
+  "rule": "council-proposal",
+  "severity": "high",
+  "title": "Council change #11 proposed by 0xC782…f834: revoke 0xedcc084d3dcd65a1f7f23c65c46722faca6953d28e43150a467cf43e5c309238 from 0xd868…6fD0 on government bodies (removes power: can run as soon as approved)",
+  "facts": {
+   "proposal": "11",
+   "proposer": "0xC782e1690D4B6c4C2Aba21283a6271477690f834",
+   "target": "0xee349eB9d7c5FcD0B7716c1aa2ABC85946552050",
+   "value": "0",
+   "data": "0xd547741fedcc084d3dcd65a1f7f23c65c46722faca6953d28e43150a467cf43e5c309238000000000000000000000000d868af53ed4685ea6b991c64e15c9390c7456fd0",
+   "description": "Remove the lost account 0xd868…6fD0 from setting up bodies",
+   "fast": true
+  },
+  "id": "council-proposal:0x27f2169e30e307f49b9401f03312f72d98c50ea03f60ab1fee1045fc9ea98398:1794919973"
+ },
+ {
+  "tx": "0x36705a3bec9e05ca748e4de793019020818742e7fcf5a77f9c7963bf5192788e",
+  "block": 59990499,
+  "time": 1794919968,
+  "contract": "council",
+  "event": "Proposed",
+  "rule": "council-proposal",
+  "severity": "high",
+  "title": "Council change #10 proposed by 0xC782…f834: revoke 0xedcc084d3dcd65a1f7f23c65c46722faca6953d28e43150a467cf43e5c309238 from 0xd868…6fD0 on officials registry (removes power: can run as soon as approved)",
+  "facts": {
+   "proposal": "10",
+   "proposer": "0xC782e1690D4B6c4C2Aba21283a6271477690f834",
+   "target": "0x3b7D249ADBFb3C649a4d82470820751449106E49",
+   "value": "0",
+   "data": "0xd547741fedcc084d3dcd65a1f7f23c65c46722faca6953d28e43150a467cf43e5c309238000000000000000000000000d868af53ed4685ea6b991c64e15c9390c7456fd0",
+   "description": "Remove the lost account 0xd868…6fD0 from registering officials",
+   "fast": true
+  },
+  "id": "council-proposal:0x36705a3bec9e05ca748e4de793019020818742e7fcf5a77f9c7963bf5192788e:1794919968"
+ },
+ {
+  "tx": "0xd47691c1b5f406e3fd5528d03197cb95332fea442617768795e8f10e1bbe5276",
+  "block": 59990477,
+  "time": 1794919964,
+  "contract": "council",
+  "event": "Proposed",
+  "rule": "council-proposal",
+  "severity": "high",
+  "title": "Council change #9 proposed by 0xC782…f834: revoke PROPOSER from 0xd868…6fD0 on civic budget (removes power: can run as soon as approved)",
+  "facts": {
+   "proposal": "9",
+   "proposer": "0xC782e1690D4B6c4C2Aba21283a6271477690f834",
+   "target": "0x39eBd3E37114E976d446855e7d6C2C700C7B5A1e",
+   "value": "0",
+   "data": "0xd547741fb09aa5aeb3702cfd50b6b62bc4532604938f21248a27a1d5ca736082b6819cc1000000000000000000000000d868af53ed4685ea6b991c64e15c9390c7456fd0",
+   "description": "Remove the lost account 0xd868…6fD0 from opening budget rounds",
+   "fast": true
+  },
+  "id": "council-proposal:0xd47691c1b5f406e3fd5528d03197cb95332fea442617768795e8f10e1bbe5276:1794919964"
+ },
+ {
+  "tx": "0x94694910c646c39cf3abf985df8bba08f4004542046725547eae489da7d916f0",
+  "block": 59990455,
+  "time": 1794919959,
+  "contract": "council",
+  "event": "Proposed",
+  "rule": "council-proposal",
+  "severity": "high",
+  "title": "Council change #8 proposed by 0xC782…f834: revoke PROPOSER from 0xd868…6fD0 on voting (removes power: can run as soon as approved)",
+  "facts": {
+   "proposal": "8",
+   "proposer": "0xC782e1690D4B6c4C2Aba21283a6271477690f834",
+   "target": "0xbAcc4af511f00165453399f885C73a79224a18ac",
+   "value": "0",
+   "data": "0xd547741fb09aa5aeb3702cfd50b6b62bc4532604938f21248a27a1d5ca736082b6819cc1000000000000000000000000d868af53ed4685ea6b991c64e15c9390c7456fd0",
+   "description": "Remove the lost account 0xd868…6fD0 from opening polls",
+   "fast": true
+  },
+  "id": "council-proposal:0x94694910c646c39cf3abf985df8bba08f4004542046725547eae489da7d916f0:1794919959"
+ },
+ {
+  "tx": "0xf0987a82341ffa4fd8f806ea9312568fe684806b1d222ed4b4a194fa26a478a9",
+  "block": 59990433,
+  "time": 1794919955,
+  "contract": "council",
+  "event": "Proposed",
+  "rule": "council-proposal",
+  "severity": "high",
+  "title": "Council change #7 proposed by 0xC782…f834: remove identity source 0xd868…6fD0 (\"Demo front desk\") (removes power: can run as soon as approved)",
+  "facts": {
+   "proposal": "7",
+   "proposer": "0xC782e1690D4B6c4C2Aba21283a6271477690f834",
+   "target": "0x781954999cF015622cB23982ecEb66FDb726801c",
+   "value": "0",
+   "data": "0x4899cf59000000000000000000000000d868af53ed4685ea6b991c64e15c9390c7456fd0000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000080000000000000000000000000000000000000000000000000000000000000000f44656d6f2066726f6e74206465736b0000000000000000000000000000000000",
+   "description": "Remove the lost account 0xd868…6fD0 as a clerk desk",
+   "fast": true
+  },
+  "id": "council-proposal:0xf0987a82341ffa4fd8f806ea9312568fe684806b1d222ed4b4a194fa26a478a9:1794919955"
+ },
+ {
+  "tx": "0xfaa3ea43143a1400dd50aa246a45933873ec23c33176c42597bda6a43c4c091d",
+  "block": 59988778,
+  "time": 1794919624,
+  "contract": "council",
+  "event": "Proposed",
+  "rule": "council-proposal",
+  "severity": "high",
+  "title": "Council change #6 proposed by 0xC782…f834: grant PROPOSER to 0x433B…476F on civic budget",
+  "facts": {
+   "proposal": "6",
+   "proposer": "0xC782e1690D4B6c4C2Aba21283a6271477690f834",
+   "target": "0x39eBd3E37114E976d446855e7d6C2C700C7B5A1e",
+   "value": "0",
+   "data": "0x2f2ff15db09aa5aeb3702cfd50b6b62bc4532604938f21248a27a1d5ca736082b6819cc1000000000000000000000000433b8c945c9f4664870ffd3da3ea8d16dd41476f",
+   "description": "Let 0x433B…476F open budget rounds (demo testing)",
+   "fast": false
+  },
+  "id": "council-proposal:0xfaa3ea43143a1400dd50aa246a45933873ec23c33176c42597bda6a43c4c091d:1794919624"
+ },
+ {
+  "tx": "0x3a2defb743f0e4a0cbef6aeddb29bf86eea215a20e0605cd841d7d01aeb433af",
+  "block": 59988756,
+  "time": 1794919620,
+  "contract": "council",
+  "event": "Proposed",
+  "rule": "council-proposal",
+  "severity": "high",
+  "title": "Council change #5 proposed by 0xC782…f834: grant 0xc26be8e0016d7720ca689986256cecb8764bcfd041a3c876681d44dc4d9d7519 to 0x433B…476F on smaller voter lists",
+  "facts": {
+   "proposal": "5",
+   "proposer": "0xC782e1690D4B6c4C2Aba21283a6271477690f834",
+   "target": "0x245a136eA56E0E5499A0f0487D9d1010889ccfa5",
+   "value": "0",
+   "data": "0x2f2ff15dc26be8e0016d7720ca689986256cecb8764bcfd041a3c876681d44dc4d9d7519000000000000000000000000433b8c945c9f4664870ffd3da3ea8d16dd41476f",
+   "description": "Let 0x433B…476F create smaller voter lists (demo testing)",
+   "fast": false
+  },
+  "id": "council-proposal:0x3a2defb743f0e4a0cbef6aeddb29bf86eea215a20e0605cd841d7d01aeb433af:1794919620"
+ },
+ {
+  "tx": "0x36bc36b62ea856143795b1b21a746b14929ab8406b8de511c7ff95d14da69dfb",
+  "block": 59988754,
+  "time": 1794919619,
+  "contract": "council",
+  "event": "Proposed",
+  "rule": "council-proposal",
+  "severity": "high",
+  "title": "Council change #4 proposed by 0xC782…f834: grant 0xd603cc2d39ea2ab57038652f29ac8e7fd0e40e6a9b0f81de9bbc4acc6780d962 to 0x433B…476F on paper and in-person results",
+  "facts": {
+   "proposal": "4",
+   "proposer": "0xC782e1690D4B6c4C2Aba21283a6271477690f834",
+   "target": "0xECD8d167d370a3d179873B7b7f854a37540Df1e5",
+   "value": "0",
+   "data": "0x2f2ff15dd603cc2d39ea2ab57038652f29ac8e7fd0e40e6a9b0f81de9bbc4acc6780d962000000000000000000000000433b8c945c9f4664870ffd3da3ea8d16dd41476f",
+   "description": "Let 0x433B…476F record and confirm paper counts (demo testing)",
+   "fast": false
+  },
+  "id": "council-proposal:0x36bc36b62ea856143795b1b21a746b14929ab8406b8de511c7ff95d14da69dfb:1794919619"
+ },
+ {
+  "tx": "0x7d8ce573802dd5bbd716480f4aa7d30fe116624b977ccbf06e626f9179fc712a",
+  "block": 59988732,
+  "time": 1794919615,
+  "contract": "council",
+  "event": "Proposed",
+  "rule": "council-proposal",
+  "severity": "high",
+  "title": "Council change #3 proposed by 0xC782…f834: approve 0x433B…476F as identity source \"Demo front desk 2\" (up to verified tier)",
+  "facts": {
+   "proposal": "3",
+   "proposer": "0xC782e1690D4B6c4C2Aba21283a6271477690f834",
+   "target": "0x781954999cF015622cB23982ecEb66FDb726801c",
+   "value": "0",
+   "data": "0x4899cf59000000000000000000000000433b8c945c9f4664870ffd3da3ea8d16dd41476f000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000080000000000000000000000000000000000000000000000000000000000000001144656d6f2066726f6e74206465736b2032000000000000000000000000000000",
+   "description": "Approve 0x433B…476F as a clerk desk, \"Demo front desk 2\" (demo testing)",
+   "fast": false
+  },
+  "id": "council-proposal:0x7d8ce573802dd5bbd716480f4aa7d30fe116624b977ccbf06e626f9179fc712a:1794919615"
+ },
+ {
+  "tx": "0x791b191833418d722ce101b0b25c60ca9ec9f9b882b38107c93c46a78725d55a",
+  "block": 59988710,
+  "time": 1794919610,
+  "contract": "council",
+  "event": "Proposed",
+  "rule": "council-proposal",
+  "severity": "high",
+  "title": "Council change #2 proposed by 0xC782…f834: grant PROPOSER to 0x433B…476F on voting",
+  "facts": {
+   "proposal": "2",
+   "proposer": "0xC782e1690D4B6c4C2Aba21283a6271477690f834",
+   "target": "0xbAcc4af511f00165453399f885C73a79224a18ac",
+   "value": "0",
+   "data": "0x2f2ff15db09aa5aeb3702cfd50b6b62bc4532604938f21248a27a1d5ca736082b6819cc1000000000000000000000000433b8c945c9f4664870ffd3da3ea8d16dd41476f",
+   "description": "Let 0x433B…476F open polls (demo testing)",
+   "fast": false
+  },
+  "id": "council-proposal:0x791b191833418d722ce101b0b25c60ca9ec9f9b882b38107c93c46a78725d55a:1794919610"
+ },
+ {
   "tx": "0x548487e2e95e92bd26b19790d2aa6b88ce28dd67a2a2d875239aa1f181718ce0",
   "block": 59901404,
   "time": 1794902149,
