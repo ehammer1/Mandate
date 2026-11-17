@@ -1,5 +1,457 @@
 [
  {
+  "tx": "0xa14f105e0839a513a117cb4a891d634e579baa8673a80906383326d1de3edc0e",
+  "block": 59994100,
+  "time": 1794920688,
+  "contract": "council",
+  "event": "Executed",
+  "rule": "council-executed",
+  "severity": "high",
+  "title": "Council change #7 carried out: remove identity source 0xd868…6fD0 (\"Demo front desk\")",
+  "facts": {
+   "proposal": "7"
+  },
+  "id": "council-executed:0xa14f105e0839a513a117cb4a891d634e579baa8673a80906383326d1de3edc0e:1794920688"
+ },
+ {
+  "tx": "0xa14f105e0839a513a117cb4a891d634e579baa8673a80906383326d1de3edc0e",
+  "block": 59994100,
+  "time": 1794920688,
+  "contract": "identity registry",
+  "event": "IssuerSet",
+  "rule": "identity-source",
+  "severity": "high",
+  "title": "Identity source \"Demo front desk\" (0xd868…6fD0) removed",
+  "facts": {
+   "issuer": "0xd868aF53ED4685eA6B991c64e15C9390c7456fD0",
+   "name": "Demo front desk",
+   "maxTier": 1,
+   "active": false
+  },
+  "id": "identity-source:0xa14f105e0839a513a117cb4a891d634e579baa8673a80906383326d1de3edc0e:1794920688"
+ },
+ {
+  "tx": "0xa14f105e0839a513a117cb4a891d634e579baa8673a80906383326d1de3edc0e",
+  "block": 59994100,
+  "time": 1794920688,
+  "contract": "identity registry",
+  "event": "RoleRevoked",
+  "rule": "role-change",
+  "severity": "medium",
+  "title": "ISSUER role revoked from 0xd868…6fD0 on identity registry",
+  "facts": {
+   "role": "ISSUER",
+   "account": "0xd868aF53ED4685eA6B991c64e15C9390c7456fD0",
+   "by": "0xA0187E7476C4c36653e6418E3F2df6A4Cd94028c"
+  },
+  "id": "role-change:0xa14f105e0839a513a117cb4a891d634e579baa8673a80906383326d1de3edc0e:1794920688"
+ },
+ {
+  "tx": "0xa0293d2a75a44d81c818f46fc6bab8536c5bbeba9df643880f8a0f26708309b6",
+  "block": 59994020,
+  "time": 1794920672,
+  "contract": "council",
+  "event": "Queued",
+  "rule": "council-scheduled",
+  "severity": "high",
+  "title": "Council change #2 approved: it can run from 2026-11-18 13:04 UTC (grant PROPOSER to 0x433B…476F on voting). Members can still cancel it until then.",
+  "facts": {
+   "proposal": "2",
+   "readyAt": 1795007072
+  },
+  "id": "council-scheduled:0xa0293d2a75a44d81c818f46fc6bab8536c5bbeba9df643880f8a0f26708309b6:1794920672"
+ },
+ {
+  "tx": "0x08e0b26ff03d6d9827f6a970f14dd1dd0b5c89d33687369b3d169e07b305d61e",
+  "block": 59993971,
+  "time": 1794920663,
+  "contract": "council",
+  "event": "Queued",
+  "rule": "council-scheduled",
+  "severity": "high",
+  "title": "Council change #7 approved: it can run from 2026-11-17 13:04 UTC (remove identity source 0xd868…6fD0 (\"Demo front desk\")). Members can still cancel it until then.",
+  "facts": {
+   "proposal": "7",
+   "readyAt": 1794920663
+  },
+  "id": "council-scheduled:0x08e0b26ff03d6d9827f6a970f14dd1dd0b5c89d33687369b3d169e07b305d61e:1794920663"
+ },
+ {
+  "tx": "0xa533856b295eb576fe7cf35cd7f447fcdf505f1d2a1d22d2a3db812739dae1ae",
+  "block": 59993913,
+  "time": 1794920651,
+  "contract": "council",
+  "event": "Queued",
+  "rule": "council-scheduled",
+  "severity": "high",
+  "title": "Council change #3 approved: it can run from 2026-11-18 13:04 UTC (approve 0x433B…476F as identity source \"Demo front desk 2\" (up to verified tier)). Members can still cancel it until then.",
+  "facts": {
+   "proposal": "3",
+   "readyAt": 1795007051
+  },
+  "id": "council-scheduled:0xa533856b295eb576fe7cf35cd7f447fcdf505f1d2a1d22d2a3db812739dae1ae:1794920651"
+ },
+ {
+  "tx": "0xe9b54958d8b5d09f74ca7738182dd5da00f90d7ee7a28dcc11e4070c133a0354",
+  "block": 59993843,
+  "time": 1794920637,
+  "contract": "council",
+  "event": "Queued",
+  "rule": "council-scheduled",
+  "severity": "high",
+  "title": "Council change #4 approved: it can run from 2026-11-18 13:03 UTC (grant 0xd603cc2d39ea2ab57038652f29ac8e7fd0e40e6a9b0f81de9bbc4acc6780d962 to 0x433B…476F on paper and in-person results). Members can still cancel it until then.",
+  "facts": {
+   "proposal": "4",
+   "readyAt": 1795007037
+  },
+  "id": "council-scheduled:0xe9b54958d8b5d09f74ca7738182dd5da00f90d7ee7a28dcc11e4070c133a0354:1794920637"
+ },
+ {
+  "tx": "0xd31e1f325caf443b84cf6a0d9fdba526c842edabe7a2f54b47b7e47d04f4d4db",
+  "block": 59993749,
+  "time": 1794920618,
+  "contract": "council",
+  "event": "Queued",
+  "rule": "council-scheduled",
+  "severity": "high",
+  "title": "Council change #6 approved: it can run from 2026-11-18 13:03 UTC (grant PROPOSER to 0x433B…476F on civic budget). Members can still cancel it until then.",
+  "facts": {
+   "proposal": "6",
+   "readyAt": 1795007018
+  },
+  "id": "council-scheduled:0xd31e1f325caf443b84cf6a0d9fdba526c842edabe7a2f54b47b7e47d04f4d4db:1794920618"
+ },
+ {
+  "tx": "0x67857803512e2659ec422e68f861265a7c349a83550a07e9a7b4585d8a1e3aa4",
+  "block": 59993708,
+  "time": 1794920610,
+  "contract": "council",
+  "event": "Queued",
+  "rule": "council-scheduled",
+  "severity": "high",
+  "title": "Council change #5 approved: it can run from 2026-11-18 13:03 UTC (grant 0xc26be8e0016d7720ca689986256cecb8764bcfd041a3c876681d44dc4d9d7519 to 0x433B…476F on smaller voter lists). Members can still cancel it until then.",
+  "facts": {
+   "proposal": "5",
+   "readyAt": 1795007010
+  },
+  "id": "council-scheduled:0x67857803512e2659ec422e68f861265a7c349a83550a07e9a7b4585d8a1e3aa4:1794920610"
+ },
+ {
+  "tx": "0x83903fb9423e4a19de20617771913139240497066968d78664e29e1c069b90e2",
+  "block": 59993667,
+  "time": 1794920602,
+  "contract": "council",
+  "event": "Executed",
+  "rule": "council-executed",
+  "severity": "high",
+  "title": "Council change #9 carried out: revoke PROPOSER from 0xd868…6fD0 on civic budget",
+  "facts": {
+   "proposal": "9"
+  },
+  "id": "council-executed:0x83903fb9423e4a19de20617771913139240497066968d78664e29e1c069b90e2:1794920602"
+ },
+ {
+  "tx": "0x83903fb9423e4a19de20617771913139240497066968d78664e29e1c069b90e2",
+  "block": 59993667,
+  "time": 1794920602,
+  "contract": "civic budget",
+  "event": "RoleRevoked",
+  "rule": "role-change",
+  "severity": "medium",
+  "title": "PROPOSER role revoked from 0xd868…6fD0 on civic budget",
+  "facts": {
+   "role": "PROPOSER",
+   "account": "0xd868aF53ED4685eA6B991c64e15C9390c7456fD0",
+   "by": "0xA0187E7476C4c36653e6418E3F2df6A4Cd94028c"
+  },
+  "id": "role-change:0x83903fb9423e4a19de20617771913139240497066968d78664e29e1c069b90e2:1794920602"
+ },
+ {
+  "tx": "0x2d33b14e1fb78df1927f13cdb57d1ea799375084cd372e53c132f3530412c75c",
+  "block": 59993631,
+  "time": 1794920595,
+  "contract": "council",
+  "event": "Executed",
+  "rule": "council-executed",
+  "severity": "high",
+  "title": "Council change #8 carried out: revoke PROPOSER from 0xd868…6fD0 on voting",
+  "facts": {
+   "proposal": "8"
+  },
+  "id": "council-executed:0x2d33b14e1fb78df1927f13cdb57d1ea799375084cd372e53c132f3530412c75c:1794920595"
+ },
+ {
+  "tx": "0x2d33b14e1fb78df1927f13cdb57d1ea799375084cd372e53c132f3530412c75c",
+  "block": 59993631,
+  "time": 1794920595,
+  "contract": "voting",
+  "event": "RoleRevoked",
+  "rule": "role-change",
+  "severity": "medium",
+  "title": "PROPOSER role revoked from 0xd868…6fD0 on voting",
+  "facts": {
+   "role": "PROPOSER",
+   "account": "0xd868aF53ED4685eA6B991c64e15C9390c7456fD0",
+   "by": "0xA0187E7476C4c36653e6418E3F2df6A4Cd94028c"
+  },
+  "id": "role-change:0x2d33b14e1fb78df1927f13cdb57d1ea799375084cd372e53c132f3530412c75c:1794920595"
+ },
+ {
+  "tx": "0x27a41234b246d45e1f0fe7c3b03f122d0fde2ef36f5418fae92276f99998a881",
+  "block": 59993596,
+  "time": 1794920588,
+  "contract": "council",
+  "event": "Queued",
+  "rule": "council-scheduled",
+  "severity": "high",
+  "title": "Council change #8 approved: it can run from 2026-11-17 13:03 UTC (revoke PROPOSER from 0xd868…6fD0 on voting). Members can still cancel it until then.",
+  "facts": {
+   "proposal": "8",
+   "readyAt": 1794920588
+  },
+  "id": "council-scheduled:0x27a41234b246d45e1f0fe7c3b03f122d0fde2ef36f5418fae92276f99998a881:1794920588"
+ },
+ {
+  "tx": "0xc87e95b1348d271848560279a0b6adbb5f6370cc0c8b5d1fe271fb6e3fd75b82",
+  "block": 59993557,
+  "time": 1794920580,
+  "contract": "council",
+  "event": "Executed",
+  "rule": "council-executed",
+  "severity": "high",
+  "title": "Council change #10 carried out: revoke 0xedcc084d3dcd65a1f7f23c65c46722faca6953d28e43150a467cf43e5c309238 from 0xd868…6fD0 on officials registry",
+  "facts": {
+   "proposal": "10"
+  },
+  "id": "council-executed:0xc87e95b1348d271848560279a0b6adbb5f6370cc0c8b5d1fe271fb6e3fd75b82:1794920580"
+ },
+ {
+  "tx": "0xc87e95b1348d271848560279a0b6adbb5f6370cc0c8b5d1fe271fb6e3fd75b82",
+  "block": 59993557,
+  "time": 1794920580,
+  "contract": "officials registry",
+  "event": "RoleRevoked",
+  "rule": "role-change",
+  "severity": "medium",
+  "title": "0xedcc084d3dcd65a1f7f23c65c46722faca6953d28e43150a467cf43e5c309238 role revoked from 0xd868…6fD0 on officials registry",
+  "facts": {
+   "role": "0xedcc084d3dcd65a1f7f23c65c46722faca6953d28e43150a467cf43e5c309238",
+   "account": "0xd868aF53ED4685eA6B991c64e15C9390c7456fD0",
+   "by": "0xA0187E7476C4c36653e6418E3F2df6A4Cd94028c"
+  },
+  "id": "role-change:0xc87e95b1348d271848560279a0b6adbb5f6370cc0c8b5d1fe271fb6e3fd75b82:1794920580"
+ },
+ {
+  "tx": "0x90e16a1f0232fdb18a6a00f9c2c679beee4a3f69248bf8b8aa3ae9296e471a5b",
+  "block": 59993321,
+  "time": 1794920533,
+  "contract": "council",
+  "event": "Executed",
+  "rule": "council-executed",
+  "severity": "high",
+  "title": "Council change #11 carried out: revoke 0xedcc084d3dcd65a1f7f23c65c46722faca6953d28e43150a467cf43e5c309238 from 0xd868…6fD0 on government bodies",
+  "facts": {
+   "proposal": "11"
+  },
+  "id": "council-executed:0x90e16a1f0232fdb18a6a00f9c2c679beee4a3f69248bf8b8aa3ae9296e471a5b:1794920533"
+ },
+ {
+  "tx": "0x90e16a1f0232fdb18a6a00f9c2c679beee4a3f69248bf8b8aa3ae9296e471a5b",
+  "block": 59993321,
+  "time": 1794920533,
+  "contract": "government bodies",
+  "event": "RoleRevoked",
+  "rule": "role-change",
+  "severity": "medium",
+  "title": "0xedcc084d3dcd65a1f7f23c65c46722faca6953d28e43150a467cf43e5c309238 role revoked from 0xd868…6fD0 on government bodies",
+  "facts": {
+   "role": "0xedcc084d3dcd65a1f7f23c65c46722faca6953d28e43150a467cf43e5c309238",
+   "account": "0xd868aF53ED4685eA6B991c64e15C9390c7456fD0",
+   "by": "0xA0187E7476C4c36653e6418E3F2df6A4Cd94028c"
+  },
+  "id": "role-change:0x90e16a1f0232fdb18a6a00f9c2c679beee4a3f69248bf8b8aa3ae9296e471a5b:1794920533"
+ },
+ {
+  "tx": "0x4ccd8be87b026674a1e03c41c8bce7258ec1b92a3cd31351c19aa8171279deae",
+  "block": 59993279,
+  "time": 1794920524,
+  "contract": "council",
+  "event": "Queued",
+  "rule": "council-scheduled",
+  "severity": "high",
+  "title": "Council change #10 approved: it can run from 2026-11-17 13:02 UTC (revoke 0xedcc084d3dcd65a1f7f23c65c46722faca6953d28e43150a467cf43e5c309238 from 0xd868…6fD0 on officials registry). Members can still cancel it until then.",
+  "facts": {
+   "proposal": "10",
+   "readyAt": 1794920524
+  },
+  "id": "council-scheduled:0x4ccd8be87b026674a1e03c41c8bce7258ec1b92a3cd31351c19aa8171279deae:1794920524"
+ },
+ {
+  "tx": "0x32849fbd81d1912c40c5a9a314da5d84a112061fac56e1dfd0818ab47c8d9d81",
+  "block": 59993237,
+  "time": 1794920516,
+  "contract": "council",
+  "event": "Queued",
+  "rule": "council-scheduled",
+  "severity": "high",
+  "title": "Council change #11 approved: it can run from 2026-11-17 13:01 UTC (revoke 0xedcc084d3dcd65a1f7f23c65c46722faca6953d28e43150a467cf43e5c309238 from 0xd868…6fD0 on government bodies). Members can still cancel it until then.",
+  "facts": {
+   "proposal": "11",
+   "readyAt": 1794920516
+  },
+  "id": "council-scheduled:0x32849fbd81d1912c40c5a9a314da5d84a112061fac56e1dfd0818ab47c8d9d81:1794920516"
+ },
+ {
+  "tx": "0x361a0aea5362468854422526af99514239c874ad0748d80b2b2d3e2783ba0a01",
+  "block": 59993176,
+  "time": 1794920504,
+  "contract": "council",
+  "event": "Queued",
+  "rule": "council-scheduled",
+  "severity": "high",
+  "title": "Council change #9 approved: it can run from 2026-11-17 13:01 UTC (revoke PROPOSER from 0xd868…6fD0 on civic budget). Members can still cancel it until then.",
+  "facts": {
+   "proposal": "9",
+   "readyAt": 1794920504
+  },
+  "id": "council-scheduled:0x361a0aea5362468854422526af99514239c874ad0748d80b2b2d3e2783ba0a01:1794920504"
+ },
+ {
+  "tx": "0xab6efedfe202572d524e08b7c3b3ea5d8f1f263b6fde203746acb9870163b4df",
+  "block": 59993141,
+  "time": 1794920497,
+  "contract": "council",
+  "event": "Executed",
+  "rule": "council-executed",
+  "severity": "high",
+  "title": "Council change #12 carried out: revoke 0xd603cc2d39ea2ab57038652f29ac8e7fd0e40e6a9b0f81de9bbc4acc6780d962 from 0xd868…6fD0 on paper and in-person results",
+  "facts": {
+   "proposal": "12"
+  },
+  "id": "council-executed:0xab6efedfe202572d524e08b7c3b3ea5d8f1f263b6fde203746acb9870163b4df:1794920497"
+ },
+ {
+  "tx": "0xab6efedfe202572d524e08b7c3b3ea5d8f1f263b6fde203746acb9870163b4df",
+  "block": 59993141,
+  "time": 1794920497,
+  "contract": "paper and in-person results",
+  "event": "RoleRevoked",
+  "rule": "role-change",
+  "severity": "medium",
+  "title": "0xd603cc2d39ea2ab57038652f29ac8e7fd0e40e6a9b0f81de9bbc4acc6780d962 role revoked from 0xd868…6fD0 on paper and in-person results",
+  "facts": {
+   "role": "0xd603cc2d39ea2ab57038652f29ac8e7fd0e40e6a9b0f81de9bbc4acc6780d962",
+   "account": "0xd868aF53ED4685eA6B991c64e15C9390c7456fD0",
+   "by": "0xA0187E7476C4c36653e6418E3F2df6A4Cd94028c"
+  },
+  "id": "role-change:0xab6efedfe202572d524e08b7c3b3ea5d8f1f263b6fde203746acb9870163b4df:1794920497"
+ },
+ {
+  "tx": "0x1e0dd595c86a6caceb646e8de244018ee2359a06c78c93fefa4d68dccf5aef6b",
+  "block": 59993079,
+  "time": 1794920484,
+  "contract": "council",
+  "event": "Queued",
+  "rule": "council-scheduled",
+  "severity": "high",
+  "title": "Council change #12 approved: it can run from 2026-11-17 13:01 UTC (revoke 0xd603cc2d39ea2ab57038652f29ac8e7fd0e40e6a9b0f81de9bbc4acc6780d962 from 0xd868…6fD0 on paper and in-person results). Members can still cancel it until then.",
+  "facts": {
+   "proposal": "12",
+   "readyAt": 1794920484
+  },
+  "id": "council-scheduled:0x1e0dd595c86a6caceb646e8de244018ee2359a06c78c93fefa4d68dccf5aef6b:1794920484"
+ },
+ {
+  "tx": "0x29b7a2782825cb0ec2517549955158c5f7415617fbaa76beb450c6a15509bdc9",
+  "block": 59993041,
+  "time": 1794920477,
+  "contract": "council",
+  "event": "Executed",
+  "rule": "council-executed",
+  "severity": "high",
+  "title": "Council change #13 carried out: revoke 0xc26be8e0016d7720ca689986256cecb8764bcfd041a3c876681d44dc4d9d7519 from 0xd868…6fD0 on smaller voter lists",
+  "facts": {
+   "proposal": "13"
+  },
+  "id": "council-executed:0x29b7a2782825cb0ec2517549955158c5f7415617fbaa76beb450c6a15509bdc9:1794920477"
+ },
+ {
+  "tx": "0x29b7a2782825cb0ec2517549955158c5f7415617fbaa76beb450c6a15509bdc9",
+  "block": 59993041,
+  "time": 1794920477,
+  "contract": "smaller voter lists",
+  "event": "RoleRevoked",
+  "rule": "role-change",
+  "severity": "medium",
+  "title": "0xc26be8e0016d7720ca689986256cecb8764bcfd041a3c876681d44dc4d9d7519 role revoked from 0xd868…6fD0 on smaller voter lists",
+  "facts": {
+   "role": "0xc26be8e0016d7720ca689986256cecb8764bcfd041a3c876681d44dc4d9d7519",
+   "account": "0xd868aF53ED4685eA6B991c64e15C9390c7456fD0",
+   "by": "0xA0187E7476C4c36653e6418E3F2df6A4Cd94028c"
+  },
+  "id": "role-change:0x29b7a2782825cb0ec2517549955158c5f7415617fbaa76beb450c6a15509bdc9:1794920477"
+ },
+ {
+  "tx": "0xdf1040d72f525e9e9aa5c6b4abc2f7e330e150d92f63fc2368231d117ae70297",
+  "block": 59992986,
+  "time": 1794920466,
+  "contract": "council",
+  "event": "Queued",
+  "rule": "council-scheduled",
+  "severity": "high",
+  "title": "Council change #13 approved: it can run from 2026-11-17 13:01 UTC (revoke 0xc26be8e0016d7720ca689986256cecb8764bcfd041a3c876681d44dc4d9d7519 from 0xd868…6fD0 on smaller voter lists). Members can still cancel it until then.",
+  "facts": {
+   "proposal": "13",
+   "readyAt": 1794920466
+  },
+  "id": "council-scheduled:0xdf1040d72f525e9e9aa5c6b4abc2f7e330e150d92f63fc2368231d117ae70297:1794920466"
+ },
+ {
+  "tx": "0x719223068ce0ba0b7c54cf240982d75f0dd70022427745c1c778f0a22097a408",
+  "block": 59992933,
+  "time": 1794920455,
+  "contract": "council",
+  "event": "Queued",
+  "rule": "council-scheduled",
+  "severity": "high",
+  "title": "Council change #14 approved: it can run from 2026-11-18 13:00 UTC (grant 0xedcc084d3dcd65a1f7f23c65c46722faca6953d28e43150a467cf43e5c309238 to 0x433B…476F on officials registry). Members can still cancel it until then.",
+  "facts": {
+   "proposal": "14",
+   "readyAt": 1795006855
+  },
+  "id": "council-scheduled:0x719223068ce0ba0b7c54cf240982d75f0dd70022427745c1c778f0a22097a408:1794920455"
+ },
+ {
+  "tx": "0x333c3a40223bb0726d21146abb686e0bcef45bd586db9ae5395c71d0ebac76cb",
+  "block": 59992892,
+  "time": 1794920447,
+  "contract": "council",
+  "event": "Queued",
+  "rule": "council-scheduled",
+  "severity": "high",
+  "title": "Council change #15 approved: it can run from 2026-11-18 13:00 UTC (grant 0xedcc084d3dcd65a1f7f23c65c46722faca6953d28e43150a467cf43e5c309238 to 0x433B…476F on government bodies). Members can still cancel it until then.",
+  "facts": {
+   "proposal": "15",
+   "readyAt": 1795006847
+  },
+  "id": "council-scheduled:0x333c3a40223bb0726d21146abb686e0bcef45bd586db9ae5395c71d0ebac76cb:1794920447"
+ },
+ {
+  "tx": "0xb333575cf9bf6e6176693b6b72eec8d08686fa36f22ba9fcacce4fe83ebf8af7",
+  "block": 59992864,
+  "time": 1794920441,
+  "contract": "council",
+  "event": "Queued",
+  "rule": "council-scheduled",
+  "severity": "high",
+  "title": "Council change #16 approved: it can run from 2026-11-18 13:00 UTC (approve 0x4C9a…b71B as identity source \"Demo front desk 3\" (up to verified tier)). Members can still cancel it until then.",
+  "facts": {
+   "proposal": "16",
+   "readyAt": 1795006841
+  },
+  "id": "council-scheduled:0xb333575cf9bf6e6176693b6b72eec8d08686fa36f22ba9fcacce4fe83ebf8af7:1794920441"
+ },
+ {
   "tx": "0x4c4d4442cfd97c399c1365180196b831fc51cc2619af0f8e2be17c50820391d7",
   "block": 59992733,
   "time": 1794920415,

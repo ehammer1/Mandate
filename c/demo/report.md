@@ -1,58 +1,42 @@
 # Mandate audit report
 
-Generated 2026-11-17T13:00:41.000Z · last 24 hours · 17 high, 1 medium, 0 info
+Generated 2026-11-17T13:15:37.000Z · last 24 hours · 40 high, 8 medium, 0 info
 
 # Daily Audit Note: 17 November 2026
 
-**Today needs attention:** one account proposed 16 changes to who holds powers in the system, and one of those changes has already been approved and can take effect tomorrow.
+**Yes, some items need attention: nine approved council changes will hand significant powers to two accounts starting tomorrow, 18 November, at about 13:00 UTC, and members can still cancel them until then.**
 
-## High-priority items
+## High-severity items
 
-All 16 proposals came from the same account, 0xC782…f834, between 12:46 and 12:56 UTC. They fall into three groups:
+**Powers removed from account 0xd868…6fD0 ("Demo front desk").**
+Council account 0xC782…f834 proposed seven changes (#7–#13) to strip all powers from this account. The proposals describe it as a "lost account." All seven were approved and carried out between 13:01 and 13:05 UTC. The account can no longer:
+- verify identities (it is no longer an identity source)
+- open polls or budget rounds
+- register officials or set up government bodies
+- record paper counts
+- create smaller voter lists
 
-- **Powers for a new account (0x433B…476F):** seven proposals
-- **Removal of an old account (0xd868…6fD0):** seven proposals
-- **Powers for another new account (0x4C9a…b71B):** two proposals
+These changes only remove powers, so the rules allowed them to take effect as soon as they were approved.
 
-The "demo testing" and "lost account" wording below comes from the proposal descriptions themselves.
+**New powers approved for account 0x433B…476F.**
+The same council account proposed seven changes (#2–#6, #14, #15) giving this account broad powers. Together they would let it:
+- open polls and budget rounds
+- act as an identity source called "Demo front desk 2," able to verify people up to the verified tier
+- record and confirm paper and in-person counts
+- create smaller voter lists
+- register officials and set up government bodies
 
-**Change #2.** This would let 0x433B…476F open polls. The stated reason is "demo testing." It matters because opening polls controls what residents are asked to vote on.
+All seven were approved. They can take effect from 18 November between 13:00 and 13:04 UTC. Each proposal is labelled "demo testing." This matters because these are the same powers just removed from the lost account, now concentrated in one new account.
 
-**Change #3.** This would approve 0x433B…476F as an identity source, "Demo front desk 2," able to verify residents up to the verified tier. The stated reason is "demo testing." It matters because identity sources decide who counts as a verified resident.
+**New powers approved for account 0x4C9a…b71B.**
+Two changes (#16, #17), also proposed by 0xC782…f834, would make this account an identity source called "Demo front desk 3" (up to the verified tier) and let it record and confirm paper and in-person counts. Both were approved and can take effect from 18 November at 13:00 UTC. Both are labelled "demo testing."
 
-**Change #4.** This would let 0x433B…476F record and confirm paper and in-person counts. The stated reason is "demo testing." It matters because this power affects official results.
+## Other items
 
-**Change #5.** This would let 0x433B…476F create smaller voter lists. The stated reason is "demo testing." It matters because voter lists determine who can vote in a given poll.
+- At 07:55 UTC, account 0x7b12…2889 removed one member from the voter list. The record does not give a reason.
+- Several medium-severity alerts show the role removals for 0xd868…6fD0 being recorded, all carried out by account 0xA0187…028c. They match the council changes described above.
 
-**Change #6.** This would let 0x433B…476F open civic budget rounds. The stated reason is "demo testing." It matters because this power affects how public budget decisions start.
-
-**Change #7.** This would remove 0xd868…6fD0, described as a "lost account," as the identity source "Demo front desk." Because it removes a power, it can run as soon as it is approved.
-
-**Change #8.** This would remove the lost account 0xd868…6fD0's ability to open polls. It can run as soon as it is approved.
-
-**Change #9.** This would remove 0xd868…6fD0's ability to open budget rounds. It can run as soon as it is approved.
-
-**Change #10.** This would remove 0xd868…6fD0's ability to register officials. It can run as soon as it is approved.
-
-**Change #11.** This would remove 0xd868…6fD0's ability to set up government bodies. It can run as soon as it is approved.
-
-**Change #12.** This would remove 0xd868…6fD0's ability to record paper counts. It can run as soon as it is approved.
-
-**Change #13.** This would remove 0xd868…6fD0's ability to create voter lists. It can run as soon as it is approved.
-
-**Change #14.** This would let 0x433B…476F register officials. The stated reason is "demo testing."
-
-**Change #15.** This would let 0x433B…476F set up government bodies. The stated reason is "demo testing."
-
-**Change #16.** This would approve a further account, 0x4C9a…b71B, as an identity source, "Demo front desk 3," up to the verified tier. The stated reason is "demo testing."
-
-**Change #17: proposed and already approved.** This would let 0x4C9a…b71B record and confirm paper and in-person counts. The stated reason is "demo testing." It was approved at 13:00 UTC and can run from **18 November 2026, 13:00 UTC**. Members can still cancel it until then.
-
-**Overall picture:** taken together, these proposals would move the old account's powers to 0x433B…476F and give some of the same powers to 0x4C9a…b71B. Apart from #17, none had been approved as of these alerts.
-
-## Other activity
-
-At 07:55 UTC, account 0x7b12…2889 removed one member from the voter list. The alert does not say which member was removed or why.
+All 16 council proposals today came from a single account, 0xC782…f834.
 
 ## All alerts
 
@@ -74,5 +58,35 @@ At 07:55 UTC, account 0x7b12…2889 removed one member from the voter list. The 
 - **high** Council change #16 proposed by 0xC782…f834: approve 0x4C9a…b71B as identity source "Demo front desk 3" (up to verified tier) ([tx](https://sepolia.basescan.org/tx/0xf8307ef716e21a327d88548510c7169daa3c6145bcc36733a44fe716452b44c2))
 - **high** Council change #17 proposed by 0xC782…f834: grant 0xd603cc2d39ea2ab57038652f29ac8e7fd0e40e6a9b0f81de9bbc4acc6780d962 to 0x4C9a…b71B on paper and in-person results ([tx](https://sepolia.basescan.org/tx/0xdeee7363abe929f64ab4eaa25aefaa871c5d75a705b9a7526156c75eafbffefa))
 - **high** Council change #17 approved: it can run from 2026-11-18 13:00 UTC (grant 0xd603cc2d39ea2ab57038652f29ac8e7fd0e40e6a9b0f81de9bbc4acc6780d962 to 0x4C9a…b71B on paper and in-person results). Members can still cancel it until then. ([tx](https://sepolia.basescan.org/tx/0x4c4d4442cfd97c399c1365180196b831fc51cc2619af0f8e2be17c50820391d7))
+- **high** Council change #16 approved: it can run from 2026-11-18 13:00 UTC (approve 0x4C9a…b71B as identity source "Demo front desk 3" (up to verified tier)). Members can still cancel it until then. ([tx](https://sepolia.basescan.org/tx/0xb333575cf9bf6e6176693b6b72eec8d08686fa36f22ba9fcacce4fe83ebf8af7))
+- **high** Council change #15 approved: it can run from 2026-11-18 13:00 UTC (grant 0xedcc084d3dcd65a1f7f23c65c46722faca6953d28e43150a467cf43e5c309238 to 0x433B…476F on government bodies). Members can still cancel it until then. ([tx](https://sepolia.basescan.org/tx/0x333c3a40223bb0726d21146abb686e0bcef45bd586db9ae5395c71d0ebac76cb))
+- **high** Council change #14 approved: it can run from 2026-11-18 13:00 UTC (grant 0xedcc084d3dcd65a1f7f23c65c46722faca6953d28e43150a467cf43e5c309238 to 0x433B…476F on officials registry). Members can still cancel it until then. ([tx](https://sepolia.basescan.org/tx/0x719223068ce0ba0b7c54cf240982d75f0dd70022427745c1c778f0a22097a408))
+- **high** Council change #13 approved: it can run from 2026-11-17 13:01 UTC (revoke 0xc26be8e0016d7720ca689986256cecb8764bcfd041a3c876681d44dc4d9d7519 from 0xd868…6fD0 on smaller voter lists). Members can still cancel it until then. ([tx](https://sepolia.basescan.org/tx/0xdf1040d72f525e9e9aa5c6b4abc2f7e330e150d92f63fc2368231d117ae70297))
+- **medium** 0xc26be8e0016d7720ca689986256cecb8764bcfd041a3c876681d44dc4d9d7519 role revoked from 0xd868…6fD0 on smaller voter lists ([tx](https://sepolia.basescan.org/tx/0x29b7a2782825cb0ec2517549955158c5f7415617fbaa76beb450c6a15509bdc9))
+- **high** Council change #13 carried out: revoke 0xc26be8e0016d7720ca689986256cecb8764bcfd041a3c876681d44dc4d9d7519 from 0xd868…6fD0 on smaller voter lists ([tx](https://sepolia.basescan.org/tx/0x29b7a2782825cb0ec2517549955158c5f7415617fbaa76beb450c6a15509bdc9))
+- **high** Council change #12 approved: it can run from 2026-11-17 13:01 UTC (revoke 0xd603cc2d39ea2ab57038652f29ac8e7fd0e40e6a9b0f81de9bbc4acc6780d962 from 0xd868…6fD0 on paper and in-person results). Members can still cancel it until then. ([tx](https://sepolia.basescan.org/tx/0x1e0dd595c86a6caceb646e8de244018ee2359a06c78c93fefa4d68dccf5aef6b))
+- **medium** 0xd603cc2d39ea2ab57038652f29ac8e7fd0e40e6a9b0f81de9bbc4acc6780d962 role revoked from 0xd868…6fD0 on paper and in-person results ([tx](https://sepolia.basescan.org/tx/0xab6efedfe202572d524e08b7c3b3ea5d8f1f263b6fde203746acb9870163b4df))
+- **high** Council change #12 carried out: revoke 0xd603cc2d39ea2ab57038652f29ac8e7fd0e40e6a9b0f81de9bbc4acc6780d962 from 0xd868…6fD0 on paper and in-person results ([tx](https://sepolia.basescan.org/tx/0xab6efedfe202572d524e08b7c3b3ea5d8f1f263b6fde203746acb9870163b4df))
+- **high** Council change #9 approved: it can run from 2026-11-17 13:01 UTC (revoke PROPOSER from 0xd868…6fD0 on civic budget). Members can still cancel it until then. ([tx](https://sepolia.basescan.org/tx/0x361a0aea5362468854422526af99514239c874ad0748d80b2b2d3e2783ba0a01))
+- **high** Council change #11 approved: it can run from 2026-11-17 13:01 UTC (revoke 0xedcc084d3dcd65a1f7f23c65c46722faca6953d28e43150a467cf43e5c309238 from 0xd868…6fD0 on government bodies). Members can still cancel it until then. ([tx](https://sepolia.basescan.org/tx/0x32849fbd81d1912c40c5a9a314da5d84a112061fac56e1dfd0818ab47c8d9d81))
+- **high** Council change #10 approved: it can run from 2026-11-17 13:02 UTC (revoke 0xedcc084d3dcd65a1f7f23c65c46722faca6953d28e43150a467cf43e5c309238 from 0xd868…6fD0 on officials registry). Members can still cancel it until then. ([tx](https://sepolia.basescan.org/tx/0x4ccd8be87b026674a1e03c41c8bce7258ec1b92a3cd31351c19aa8171279deae))
+- **medium** 0xedcc084d3dcd65a1f7f23c65c46722faca6953d28e43150a467cf43e5c309238 role revoked from 0xd868…6fD0 on government bodies ([tx](https://sepolia.basescan.org/tx/0x90e16a1f0232fdb18a6a00f9c2c679beee4a3f69248bf8b8aa3ae9296e471a5b))
+- **high** Council change #11 carried out: revoke 0xedcc084d3dcd65a1f7f23c65c46722faca6953d28e43150a467cf43e5c309238 from 0xd868…6fD0 on government bodies ([tx](https://sepolia.basescan.org/tx/0x90e16a1f0232fdb18a6a00f9c2c679beee4a3f69248bf8b8aa3ae9296e471a5b))
+- **medium** 0xedcc084d3dcd65a1f7f23c65c46722faca6953d28e43150a467cf43e5c309238 role revoked from 0xd868…6fD0 on officials registry ([tx](https://sepolia.basescan.org/tx/0xc87e95b1348d271848560279a0b6adbb5f6370cc0c8b5d1fe271fb6e3fd75b82))
+- **high** Council change #10 carried out: revoke 0xedcc084d3dcd65a1f7f23c65c46722faca6953d28e43150a467cf43e5c309238 from 0xd868…6fD0 on officials registry ([tx](https://sepolia.basescan.org/tx/0xc87e95b1348d271848560279a0b6adbb5f6370cc0c8b5d1fe271fb6e3fd75b82))
+- **high** Council change #8 approved: it can run from 2026-11-17 13:03 UTC (revoke PROPOSER from 0xd868…6fD0 on voting). Members can still cancel it until then. ([tx](https://sepolia.basescan.org/tx/0x27a41234b246d45e1f0fe7c3b03f122d0fde2ef36f5418fae92276f99998a881))
+- **medium** PROPOSER role revoked from 0xd868…6fD0 on voting ([tx](https://sepolia.basescan.org/tx/0x2d33b14e1fb78df1927f13cdb57d1ea799375084cd372e53c132f3530412c75c))
+- **high** Council change #8 carried out: revoke PROPOSER from 0xd868…6fD0 on voting ([tx](https://sepolia.basescan.org/tx/0x2d33b14e1fb78df1927f13cdb57d1ea799375084cd372e53c132f3530412c75c))
+- **medium** PROPOSER role revoked from 0xd868…6fD0 on civic budget ([tx](https://sepolia.basescan.org/tx/0x83903fb9423e4a19de20617771913139240497066968d78664e29e1c069b90e2))
+- **high** Council change #9 carried out: revoke PROPOSER from 0xd868…6fD0 on civic budget ([tx](https://sepolia.basescan.org/tx/0x83903fb9423e4a19de20617771913139240497066968d78664e29e1c069b90e2))
+- **high** Council change #5 approved: it can run from 2026-11-18 13:03 UTC (grant 0xc26be8e0016d7720ca689986256cecb8764bcfd041a3c876681d44dc4d9d7519 to 0x433B…476F on smaller voter lists). Members can still cancel it until then. ([tx](https://sepolia.basescan.org/tx/0x67857803512e2659ec422e68f861265a7c349a83550a07e9a7b4585d8a1e3aa4))
+- **high** Council change #6 approved: it can run from 2026-11-18 13:03 UTC (grant PROPOSER to 0x433B…476F on civic budget). Members can still cancel it until then. ([tx](https://sepolia.basescan.org/tx/0xd31e1f325caf443b84cf6a0d9fdba526c842edabe7a2f54b47b7e47d04f4d4db))
+- **high** Council change #4 approved: it can run from 2026-11-18 13:03 UTC (grant 0xd603cc2d39ea2ab57038652f29ac8e7fd0e40e6a9b0f81de9bbc4acc6780d962 to 0x433B…476F on paper and in-person results). Members can still cancel it until then. ([tx](https://sepolia.basescan.org/tx/0xe9b54958d8b5d09f74ca7738182dd5da00f90d7ee7a28dcc11e4070c133a0354))
+- **high** Council change #3 approved: it can run from 2026-11-18 13:04 UTC (approve 0x433B…476F as identity source "Demo front desk 2" (up to verified tier)). Members can still cancel it until then. ([tx](https://sepolia.basescan.org/tx/0xa533856b295eb576fe7cf35cd7f447fcdf505f1d2a1d22d2a3db812739dae1ae))
+- **high** Council change #7 approved: it can run from 2026-11-17 13:04 UTC (remove identity source 0xd868…6fD0 ("Demo front desk")). Members can still cancel it until then. ([tx](https://sepolia.basescan.org/tx/0x08e0b26ff03d6d9827f6a970f14dd1dd0b5c89d33687369b3d169e07b305d61e))
+- **high** Council change #2 approved: it can run from 2026-11-18 13:04 UTC (grant PROPOSER to 0x433B…476F on voting). Members can still cancel it until then. ([tx](https://sepolia.basescan.org/tx/0xa0293d2a75a44d81c818f46fc6bab8536c5bbeba9df643880f8a0f26708309b6))
+- **medium** ISSUER role revoked from 0xd868…6fD0 on identity registry ([tx](https://sepolia.basescan.org/tx/0xa14f105e0839a513a117cb4a891d634e579baa8673a80906383326d1de3edc0e))
+- **high** Identity source "Demo front desk" (0xd868…6fD0) removed ([tx](https://sepolia.basescan.org/tx/0xa14f105e0839a513a117cb4a891d634e579baa8673a80906383326d1de3edc0e))
+- **high** Council change #7 carried out: remove identity source 0xd868…6fD0 ("Demo front desk") ([tx](https://sepolia.basescan.org/tx/0xa14f105e0839a513a117cb4a891d634e579baa8673a80906383326d1de3edc0e))
 
 Summary written by: AI (claude-opus-5-5); the alerts themselves come from fixed rules.
