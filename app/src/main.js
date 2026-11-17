@@ -1073,7 +1073,6 @@ function activeAddress() {
 async function refreshAccount() {
   const address = activeAddress();
   $('account-address').textContent = address;
-  $('btn-copy-address').dataset.copy = address;
   addCopyButton($('account-address'));
   $('account-kind').textContent = state.external
     ? `Connected: ${state.external.label}`
