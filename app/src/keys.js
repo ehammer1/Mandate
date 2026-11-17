@@ -55,8 +55,19 @@ async function hkdf(secret, label) {
   return new Uint8Array(bits);
 }
 
+// Which community these keys are for. Communities share one web address (and so one passkey),
+// so each added community (?org=<slug>) gets its own voter key from the same passkey or backup
+// code: the same person's voter codes can't be linked across communities. The original
+// community (no slug) keeps the original voter key. The account key (roles, credits) stays
+// shared, so an admin's account is the same everywhere.
+let community = '';
+export function setCommunity(slug) {
+  community = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/.test(String(slug || '')) ? String(slug) : '';
+}
+
 async function deriveKeys(rootSecret, method) {
-  const [voting, account] = await Promise.all([hkdf(rootSecret, 'mandate/voting/v1'), hkdf(rootSecret, 'mandate/account/v1')]);
+  const votingInfo = community ? `mandate/voting/v1/c/${community}` : 'mandate/voting/v1';
+  const [voting, account] = await Promise.all([hkdf(rootSecret, votingInfo), hkdf(rootSecret, 'mandate/account/v1')]);
   return { votingKey: voting, accountKeyHex: '0x' + toHex(account), method };
 }
 
@@ -153,6 +164,9 @@ export async function unlockWithPasskey({ remember = true } = {}) {
  * or print, and typing it in later restores the same voter.
  */
 export async function createDeviceKey({ remember = true } = {}) {
+  // Never replace a key already saved here: that would lose the voter and their backup code.
+  // (Restoring from a typed backup code is the only way to change it.)
+  if (remember && load().deviceSecret) return unlockDeviceKey();
   const secret = random(32);
   if (remember) save({ ...load(), method: 'device', deviceSecret: b64url(secret) }); // keep any known passkey
   return { ...(await deriveKeys(secret, remember ? 'device' : 'public')), backupCode: backupCodeFor(secret) };

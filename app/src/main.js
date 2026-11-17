@@ -89,6 +89,7 @@ const when = (secs) => new Date(Number(secs) * 1000).toLocaleString(undefined, {
 async function loadConfig() {
   const cfg = await loadCommunityConfig(); // this community's settings (?org=), bypassing caches
   state.config = cfg;
+  keys.setCommunity(cfg.communitySlug); // its own voter key, not linkable to other communities
   if (cfg.communityName && document.getElementById('community-name')) Object.assign(document.getElementById('community-name'), { textContent: cfg.communityName, hidden: false });
   startCounter(cfg);
   state.provider = new ethers.JsonRpcProvider(cfg.rpcUrl, undefined, { staticNetwork: true, cacheTimeout: -1 });
@@ -277,12 +278,16 @@ function wireSignIn() {
     return trySignIn(() => keys.createDeviceKey({ remember: false }), s);
   };
   $('btn-public-restore').onclick = () => trySignIn(() => keys.restoreFromBackup($('public-code').value, { remember: false }), s);
-  $('btn-device').onclick = () => trySignIn(() => (keys.savedMethod() === 'device' ? keys.unlockDeviceKey() : keys.createDeviceKey()), s);
+  $('btn-device').onclick = () => trySignIn(() => (keys.hasSavedDeviceKey() ? keys.unlockDeviceKey() : keys.createDeviceKey()), s);
   $('restore-form').onsubmit = (e) => {
     e.preventDefault();
     return trySignIn(() => keys.restoreFromBackup($('restore-code').value), s);
   };
   $('restore-show').onchange = () => ($('restore-code').type = $('restore-show').checked ? 'text' : 'password');
+  $('link-have-key').onclick = (e) => {
+    e.preventDefault();
+    $('btn-unlock').click();
+  };
   $('link-restore').onclick = (e) => {
     e.preventDefault();
     $('device-option').open = true;
@@ -1606,6 +1611,7 @@ async function boot() {
     $('btn-welcome-unlock').onclick = () => trySignIn(() => keys.unlockDeviceKey(), $('signin-status'));
     document.querySelector('#welcome-back .note').textContent = 'This browser already has your voter key. To vote from another device, use your backup code (Show my backup code, once you are in).';
   }
+  if (keys.hasSavedDeviceKey()) $('btn-device').textContent = 'Unlock the key saved in this browser';
   if (keys.savedMethod() === 'device') {
     // Someone who uses a key saved in this browser should see how to unlock it straight away.
     $('device-option').open = true;

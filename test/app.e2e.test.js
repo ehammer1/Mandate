@@ -1795,3 +1795,50 @@ test('lost voter key: the same email replaces it, and the backup code can go to 
   // And the restore form is ready for the password manager to fill.
   assert.equal(await page.getAttribute('#restore-code', 'autocomplete'), 'current-password');
 });
+
+test('"Unlock the key saved in this browser" never replaces it, even after using a passkey', async () => {
+  // The test authenticator holds only a few passkeys (a real phone holds many): start it empty.
+  await cdpMain.send('WebAuthn.clearCredentials', { authenticatorId: authIdMain });
+  const codeNow = async () => {
+    await page.waitForSelector('#screen-home:not([hidden])');
+    await page.click('#btn-show-backup');
+    return (await page.textContent('#backup-code')).trim();
+  };
+  const browserKey = async () => {
+    await page.click('#btn-signout');
+    await page.evaluate(() => { document.getElementById('device-option').open = true; });
+    await page.click('#btn-device');
+  };
+  await browserKey();
+  const first = await codeNow();
+  assert.match(first, /^MV2-/);
+  // Use a passkey in between (this made the button create a new browser key, losing the first).
+  await page.click('#btn-signout');
+  await page.click('#btn-create');
+  await page.waitForSelector('#screen-home:not([hidden])', { timeout: 30_000 }).catch(async (e) => {
+    throw new Error(`no home screen after making a passkey; sign-in says: "${await page.textContent('#signin-status')}"; ${e.message.split('\n')[0]}`);
+  });
+  await browserKey();
+  assert.equal(await codeNow(), first);
+  // A reload labels it as unlocking, not making, a key.
+  await page.click('#btn-signout');
+  await page.reload();
+  assert.equal((await page.textContent('#btn-device')).trim(), 'Unlock the key saved in this browser');
+});
+
+test('one key, a different voter code in each community (not linkable); the main community keeps its code', async () => {
+  appOptsRef.communities = { 'ward-3': { ...appConfig, communitySlug: 'ward-3', communityName: 'Ward 3 Residents' } };
+  const codeAt = async (url) => {
+    await page.goto(url);
+    await page.waitForSelector('#welcome-back:not([hidden])');
+    await page.click('#btn-welcome-unlock');
+    await page.waitForSelector('#screen-home:not([hidden])');
+    return (await page.textContent('#voter-code')).trim();
+  };
+  const main = await codeAt(appUrl);
+  const ward = await codeAt(`${appUrl}?org=ward-3`);
+  assert.ok(main && ward);
+  assert.notEqual(main, ward, 'the same voter code in two communities');
+  assert.equal(await codeAt(appUrl), main); // the main community's code is unchanged
+  delete appOptsRef.communities;
+});
