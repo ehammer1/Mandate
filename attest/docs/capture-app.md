@@ -18,7 +18,7 @@ evidence so it can be judged.
 | By this person | The phone's key is registered under a principal (`PrincipalRegistry`), like an agent today |
 | Not altered since | A hash chain over the video, written as it records, signed by a key that never leaves the security chip |
 | When | Signed network time when recording starts and stops, plus an on-chain anchor within minutes |
-| Where (optional) | GPS, signed into the record. Off by default for safety. |
+| Where | Location is always captured and sealed, but hidden by default (see "Location" below) |
 | Not a recording of a screen (best effort) | Liveness checks, with their scores and raw evidence in the record |
 
 ## How it works
@@ -69,15 +69,45 @@ The light challenge and depth checks are the strongest. A fake would need a scre
 reacts to the phone's flash in real time and has depth, which is far beyond re-filming a
 monitor.
 
-### 5. Sealing and anchoring
+### 5. Location: captured always, hidden by default
+Location makes a recording far more valuable as evidence, but publishing it can endanger
+the person who recorded it. So it's always captured and always sealed, but only a
+fingerprint of it is public.
+
+- **What's recorded:** GPS plus nearby cell towers and Wi-Fi networks, sampled with the
+  fragments. The extra sources make spoofed GPS easier to detect, since a fake GPS fix
+  won't match the towers around it.
+- **Sealed, not published:** the location track is encrypted on the phone. The signed
+  record and the on-chain anchor contain only a **commitment** (a salted hash), which proves
+  a location was fixed at recording time and can't be changed later, but reveals nothing.
+- **Reveal at the precision you choose:** the app commits separately to country, city,
+  neighbourhood (~1 km) and exact location. The owner can prove "recorded in Chicago" without
+  revealing the street, or reveal the exact track to a court or newsroom. Anyone can check a
+  reveal against the commitment.
+- **Lawful access without a master key:** a copy of the location key is split among several
+  independent key holders (for example a court-appointed custodian, a civil-liberties
+  organization and the foundation), in different jurisdictions. A threshold of them, such as
+  3 of 5, must agree before anything is decrypted.
+  - Each request must carry a court order or warrant, and is **logged publicly on-chain**: who
+    asked, under what authority, for which recording. The content stays secret.
+  - The owner is notified, immediately or after a court-set delay.
+  - Access is per recording, never bulk, and no single party (including us) can decrypt alone.
+- **Owner-only mode:** for people at risk in places where courts can't be trusted
+  (journalists, activists, whistleblowers), the owner can turn off the escrow copy so only
+  they can ever reveal the location. Verify reports show which mode a recording used, so
+  readers can weigh it.
+- If the owner loses their key and there's no escrow, the location is gone for good. The
+  app explains that before owner-only mode can be turned on.
+
+### 6. Sealing and anchoring
 - At the end, the app writes a **C2PA manifest** into the file (using the open-source c2pa-rs
-  library, built for both platforms): the device, app version, times, location (if on),
-  liveness scores, the hash chain head and the signature. Existing C2PA tools can read it.
+  library, built for both platforms): the device, app version, times, the location
+  commitment, liveness scores, the hash chain head and the signature. Existing C2PA tools can read it.
 - It then **anchors** the final hash on Base under the `CAPTURED` origin. To keep costs to
   fractions of a cent, a relayer (as in Mandate's `broker/relayer.js`) batches many
   recordings into one Merkle root per few minutes, so users need no wallet or gas.
 
-### 6. Verifying
+### 7. Verifying
 - Drop the file on the verify page (or use the SDK). It checks the C2PA manifest, the
   hash chain, the hardware signature, the device's registration, the on-chain anchor and
   who's responsible, then shows the liveness evidence.
@@ -94,15 +124,19 @@ Kotlin), because that's where the security comes from.
 | Phase | Delivers |
 |---|---|
 | 1. Signed capture | Native camera with fragmented MP4, hash chain, hardware key signing, C2PA manifest. Verify with a command-line tool. |
-| 2. Registered devices | Device issuer service (App Attest / Play Integrity), `DEVICE` signers and the `CAPTURED` origin in the contracts, relayer anchoring. |
+| 2. Registered devices and location | Device issuer service (App Attest / Play Integrity), `DEVICE` signers and the `CAPTURED` origin in the contracts, relayer anchoring, sealed location with precision-level reveals. |
 | 3. Liveness | Light challenge, depth, parallax; then moiré and flicker models. |
 | 4. Verify page and sharing | Web verify page, trimmed clips, perceptual matching for re-uploads. |
-| 5. Hardening | Security review, a jailbreak and root response policy, accessibility, store release. |
+| 5. Lawful access | Threshold key holders, the on-chain request log, owner notification. |
+| 6. Hardening | Security review, a jailbreak and root response policy, accessibility, store release. |
 
-## Decisions needed
+## Decisions
 
-- **Location:** off by default and opt-in per recording (recommended for journalists and
-  activists), or on by default?
+- **Location (decided):** always captured and sealed, hidden by default, revealed by the
+  owner at a chosen precision, or by threshold lawful access with a public log. Owner-only
+  mode for people at risk.
+- **Still open: key holders.** Who holds the lawful-access key shares, how many must agree,
+  and what counts as valid legal authority across countries.
 - **Identity requirement:** must a person be VERIFIED to record, or can BASIC users record
   with a lower-trust label?
 - **Store originals?** Keeping originals (encrypted) makes re-upload matching and disputes

@@ -12,6 +12,58 @@
 - **C2PA.** Embed the receipt or attestation UID in the file's Content Credential, and
   read it back during verification.
 
+## Priority products
+
+1. **Capture app** for iPhone and Android: see [capture-app.md](capture-app.md).
+2. **Camera signing box:** a small device on a camera's HDMI or SDI output that signs the
+   feed live, so camcorders, broadcast cameras and live-stream rigs join without new cameras.
+3. **Call verification:** proof that the person on a phone or video call is who they claim,
+   against deepfake voice and video scams.
+
+## What else can be signed
+
+All of these reuse the same pieces: a registered signer (person, organization, device,
+agent or model), signed records, trust lists and disputes.
+
+**Cameras and devices**
+- Pro cameras that already sign with C2PA (some Leica, Sony, Nikon and Canon models):
+  read their signatures and link the device to a responsible owner.
+- Body cams, dash cams, CCTV, doorbells and drones: tamper-evident footage with chain of
+  custody from device to court.
+
+**Live streams and broadcast**
+- Sign each stream segment as it's sent; anchor a combined fingerprint every minute.
+- Signed edit records (camera switching, graphics) linking back to signed source footage.
+
+**Movies and TV**
+- AI disclosure: what's synthetic (de-aging, digital doubles, AI voices, generated sets).
+- Actor consent: signed, checkable consent and terms for use of likeness and voice.
+- Per-recipient fingerprints on screeners, so leaks trace to their source.
+- Signed official trailers and clips, so fakes stand out.
+
+**Audio**
+- Music: real or AI-cloned vocals, artist consent for voice models, sample clearances.
+- Podcasts and interviews: signed originals to disprove deepfaked quotes.
+
+**Everyday trust**
+- Insurance claims and damage photos.
+- Real estate, rental and product listing photos.
+- Reviews from verified buyers.
+- Dating and social profiles from verified people.
+- Medical images and telehealth records.
+
+**Institutions**
+- Government records, court filings and official statements, signed by the issuing office.
+- Official election tallies (Mandate already signs its own votes).
+- News wires and photo agencies, from source through every edit.
+- Science: datasets, instrument readings and papers.
+- Satellite and drone imagery for disasters, conflicts and climate claims.
+
+**AI**
+- Training data: creators' consent and license terms attached to their work.
+- Models: signed releases with version and safety-testing records.
+- Agents: built (this package).
+
 ## Later
 
 - **Arbiter panel.** N-of-M arbiters with quorum and an appeal window (Mandate's N-of-M
