@@ -6,6 +6,9 @@ browser with WebCrypto and never uploaded.
 - `page.src.html` is the source. `npm run build:verify` inlines `src/capture-web.mjs` and the
   brand lockup into `index.html`, and writes the two example videos to `samples/`.
 - `index.html` is self-contained apart from `samples/`; host it anywhere static.
+- **Public site:** the GitHub Pages workflow (`.github/workflows/pages.yml`) builds a standalone
+  copy with `node attest/scripts/build-verify.js --out app/verify`, so once this is on `main`
+  it's live at https://ehammer1.github.io/Mandate/verify/
 - `test/capture-web.test.mjs` checks that the browser verifier gives the same result as the
   Node verifier on sealed, edited, truncated, crashed and forged files.
 

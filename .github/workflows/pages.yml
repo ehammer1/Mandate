@@ -1,4 +1,4 @@
-# Publishes the voter web app (app/) to GitHub Pages.
+# Publishes the voter web app (app/) to GitHub Pages, with Testimonia Verify at /verify/.
 # One-time setup: repository Settings -> Pages -> Source: "GitHub Actions".
 # Optional: communities with their own web address (vote.lincolnhigh.org) are served from
 # Cloudflare Pages, which allows many addresses for free. Add the repository secrets
@@ -9,7 +9,8 @@ name: Voter app (GitHub Pages)
 on:
   push:
     branches: [main]
-    paths: ['app/**', 'client/**', 'scripts/build-app.js', 'package.json', 'package-lock.json', '.github/workflows/pages.yml']
+    paths: ['app/**', 'client/**', 'scripts/build-app.js', 'package.json', 'package-lock.json', '.github/workflows/pages.yml',
+            'attest/verify/**', 'attest/src/capture.js', 'attest/src/capture-web.mjs', 'attest/scripts/build-verify.js', 'attest/brand/final/**', 'attest/capture/vectors/**']
   workflow_dispatch:
 
 permissions:
@@ -36,6 +37,8 @@ jobs:
       # otherwise fails npm's platform check on Linux; --ignore-scripts runs nothing from it.
       - run: npm ci --ignore-scripts --force
       - run: node scripts/build-app.js
+      - name: Add Testimonia Verify at /verify/ (checks capture-app recordings in the browser)
+        run: node attest/scripts/build-verify.js --out app/verify
       - name: Use the Base testnet deployment
         run: cp app/config.base-sepolia.json app/config.json
       - name: Stamp this version on the app's files, so phones load the new code instead of a stale copy
