@@ -162,6 +162,11 @@ function walk(root) {
 export function startI18n() {
   if (!hasDom) return;
   document.documentElement.lang = LANG;
+  // Pop-up questions and messages too (confirm, alert, prompt).
+  for (const fn of ['confirm', 'alert', 'prompt']) {
+    const orig = window[fn]?.bind(window);
+    if (orig) window[fn] = (m, ...rest) => orig(typeof m === 'string' ? t(m) : m, ...rest);
+  }
   // Dates and numbers in Spanish formats; each date shown is remembered as a value.
   const loc = () => (LANG === 'es' ? 'es' : undefined);
   for (const f of ['toLocaleString', 'toLocaleDateString', 'toLocaleTimeString']) {

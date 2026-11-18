@@ -20,6 +20,10 @@ watchdog, which keep each community separate.
    - `pollOpeners`, `groupCreators` (smaller voter lists), `registrars` (officials and bodies)
    - `seasoningDays`: the new-member wait before full voting rights (1 to 365)
    - `rules`: any starting voting rules that differ from the defaults
+   - `keepSignedIn`: set to `true` to offer "Keep me signed in on this device (30 days)". It is
+     **off by default**, and never offered on shared computers or the public computer link. To
+     change it later, edit `app/communities/<slug>.json` and publish; turning it off signs
+     everyone kept signed in out on their next visit.
 4. **Create it** (an AI agent or a developer runs this; it costs a little test-network gas):
 
    ```
@@ -41,6 +45,14 @@ watchdog, which keep each community separate.
 7. **Hand over.** Send them the link `https://ehammer1.github.io/Mandate/?org=<slug>` (or
    their own web address, below), the printable notice (Polls → Stay informed → Printable
    notice), and the pilot guide.
+
+## Library and front-desk computers
+
+On a computer the public uses, set the browser's home page to the community's link with
+`&shared=1` on the end, e.g. `https://ehammer1.github.io/Mandate/?org=<slug>&shared=1`. There,
+the app offers only "Shared or public computer" sign-in (nothing kept on the machine, signed
+out after 5 minutes idle), never offers "Keep me signed in", and never makes passkeys on that
+computer.
 
 ## Their own web address (optional)
 

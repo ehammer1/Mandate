@@ -23,6 +23,7 @@ const net = require('node:net');
 const fs = require('node:fs');
 const collectors = [];
 let appOptsRef;
+let idpRef;
 const os = require('node:os');
 const path = require('node:path');
 const QRCode = require('qrcode');
@@ -96,6 +97,7 @@ before(async () => {
       bodiesAddress: await c.bodies.getAddress(),
       bodyRecordsAddress: await c.bodyRecords.getAddress(),
       talliesAddress: await c.tallies.getAddress(),
+      autoUnlock: false, // tests unlock by tapping; one test turns this on
       progressAddress: await c.progress.getAddress(),
       relayers: ['http://127.0.0.1:1', `http://127.0.0.1:${relayPort}`], // the first is down: tests fail-over
       artifactsBase: '/artifacts',
@@ -105,6 +107,7 @@ before(async () => {
   walletAccount = (await provider.getSigner(4)).address;
   // Sign-in identity service with a mock OpenID provider ("Test Login").
   const idp = await createMockOidc({ clientId: 'mandate-app', clientSecret: 'app-secret' });
+  idpRef = idp;
   servers.push(idp.server);
   const idPort = await new Promise((r) => { const t = net.createServer().listen(0, '127.0.0.1', () => { const p = t.address().port; t.close(() => r(p)); }); });
   const identitySigner = await provider.getSigner(3);
@@ -1866,4 +1869,90 @@ test('one key, a different voter code in each community (not linkable); the main
   assert.notEqual(main, ward, 'the same voter code in two communities');
   assert.equal(await codeAt(appUrl), main); // the main community's code is unchanged
   delete appOptsRef.communities;
+});
+
+test('back from a sign-in provider with a passkey: Face ID is asked for at once, no extra tap', async () => {
+  await cdpMain.send('WebAuthn.clearCredentials', { authenticatorId: authIdMain });
+  await page.click('#btn-signout').catch(() => {});
+  await page.evaluate(() => localStorage.clear());
+  await page.reload();
+  await page.click('#btn-join-email');
+  await page.click('#btn-join-here');
+  await page.waitForSelector('#screen-home:not([hidden])');
+  idpRef.setUser({ sub: 'passkey-returner', email: 'returner@gmail.com', email_verified: true });
+  await page.waitForSelector('#join-online button[data-join="testlogin"]');
+  await page.click('#join-online button[data-join="testlogin"]');
+  // Straight back in: the passkey is asked for on return, and the result is shown.
+  await page.waitForFunction(() => /You joined as a basic member with Test Login/.test(document.querySelector('#home-notice')?.textContent || ''), null, { timeout: 60_000 });
+  assert.equal(await page.isVisible('#screen-home'), true);
+  await page.waitForFunction(() => /^Basic/.test(document.querySelector('#membership .big')?.textContent || ''), null, { timeout: 60_000 });
+});
+
+test('signed in, links to other pages open in a new tab, so the app stays unlocked', async () => {
+  await page.waitForSelector('#screen-home:not([hidden])');
+  const [tab] = await Promise.all([page.context().waitForEvent('page'), page.click('footer a[href="dashboard.html"]')]);
+  await tab.waitForLoadState();
+  assert.match(tab.url(), /dashboard\.html/);
+  assert.equal(await page.isVisible('#screen-home'), true); // still signed in here
+  await tab.close();
+});
+
+test('own device: Face ID is asked for on opening, and "keep me signed in" skips it for 30 days', async () => {
+  appConfig.autoUnlock = true;
+  appConfig.keepSignedIn = true; // off by default: a community turns it on
+  await page.bringToFront(); // the last test opened another tab
+  try {
+    await page.click('#btn-signout').catch(() => {});
+    await page.evaluate(() => sessionStorage.clear());
+    await page.reload();
+    await page.waitForSelector('#screen-home:not([hidden])', { timeout: 30_000 }); // the passkey was asked for straight away
+    await page.waitForSelector('#btn-keep', { timeout: 15_000 }).catch(async (e) => {
+      const why = await page.evaluate(() => ({ row: document.getElementById('keep-row').hidden, method: document.getElementById('signin-method').textContent, url: location.href }));
+      throw new Error(`keep button not shown: ${JSON.stringify(why)}; ${e.message.split('\n')[0]}`);
+    });
+    page.once('dialog', (d) => d.accept()); // "Is this your own device?"
+    await page.click('#btn-keep');
+    await page.waitForSelector('#keep-note >> text=Signed in on this device until');
+    appConfig.autoUnlock = false;
+    await page.reload();
+    await page.waitForSelector('#screen-home:not([hidden])', { timeout: 30_000 }); // straight in, no passkey
+    assert.match(await page.textContent('#btn-keep'), /Stop keeping me signed in/);
+    // The community turns the option off: the kept sign-in ends on the next visit.
+    appConfig.keepSignedIn = false;
+    await page.reload();
+    await page.waitForSelector('#screen-signin:not([hidden])');
+    assert.equal(await page.isVisible('#screen-home'), false);
+    appConfig.keepSignedIn = true;
+    // And "Sign out" ends it too.
+    await page.reload(); // pick up the setting again
+    await page.click('#btn-welcome-unlock');
+    await page.waitForSelector('#screen-home:not([hidden])');
+    page.once('dialog', (d) => d.accept());
+    await page.click('#btn-keep');
+    await page.waitForSelector('#keep-note >> text=Signed in on this device until');
+    await page.click('#btn-signout');
+    await page.reload();
+    await page.waitForSelector('#screen-signin:not([hidden])');
+    assert.equal(await page.isVisible('#screen-home'), false);
+  } finally {
+    appConfig.autoUnlock = false;
+    delete appConfig.keepSignedIn;
+  }
+});
+
+test('public computer link (&shared=1): only shared sign-in, nothing kept, no "keep me signed in"', async () => {
+  appConfig.keepSignedIn = true; // even where the community allows it
+  await page.click('#btn-signout').catch(() => {});
+  await page.goto(`${appUrl}?shared=1`);
+  await page.waitForSelector('#shared-note:not([hidden])');
+  assert.equal(await page.isVisible('#welcome-back'), false);
+  assert.equal(await page.isVisible('#new-here'), false);
+  assert.equal(await page.isVisible('#passkey-buttons'), false);
+  assert.equal(await page.evaluate(() => document.getElementById('public-option').open), true);
+  await page.click('#btn-public-code');
+  await page.waitForSelector('#screen-home:not([hidden])');
+  assert.equal(await page.isVisible('#keep-row'), false);
+  delete appConfig.keepSignedIn;
+  await page.click('#btn-signout');
+  await page.goto(appUrl);
 });

@@ -13,6 +13,7 @@ import { loadConfig as loadCommunityConfig, withOrg, keepOrgInLinks, orgKey, ORG
 import { ethers } from 'ethers';
 import { Identity } from '@semaphore-protocol/identity';
 import * as keys from './keys.js';
+import { keep, recall, forget, KEEP_DAYS } from './remember.js';
 import { poseidon2 } from 'poseidon-lite/poseidon2';
 import { buildBallot } from '../../client/ballot.js';
 import { readSettings, settingsNote, changesOpen, rankedPickerHtml, wireRankers, rankedResultsHtml, groupInfo, groupOptionsHtml, hasSettings, wireVoterGroups, V5_ABI, ERRORS as V5_ERRORS } from './pollsettings.js';
@@ -45,6 +46,31 @@ startI18n();
 if (typeof document !== 'undefined' && document.getElementById('lang-switch')) document.getElementById('lang-switch').innerHTML = langSwitchHtml();
 wireLangSwitch(document, { live: true });
 keepOrgInLinks(document); // no reload: the voter's key stays unlocked
+// A public computer link (…&shared=1, e.g. a library's home page): only "Shared or public
+// computer" sign-in, nothing kept on this machine, no passkeys made here, no automatic prompt.
+const SHARED = (() => {
+  try {
+    return new URLSearchParams(location.search).has('shared');
+  } catch {
+    return false;
+  }
+})();
+// While signed in, other pages of the site (notice, dashboard, proposals, about…) open in a
+// new tab, so this one stays unlocked and nobody has to sign in again.
+document.addEventListener(
+  'click',
+  (e) => {
+    const a = e.target.closest?.('a[href]');
+    if (!a || !state.keys || a.target || a.hasAttribute('download') || e.ctrlKey || e.metaKey || e.shiftKey) return;
+    const raw = a.getAttribute('href');
+    if (!raw || raw.startsWith('#') || /^(mailto|tel|javascript):/i.test(raw)) return;
+    const u = new URL(raw, location.href);
+    if (u.origin !== location.origin || u.pathname === location.pathname || !/(\.html|\/)$/.test(u.pathname)) return;
+    e.preventDefault();
+    window.open(withOrg(u.href), '_blank', 'noopener');
+  },
+  true,
+);
 document.addEventListener('langchange', () => $('btn-refresh')?.click()); // dates and countdown labels
 
 const VOTE_ABI = [
@@ -133,6 +159,29 @@ async function signedIn(k, backupCode) {
   state.publicMode = k.method === 'public';
   $('signin-method').textContent = state.publicMode ? 'Shared computer: nothing is saved here. You will be signed out after 5 minutes without activity.' : $('signin-method').textContent;
   armIdleSignOut();
+  // "Keep me signed in on this device": offered on your own device, never on a shared computer.
+  const scope = state.config?.communitySlug || '';
+  state.keptUntil = k.kept ? k.until : 0;
+  const showKeep = () => {
+    $('keep-row').hidden = SHARED || k.method === 'public' || state.config?.keepSignedIn !== true; // off unless the community turns it on
+    const until = state.keptUntil ? new Date(state.keptUntil).toLocaleDateString(undefined, { dateStyle: 'medium' }) : '';
+    $('btn-keep').textContent = state.keptUntil ? 'Stop keeping me signed in here' : `Keep me signed in on this device (${KEEP_DAYS} days)`;
+    $('keep-note').textContent = state.keptUntil
+      ? `Signed in on this device until ${until}, without Face ID or a fingerprint. "Sign out" also ends it.`
+      : 'Only on your own phone or computer: anyone using this browser could vote as you until you sign out.';
+  };
+  showKeep();
+  $('btn-keep').onclick = async () => {
+    if (state.keptUntil) {
+      await forget(scope);
+      state.keptUntil = 0;
+    } else {
+      if (!window.confirm('Keep me signed in: only on your own phone or computer. Is this your own device?\n\nOn a library, work or borrowed computer, choose Cancel: anyone using it next could vote as you.')) return;
+      state.keptUntil = await keep(state.keys, scope).catch(() => 0);
+      if (!state.keptUntil) status($('home-notice'), 'This browser cannot keep you signed in (private browsing, or storage is off).', 'warn');
+    }
+    showKeep();
+  };
   if (backupCode) {
     $('backup-code').textContent = backupCode;
     $('backup-intro').textContent =
@@ -296,7 +345,13 @@ function wireSignIn() {
   };
   $('btn-signout').onclick = () => signOut();
   function signOut(reason) {
-    Object.assign(state, { keys: null, identity: null, wallet: null, external: null, roles: null, publicMode: false, clerkSession: null, clerkCount: 0 });
+    Object.assign(state, { keys: null, identity: null, wallet: null, external: null, roles: null, publicMode: false, clerkSession: null, clerkCount: 0, keptUntil: 0 });
+    forget(state.config?.communitySlug || ''); // signing out ends "keep me signed in"
+    try {
+      sessionStorage.setItem('mandate.signedOut', '1'); // and no Face ID prompt again until the tab is closed
+    } catch {
+      /* ignore */
+    }
     $('join-choice').hidden = true;
     $('btn-join-email').hidden = false;
     state.clerk?.nextPerson();
@@ -450,7 +505,7 @@ async function renderJoinOnline() {
       } catch {
         /* storage unavailable: they'll unlock manually */
       }
-      location.href = enrolStartUrl({ serviceUrl: url, providerId: b.dataset.join, identity: state.identity, returnUrl: withOrg(location.origin + location.pathname) });
+      location.href = enrolStartUrl({ serviceUrl: url, providerId: b.dataset.join, identity: state.identity, returnUrl: withOrg(location.origin + location.pathname + (SHARED ? '?shared=1' : '')) });
     };
   }
 }
@@ -695,6 +750,22 @@ async function handleReturn() {
       return await signedIn(await keys.unlockDeviceKey());
     } catch {
       /* fall through to the manual path */
+    }
+  }
+  // A passkey: ask for Face ID / the fingerprint straight away. Some browsers (Safari) only
+  // allow that after a tap, so if it is refused, offer one big button for it at the top.
+  if (method === 'passkey' && keys.hasSavedPasskey()) {
+    try {
+      return await signedIn(await keys.unlockWithPasskey());
+    } catch {
+      const top = $('return-notice');
+      status(top, `${notice.text} Unlock your voter key to continue.`, kind);
+      const b = Object.assign(document.createElement('button'), { className: 'primary', id: 'btn-return-unlock', type: 'button', textContent: 'Unlock with Face ID or fingerprint to continue' });
+      b.onclick = () => trySignIn(() => keys.unlockWithPasskey(), $('signin-status'));
+      top.append(document.createElement('br'), b);
+      top.hidden = false;
+      top.scrollIntoView({ block: 'start' });
+      return;
     }
   }
   // Otherwise show the result at the top, next to the right unlock button.
@@ -1645,8 +1716,41 @@ async function boot() {
     $('btn-device').textContent = 'Unlock the key saved in this browser';
     $('btn-device').classList.add('primary');
   }
-  show('screen-signin');
-  handleReturn();
+  // Kept signed in on this device: straight in.
+  // "Keep me signed in" is off unless the community turns it on; turning it off ends any kept sign-in.
+  const keepAllowed = state.config.keepSignedIn === true && !SHARED;
+  if (!keepAllowed) await forget(state.config.communitySlug || '');
+  const kept = keepAllowed ? await recall(state.config.communitySlug || '') : null;
+  if (SHARED) {
+    for (const id of ['welcome-back', 'new-here', 'passkey-buttons', 'device-option']) $(id).hidden = true;
+    $('public-option').open = true;
+    $('shared-note').hidden = false;
+  }
+  if (kept) {
+    const notice = readReturnNotice();
+    try {
+      sessionStorage.removeItem('mandate.returnMethod');
+    } catch {
+      /* ignore */
+    }
+    if (notice) state.notice = notice;
+    await signedIn(kept);
+  } else {
+    show('screen-signin');
+    const returning = /(^#|&)(enrolled|enroll_error)=/.test(location.hash);
+    await handleReturn();
+    // Your own device with a passkey: ask for Face ID or the fingerprint straight away
+    // (not right after signing out; some browsers need a tap first, then the button is there).
+    let signedOut = false;
+    try {
+      signedOut = sessionStorage.getItem('mandate.signedOut') === '1';
+    } catch {
+      /* ignore */
+    }
+    if (!SHARED && !returning && !state.keys && keys.hasSavedPasskey() && !signedOut && state.config.autoUnlock !== false) {
+      keys.unlockWithPasskey().then((k) => (state.keys ? null : signedIn(k)), () => {});
+    }
+  }
   // The return from the identity service can arrive as a fragment change or a
   // back-forward-cache restore instead of a fresh load.
   window.addEventListener('hashchange', handleReturn);

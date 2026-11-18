@@ -5,6 +5,8 @@ The same guide is in the app (Help). Rule values shown there are your community'
 <a id="start"></a>
 ## Getting started
 
+Promissa Protocol is open and decentralized: votes, petitions, results and every change of power are recorded on **Base**, a public blockchain, so anyone can check them and nobody, including the people who run the app, can quietly change or delete them. You don't need crypto or a wallet: the app handles that.
+
 Promissa lets residents vote privately, ask for votes, follow what officials and councils do, and check that promises are kept. Everything except how you voted is public.
 
 1. **Make your voter key.** Tap *Join*. Your key lives on this phone, protected by Face ID or a passcode (a "passkey"). Write down the **backup code**: it is the only way to vote from another device.
@@ -13,8 +15,29 @@ Promissa lets residents vote privately, ask for votes, follow what officials and
 
 You never need an account or money to vote. The optional *Account* is for officials, clerks and anyone who backs a mandate with funds.
 
+<a id="why"></a>
+## Why Promissa is different from other online voting apps
+
+Most online voting apps are one company's private database: the company runs the count, can see or change the records, and you have to trust it. Promissa is a decentralized protocol on the **Base** blockchain, built so that nobody has to be trusted.
+
+- **Nobody can quietly change the result.** Polls, votes, results and records are kept on a public blockchain, not on our servers. Not the city, not an official, and not the people who run the app can edit or delete them.
+- **Your vote is secret, even from us.** Your phone proves you are on the voter list without revealing who you are (a zero-knowledge proof). Nobody can see how you voted.
+- **One person, one vote, checkably.** Each voter can vote once per poll, enforced by the blockchain. You can check your own vote was counted, and anyone can recount every result from the public record.
+- **Decisions don't stop at the vote.** A Yes can become a mandate with a responsible party, a deadline and independent checks, tracked in public until it is done.
+- **The people can call a vote.** When enough residents sign a petition, its poll opens by itself. No official can block it.
+- **Power is watched.** Admin changes need several council approvals and a public waiting period, an independent watchdog reports every change of power, and residents can recall council members or remove anyone's role by vote.
+- **Pressure doesn't work.** If someone pays or pushes you to vote a certain way, you can quietly change your vote later; only your last one counts.
+- **Everyone can take part.** Vote online, on paper or by mail, all counted once, in English and Spanish. No app store, no crypto, free for voters.
+- **No lock-in.** The code is open source. Any community can run its own copy, and its records stay public and downloadable whatever happens to us.
+
 <a id="faq"></a>
 ## Frequently asked questions
+
+**How is this different from other online voting apps?**
+Other apps keep the votes in one company's database, and you have to trust that company. Promissa keeps them on Base, a public blockchain: secret ballots, results nobody can quietly change, anyone can recount, and decisions tracked until they're done. See [Why Promissa is different](#why).
+
+**Is this a blockchain? What is Base?**
+Yes. Promissa records polls, petitions, results, mandates and every change of who holds power on **Base**, a public blockchain built on Ethereum. A blockchain is a shared public record kept by many computers at once, so no single company or official can secretly edit or delete it, and anyone can check it (see the live dashboard, or "View on the blockchain" links). Pilots use Base's free test network until an independent security audit is complete. Voters never need cryptocurrency: network fees are covered.
 
 **Is my vote really secret?**
 Yes. Your phone sends a mathematical proof that you are on the voter list and have not voted yet, never who you are. Nobody, including the people who run Promissa, can link a ballot to a person.
