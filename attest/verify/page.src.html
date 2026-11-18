@@ -1,0 +1,330 @@
+<meta charset="utf-8">
+<title>Testimonia Verify</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Check whether a video from the Testimonia app is exactly as it was recorded. Your file stays on your device.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one calm column, like an evidence form: brand, drop target, then the finding,
+   with the seconds of video laid out as a strip of links you can read at a glance. */
+:root {
+  --bg: #f5f6fb;
+  --surface: #ffffff;
+  --ink: #1d2050;
+  --brand: #262a6e;
+  --muted: #5d618c;
+  --line: #e1e3ef;
+  --teal: #12968a;
+  --teal-soft: #e3f5f2;
+  --red: #c23a48;
+  --red-soft: #fbe9eb;
+  --amber: #a86a12;
+  --amber-soft: #fbf1df;
+  --grey-cell: #d7d9e6;
+  --focus: #14a99a;
+  --font-body: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #11132b; --surface: #1a1d3f; --ink: #e9eaf8; --brand: #e9eaf8; --muted: #a3a6cc; --line: #2c3061;
+    --teal: #33c2b2; --teal-soft: #163a43; --red: #f07a86; --red-soft: #3d1d2b; --amber: #e5b15b; --amber-soft: #3a2d1c;
+    --grey-cell: #343868; --focus: #33c2b2; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #11132b; --surface: #1a1d3f; --ink: #e9eaf8; --brand: #e9eaf8; --muted: #a3a6cc; --line: #2c3061;
+  --teal: #33c2b2; --teal-soft: #163a43; --red: #f07a86; --red-soft: #3d1d2b; --amber: #e5b15b; --amber-soft: #3a2d1c;
+  --grey-cell: #343868; --focus: #33c2b2; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.55;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 28px 48px;
+}
+.wrap { max-width: 760px; margin: 0 auto; display: grid; gap: 22px; }
+header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.lockup { color: var(--brand); height: 38px; width: auto; display: block; }
+.privacy { font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+.privacy svg { width: 16px; height: 16px; flex: none; }
+h1 { font-size: clamp(26px, 5vw, 34px); line-height: 1.15; letter-spacing: -0.02em; margin: 6px 0 0; text-wrap: balance; font-weight: 650; }
+.lede { margin: 6px 0 0; color: var(--muted); max-width: 60ch; }
+
+.drop {
+  background: var(--surface); border: 1.5px dashed var(--line); border-radius: 16px; padding: 22px;
+  display: grid; gap: 14px; transition: border-color .15s, background .15s;
+}
+.drop.over { border-color: var(--teal); background: var(--teal-soft); }
+.drop-main { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.drop-main p { margin: 0; flex: 1 1 220px; min-width: 0; }
+.drop-main strong { display: block; font-size: 16px; }
+.drop-main span { color: var(--muted); font-size: 13px; }
+.btn {
+  font: inherit; font-weight: 600; font-size: 14px; border-radius: 10px; padding: 10px 16px; cursor: pointer;
+  border: 1.5px solid var(--brand); background: var(--brand); color: var(--surface);
+}
+.btn.ghost { background: transparent; color: var(--ink); border-color: var(--line); font-weight: 500; }
+.btn:hover { filter: brightness(1.08); }
+.btn:focus-visible, .chip:focus-visible, summary:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.drop-extra { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; font-size: 13px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 12px; }
+.chip { font: inherit; font-size: 13px; padding: 5px 11px; border-radius: 999px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); cursor: pointer; }
+.chip:hover { border-color: var(--teal); }
+.manifest-name { font-family: var(--font-mono); font-size: 12px; }
+input[type=file] { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+
+.result { background: var(--surface); border-radius: 16px; border: 1px solid var(--line); overflow: hidden; }
+.verdict { display: flex; gap: 14px; align-items: flex-start; padding: 20px 22px; border-bottom: 1px solid var(--line); }
+.verdict .icon { width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; flex: none; }
+.verdict .icon svg { width: 26px; height: 26px; }
+.verdict h2 { margin: 0; font-size: 21px; letter-spacing: -0.01em; line-height: 1.25; text-wrap: balance; }
+.verdict p { margin: 4px 0 0; color: var(--muted); }
+.tag { display: inline-block; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-bottom: 2px; }
+.s-sealed .icon { background: var(--teal-soft); color: var(--teal); }
+.s-altered .icon { background: var(--red-soft); color: var(--red); }
+.s-partial .icon { background: var(--amber-soft); color: var(--amber); }
+.s-invalid .icon { background: var(--bg); color: var(--muted); }
+
+.section { padding: 18px 22px; display: grid; gap: 12px; border-bottom: 1px solid var(--line); }
+.section:last-child { border-bottom: 0; }
+.section h3 { margin: 0; font-size: 12px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
+
+.strip-wrap { overflow-x: auto; }
+.strip { display: flex; gap: 3px; align-items: center; min-width: min-content; }
+.cell { height: 22px; min-width: 14px; flex: 1 1 14px; border-radius: 6px; background: var(--grey-cell); position: relative; }
+.cell.ok { background: var(--teal); }
+.cell.bad { background: var(--red); }
+.cell.bad::after { content: ""; position: absolute; inset: 5px 45%; background: var(--surface); border-radius: 2px; }
+.cell.init { flex: 0 0 22px; background: var(--brand); opacity: .85; }
+.cell.init.bad { background: var(--red); opacity: 1; }
+.strip-axis { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 13px; color: var(--muted); }
+.legend i { display: inline-block; width: 12px; height: 12px; border-radius: 4px; vertical-align: -1px; margin-right: 6px; }
+
+dl.facts { display: grid; grid-template-columns: max-content 1fr; gap: 8px 18px; margin: 0; }
+dl.facts dt { color: var(--muted); font-size: 14px; }
+dl.facts dd { margin: 0; min-width: 0; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.mono { font-family: var(--font-mono); font-size: 13px; }
+
+ul.checks { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+ul.checks li { display: grid; grid-template-columns: 22px 1fr; gap: 10px; align-items: start; }
+ul.checks .mark { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 13px; font-weight: 700; }
+.m-yes { background: var(--teal-soft); color: var(--teal); }
+.m-no { background: var(--red-soft); color: var(--red); }
+.m-skip { background: var(--bg); color: var(--muted); border: 1px dashed var(--line); }
+ul.checks b { font-weight: 600; }
+ul.checks small { display: block; color: var(--muted); font-size: 13px; }
+
+.busy { padding: 26px 22px; color: var(--muted); display: flex; gap: 10px; align-items: center; }
+.spinner { width: 18px; height: 18px; border-radius: 50%; border: 2.5px solid var(--line); border-top-color: var(--teal); animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spinner { animation: none; } .drop { transition: none; } }
+
+.how { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.how div { min-width: 0; }
+.how b { display: block; font-size: 14px; margin-bottom: 2px; }
+.how p { margin: 0; font-size: 13px; color: var(--muted); }
+@media (max-width: 640px) { .how { grid-template-columns: 1fr; } dl.facts { grid-template-columns: 1fr; gap: 2px 0; } dl.facts dd { margin-bottom: 8px; } }
+footer { font-size: 12px; color: var(--muted); text-align: center; }
+</style>
+
+<div class="wrap">
+  <header>
+    <!--LOCKUP-->
+    <span class="privacy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2.5"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Your file never leaves this device</span>
+  </header>
+
+  <div>
+    <h1>Check a recording</h1>
+    <p class="lede">See whether a video from the Testimonia app is exactly as it was recorded, second by second, and who signed it.</p>
+  </div>
+
+  <section class="drop" id="drop" aria-label="Choose a video to check">
+    <div class="drop-main">
+      <p><strong>Drop a video here</strong><span>MP4 from the Testimonia app. Checking happens in your browser.</span></p>
+      <label class="btn" for="file" tabindex="0" id="fileLabel">Choose a video</label>
+      <input type="file" id="file" accept="video/mp4,.mp4,.m4v,.mov">
+    </div>
+    <div class="drop-extra">
+      <span>Try an example:</span>
+      <button class="chip" type="button" id="sampleSealed">Sealed recording</button>
+      <button class="chip" type="button" id="sampleEdited">Edited copy</button>
+      <span style="flex:1"></span>
+      <label class="chip" for="manifest" tabindex="0" id="manifestLabel">Add a separate seal file</label>
+      <input type="file" id="manifest" accept=".json,application/json">
+      <span class="manifest-name" id="manifestName" hidden></span>
+    </div>
+  </section>
+
+  <section class="result" id="result" aria-live="polite"></section>
+
+  <section class="how" aria-label="How checking works">
+    <div><b>Sealed as it records</b><p>The app fingerprints every second of video the moment it's written, and the phone's security chip signs the chain.</p></div>
+    <div><b>Checked here</b><p>This page recomputes every fingerprint from your copy and checks the signatures. Any changed second shows up.</p></div>
+    <div><b>Coming next</b><p>Who owns the phone, and the public record on Base, will be checked here once phones are registered.</p></div>
+  </section>
+  <footer>Testimonia &middot; capture format v1 (attest-capture/1)</footer>
+</div>
+
+<script type="module">
+/*CAPTURE_WEB*/
+
+const $ = (id) => document.getElementById(id);
+const resultEl = $('result');
+let extraManifest = null;
+let lastFile = null;
+
+const ICONS = {
+  sealed: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+  altered: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 7v6"/><circle cx="12" cy="17" r="0.6" fill="currentColor"/><path d="M10.3 3.9L2.6 17.5A2 2 0 0 0 4.3 20.5h15.4a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>',
+  partial: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>',
+  invalid: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M9 9l6 6M15 9l-6 6"/></svg>',
+};
+
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+const fmtBytes = (n) => (n < 1024 * 1024 ? `${(n / 1024).toFixed(0)} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`);
+const fmtTime = (ms) => {
+  if (!Number.isFinite(ms)) return 'unknown';
+  return new Date(ms).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'medium' });
+};
+const fmtLen = (sec) => (sec >= 60 ? `${Math.floor(sec / 60)} min ${Math.round(sec % 60)} s` : `${sec} s`);
+
+function verdictText(r) {
+  const n = r.fragments ?? 0;
+  if (r.status === 'sealed') return ['Unaltered since recording', `All ${n} seconds match what the phone signed when it recorded them.`];
+  if (r.status === 'partial') return ['Recording stopped early', `The app closed before sealing. The first ${r.verifiedFragments} of ${n} seconds are proven original; the rest can't be checked.`];
+  if (r.status === 'altered') {
+    if (typeof r.alteredAt === 'number') {
+      const ok = r.verifiedFragments ? ` Seconds 0 to ${r.verifiedFragments - 1} are original.` : '';
+      return [`Changed at second ${r.alteredAt}`, `This copy differs from what was recorded, starting about ${r.alteredAt} s in.${ok}`];
+    }
+    if (r.alteredAt === 'init') return ['The video header was changed', 'The part of the file that describes the video differs from what was recorded.'];
+    return ['Changed outside the video frames', 'Bytes outside the recorded seconds were changed after recording.'];
+  }
+  return ["Can't be checked", cap(r.problems[0] || 'This file has no Testimonia seal.') + '.'];
+}
+const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+
+function strip(r) {
+  const n = r.fragments ?? r.manifest?.fragments?.length ?? 0;
+  if (!n) return '';
+  const cells = [];
+  const initBad = r.alteredAt === 'init';
+  cells.push(`<span class="cell init${initBad ? ' bad' : ''}" title="File header"></span>`);
+  for (let i = 0; i < n; i++) {
+    let cls = '';
+    let title = `Second ${i}: not proven`;
+    if (r.status === 'sealed' || i < (r.verifiedFragments ?? 0)) { cls = 'ok'; title = `Second ${i}: original`; }
+    if (r.alteredAt === i) { cls = 'bad'; title = `Second ${i}: changed`; }
+    cells.push(`<span class="cell ${cls}" title="${title}"></span>`);
+  }
+  return `<div class="section"><h3>Each second of video</h3>
+    <div class="strip-wrap"><div class="strip" role="img" aria-label="${esc(verdictText(r)[1])}">${cells.join('')}</div></div>
+    <div class="strip-axis"><span>Start</span><span>${fmtLen(n)}</span></div>
+    <div class="legend"><span><i style="background:var(--teal)"></i>Proven original</span><span><i style="background:var(--red)"></i>Changed</span><span><i style="background:var(--grey-cell)"></i>Not proven</span></div></div>`;
+}
+
+function facts(r, file) {
+  const m = r.manifest;
+  const rows = [];
+  rows.push(['File', `${esc(file.name)} <span style="color:var(--muted)">(${fmtBytes(file.size)})</span>`]);
+  if (m?.meta) {
+    rows.push(['Recorded', `${fmtTime(m.startMs)}${m.endMs ? ` to ${new Date(m.endMs).toLocaleTimeString()}` : ''} <span style="color:var(--muted)">(phone clock)</span>`]);
+    const platform = { ios: 'iPhone', android: 'Android', reference: 'Test recording' }[m.meta.platform] || esc(m.meta.platform);
+    rows.push(['Device', `${platform}${m.meta.device ? `, ${esc(m.meta.device)}` : ''}`]);
+    rows.push(['App', esc(m.meta.app || 'unknown')]);
+    rows.push(['Signing key', `<span class="mono">${esc(m.meta.keyId.slice(0, 16))}&hellip;${esc(m.meta.keyId.slice(-8))}</span>`]);
+    const loc = m.meta.location?.mode;
+    rows.push(['Location', loc === 'none' || !loc ? 'Not recorded' : loc === 'owner-only' ? 'Sealed, only the owner can reveal it' : 'Sealed, hidden by default']);
+  }
+  return `<div class="section"><h3>About this recording</h3><dl class="facts">${rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl></div>`;
+}
+
+function checks(r) {
+  const c = r.checks;
+  const row = (state, title, detail) => {
+    const [cls, sym] = state === true ? ['m-yes', '&#10003;'] : state === false ? ['m-no', '&#10005;'] : ['m-skip', '&ndash;'];
+    return `<li><span class="mark ${cls}" aria-hidden="true">${sym}</span><div><b>${title}</b><small>${detail}</small></div></li>`;
+  };
+  return `<div class="section"><h3>What was checked</h3><ul class="checks">
+    ${row(c.format, 'Has a Testimonia seal', c.format === false ? 'No readable seal was found.' : 'The file carries a seal in the capture format.')}
+    ${row(c.signer, 'Signing key is valid', 'The seal names a P-256 key from the phone&rsquo;s security chip.')}
+    ${row(c.seal, 'Seal signature is genuine', c.seal === false ? 'The seal was not signed by that key, or was edited.' : 'Signed by the phone at the end of recording.')}
+    ${row(c.fragments, 'Every second matches', c.fragments === false ? 'At least one second differs from what was signed.' : 'Each second&rsquo;s fingerprint matches the signed chain.')}
+    ${c.fragments === false
+      ? row(null, 'Nothing else in the file changed', 'Not separate from the changed second above.')
+      : row(c.wholeFile, 'Nothing else in the file changed', c.wholeFile === false ? 'Bytes outside the recorded seconds differ.' : 'The whole file matches the signed fingerprint.')}
+    ${row(null, 'Phone belongs to a registered person', 'Not checked yet. Coming with device registration.')}
+    ${row(null, 'Public record on Base', 'Not checked yet. Coming with on-chain anchoring.')}
+  </ul></div>`;
+}
+
+function render(r, file, example) {
+  const [head, sub] = verdictText(r);
+  const tag = example ? `<span class="tag">Example &middot; ${esc(example)}</span>` : '';
+  const names = { sealed: 'Sealed', altered: 'Altered', partial: 'Partial', invalid: 'Not verifiable' };
+  resultEl.innerHTML = `<div class="verdict s-${r.status}"><span class="icon" aria-hidden="true">${ICONS[r.status]}</span>
+      <div>${tag}<h2>${names[r.status]}: ${esc(head)}</h2><p>${esc(sub)}</p></div></div>
+    ${strip(r)}${facts(r, file)}${checks(r)}`;
+}
+
+async function check(file, example) {
+  lastFile = file;
+  resultEl.innerHTML = `<div class="busy"><span class="spinner" aria-hidden="true"></span>Checking ${esc(file.name)}&hellip;</div>`;
+  try {
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    const r = await verifyCapture(bytes, extraManifest ? { manifest: extraManifest } : {});
+    render(r, file, example);
+  } catch (e) {
+    resultEl.innerHTML = `<div class="verdict s-invalid"><span class="icon">${ICONS.invalid}</span><div><h2>Couldn't read this file</h2><p>${esc(e.message || e)}</p></div></div>`;
+  }
+}
+
+async function loadSample(path, label, name) {
+  try {
+    const res = await fetch(path);
+    if (!res.ok) throw new Error(`sample not found (${res.status})`);
+    const blob = await res.blob();
+    await check(new File([blob], name, { type: 'video/mp4' }), label);
+  } catch (e) {
+    resultEl.innerHTML = `<div class="verdict s-invalid"><span class="icon">${ICONS.invalid}</span><div><h2>The example didn't load</h2><p>${esc(e.message)}. Choose a video of your own instead.</p></div></div>`;
+  }
+}
+
+$('file').addEventListener('change', (e) => { if (e.target.files[0]) check(e.target.files[0]); });
+$('sampleSealed').addEventListener('click', () => loadSample('samples/sealed.mp4', 'sealed recording', 'sample-sealed.mp4'));
+$('sampleEdited').addEventListener('click', () => loadSample('samples/edited.mp4', 'one second edited', 'sample-edited.mp4'));
+for (const id of ['fileLabel', 'manifestLabel']) {
+  $(id).addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $(id).click(); } });
+}
+$('manifest').addEventListener('change', async (e) => {
+  const f = e.target.files[0];
+  if (!f) return;
+  try {
+    extraManifest = JSON.parse(await f.text());
+    $('manifestName').textContent = f.name;
+    $('manifestName').hidden = false;
+    if (lastFile) check(lastFile);
+  } catch {
+    $('manifestName').textContent = `${f.name} isn't a valid seal file`;
+    $('manifestName').hidden = false;
+    extraManifest = null;
+  }
+});
+const drop = $('drop');
+for (const ev of ['dragenter', 'dragover']) drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add('over'); });
+for (const ev of ['dragleave', 'drop']) drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.remove('over'); });
+drop.addEventListener('drop', (e) => {
+  const files = [...(e.dataTransfer?.files || [])];
+  const json = files.find((f) => f.name.endsWith('.json'));
+  const video = files.find((f) => !f.name.endsWith('.json'));
+  (async () => {
+    if (json) { try { extraManifest = JSON.parse(await json.text()); $('manifestName').textContent = json.name; $('manifestName').hidden = false; } catch {} }
+    if (video) check(video); else if (lastFile) check(lastFile);
+  })();
+});
+
+// Open with a checked example so the page shows what it does.
+loadSample('samples/sealed.mp4', 'sealed recording', 'sample-sealed.mp4');
+</script>

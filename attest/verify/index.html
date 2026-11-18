@@ -1,0 +1,594 @@
+<meta charset="utf-8">
+<title>Testimonia Verify</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Check whether a video from the Testimonia app is exactly as it was recorded. Your file stays on your device.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one calm column, like an evidence form: brand, drop target, then the finding,
+   with the seconds of video laid out as a strip of links you can read at a glance. */
+:root {
+  --bg: #f5f6fb;
+  --surface: #ffffff;
+  --ink: #1d2050;
+  --brand: #262a6e;
+  --muted: #5d618c;
+  --line: #e1e3ef;
+  --teal: #12968a;
+  --teal-soft: #e3f5f2;
+  --red: #c23a48;
+  --red-soft: #fbe9eb;
+  --amber: #a86a12;
+  --amber-soft: #fbf1df;
+  --grey-cell: #d7d9e6;
+  --focus: #14a99a;
+  --font-body: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #11132b; --surface: #1a1d3f; --ink: #e9eaf8; --brand: #e9eaf8; --muted: #a3a6cc; --line: #2c3061;
+    --teal: #33c2b2; --teal-soft: #163a43; --red: #f07a86; --red-soft: #3d1d2b; --amber: #e5b15b; --amber-soft: #3a2d1c;
+    --grey-cell: #343868; --focus: #33c2b2; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #11132b; --surface: #1a1d3f; --ink: #e9eaf8; --brand: #e9eaf8; --muted: #a3a6cc; --line: #2c3061;
+  --teal: #33c2b2; --teal-soft: #163a43; --red: #f07a86; --red-soft: #3d1d2b; --amber: #e5b15b; --amber-soft: #3a2d1c;
+  --grey-cell: #343868; --focus: #33c2b2; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.55;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 28px 48px;
+}
+.wrap { max-width: 760px; margin: 0 auto; display: grid; gap: 22px; }
+header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.lockup { color: var(--brand); height: 38px; width: auto; display: block; }
+.privacy { font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+.privacy svg { width: 16px; height: 16px; flex: none; }
+h1 { font-size: clamp(26px, 5vw, 34px); line-height: 1.15; letter-spacing: -0.02em; margin: 6px 0 0; text-wrap: balance; font-weight: 650; }
+.lede { margin: 6px 0 0; color: var(--muted); max-width: 60ch; }
+
+.drop {
+  background: var(--surface); border: 1.5px dashed var(--line); border-radius: 16px; padding: 22px;
+  display: grid; gap: 14px; transition: border-color .15s, background .15s;
+}
+.drop.over { border-color: var(--teal); background: var(--teal-soft); }
+.drop-main { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.drop-main p { margin: 0; flex: 1 1 220px; min-width: 0; }
+.drop-main strong { display: block; font-size: 16px; }
+.drop-main span { color: var(--muted); font-size: 13px; }
+.btn {
+  font: inherit; font-weight: 600; font-size: 14px; border-radius: 10px; padding: 10px 16px; cursor: pointer;
+  border: 1.5px solid var(--brand); background: var(--brand); color: var(--surface);
+}
+.btn.ghost { background: transparent; color: var(--ink); border-color: var(--line); font-weight: 500; }
+.btn:hover { filter: brightness(1.08); }
+.btn:focus-visible, .chip:focus-visible, summary:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.drop-extra { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; font-size: 13px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 12px; }
+.chip { font: inherit; font-size: 13px; padding: 5px 11px; border-radius: 999px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); cursor: pointer; }
+.chip:hover { border-color: var(--teal); }
+.manifest-name { font-family: var(--font-mono); font-size: 12px; }
+input[type=file] { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+
+.result { background: var(--surface); border-radius: 16px; border: 1px solid var(--line); overflow: hidden; }
+.verdict { display: flex; gap: 14px; align-items: flex-start; padding: 20px 22px; border-bottom: 1px solid var(--line); }
+.verdict .icon { width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; flex: none; }
+.verdict .icon svg { width: 26px; height: 26px; }
+.verdict h2 { margin: 0; font-size: 21px; letter-spacing: -0.01em; line-height: 1.25; text-wrap: balance; }
+.verdict p { margin: 4px 0 0; color: var(--muted); }
+.tag { display: inline-block; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-bottom: 2px; }
+.s-sealed .icon { background: var(--teal-soft); color: var(--teal); }
+.s-altered .icon { background: var(--red-soft); color: var(--red); }
+.s-partial .icon { background: var(--amber-soft); color: var(--amber); }
+.s-invalid .icon { background: var(--bg); color: var(--muted); }
+
+.section { padding: 18px 22px; display: grid; gap: 12px; border-bottom: 1px solid var(--line); }
+.section:last-child { border-bottom: 0; }
+.section h3 { margin: 0; font-size: 12px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
+
+.strip-wrap { overflow-x: auto; }
+.strip { display: flex; gap: 3px; align-items: center; min-width: min-content; }
+.cell { height: 22px; min-width: 14px; flex: 1 1 14px; border-radius: 6px; background: var(--grey-cell); position: relative; }
+.cell.ok { background: var(--teal); }
+.cell.bad { background: var(--red); }
+.cell.bad::after { content: ""; position: absolute; inset: 5px 45%; background: var(--surface); border-radius: 2px; }
+.cell.init { flex: 0 0 22px; background: var(--brand); opacity: .85; }
+.cell.init.bad { background: var(--red); opacity: 1; }
+.strip-axis { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 13px; color: var(--muted); }
+.legend i { display: inline-block; width: 12px; height: 12px; border-radius: 4px; vertical-align: -1px; margin-right: 6px; }
+
+dl.facts { display: grid; grid-template-columns: max-content 1fr; gap: 8px 18px; margin: 0; }
+dl.facts dt { color: var(--muted); font-size: 14px; }
+dl.facts dd { margin: 0; min-width: 0; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.mono { font-family: var(--font-mono); font-size: 13px; }
+
+ul.checks { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+ul.checks li { display: grid; grid-template-columns: 22px 1fr; gap: 10px; align-items: start; }
+ul.checks .mark { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 13px; font-weight: 700; }
+.m-yes { background: var(--teal-soft); color: var(--teal); }
+.m-no { background: var(--red-soft); color: var(--red); }
+.m-skip { background: var(--bg); color: var(--muted); border: 1px dashed var(--line); }
+ul.checks b { font-weight: 600; }
+ul.checks small { display: block; color: var(--muted); font-size: 13px; }
+
+.busy { padding: 26px 22px; color: var(--muted); display: flex; gap: 10px; align-items: center; }
+.spinner { width: 18px; height: 18px; border-radius: 50%; border: 2.5px solid var(--line); border-top-color: var(--teal); animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spinner { animation: none; } .drop { transition: none; } }
+
+.how { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.how div { min-width: 0; }
+.how b { display: block; font-size: 14px; margin-bottom: 2px; }
+.how p { margin: 0; font-size: 13px; color: var(--muted); }
+@media (max-width: 640px) { .how { grid-template-columns: 1fr; } dl.facts { grid-template-columns: 1fr; gap: 2px 0; } dl.facts dd { margin-bottom: 8px; } }
+footer { font-size: 12px; color: var(--muted); text-align: center; }
+</style>
+
+<div class="wrap">
+  <header>
+    <svg class="lockup" role="img" aria-label="Testimonia" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 758 200"><title>Testimonia</title><g><ellipse cx="100.00" cy="20.00" rx="17" ry="10" transform="rotate(0.00 100.00 20.00)" fill="none" stroke="currentColor" stroke-width="6"/><ellipse cx="151.42" cy="38.72" rx="17" ry="10" transform="rotate(40.00 151.42 38.72)" fill="none" stroke="currentColor" stroke-width="6"/><ellipse cx="178.78" cy="86.11" rx="17" ry="10" transform="rotate(80.00 178.78 86.11)" fill="none" stroke="currentColor" stroke-width="6"/><ellipse cx="169.28" cy="140.00" rx="17" ry="10" transform="rotate(120.00 169.28 140.00)" fill="none" stroke="currentColor" stroke-width="6"/><ellipse cx="127.36" cy="175.18" rx="17" ry="10" transform="rotate(160.00 127.36 175.18)" fill="none" stroke="currentColor" stroke-width="6"/><ellipse cx="72.64" cy="175.18" rx="17" ry="10" transform="rotate(200.00 72.64 175.18)" fill="none" stroke="currentColor" stroke-width="6"/><ellipse cx="30.72" cy="140.00" rx="17" ry="10" transform="rotate(240.00 30.72 140.00)" fill="none" stroke="currentColor" stroke-width="6"/><ellipse cx="21.22" cy="86.11" rx="17" ry="10" transform="rotate(280.00 21.22 86.11)" fill="none" stroke="currentColor" stroke-width="6"/><ellipse cx="48.58" cy="38.72" rx="17" ry="10" transform="rotate(320.00 48.58 38.72)" fill="none" stroke="#14a99a" stroke-width="6"/><path d="M115.15 20.38 L139.58 29.27" style="stroke:var(--surface)" stroke-width="17" stroke-linecap="round" fill="none"/><path d="M115.15 20.38 L139.58 29.27" stroke="currentColor" stroke-width="9" stroke-linecap="round" fill="none"/><path d="M162.78 48.74 L175.78 71.26" style="stroke:var(--surface)" stroke-width="17" stroke-linecap="round" fill="none"/><path d="M162.78 48.74 L175.78 71.26" stroke="currentColor" stroke-width="9" stroke-linecap="round" fill="none"/><path d="M181.04 101.09 L176.53 126.69" style="stroke:var(--surface)" stroke-width="17" stroke-linecap="round" fill="none"/><path d="M181.04 101.09 L176.53 126.69" stroke="currentColor" stroke-width="9" stroke-linecap="round" fill="none"/><path d="M161.38 152.93 L141.46 169.64" style="stroke:var(--surface)" stroke-width="17" stroke-linecap="round" fill="none"/><path d="M161.38 152.93 L141.46 169.64" stroke="currentColor" stroke-width="9" stroke-linecap="round" fill="none"/><path d="M113.00 180.00 L87.00 180.00" style="stroke:var(--surface)" stroke-width="17" stroke-linecap="round" fill="none"/><path d="M113.00 180.00 L87.00 180.00" stroke="currentColor" stroke-width="9" stroke-linecap="round" fill="none"/><path d="M58.54 169.64 L38.62 152.93" style="stroke:var(--surface)" stroke-width="17" stroke-linecap="round" fill="none"/><path d="M58.54 169.64 L38.62 152.93" stroke="currentColor" stroke-width="9" stroke-linecap="round" fill="none"/><path d="M23.47 126.69 L18.96 101.09" style="stroke:var(--surface)" stroke-width="17" stroke-linecap="round" fill="none"/><path d="M23.47 126.69 L18.96 101.09" stroke="currentColor" stroke-width="9" stroke-linecap="round" fill="none"/><path d="M24.22 71.26 L37.22 48.74" style="stroke:var(--surface)" stroke-width="17" stroke-linecap="round" fill="none"/><path d="M24.22 71.26 L37.22 48.74" stroke="currentColor" stroke-width="9" stroke-linecap="round" fill="none"/><path d="M60.42 29.27 L84.85 20.38" style="stroke:var(--surface)" stroke-width="17" stroke-linecap="round" fill="none"/><path d="M60.42 29.27 L84.85 20.38" stroke="currentColor" stroke-width="9" stroke-linecap="round" fill="none"/><g fill="none" stroke="currentColor" stroke-width="16" stroke-linecap="round"><path d="M66 70 H134"/><path d="M100 70 V138"/></g></g><path transform="translate(240 136.0)" d="M2.24609375 -61.572265625H24.90234375V0.0H37.841796875V-61.572265625H60.400390625V-72.75390625H2.24609375ZM91.91796875 1.171875C103.978515625 1.171875 113.548828125 -5.810546875 115.501953125 -15.91796875H103.978515625C102.5625 -11.5234375 98.412109375 -8.544921875 92.2109375 -8.544921875C83.91015625 -8.544921875 79.125 -14.16015625 78.83203125 -22.55859375H116.13671875V-25.927734375C116.13671875 -41.748046875 106.2734375 -52.734375 91.4296875 -52.734375C76.9765625 -52.734375 66.771484375 -41.40625 66.771484375 -25.732421875C66.771484375 -10.107421875 76.439453125 1.171875 91.91796875 1.171875ZM78.9296875 -31.0546875C79.759765625 -38.427734375 84.49609375 -42.96875 91.625 -42.96875C98.75390625 -42.96875 103.5390625 -38.427734375 104.3203125 -31.0546875ZM145.701171875 1.220703125C158.4453125 1.220703125 167.576171875 -5.126953125 167.576171875 -15.185546875C167.576171875 -22.75390625 162.83984375 -27.24609375 152.634765625 -29.39453125L143.357421875 -31.298828125C139.060546875 -32.2265625 136.521484375 -34.130859375 136.521484375 -37.20703125C136.521484375 -40.72265625 139.841796875 -43.45703125 145.26171875 -43.45703125C150.876953125 -43.45703125 154.63671875 -40.087890625 154.734375 -35.498046875H166.306640625C166.013671875 -46.09375 157.46875 -52.685546875 144.96875 -52.685546875C132.37109375 -52.685546875 124.216796875 -46.2890625 124.216796875 -36.81640625C124.216796875 -29.00390625 129.392578125 -23.974609375 139.255859375 -21.923828125L148.044921875 -20.1171875C152.390625 -19.189453125 155.076171875 -17.3828125 155.076171875 -14.2578125C155.076171875 -10.595703125 151.462890625 -8.0078125 145.505859375 -8.0078125C139.353515625 -8.0078125 135.740234375 -10.888671875 135.203125 -15.91796875H123.044921875C123.826171875 -4.833984375 133.15234375 1.220703125 145.701171875 1.220703125ZM204.171875 -51.5625H193.673828125V-65.625H181.3203125V-51.5625H172.3359375V-41.650390625H181.3203125V-12.98828125C181.3203125 -4.150390625 186.251953125 0.0 196.75 0.0H204.171875V-9.912109375H198.8984375C194.89453125 -9.912109375 193.673828125 -11.1328125 193.673828125 -14.794921875V-41.650390625H204.171875ZM212.935546875 0.0H225.240234375V-51.5625H212.935546875ZM219.087890625 -59.228515625C223.287109375 -59.228515625 226.4609375 -62.255859375 226.4609375 -66.259765625C226.4609375 -70.21484375 223.287109375 -73.2421875 219.087890625 -73.2421875C214.888671875 -73.2421875 211.71484375 -70.21484375 211.71484375 -66.259765625C211.71484375 -62.255859375 214.888671875 -59.228515625 219.087890625 -59.228515625ZM237.177734375 0.0H249.482421875V-30.76171875C249.482421875 -38.134765625 254.21875 -42.138671875 259.78515625 -42.138671875C265.25390625 -42.138671875 269.16015625 -38.4765625 269.16015625 -32.861328125V0.0H281.123046875V-31.640625C281.123046875 -37.79296875 284.98046875 -42.138671875 291.23046875 -42.138671875C296.50390625 -42.138671875 300.80078125 -39.111328125 300.80078125 -32.275390625V0.0H313.154296875V-34.033203125C313.154296875 -46.142578125 305.634765625 -52.587890625 295.869140625 -52.587890625C288.349609375 -52.587890625 282.197265625 -48.779296875 279.462890625 -42.822265625C277.314453125 -48.73046875 271.6015625 -52.587890625 264.619140625 -52.587890625C258.125 -52.587890625 252.216796875 -49.267578125 249.091796875 -42.626953125V-51.5625H237.177734375ZM348.08984375 1.171875C363.275390625 1.171875 373.529296875 -9.716796875 373.529296875 -25.732421875C373.529296875 -41.748046875 363.275390625 -52.734375 348.08984375 -52.734375C332.904296875 -52.734375 322.650390625 -41.748046875 322.650390625 -25.732421875C322.650390625 -9.716796875 332.904296875 1.171875 348.08984375 1.171875ZM348.08984375 -9.130859375C340.130859375 -9.130859375 335.1015625 -15.4296875 335.1015625 -25.732421875C335.1015625 -36.083984375 340.1796875 -42.431640625 348.08984375 -42.431640625C355.951171875 -42.431640625 361.029296875 -36.03515625 361.029296875 -25.732421875C361.029296875 -15.478515625 356.0 -9.130859375 348.08984375 -9.130859375ZM395.330078125 -29.150390625C395.330078125 -37.939453125 400.1640625 -41.796875 406.609375 -41.796875C413.201171875 -41.796875 417.009765625 -37.841796875 417.009765625 -30.2734375V0.0H429.36328125V-32.2265625C429.36328125 -45.458984375 421.74609375 -52.587890625 410.955078125 -52.587890625C403.875 -52.587890625 398.650390625 -49.462890625 395.134765625 -43.65234375V-51.5625H383.025390625V0.0H395.330078125ZM441.30078125 0.0H453.60546875V-51.5625H441.30078125ZM447.453125 -59.228515625C451.65234375 -59.228515625 454.826171875 -62.255859375 454.826171875 -66.259765625C454.826171875 -70.21484375 451.65234375 -73.2421875 447.453125 -73.2421875C443.25390625 -73.2421875 440.080078125 -70.21484375 440.080078125 -66.259765625C440.080078125 -62.255859375 443.25390625 -59.228515625 447.453125 -59.228515625ZM481.265625 0.830078125C489.6640625 0.830078125 494.009765625 -2.685546875 496.451171875 -7.275390625H496.646484375V0.0H508.755859375V-35.15625C508.755859375 -45.8984375 500.796875 -52.587890625 487.369140625 -52.587890625C473.892578125 -52.587890625 465.494140625 -45.80078125 464.908203125 -35.546875H476.7734375C477.115234375 -39.892578125 481.119140625 -43.017578125 487.125 -43.017578125C493.033203125 -43.017578125 496.548828125 -39.892578125 496.548828125 -35.498046875V-35.107421875C496.548828125 -31.591796875 493.27734375 -31.4453125 483.70703125 -30.37109375C473.0625 -29.248046875 463.443359375 -26.3671875 463.443359375 -14.6484375C463.443359375 -4.345703125 471.01171875 0.830078125 481.265625 0.830078125ZM484.29296875 -8.30078125C478.921875 -8.30078125 475.455078125 -10.693359375 475.455078125 -14.74609375C475.455078125 -19.43359375 479.947265625 -21.337890625 485.220703125 -22.119140625C490.298828125 -22.900390625 495.083984375 -23.681640625 496.59765625 -24.658203125V-19.091796875C496.59765625 -13.0859375 492.349609375 -8.30078125 484.29296875 -8.30078125Z" fill="currentColor"/></svg>
+    <span class="privacy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2.5"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Your file never leaves this device</span>
+  </header>
+
+  <div>
+    <h1>Check a recording</h1>
+    <p class="lede">See whether a video from the Testimonia app is exactly as it was recorded, second by second, and who signed it.</p>
+  </div>
+
+  <section class="drop" id="drop" aria-label="Choose a video to check">
+    <div class="drop-main">
+      <p><strong>Drop a video here</strong><span>MP4 from the Testimonia app. Checking happens in your browser.</span></p>
+      <label class="btn" for="file" tabindex="0" id="fileLabel">Choose a video</label>
+      <input type="file" id="file" accept="video/mp4,.mp4,.m4v,.mov">
+    </div>
+    <div class="drop-extra">
+      <span>Try an example:</span>
+      <button class="chip" type="button" id="sampleSealed">Sealed recording</button>
+      <button class="chip" type="button" id="sampleEdited">Edited copy</button>
+      <span style="flex:1"></span>
+      <label class="chip" for="manifest" tabindex="0" id="manifestLabel">Add a separate seal file</label>
+      <input type="file" id="manifest" accept=".json,application/json">
+      <span class="manifest-name" id="manifestName" hidden></span>
+    </div>
+  </section>
+
+  <section class="result" id="result" aria-live="polite"></section>
+
+  <section class="how" aria-label="How checking works">
+    <div><b>Sealed as it records</b><p>The app fingerprints every second of video the moment it's written, and the phone's security chip signs the chain.</p></div>
+    <div><b>Checked here</b><p>This page recomputes every fingerprint from your copy and checks the signatures. Any changed second shows up.</p></div>
+    <div><b>Coming next</b><p>Who owns the phone, and the public record on Base, will be checked here once phones are registered.</p></div>
+  </section>
+  <footer>Testimonia &middot; capture format v1 (attest-capture/1)</footer>
+</div>
+
+<script type="module">
+// Browser (and Node 20+) verifier for the capture format, using WebCrypto only.
+// Same results as src/capture.js; see capture/FORMAT.md. The verify page inlines this file.
+
+const TAG = 'attest-capture/1';
+const MANIFEST_UUID = '9b2d6e1a5c4f4b8ea7d30e6f2c1b8a45';
+const AFTER_FRAGMENTS = new Set(['mfra', 'free']);
+const subtle = globalThis.crypto.subtle;
+const enc = new TextEncoder();
+
+const hex = (u8) => Array.from(u8, (b) => b.toString(16).padStart(2, '0')).join('');
+const fromHex = (s) => Uint8Array.from(String(s).match(/../g) || [], (h) => parseInt(h, 16));
+const fromB64 = (s) => Uint8Array.from(atob(String(s)), (c) => c.charCodeAt(0));
+const concat = (...parts) => {
+  const out = new Uint8Array(parts.reduce((a, p) => a + p.length, 0));
+  let o = 0;
+  for (const p of parts) {
+    out.set(p, o);
+    o += p.length;
+  }
+  return out;
+};
+async function sha256(...parts) {
+  return new Uint8Array(await subtle.digest('SHA-256', parts.length === 1 ? parts[0] : concat(...parts)));
+}
+
+/** JSON with sorted keys and no whitespace, matching the Node and phone implementations. */
+function canonicalJSON(v) {
+  if (v === null || typeof v !== 'object') return JSON.stringify(v);
+  if (Array.isArray(v)) return `[${v.map(canonicalJSON).join(',')}]`;
+  return `{${Object.keys(v).sort().map((k) => `${JSON.stringify(k)}:${canonicalJSON(v[k])}`).join(',')}}`;
+}
+
+// ------------------------------------------------------------------ boxes
+
+function parseBoxes(u8) {
+  const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
+  const boxes = [];
+  let o = 0;
+  while (o < u8.length) {
+    if (u8.length - o < 8) throw new Error(`truncated box header at byte ${o}`);
+    let size = dv.getUint32(o);
+    const type = String.fromCharCode(...u8.subarray(o + 4, o + 8));
+    if (size === 1) {
+      if (u8.length - o < 16) throw new Error(`truncated large box at byte ${o}`);
+      size = Number(dv.getBigUint64(o + 8));
+    } else if (size === 0) {
+      size = u8.length - o;
+    }
+    if (size < 8 || o + size > u8.length) throw new Error(`bad size for ${type} box at byte ${o}`);
+    boxes.push({ type, start: o, end: o + size });
+    o += size;
+  }
+  return boxes;
+}
+
+const isManifestBox = (u8, b) => b.type === 'uuid' && b.end - b.start >= 24 && hex(u8.subarray(b.start + 8, b.start + 24)) === MANIFEST_UUID;
+
+function splitFile(u8) {
+  const boxes = parseBoxes(u8);
+  let manifestJSON = null;
+  let bodyEnd = u8.length;
+  const last = boxes[boxes.length - 1];
+  if (last && isManifestBox(u8, last)) {
+    manifestJSON = new TextDecoder().decode(u8.subarray(last.start + 24, last.end));
+    bodyEnd = last.start;
+    boxes.pop();
+  }
+  if (boxes.some((b) => isManifestBox(u8, b))) throw new Error('manifest box must be the last box');
+  const first = boxes.findIndex((b) => b.type === 'moof');
+  if (first < 1) throw new Error('not a fragmented MP4 (no init segment before the first moof)');
+  const init = u8.subarray(0, boxes[first].start);
+  const fragments = [];
+  let i = first;
+  while (i < boxes.length && boxes[i].type === 'moof') {
+    const mdat = boxes[i + 1];
+    if (!mdat || mdat.type !== 'mdat') throw new Error(`moof at byte ${boxes[i].start} has no mdat after it`);
+    fragments.push(u8.subarray(boxes[i].start, mdat.end));
+    i += 2;
+  }
+  for (; i < boxes.length; i++) {
+    if (!AFTER_FRAGMENTS.has(boxes[i].type)) throw new Error(`unexpected ${boxes[i].type} box at byte ${boxes[i].start}`);
+  }
+  return { body: u8.subarray(0, bodyEnd), init, fragments, manifestJSON };
+}
+
+// ------------------------------------------------------------------ chain
+
+const ZERO32 = new Uint8Array(32);
+const chainStart = (initHash) => sha256(enc.encode(TAG), initHash);
+const chainNext = (head, fragHash, sensorHash) => sha256(head, fragHash, sensorHash || ZERO32);
+const checkpointMessage = (keyId, n, head, timeMs) => `${TAG}|checkpoint|${keyId}|${n}|${head}|${timeMs}`;
+const sealMessage = (keyId, n, head, fileHash, startMs, endMs, metaHash) =>
+  `${TAG}|seal|${keyId}|${n}|${head}|${fileHash}|${startMs}|${endMs}|${metaHash}`;
+
+/** DER ECDSA signature to the raw r||s form WebCrypto expects (P-256: 64 bytes). */
+function derToRaw(der) {
+  let o = 0;
+  if (der[o++] !== 0x30) throw new Error('not a DER signature');
+  if (der[o] & 0x80) o += (der[o] & 0x7f) + 1;
+  else o += 1;
+  const part = () => {
+    if (der[o++] !== 0x02) throw new Error('not a DER integer');
+    const len = der[o++];
+    let v = der.subarray(o, o + len);
+    o += len;
+    while (v.length > 32 && v[0] === 0) v = v.subarray(1);
+    if (v.length > 32) throw new Error('integer too long');
+    const out = new Uint8Array(32);
+    out.set(v, 32 - v.length);
+    return out;
+  };
+  return concat(part(), part());
+}
+
+async function verifySig(key, message, sigB64) {
+  try {
+    return await subtle.verify({ name: 'ECDSA', hash: 'SHA-256' }, key, derToRaw(fromB64(sigB64)), enc.encode(message));
+  } catch {
+    return false;
+  }
+}
+
+function describe(where) {
+  if (typeof where === 'number') return `fragment ${where} differs from what was recorded; fragments before it are original`;
+  if (where === 'init') return 'the file header differs from what was recorded';
+  if (where === 'outside-fragments') return 'bytes outside the fragments were changed';
+  return 'the seal does not match the fragments';
+}
+
+// ---------------------------------------------------------------- verify
+
+/**
+ * Verify a recording from the capture app.
+ * @param {Uint8Array} u8  the file
+ * @param {{manifest?: object}} opts  a separate .manifest.json, if the file has none
+ * @returns {Promise<{status: 'sealed'|'partial'|'altered'|'invalid', problems: string[],
+ *   manifest: object|null, fragments?: number, verifiedFragments?: number,
+ *   alteredAt?: number|string, checks: object}>}
+ */
+async function verifyCapture(u8, { manifest } = {}) {
+  const problems = [];
+  // Each check: true (passed), false (failed) or null (not reached).
+  const checks = { format: null, signer: null, seal: null, fragments: null, wholeFile: null };
+  const result = (status, extra = {}) => ({ status, problems, manifest: manifest || null, checks, ...extra });
+
+  let parts;
+  try {
+    parts = splitFile(u8);
+  } catch (e) {
+    checks.format = false;
+    problems.push(e.message);
+    return result('invalid');
+  }
+  if (!manifest) {
+    if (!parts.manifestJSON) {
+      checks.format = false;
+      problems.push('no seal in this file, and no manifest file was added');
+      return result('invalid');
+    }
+    try {
+      manifest = JSON.parse(parts.manifestJSON);
+    } catch {
+      checks.format = false;
+      problems.push('the seal inside the file is damaged');
+      return result('invalid');
+    }
+  }
+  if (manifest.format !== TAG || !manifest.meta || !Array.isArray(manifest.fragments) || !('seal' in manifest)) {
+    checks.format = false;
+    problems.push('the seal is malformed or from a different format');
+    return result('invalid');
+  }
+  checks.format = true;
+
+  let key;
+  const spki = fromB64(manifest.meta.publicKey || '');
+  try {
+    if (hex(await sha256(spki)) !== manifest.meta.keyId) throw new Error('key id mismatch');
+    key = await subtle.importKey('spki', spki, { name: 'ECDSA', namedCurve: 'P-256' }, false, ['verify']);
+  } catch {
+    checks.signer = false;
+    problems.push('the signing key in the seal is invalid');
+    return result('invalid');
+  }
+  checks.signer = true;
+  const keyId = manifest.meta.keyId;
+
+  const initHash = await sha256(parts.init);
+  const fragHashes = [];
+  for (const f of parts.fragments) fragHashes.push(await sha256(f));
+  const heads = [await chainStart(initHash)];
+  for (let i = 0; i < parts.fragments.length; i++) {
+    const sh = manifest.fragments[i]?.sensorHash ? fromHex(manifest.fragments[i].sensorHash) : null;
+    heads.push(await chainNext(heads[i], fragHashes[i], sh));
+  }
+
+  let alteredAt = null;
+  if (hex(initHash) !== manifest.initHash) alteredAt = 'init';
+  else {
+    const n = Math.max(fragHashes.length, manifest.fragments.length);
+    for (let i = 0; i < n; i++) {
+      if (!fragHashes[i] || !manifest.fragments[i] || hex(fragHashes[i]) !== manifest.fragments[i].hash) {
+        alteredAt = i;
+        break;
+      }
+    }
+  }
+  checks.fragments = alteredAt === null;
+
+  let verifiedFragments = 0;
+  let checkpointMax = 0;
+  for (const cp of manifest.checkpoints || []) {
+    if (!(await verifySig(key, checkpointMessage(keyId, cp.n, cp.head, cp.timeMs), cp.sig))) {
+      checks.seal = false;
+      problems.push(`the signature at fragment ${cp.n} is not valid`);
+      return result('invalid', { fragments: parts.fragments.length });
+    }
+    checkpointMax = Math.max(checkpointMax, cp.n);
+    if (heads[cp.n] && hex(heads[cp.n]) === cp.head) verifiedFragments = Math.max(verifiedFragments, cp.n);
+  }
+  const fragments = parts.fragments.length;
+
+  const listed = [await chainStart(fromHex(manifest.initHash))];
+  for (let i = 0; i < manifest.fragments.length; i++) {
+    const f = manifest.fragments[i];
+    listed.push(await chainNext(listed[i], fromHex(f.hash), f.sensorHash ? fromHex(f.sensorHash) : null));
+  }
+  let signedList = 0;
+  for (const cp of manifest.checkpoints || []) {
+    if (listed[cp.n] && hex(listed[cp.n]) === cp.head) signedList = Math.max(signedList, cp.n);
+  }
+  const altered = (where) => {
+    problems.push(describe(where));
+    const provable = typeof where === 'number' ? Math.min(where, signedList) : 0;
+    return result('altered', { fragments, verifiedFragments: provable, alteredAt: where });
+  };
+
+  const s = manifest.seal;
+  if (!s) {
+    checks.seal = false;
+    if (alteredAt !== null && (typeof alteredAt !== 'number' || alteredAt < checkpointMax)) return altered(alteredAt);
+    if (verifiedFragments > 0) {
+      problems.push(`not sealed: only the first ${verifiedFragments} fragments are proven`);
+      return result('partial', { fragments, verifiedFragments });
+    }
+    problems.push('not sealed, and no signed checkpoints');
+    return result('invalid', { fragments });
+  }
+
+  const metaHash = hex(await sha256(enc.encode(canonicalJSON(manifest.meta))));
+  if (!(await verifySig(key, sealMessage(keyId, s.n, s.head, s.fileHash, manifest.startMs, manifest.endMs, metaHash), s.sig))) {
+    checks.seal = false;
+    problems.push('the seal signature is not valid: the seal was changed or forged');
+    return result('invalid', { fragments });
+  }
+  checks.seal = true;
+  if (listed[s.n] && hex(listed[s.n]) === s.head) signedList = Math.max(signedList, s.n);
+  const fileHashOk = hex(await sha256(parts.body)) === s.fileHash;
+  checks.wholeFile = fileHashOk;
+  const chainOk = s.n === fragments && heads[s.n] && hex(heads[s.n]) === s.head;
+  if (alteredAt === null && fileHashOk && chainOk) return result('sealed', { fragments, verifiedFragments: s.n });
+  if (alteredAt === null) alteredAt = fileHashOk ? 'seal' : 'outside-fragments';
+  return altered(alteredAt);
+}
+
+
+const $ = (id) => document.getElementById(id);
+const resultEl = $('result');
+let extraManifest = null;
+let lastFile = null;
+
+const ICONS = {
+  sealed: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+  altered: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 7v6"/><circle cx="12" cy="17" r="0.6" fill="currentColor"/><path d="M10.3 3.9L2.6 17.5A2 2 0 0 0 4.3 20.5h15.4a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>',
+  partial: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>',
+  invalid: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M9 9l6 6M15 9l-6 6"/></svg>',
+};
+
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+const fmtBytes = (n) => (n < 1024 * 1024 ? `${(n / 1024).toFixed(0)} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`);
+const fmtTime = (ms) => {
+  if (!Number.isFinite(ms)) return 'unknown';
+  return new Date(ms).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'medium' });
+};
+const fmtLen = (sec) => (sec >= 60 ? `${Math.floor(sec / 60)} min ${Math.round(sec % 60)} s` : `${sec} s`);
+
+function verdictText(r) {
+  const n = r.fragments ?? 0;
+  if (r.status === 'sealed') return ['Unaltered since recording', `All ${n} seconds match what the phone signed when it recorded them.`];
+  if (r.status === 'partial') return ['Recording stopped early', `The app closed before sealing. The first ${r.verifiedFragments} of ${n} seconds are proven original; the rest can't be checked.`];
+  if (r.status === 'altered') {
+    if (typeof r.alteredAt === 'number') {
+      const ok = r.verifiedFragments ? ` Seconds 0 to ${r.verifiedFragments - 1} are original.` : '';
+      return [`Changed at second ${r.alteredAt}`, `This copy differs from what was recorded, starting about ${r.alteredAt} s in.${ok}`];
+    }
+    if (r.alteredAt === 'init') return ['The video header was changed', 'The part of the file that describes the video differs from what was recorded.'];
+    return ['Changed outside the video frames', 'Bytes outside the recorded seconds were changed after recording.'];
+  }
+  return ["Can't be checked", cap(r.problems[0] || 'This file has no Testimonia seal.') + '.'];
+}
+const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+
+function strip(r) {
+  const n = r.fragments ?? r.manifest?.fragments?.length ?? 0;
+  if (!n) return '';
+  const cells = [];
+  const initBad = r.alteredAt === 'init';
+  cells.push(`<span class="cell init${initBad ? ' bad' : ''}" title="File header"></span>`);
+  for (let i = 0; i < n; i++) {
+    let cls = '';
+    let title = `Second ${i}: not proven`;
+    if (r.status === 'sealed' || i < (r.verifiedFragments ?? 0)) { cls = 'ok'; title = `Second ${i}: original`; }
+    if (r.alteredAt === i) { cls = 'bad'; title = `Second ${i}: changed`; }
+    cells.push(`<span class="cell ${cls}" title="${title}"></span>`);
+  }
+  return `<div class="section"><h3>Each second of video</h3>
+    <div class="strip-wrap"><div class="strip" role="img" aria-label="${esc(verdictText(r)[1])}">${cells.join('')}</div></div>
+    <div class="strip-axis"><span>Start</span><span>${fmtLen(n)}</span></div>
+    <div class="legend"><span><i style="background:var(--teal)"></i>Proven original</span><span><i style="background:var(--red)"></i>Changed</span><span><i style="background:var(--grey-cell)"></i>Not proven</span></div></div>`;
+}
+
+function facts(r, file) {
+  const m = r.manifest;
+  const rows = [];
+  rows.push(['File', `${esc(file.name)} <span style="color:var(--muted)">(${fmtBytes(file.size)})</span>`]);
+  if (m?.meta) {
+    rows.push(['Recorded', `${fmtTime(m.startMs)}${m.endMs ? ` to ${new Date(m.endMs).toLocaleTimeString()}` : ''} <span style="color:var(--muted)">(phone clock)</span>`]);
+    const platform = { ios: 'iPhone', android: 'Android', reference: 'Test recording' }[m.meta.platform] || esc(m.meta.platform);
+    rows.push(['Device', `${platform}${m.meta.device ? `, ${esc(m.meta.device)}` : ''}`]);
+    rows.push(['App', esc(m.meta.app || 'unknown')]);
+    rows.push(['Signing key', `<span class="mono">${esc(m.meta.keyId.slice(0, 16))}&hellip;${esc(m.meta.keyId.slice(-8))}</span>`]);
+    const loc = m.meta.location?.mode;
+    rows.push(['Location', loc === 'none' || !loc ? 'Not recorded' : loc === 'owner-only' ? 'Sealed, only the owner can reveal it' : 'Sealed, hidden by default']);
+  }
+  return `<div class="section"><h3>About this recording</h3><dl class="facts">${rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl></div>`;
+}
+
+function checks(r) {
+  const c = r.checks;
+  const row = (state, title, detail) => {
+    const [cls, sym] = state === true ? ['m-yes', '&#10003;'] : state === false ? ['m-no', '&#10005;'] : ['m-skip', '&ndash;'];
+    return `<li><span class="mark ${cls}" aria-hidden="true">${sym}</span><div><b>${title}</b><small>${detail}</small></div></li>`;
+  };
+  return `<div class="section"><h3>What was checked</h3><ul class="checks">
+    ${row(c.format, 'Has a Testimonia seal', c.format === false ? 'No readable seal was found.' : 'The file carries a seal in the capture format.')}
+    ${row(c.signer, 'Signing key is valid', 'The seal names a P-256 key from the phone&rsquo;s security chip.')}
+    ${row(c.seal, 'Seal signature is genuine', c.seal === false ? 'The seal was not signed by that key, or was edited.' : 'Signed by the phone at the end of recording.')}
+    ${row(c.fragments, 'Every second matches', c.fragments === false ? 'At least one second differs from what was signed.' : 'Each second&rsquo;s fingerprint matches the signed chain.')}
+    ${c.fragments === false
+      ? row(null, 'Nothing else in the file changed', 'Not separate from the changed second above.')
+      : row(c.wholeFile, 'Nothing else in the file changed', c.wholeFile === false ? 'Bytes outside the recorded seconds differ.' : 'The whole file matches the signed fingerprint.')}
+    ${row(null, 'Phone belongs to a registered person', 'Not checked yet. Coming with device registration.')}
+    ${row(null, 'Public record on Base', 'Not checked yet. Coming with on-chain anchoring.')}
+  </ul></div>`;
+}
+
+function render(r, file, example) {
+  const [head, sub] = verdictText(r);
+  const tag = example ? `<span class="tag">Example &middot; ${esc(example)}</span>` : '';
+  const names = { sealed: 'Sealed', altered: 'Altered', partial: 'Partial', invalid: 'Not verifiable' };
+  resultEl.innerHTML = `<div class="verdict s-${r.status}"><span class="icon" aria-hidden="true">${ICONS[r.status]}</span>
+      <div>${tag}<h2>${names[r.status]}: ${esc(head)}</h2><p>${esc(sub)}</p></div></div>
+    ${strip(r)}${facts(r, file)}${checks(r)}`;
+}
+
+async function check(file, example) {
+  lastFile = file;
+  resultEl.innerHTML = `<div class="busy"><span class="spinner" aria-hidden="true"></span>Checking ${esc(file.name)}&hellip;</div>`;
+  try {
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    const r = await verifyCapture(bytes, extraManifest ? { manifest: extraManifest } : {});
+    render(r, file, example);
+  } catch (e) {
+    resultEl.innerHTML = `<div class="verdict s-invalid"><span class="icon">${ICONS.invalid}</span><div><h2>Couldn't read this file</h2><p>${esc(e.message || e)}</p></div></div>`;
+  }
+}
+
+async function loadSample(path, label, name) {
+  try {
+    const res = await fetch(path);
+    if (!res.ok) throw new Error(`sample not found (${res.status})`);
+    const blob = await res.blob();
+    await check(new File([blob], name, { type: 'video/mp4' }), label);
+  } catch (e) {
+    resultEl.innerHTML = `<div class="verdict s-invalid"><span class="icon">${ICONS.invalid}</span><div><h2>The example didn't load</h2><p>${esc(e.message)}. Choose a video of your own instead.</p></div></div>`;
+  }
+}
+
+$('file').addEventListener('change', (e) => { if (e.target.files[0]) check(e.target.files[0]); });
+$('sampleSealed').addEventListener('click', () => loadSample('samples/sealed.mp4', 'sealed recording', 'sample-sealed.mp4'));
+$('sampleEdited').addEventListener('click', () => loadSample('samples/edited.mp4', 'one second edited', 'sample-edited.mp4'));
+for (const id of ['fileLabel', 'manifestLabel']) {
+  $(id).addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $(id).click(); } });
+}
+$('manifest').addEventListener('change', async (e) => {
+  const f = e.target.files[0];
+  if (!f) return;
+  try {
+    extraManifest = JSON.parse(await f.text());
+    $('manifestName').textContent = f.name;
+    $('manifestName').hidden = false;
+    if (lastFile) check(lastFile);
+  } catch {
+    $('manifestName').textContent = `${f.name} isn't a valid seal file`;
+    $('manifestName').hidden = false;
+    extraManifest = null;
+  }
+});
+const drop = $('drop');
+for (const ev of ['dragenter', 'dragover']) drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add('over'); });
+for (const ev of ['dragleave', 'drop']) drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.remove('over'); });
+drop.addEventListener('drop', (e) => {
+  const files = [...(e.dataTransfer?.files || [])];
+  const json = files.find((f) => f.name.endsWith('.json'));
+  const video = files.find((f) => !f.name.endsWith('.json'));
+  (async () => {
+    if (json) { try { extraManifest = JSON.parse(await json.text()); $('manifestName').textContent = json.name; $('manifestName').hidden = false; } catch {} }
+    if (video) check(video); else if (lastFile) check(lastFile);
+  })();
+});
+
+// Open with a checked example so the page shows what it does.
+loadSample('samples/sealed.mp4', 'sealed recording', 'sample-sealed.mp4');
+</script>
