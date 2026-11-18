@@ -115,6 +115,76 @@ fingerprint of it is public.
   verifiable. A perceptual fingerprint stored at sealing time lets the verify page match a
   recompressed copy back to the original and say "matches a verified recording, re-encoded."
 
+## Lawful access: key holders and legal authority
+
+### Recommendation: vote-driven, inside fixed safety limits
+The key-holder set and threshold are **adjustable by Mandate-style vote**, but the contract
+enforces floors that no vote can lower. A vote can make access harder, or swap key holders,
+but can never make bulk or single-party access possible.
+
+**Starting policy**
+- **5 key holders, any 3 must agree (3 of 5).**
+- **One of each kind**, so no single interest controls access:
+  1. A legal trustee bound by professional duty, such as a law firm or notary acting as custodian
+  2. A civil-liberties organization
+  3. A press-freedom or journalism organization
+  4. An academic or technical institution
+  5. The foundation that runs the registry
+- **No two in the same country**, and at least three different legal systems among them, so
+  one government can't compel a majority.
+- Each key holder keeps its share in a hardware security module and publishes an annual
+  report of the requests it received and how it answered.
+
+**Floors the contract enforces (can't be voted away)**
+- At least 5 key holders and a threshold of at least 3, and always more than half.
+- At most one key holder per country.
+- Every request and every decision logged publicly on-chain.
+- One recording per request, never bulk.
+- **Changes only apply to new recordings.** A recording stays bound to the key holders and
+  policy in force when it was made, unless its owner agrees to move it. A future vote can't
+  reach back into old recordings.
+
+**How a change is made**
+- A council proposes a change (new key holder, higher threshold, updated legal rules).
+- Verified people vote: one person, one anonymous vote, as in `MandateVote`.
+- A public veto window, then a timelock of at least 30 days before it takes effect, so
+  users can switch new recordings to owner-only mode first if they object.
+- Any key holder can publish a formal objection, which shows on the proposal.
+
+**What owners can choose**
+- The default policy, **a stricter one** (for example 4 of 5, or excluding key holders in
+  certain countries), or owner-only mode. Never a looser one.
+
+### What counts as valid legal authority
+Each key holder checks every request **independently, under its own law**. A request
+succeeds only if enough key holders, in different countries, each conclude it's valid. That
+means a request from one country also has to satisfy courts and organizations elsewhere,
+much as cross-border evidence requests work through mutual legal assistance treaties.
+
+A request must have all of these:
+1. **An order from a judge**, not just a police or administrative request or a subpoena.
+2. **A specific recording**, identified by its ID, with the reason it's needed.
+3. **A serious offence** (violent crime, child exploitation, terrorism, serious fraud),
+   with a published list kept by governance vote.
+4. **A country on the rule-of-law list.** Requests from countries not on it must arrive
+   through a listed country's courts via a mutual legal assistance treaty. The list is
+   maintained by governance vote, using public measures of judicial independence.
+5. **Proportionality:** the precision released is the least needed (city before exact
+   location), and the time range is limited to the recording.
+
+**Emergencies** (an imminent threat to someone's life): access with **4 of 5** instead of 3,
+but a court order must follow within 72 hours or the access is publicly marked as unjustified
+and counts against the requesting agency on the public record.
+
+**Notifying the owner:** immediately by default. A court can order a delay of up to 90 days,
+renewable only by a new order, and the delay itself appears in the public log.
+
+### How it works technically
+At recording time, the location key is split into shares (Shamir secret sharing), and each
+share is encrypted to one key holder's public key with HPKE, which Mandate already uses. The
+encrypted shares travel with the sealed record. The owner holds their own full copy. No share
+on its own reveals anything. In owner-only mode no shares are made.
+
 ## Build plan
 
 Shared app in **React Native**, so the interface and the existing JavaScript SDK are
@@ -125,19 +195,23 @@ Kotlin), because that's where the security comes from.
 |---|---|
 | 1. Signed capture | Native camera with fragmented MP4, hash chain, hardware key signing, C2PA manifest. Verify with a command-line tool. |
 | 2. Registered devices and location | Device issuer service (App Attest / Play Integrity), `DEVICE` signers and the `CAPTURED` origin in the contracts, relayer anchoring, sealed location with precision-level reveals. |
-| 3. Liveness | Light challenge, depth, parallax; then moiré and flicker models. |
+| 3. Liveness | Light challenge, depth, parallax; then moiré and flicker models. Same checks on both platforms; the depth check uses whatever sensor each phone has. |
 | 4. Verify page and sharing | Web verify page, trimmed clips, perceptual matching for re-uploads. |
-| 5. Lawful access | Threshold key holders, the on-chain request log, owner notification. |
+| 5. Lawful access | Shamir shares to 5 key holders, the policy contract with its floors, voting on changes, the on-chain request log, owner notification. |
 | 6. Hardening | Security review, a jailbreak and root response policy, accessibility, store release. |
 
 ## Decisions
 
 - **Location (decided):** always captured and sealed, hidden by default, revealed by the
   owner at a chosen precision, or by threshold lawful access with a public log. Owner-only
-  mode for people at risk.
-- **Still open: key holders.** Who holds the lawful-access key shares, how many must agree,
-  and what counts as valid legal authority across countries.
-- **Identity requirement:** must a person be VERIFIED to record, or can BASIC users record
-  with a lower-trust label?
-- **Store originals?** Keeping originals (encrypted) makes re-upload matching and disputes
-  easier but brings storage and privacy duties. The alternative is storing only hashes.
+  mode for people at risk is kept.
+- **Platforms (decided):** iPhone and Android, with the same features on both.
+- **Key holders (recommended):** 3 of 5 independent key holders in different countries,
+  adjustable by vote within fixed floors, changes never retroactive. See "Lawful access".
+- **Who can record (decided):** VERIFIED people only. The app checks the person's tier when
+  the phone is registered, and the contracts only accept `CAPTURED` from devices whose owner
+  is VERIFIED. A person who drops below VERIFIED can't record until re-verified; their past
+  recordings stay valid.
+- **Originals (decided):** never stored by us. Only fingerprints are kept: the hash chain,
+  the exact file hash and the perceptual fingerprint for matching re-uploads. The owner
+  keeps the original, and disputes are settled against it.
