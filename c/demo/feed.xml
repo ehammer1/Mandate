@@ -4,7 +4,31 @@
   <subtitle>Every poll, mandate, budget round, petition and change of power, from the public blockchain record.</subtitle>
   <id>urn:mandate:feed</id>
   <link href="https://ehammer1.github.io/Mandate/"/>
-  <updated>2026-11-17T13:04:48.000Z</updated>
+  <updated>2026-11-18T10:07:58.000Z</updated>
+  <entry>
+    <id>urn:mandate:petition:0x78a9ea792a6fbe0e9040da4631e000a4855f2f8b4db50753e7333a0cafc5e07b:1794996478</id>
+    <title>Petition 1 reached its signatures: poll 1 opened by itself</title>
+    <updated>2026-11-18T10:07:58.000Z</updated>
+    <link href="https://sepolia.basescan.org/tx/0x78a9ea792a6fbe0e9040da4631e000a4855f2f8b4db50753e7333a0cafc5e07b"/>
+    <category term="medium"/>
+    <summary>Petition 1 reached its signatures: poll 1 opened by itself</summary>
+  </entry>
+  <entry>
+    <id>urn:mandate:poll-opened:0x78a9ea792a6fbe0e9040da4631e000a4855f2f8b4db50753e7333a0cafc5e07b:1794996478</id>
+    <title>Poll 1 opened, closes 2026-11-25 10:07 UTC</title>
+    <updated>2026-11-18T10:07:58.000Z</updated>
+    <link href="https://sepolia.basescan.org/tx/0x78a9ea792a6fbe0e9040da4631e000a4855f2f8b4db50753e7333a0cafc5e07b"/>
+    <category term="info"/>
+    <summary>Poll 1 opened, closes 2026-11-25 10:07 UTC</summary>
+  </entry>
+  <entry>
+    <id>urn:mandate:petition:0xa1a87e81a4b3b12a1c7482950fa0d6d403bcf7fca6ab5d97b86ad8bf80344707:1794996327</id>
+    <title>Petition 1 started (action 0): 1 signatures open its vote</title>
+    <updated>2026-11-18T10:05:27.000Z</updated>
+    <link href="https://sepolia.basescan.org/tx/0xa1a87e81a4b3b12a1c7482950fa0d6d403bcf7fca6ab5d97b86ad8bf80344707"/>
+    <category term="info"/>
+    <summary>Petition 1 started (action 0): 1 signatures open its vote</summary>
+  </entry>
   <entry>
     <id>urn:mandate:council-executed:0xa14f105e0839a513a117cb4a891d634e579baa8673a80906383326d1de3edc0e:1794920688</id>
     <title>Council change #7 carried out: remove identity source 0xd868…6fD0 (&quot;Demo front desk&quot;)</title>
@@ -780,29 +804,5 @@
     <link href="https://sepolia.basescan.org/tx/0xd18a5b1e4755567f44a9b5ff901e2119197c66f11204279e19cb2cc3e49cbec5"/>
     <category term="high"/>
     <summary>Urgent: ADMIN role granted to 0xC782…f834 on paper and in-person results</summary>
-  </entry>
-  <entry>
-    <id>urn:mandate:role-change:0xb40b9a20c57a551e29a0af900393287a7563c61a8735e216299d0f9f1571d7e3:1794561707</id>
-    <title>PROPOSER role granted to 0x2087…743B on voting</title>
-    <updated>2026-11-13T09:21:47.000Z</updated>
-    <link href="https://sepolia.basescan.org/tx/0xb40b9a20c57a551e29a0af900393287a7563c61a8735e216299d0f9f1571d7e3"/>
-    <category term="medium"/>
-    <summary>PROPOSER role granted to 0x2087…743B on voting</summary>
-  </entry>
-  <entry>
-    <id>urn:mandate:role-change:0x8a316ce8af712d12b2f05a7cb6e997ba0a3610f46ce3e9e5409bd72adfc0aaf3:1794561698</id>
-    <title>PROPOSER role granted to 0xee34…2050 on voting</title>
-    <updated>2026-11-13T09:21:38.000Z</updated>
-    <link href="https://sepolia.basescan.org/tx/0x8a316ce8af712d12b2f05a7cb6e997ba0a3610f46ce3e9e5409bd72adfc0aaf3"/>
-    <category term="medium"/>
-    <summary>PROPOSER role granted to 0xee34…2050 on voting</summary>
-  </entry>
-  <entry>
-    <id>urn:mandate:role-change:0xfba069afb79c5b7bcd17c8eb8c291c0c5920f9db6ec52bfed061db1e669a4aad:1794561694</id>
-    <title>0xedcc084d3dcd65a1f7f23c65c46722faca6953d28e43150a467cf43e5c309238 role granted to 0xC782…f834 on government bodies</title>
-    <updated>2026-11-13T09:21:34.000Z</updated>
-    <link href="https://sepolia.basescan.org/tx/0xfba069afb79c5b7bcd17c8eb8c291c0c5920f9db6ec52bfed061db1e669a4aad"/>
-    <category term="medium"/>
-    <summary>0xedcc084d3dcd65a1f7f23c65c46722faca6953d28e43150a467cf43e5c309238 role granted to 0xC782…f834 on government bodies</summary>
   </entry>
 </feed>

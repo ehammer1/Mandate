@@ -1,5 +1,51 @@
 [
  {
+  "tx": "0x78a9ea792a6fbe0e9040da4631e000a4855f2f8b4db50753e7333a0cafc5e07b",
+  "block": 60373049,
+  "time": 1794996478,
+  "contract": "petitions and comments",
+  "event": "PetitionSucceeded",
+  "rule": "petition",
+  "severity": "medium",
+  "title": "Petition 1 reached its signatures: poll 1 opened by itself",
+  "facts": {
+   "petition": "1",
+   "poll": "1"
+  },
+  "id": "petition:0x78a9ea792a6fbe0e9040da4631e000a4855f2f8b4db50753e7333a0cafc5e07b:1794996478"
+ },
+ {
+  "tx": "0x78a9ea792a6fbe0e9040da4631e000a4855f2f8b4db50753e7333a0cafc5e07b",
+  "block": 60373049,
+  "time": 1794996478,
+  "contract": "voting",
+  "event": "PollCreated",
+  "rule": "poll-opened",
+  "severity": "info",
+  "title": "Poll 1 opened, closes 2026-11-25 10:07 UTC",
+  "facts": {
+   "poll": "1",
+   "action": "advisory",
+   "binding": false,
+   "questionCID": "nb:0x8391d8f4031c529811aa37ce7957b48c3b77b183b380a658b588b18a12ac4a36"
+  },
+  "id": "poll-opened:0x78a9ea792a6fbe0e9040da4631e000a4855f2f8b4db50753e7333a0cafc5e07b:1794996478"
+ },
+ {
+  "tx": "0xa1a87e81a4b3b12a1c7482950fa0d6d403bcf7fca6ab5d97b86ad8bf80344707",
+  "block": 60372293,
+  "time": 1794996327,
+  "contract": "petitions and comments",
+  "event": "PetitionCreated",
+  "rule": "petition",
+  "severity": "info",
+  "title": "Petition 1 started (action 0): 1 signatures open its vote",
+  "facts": {
+   "petition": "1"
+  },
+  "id": "petition:0xa1a87e81a4b3b12a1c7482950fa0d6d403bcf7fca6ab5d97b86ad8bf80344707:1794996327"
+ },
+ {
   "tx": "0xa14f105e0839a513a117cb4a891d634e579baa8673a80906383326d1de3edc0e",
   "block": 59994100,
   "time": 1794920688,
