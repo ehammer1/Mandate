@@ -1,0 +1,92 @@
+# Builds and tests attest/ (agent attestation and the capture app) on every change.
+#   js        contracts, SDK, capture verifier
+#   android   Kotlin core tests, then the recorder module with the Android SDK
+#   ios       Swift core tests on a Mac, then the recorder built for iPhone
+# The Android and iPhone jobs hand their sealed test files to the JavaScript verifier,
+# so all three implementations must agree on the format.
+name: Attest
+
+on:
+  push:
+    paths: ['attest/**', '.github/workflows/attest.yml']
+  pull_request:
+    paths: ['attest/**', '.github/workflows/attest.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: attest-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: attest
+
+jobs:
+  js:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: attest/package-lock.json
+      - run: npm ci
+      - run: npm test
+
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.14.3'
+      - name: Core tests (format, hashing, sealing)
+        working-directory: attest/capture/android
+        run: gradle :core:test
+      - name: Recorder (CameraX, MediaCodec, Media3 muxer, Keystore)
+        working-directory: attest/capture/android
+        run: gradle :recorder:assembleDebug
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - name: Android-sealed file passes the JavaScript verifier
+        env:
+          REQUIRE_ANDROID_OUTPUT: '1'
+        run: node --test --test-name-pattern "Android core" test/capture.test.js
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: android-test-reports
+          path: attest/capture/android/*/build/reports/
+          if-no-files-found: ignore
+
+  ios:
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Core tests (format, hashing, sealing)
+        working-directory: attest/capture/ios
+        env:
+          CAPTURE_OUT: ${{ runner.temp }}/capture-out
+        run: swift test
+      - name: Recorder built for iPhone (AVFoundation, Secure Enclave, App Attest)
+        working-directory: attest/capture/ios
+        run: xcodebuild -scheme AttestCapture-Package -destination 'generic/platform=iOS' -skipPackagePluginValidation build CODE_SIGNING_ALLOWED=NO | tail -50
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - name: iPhone-sealed file passes the JavaScript verifier
+        run: node bin/attest.js verify-capture "${{ runner.temp }}/capture-out/swift-sealed.mp4"

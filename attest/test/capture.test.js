@@ -169,7 +169,10 @@ test('malformed files are rejected, not crashed on', () => {
 // Cross-implementation check: files sealed by the Kotlin (Android) core must verify here.
 // Produced by `gradle :core:test` in capture/android; skipped if that hasn't been run.
 const KOTLIN_OUT = path.join(__dirname, '..', 'capture', 'android', 'core', 'build', 'vector-out');
-test('recordings sealed by the Android core verify with this verifier', { skip: !fs.existsSync(path.join(KOTLIN_OUT, 'kotlin-sealed.mp4')) && 'run gradle :core:test in capture/android first' }, () => {
+test('recordings sealed by the Android core verify with this verifier', {
+  // CI sets REQUIRE_ANDROID_OUTPUT so a missing file fails instead of skipping.
+  skip: !process.env.REQUIRE_ANDROID_OUTPUT && !fs.existsSync(path.join(KOTLIN_OUT, 'kotlin-sealed.mp4')) && 'run gradle :core:test in capture/android first',
+}, () => {
   const r = c.verifyCapture(fs.readFileSync(path.join(KOTLIN_OUT, 'kotlin-sealed.mp4')));
   assert.equal(r.status, 'sealed');
   assert.equal(r.manifest.meta.keyId, vectors.keyId);

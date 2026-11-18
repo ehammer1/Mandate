@@ -129,6 +129,7 @@ Anyone can recompute it, and nothing is scored in secret.
 | Live scene | 20 | Liveness checks passed: light challenge and depth count most |
 | Anchored promptly | 5 | Anchored on-chain within minutes of recording ending |
 | Track record | 10 | Signer has no upheld disputes; strikes subtract |
+| Earlier copy found | −40 | Subtracted when the uniqueness check (section 10) finds the same footage online or in the registry from before this recording started, and shown first in the report |
 
 Shown as bands with plain reasons, for example **High (88)**: "verified person, genuine
 phone, unaltered, live-scene checks passed, anchored 3 minutes after recording."
@@ -165,6 +166,32 @@ real file.
   the owner's own storage. Free up to a storage limit, paid beyond it (video is large).
 - **Legal requests for stored files** get ciphertext only. Opening it needs the owner, or
   the key holders under the lawful-access policy.
+
+### 10. Uniqueness check
+Is this footage new, or did it exist before it was "recorded"? This catches two of the most
+common fakes: **recycled footage** (an old video shared as new) and **screen re-filming**
+(pointing the phone at a video that was already online).
+
+- **Perceptual fingerprints.** At sealing time the app computes fingerprints that survive
+  compression, resizing and re-filming: PDQ (Meta's open-source image hash) on keyframes,
+  plus a short sequence fingerprint over the whole video. They go in the manifest and the
+  registry, never the video itself.
+- **Checked against:**
+  1. **The registry:** every anchored recording, with the time it was anchored.
+  2. **The open web,** when a recording is checked by the public verify page: reverse image
+     and video search services, and fact-checkers' databases of known recycled footage.
+     Only fingerprints and keyframes of content that's already public are sent.
+- **What the report says:** "No earlier copy found," or "Matches footage first seen on
+  March 3, 2025 at [source]," with the match strength and a side-by-side view. An earlier
+  match never proves fake on its own (a person may re-share their own earlier recording),
+  so it's shown as evidence with the source, not a verdict.
+- **At recording time (later):** the app can flag a possible match immediately, while the
+  user can still record the scene again properly.
+- **Privacy:** nothing about an unpublished recording leaves the phone except its
+  fingerprints, and only to our own registry. Web search happens only for content someone
+  chose to check publicly.
+- **Limits:** a scene that was staged but never posted before won't match anything, and
+  footage that's heavily edited may evade matching. It's one signal among several.
 
 ## Lawful access: key holders and legal authority
 
@@ -247,7 +274,7 @@ Kotlin), because that's where the security comes from.
 | 1. Signed capture | Native camera with fragmented MP4, hash chain, hardware key signing. Verify with a command-line tool. C2PA manifest moved to phase 4, since it needs a signing certificate. **Status:** format, reference verifier and Android core built and tested here; Android recorder and iPhone package written but not yet compiled (needs Android Studio and Xcode). |
 | 2. Registered devices and location | Device issuer service (App Attest / Play Integrity), `DEVICE` signers and the `CAPTURED` origin in the contracts, relayer anchoring, sealed location with precision-level reveals. |
 | 3. Liveness | Light challenge, depth, parallax; then moiré and flicker models. Same checks on both platforms; the depth check uses whatever sensor each phone has. |
-| 4. Verify page and sharing | C2PA manifest, web verify page with the trust score and its breakdown, encrypted original upload and key sharing, trimmed clips, perceptual matching for re-uploads. |
+| 4. Verify page and sharing | C2PA manifest, uniqueness check (registry, then web search), web verify page with the trust score and its breakdown, encrypted original upload and key sharing, trimmed clips, perceptual matching for re-uploads. |
 | 5. Lawful access | Shamir shares to 5 key holders, the policy contract with its floors, voting on changes, the on-chain request log, owner notification. |
 | 6. Hardening | Security review, a jailbreak and root response policy, accessibility, store release. |
 

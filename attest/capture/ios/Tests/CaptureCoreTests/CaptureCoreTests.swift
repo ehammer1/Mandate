@@ -60,7 +60,10 @@ final class CaptureCoreTests: XCTestCase {
         XCTAssertEqual(manifest["seal"]?["head"], .string((v["heads"] as! [String]).last!))
         XCTAssertEqual(manifest["seal"]?["fileHash"], .string(v["bodyHash"] as! String))
         XCTAssertEqual(checkpointsAt, [10])
-        let out = FileManager.default.temporaryDirectory.appendingPathComponent("swift-sealed.mp4")
+        // CAPTURE_OUT lets CI hand the file to the JavaScript verifier.
+        let dir = ProcessInfo.processInfo.environment["CAPTURE_OUT"].map { URL(fileURLWithPath: $0) } ?? FileManager.default.temporaryDirectory
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let out = dir.appendingPathComponent("swift-sealed.mp4")
         try (sample + manifestBox(manifest)).write(to: out)
         print("wrote \(out.path); check with: attest verify-capture \(out.path)")
     }

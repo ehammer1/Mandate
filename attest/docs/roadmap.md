@@ -19,6 +19,10 @@
    feed live, so camcorders, broadcast cameras and live-stream rigs join without new cameras.
 3. **Call verification:** proof that the person on a phone or video call is who they claim,
    against deepfake voice and video scams.
+4. **Uniqueness check:** match photos and videos against the registry and the open web by
+   perceptual fingerprint, to catch recycled footage and screen re-filming. Applies to
+   anything checked on the verify page, not only capture-app recordings. See
+   [capture-app.md](capture-app.md) section 10.
 
 ## What else can be signed
 
