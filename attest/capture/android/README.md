@@ -8,10 +8,10 @@
 `core` tests check every hash and message against `../vectors/`, and write a sealed file
 that the JavaScript verifier checks too (`attest/test/capture.test.js`).
 
-`recorder` has **not been compiled or run yet**. First steps on a machine with Android Studio:
-1. Open the `recorder` folder in Android Studio and build it.
-2. Confirm the Media3 muxer API for the pinned version (`addTrack`, `writeSampleData`,
-   `BufferInfo`), which has changed between releases.
-3. Check that the muxer accepts samples before every track has been added; if not, wait for
+`recorder` **compiles** in CI (`.github/workflows/attest.yml`) but has **not run on a phone yet**.
+First steps on a device:
+1. Open the `recorder` folder in Android Studio and add it to a small app with camera and
+   microphone permissions.
+2. Check that the muxer accepts samples before every track has been added; if not, wait for
    both encoders' format before writing.
-4. Record on a phone, copy the file off, and run `attest verify-capture` on it.
+3. Record on a phone, copy the file off, and run `attest verify-capture` on it.
