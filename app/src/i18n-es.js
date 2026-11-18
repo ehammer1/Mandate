@@ -381,6 +381,8 @@ export default {
   "Jobs and business": "Empleo y negocios",
   "Join": "Unirse",
   "Join with my email": "Unirme con mi correo electrónico",
+  "Your membership": "Su membresía",
+  "Whether you are on this community's voter list, and which polls you can vote in.": "Si usted está en la lista de votantes de esta comunidad, y en qué votaciones puede votar.",
   "Needs your approval ({0})": "Necesita su aprobación ({0})",
   "Ready to run ({0})": "Listos para ejecutar ({0})",
   "Approved, waiting ({0})": "Aprobados, en espera ({0})",
