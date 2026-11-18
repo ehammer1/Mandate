@@ -1,6 +1,10 @@
 # Marks H, I, J: a ring of real chain links, and a T built from chain links.
 # python3 make-chain.py
 import math
+import os
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+DRAFTS = os.path.join(HERE, 'drafts')
 NAVY = "#262a6e"; TEAL = "#14a99a"; WHITE = "#ffffff"
 
 def svg(title, body):
@@ -63,6 +67,7 @@ def scaled(body, k):
     return f'<g transform="translate(100 100) scale({k}) translate(-100 -100)">{body}</g>'
 
 for suf, (fg, ac, bg) in {'': (NAVY, TEAL, WHITE), '-white': (WHITE, TEAL, NAVY)}.items():
-    open(f'h-chain-ring{suf}.svg', 'w').write(svg('Testimonia: chain ring', chain_ring(fg, ac, bg) + solid_t(fg)))
-    open(f'i-chain-ring-t{suf}.svg', 'w').write(svg('Testimonia: chain ring and chain T', chain_ring(fg, ac, bg) + scaled(chain_t(fg, ac, bg), 0.66)))
-    open(f'j-chain-t{suf}.svg', 'w').write(svg('Testimonia: chain T', chain_t(fg, ac, bg)))
+    open(os.path.join(HERE, f'h-chain-ring{suf}.svg'), 'w').write(svg('Testimonia: chain ring', chain_ring(fg, ac, bg) + solid_t(fg)))
+    # Drafts I and J (a T of four links) are kept in drafts/.
+    open(os.path.join(DRAFTS, f'i-chain-ring-t{suf}.svg'), 'w').write(svg('Testimonia: chain ring and chain T', chain_ring(fg, ac, bg) + scaled(chain_t(fg, ac, bg), 0.66)))
+    open(os.path.join(DRAFTS, f'j-chain-t{suf}.svg'), 'w').write(svg('Testimonia: chain T', chain_t(fg, ac, bg)))
