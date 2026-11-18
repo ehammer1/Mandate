@@ -66,6 +66,8 @@ const report = await sdk.inspect(sdk.hashContent(bytes), { provider, addresses: 
 - [docs/design.md](docs/design.md): design, trust model, and what this does and doesn't prove
 - [docs/deploy.md](docs/deploy.md): deploying to Base Sepolia and Base
 - [docs/roadmap.md](docs/roadmap.md): what comes after this MVP
+- [docs/capture-app.md](docs/capture-app.md): scope for the iPhone and Android live-capture app
+- [docs/global-registry.md](docs/global-registry.md): trust lists and Mandate-style governance for a registry everyone can use
 
 Status: prototype, unaudited, testnet only.
 
