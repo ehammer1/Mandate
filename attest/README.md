@@ -27,7 +27,8 @@ either way.
 | `contracts/ProvenanceResolver.sol` | Resolver for the content schema on the Ethereum Attestation Service (EAS). Accepts attestations only from signers in good standing, and only with labels they could truthfully give: **agents can't claim HUMAN_MADE; people can't claim AGENT_ACTION.** Indexes attestations by content hash. |
 | `contracts/Disputes.sol` | Anyone can challenge an attestation with a bond and evidence. Upheld: bond back, the claim is flagged, and strikes go on the agent and its controller. Rejected: the bond goes to the controller. |
 | `src/` | JavaScript SDK: `registerAgent`, `signReceipt` (off-chain, free), `attest` (on-chain), `inspect` (provenance report). |
-| `bin/attest.js` | Command-line tool: `hash`, `sign`, `anchor`, `verify`, `register-agent`. |
+| `bin/attest.js` | Command-line tool: `hash`, `sign`, `anchor`, `verify`, `register-agent`, `verify-capture`, `capture-seal`. |
+| `capture/` | The live-capture app's recording format ([FORMAT.md](capture/FORMAT.md)), shared test vectors, and the Android (`capture/android`) and iPhone (`capture/ios`) code. `src/capture.js` is the reference sealer and verifier. |
 
 Two ways to sign:
 

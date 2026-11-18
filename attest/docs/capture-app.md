@@ -244,10 +244,10 @@ Kotlin), because that's where the security comes from.
 
 | Phase | Delivers |
 |---|---|
-| 1. Signed capture | Native camera with fragmented MP4, hash chain, hardware key signing, C2PA manifest. Verify with a command-line tool. |
+| 1. Signed capture | Native camera with fragmented MP4, hash chain, hardware key signing. Verify with a command-line tool. C2PA manifest moved to phase 4, since it needs a signing certificate. **Status:** format, reference verifier and Android core built and tested here; Android recorder and iPhone package written but not yet compiled (needs Android Studio and Xcode). |
 | 2. Registered devices and location | Device issuer service (App Attest / Play Integrity), `DEVICE` signers and the `CAPTURED` origin in the contracts, relayer anchoring, sealed location with precision-level reveals. |
 | 3. Liveness | Light challenge, depth, parallax; then moiré and flicker models. Same checks on both platforms; the depth check uses whatever sensor each phone has. |
-| 4. Verify page and sharing | Web verify page with the trust score and its breakdown, encrypted original upload and key sharing, trimmed clips, perceptual matching for re-uploads. |
+| 4. Verify page and sharing | C2PA manifest, web verify page with the trust score and its breakdown, encrypted original upload and key sharing, trimmed clips, perceptual matching for re-uploads. |
 | 5. Lawful access | Shamir shares to 5 key holders, the policy contract with its floors, voting on changes, the on-chain request log, owner notification. |
 | 6. Hardening | Security review, a jailbreak and root response policy, accessibility, store release. |
 
