@@ -7,6 +7,9 @@ names = [
     ('e-chain-t', 'E. Chain T', 'The T as a real chain: the bar is one link, the stem a chain hanging from it.'),
     ('f-key-t', 'F. Key T', 'An upside-down skeleton key: its bit is the bar of the T, its ring a chain link.'),
     ('g-sealed-key', 'G. Sealed key', 'The key inside the chain seal from A.'),
+    ('h-chain-ring', 'H. Chain ring', 'A with its outer ring made of real chain links, alternating face-on and edge-on.'),
+    ('i-chain-ring-t', 'I. Chain ring, chain T', 'The chain ring with a T built from chain links inside.'),
+    ('j-chain-t', 'J. Chain T', 'The T built from oval chain links around a junction ring.'),
 ]
 cards = ''
 for f, t, d in names:
