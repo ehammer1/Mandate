@@ -4,6 +4,9 @@ names = [
     ('b-human-ai', 'B. Human and AI', 'A person and an AI side by side under one seal, on one shared line: both accountable.'),
     ('c-lens-check', 'C. Lens check', 'A camera aperture around a check mark. Strongest as the capture app icon.'),
     ('d-t-link', 'D. T-link', 'The T of Testimonia as two interlocking chain links.'),
+    ('e-chain-t', 'E. Chain T', 'The T as a real chain: the bar is one link, the stem a chain hanging from it.'),
+    ('f-key-t', 'F. Key T', 'An upside-down skeleton key: its bit is the bar of the T, its ring a chain link.'),
+    ('g-sealed-key', 'G. Sealed key', 'The key inside the chain seal from A.'),
 ]
 cards = ''
 for f, t, d in names:
