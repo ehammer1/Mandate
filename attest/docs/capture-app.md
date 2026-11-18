@@ -144,6 +144,28 @@ phone, unaltered, live-scene checks passed, anchored 3 minutes after recording."
 - **No personal scores.** Recordings are scored, people aren't. A person's record shows only
   facts: tier, how long they've been registered, upheld disputes.
 
+### 9. Encrypted originals
+Alongside the public fingerprints, the original file is kept **encrypted end to end**, so a
+lost or broken phone doesn't lose the evidence, and disputes can be settled against the
+real file.
+
+- **Encrypted on the phone before upload,** with a fresh key per recording. We store only
+  ciphertext and can't watch, scan or hand over anything readable.
+- **Who holds the key:** the owner always. If the recording uses the default policy, the
+  key is also split among the lawful-access key holders exactly like the location key, under
+  the same rules. In owner-only mode, only the owner can ever open it.
+- **Sharing:** the owner can give a recording's key to anyone they choose (a newsroom, a
+  lawyer, a court), and can share a trimmed clip without revealing the rest.
+- **Owner control:** the owner can delete the stored original at any time. The public
+  fingerprints and on-chain anchor stay, so the recording can still be checked against any
+  copy the owner kept.
+- **Upload:** in the background, Wi-Fi only by default, resumable. The recording counts as
+  sealed and anchored as soon as its fingerprints are on-chain, before the upload finishes.
+- **Storage:** ordinary cloud object storage to start, with the option to point the app at
+  the owner's own storage. Free up to a storage limit, paid beyond it (video is large).
+- **Legal requests for stored files** get ciphertext only. Opening it needs the owner, or
+  the key holders under the lawful-access policy.
+
 ## Lawful access: key holders and legal authority
 
 ### Recommendation: vote-driven, inside fixed safety limits
@@ -225,7 +247,7 @@ Kotlin), because that's where the security comes from.
 | 1. Signed capture | Native camera with fragmented MP4, hash chain, hardware key signing, C2PA manifest. Verify with a command-line tool. |
 | 2. Registered devices and location | Device issuer service (App Attest / Play Integrity), `DEVICE` signers and the `CAPTURED` origin in the contracts, relayer anchoring, sealed location with precision-level reveals. |
 | 3. Liveness | Light challenge, depth, parallax; then moiré and flicker models. Same checks on both platforms; the depth check uses whatever sensor each phone has. |
-| 4. Verify page and sharing | Web verify page with the trust score and its breakdown, trimmed clips, perceptual matching for re-uploads. |
+| 4. Verify page and sharing | Web verify page with the trust score and its breakdown, encrypted original upload and key sharing, trimmed clips, perceptual matching for re-uploads. |
 | 5. Lawful access | Shamir shares to 5 key holders, the policy contract with its floors, voting on changes, the on-chain request log, owner notification. |
 | 6. Hardening | Security review, a jailbreak and root response policy, accessibility, store release. |
 
@@ -242,6 +264,7 @@ Kotlin), because that's where the security comes from.
   at that moment. BASIC recordings score lower and are labeled "basic account" in reports.
   Upgrading to VERIFIED later doesn't raise the score of earlier recordings.
 - **Trust score (decided):** 0–100 per recording with a published breakdown. See section 8.
-- **Originals (decided):** never stored by us. Only fingerprints are kept: the hash chain,
-  the exact file hash and the perceptual fingerprint for matching re-uploads. The owner
-  keeps the original, and disputes are settled against it.
+- **Originals (decided):** both. Public fingerprints (the hash chain, the exact file hash
+  and the perceptual fingerprint for matching re-uploads) plus an end-to-end encrypted copy
+  of the original that we can't read. See section 9.
+- **Still open: storage limits and pricing** for encrypted originals.
