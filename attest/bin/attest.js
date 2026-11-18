@@ -6,6 +6,7 @@ const fs = require('fs');
 const path = require('path');
 const { ethers } = require('ethers');
 const sdk = require('../src');
+const capture = require('../src/capture');
 
 const HELP = `attest: sign and verify content from registered agents
 
@@ -18,6 +19,12 @@ const HELP = `attest: sign and verify content from registered agents
         Who made it and who answers for it.
   attest register-agent --model <ref> --uri <registration file URL> [--expires <unix time>]
         CONTROLLER_KEY registers AGENT_KEY as its agent.
+
+  attest verify-capture <video.mp4> [--manifest <file.manifest.json>]
+        Check a recording from the capture app: sealed, partial, altered or invalid.
+  attest capture-seal <fragmented.mp4> [--out <sealed.mp4>] [--key <pkcs8.b64>]
+        Seal an existing fragmented MP4 the way the app does, with a software key.
+        For testing only: real recordings are sealed on the phone by its security chip.
 
 origins: human-made, ai-assisted, ai-generated, agent-action
 environment: RPC_URL, AGENT_KEY, CONTROLLER_KEY,
@@ -104,6 +111,39 @@ async function main() {
       const receipts = opt.receipt.map((f) => JSON.parse(fs.readFileSync(f, 'utf8')));
       const report = await sdk.inspect(sdk.hashContent(bytes), { provider: provider(), addresses: d, receipts });
       console.log(JSON.stringify(report, null, 2));
+      return;
+    }
+    case 'verify-capture': {
+      const buf = fs.readFileSync(need({ f: pos[0] }, 'f'));
+      const manifest = opt.manifest ? JSON.parse(fs.readFileSync(opt.manifest, 'utf8')) : undefined;
+      const r = capture.verifyCapture(buf, { manifest });
+      const m = r.manifest || {};
+      const lines = {
+        sealed: `SEALED: unaltered since recording (${r.fragments} fragments)`,
+        partial: `PARTIAL: recording stopped early; the first ${r.verifiedFragments} of ${r.fragments} fragments are proven`,
+        altered:
+          typeof r.alteredAt === 'number'
+            ? `ALTERED at fragment ${r.alteredAt} (about ${r.alteredAt}s in)` +
+              (r.verifiedFragments ? `; fragments 0-${r.verifiedFragments - 1} are original` : '')
+            : `ALTERED: ${r.problems[0]}`,
+        invalid: `INVALID: ${r.problems[0] || 'cannot be verified'}`,
+      };
+      console.log(lines[r.status]);
+      if (m.meta) {
+        console.log(`  signed by key ${m.meta.keyId.slice(0, 16)}… (${m.meta.platform}, ${m.meta.device || 'unknown device'}, ${m.meta.app})`);
+        if (m.startMs) console.log(`  recorded ${new Date(m.startMs).toISOString()}${m.endMs ? ` to ${new Date(m.endMs).toISOString()}` : ''} (device clock)`);
+      }
+      console.log('  device registration and on-chain anchor: not checked yet (phase 2)');
+      if (r.status !== 'sealed') process.exitCode = 2;
+      return;
+    }
+    case 'capture-seal': {
+      const src = need({ f: pos[0] }, 'f');
+      const key = opt.key ? capture.softwareSigner({ key: Buffer.from(fs.readFileSync(opt.key, 'utf8').trim(), 'base64'), format: 'der', type: 'pkcs8' }) : undefined;
+      const { file, manifest } = capture.simulateCapture(fs.readFileSync(src), { signer: key });
+      const out = opt.out || src.replace(/(\.mp4)?$/i, '.sealed.mp4');
+      fs.writeFileSync(out, file);
+      console.log(`sealed ${manifest.fragments.length} fragments with test key ${manifest.meta.keyId.slice(0, 16)}… -> ${out}`);
       return;
     }
     case 'register-agent': {
