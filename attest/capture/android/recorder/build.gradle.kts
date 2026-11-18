@@ -1,7 +1,8 @@
-// Needs the Android SDK. Not built in CI yet; see ../README.md.
+// Needs the Android SDK. Build from this folder: gradle assembleDebug
 plugins {
     id("com.android.library") version "8.7.3"
-    kotlin("android")
+    kotlin("android") version "2.0.21"
+    kotlin("jvm") version "2.0.21" apply false // used by :core
 }
 
 android {

@@ -54,8 +54,8 @@ jobs:
         working-directory: attest/capture/android
         run: gradle :core:test
       - name: Recorder (CameraX, MediaCodec, Media3 muxer, Keystore)
-        working-directory: attest/capture/android
-        run: gradle :recorder:assembleDebug
+        working-directory: attest/capture/android/recorder
+        run: gradle assembleDebug
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -68,7 +68,9 @@ jobs:
         if: always()
         with:
           name: android-test-reports
-          path: attest/capture/android/*/build/reports/
+          path: |
+            attest/capture/android/core/build/reports/
+            attest/capture/android/recorder/build/reports/
           if-no-files-found: ignore
 
   ios:

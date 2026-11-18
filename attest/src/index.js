@@ -261,11 +261,14 @@ async function inspect(contentHash, { provider, addresses, receipts = [] }) {
   return { contentHash, verdict, claims };
 }
 
-const ERRORS = new ethers.Interface(
-  ['PrincipalRegistry', 'AgentRegistry', 'ProvenanceResolver', 'Disputes', 'EAS'].flatMap((n) =>
-    art(n).abi.filter((x) => x.type === 'error'),
-  ),
-);
+// Built on first use, so commands that don't touch contracts work without compiling them.
+let errorsInterface;
+const contractErrors = () =>
+  (errorsInterface ??= new ethers.Interface(
+    ['PrincipalRegistry', 'AgentRegistry', 'ProvenanceResolver', 'Disputes', 'EAS'].flatMap((n) =>
+      art(n).abi.filter((x) => x.type === 'error'),
+    ),
+  ));
 
 /** The contract error behind a failed call, e.g. "SignerNotInGoodStanding(0x...)". */
 async function explainError(e, provider) {
@@ -278,7 +281,7 @@ async function explainError(e, provider) {
     }
   }
   try {
-    const err = ERRORS.parseError(data);
+    const err = contractErrors().parseError(data);
     if (err) return `${err.name}(${err.args.map(String).join(', ')})`;
   } catch { /* not one of ours */ }
   return e.shortMessage || e.message;

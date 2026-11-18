@@ -1,5 +1,5 @@
 // The core (format, hashing, sealing) is plain Kotlin and builds anywhere with a JDK.
-// The recorder needs the Android SDK and is included only when one is present.
+// The recorder is a separate build in recorder/ (it needs the Android SDK and includes this core).
 pluginManagement {
     repositories {
         gradlePluginPortal()
@@ -22,6 +22,3 @@ dependencyResolutionManagement {
 }
 rootProject.name = "attest-capture-android"
 include(":core")
-if (System.getenv("ANDROID_HOME") != null || file("local.properties").exists()) {
-    include(":recorder")
-}
