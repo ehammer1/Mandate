@@ -48,6 +48,12 @@ async function deploySystem(signer, { eas, schemaRegistry, admin, bond = ethers.
   const disputesAddr = await disputes.getAddress();
   log(`Disputes             ${disputesAddr}`);
 
+  // Phase 2: phones and anchoring.
+  const devices = await deployOne(signer, 'DeviceRegistry', admin, await principals.getAddress());
+  log(`DeviceRegistry       ${await devices.getAddress()}`);
+  const anchors = await deployOne(signer, 'AnchorRegistry');
+  log(`AnchorRegistry       ${await anchors.getAddress()}`);
+
   // Only possible when the deployer is the admin; otherwise the admin grants these.
   if (admin === (await signer.getAddress())) {
     const STRIKER = ethers.id('STRIKER_ROLE');
@@ -65,6 +71,8 @@ async function deploySystem(signer, { eas, schemaRegistry, admin, bond = ethers.
     resolver: resolverAddr,
     schema,
     disputes: disputesAddr,
+    devices: await devices.getAddress(),
+    anchors: await anchors.getAddress(),
   };
 }
 

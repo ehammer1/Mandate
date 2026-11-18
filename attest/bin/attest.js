@@ -20,8 +20,10 @@ const HELP = `attest: sign and verify content from registered agents
   attest register-agent --model <ref> --uri <registration file URL> [--expires <unix time>]
         CONTROLLER_KEY registers AGENT_KEY as its agent.
 
-  attest verify-capture <video.mp4> [--manifest <file.manifest.json>]
+  attest verify-capture <video.mp4> [--manifest <file.manifest.json>] [--proof <anchor.json>]
         Check a recording from the capture app: sealed, partial, altered or invalid.
+        With RPC_URL and DEPLOYMENT set, also checks whose phone signed it and when it
+        was anchored (the proof can also be inside the manifest as "anchor").
   attest capture-seal <fragmented.mp4> [--out <sealed.mp4>] [--key <pkcs8.b64>]
         Seal an existing fragmented MP4 the way the app does, with a software key.
         For testing only: real recordings are sealed on the phone by its security chip.
@@ -133,7 +135,21 @@ async function main() {
         console.log(`  signed by key ${m.meta.keyId.slice(0, 16)}… (${m.meta.platform}, ${m.meta.device || 'unknown device'}, ${m.meta.app})`);
         if (m.startMs) console.log(`  recorded ${new Date(m.startMs).toISOString()}${m.endMs ? ` to ${new Date(m.endMs).toISOString()}` : ''} (device clock)`);
       }
-      console.log('  device registration and on-chain anchor: not checked yet (phase 2)');
+      if (process.env.RPC_URL && m.seal) {
+        const { checkOnchain } = require('../src/anchor');
+        const proof = opt.proof ? JSON.parse(fs.readFileSync(opt.proof, 'utf8')) : undefined;
+        const c = await checkOnchain({ manifest: m, proof, provider: provider(), addresses: deployment() });
+        if (c.device) {
+          console.log(`  phone: ${c.device.platform}, owned by ${c.device.owner} (${c.device.tierWhenRegistered} when registered), checked by ${c.device.issuer.name || c.device.issuer.address}`);
+        }
+        if (c.anchor) {
+          console.log(`  anchored ${new Date(c.anchor.anchoredAt * 1000).toISOString()} (block ${c.anchor.blockNumber}, ${c.anchor.minutesAfterRecording} min after recording)`);
+        }
+        for (const p of c.problems) console.log(`  ! ${p}`);
+        if (!c.ok) process.exitCode = 2;
+      } else {
+        console.log('  phone registration and anchor: set RPC_URL and DEPLOYMENT to check');
+      }
       if (r.status !== 'sealed') process.exitCode = 2;
       return;
     }

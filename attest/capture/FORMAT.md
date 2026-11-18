@@ -131,8 +131,20 @@ Results:
   place it differs.
 - **invalid**: the manifest is missing or malformed, or a signature fails.
 
-Phase 2 adds: whether the key is a registered device in good standing, and the on-chain
-anchor of the seal.
+## 6a. Registration and anchoring (phase 2)
+
+- **Registration:** `DeviceRegistry` holds each phone's key (`keyId` = SHA-256 of its
+  SubjectPublicKeyInfo) with its owner, the owner's tier when registered, the device issuer
+  that checked its attestation, and the blocks it was registered and revoked in.
+- **Anchoring:** the seal digest is `SHA256(seal message)` (section 3). A relayer batches
+  digests into a Merkle tree, with leaf `keccak256(keccak256(abi.encode(keyId, sealDigest)))`
+  and sorted pairs, and posts the root to `AnchorRegistry`, which records its time and block.
+- **Anchor proof** (`attest-anchor/1`): `{ format, chainId, anchors, keyId, sealDigest, root,
+  proof[] }`. The app may add it to the manifest as a top-level `anchor` field after the
+  fact: it isn't covered by the seal and doesn't need to be, since it is checked on-chain.
+- **Checking:** the phone was registered in the anchor's block (blocks, not times, since
+  several blocks can share a timestamp), the registered key equals the seal's key, and the
+  anchor came after the recording's end (allowing for phone clock drift).
 
 ## 7. Trimmed clips (later)
 
