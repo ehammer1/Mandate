@@ -115,6 +115,35 @@ fingerprint of it is public.
   verifiable. A perceptual fingerprint stored at sealing time lets the verify page match a
   recompressed copy back to the original and say "matches a verified recording, re-encoded."
 
+### 8. Trust score
+Every recording gets a **trust score from 0 to 100**, always shown with its breakdown, so
+nobody has to take a single number on faith. It's computed by the verifier from public
+inputs (the on-chain records and the sealed manifest), using a published, versioned formula.
+Anyone can recompute it, and nothing is scored in secret.
+
+| Factor | Up to | Full marks when |
+|---|---|---|
+| Who recorded it | 25 | VERIFIED person (BASIC earns 10) |
+| Genuine device and app | 20 | Hardware key with current App Attest / Play Integrity attestation |
+| Unaltered | 20 | Hash chain and signatures intact end to end (0 if broken: it's then reported as altered, not scored) |
+| Live scene | 20 | Liveness checks passed: light challenge and depth count most |
+| Anchored promptly | 5 | Anchored on-chain within minutes of recording ending |
+| Track record | 10 | Signer has no upheld disputes; strikes subtract |
+
+Shown as bands with plain reasons, for example **High (88)**: "verified person, genuine
+phone, unaltered, live-scene checks passed, anchored 3 minutes after recording."
+
+- **Bands:** High 80–100, Medium 50–79, Low 0–49. "Low" means "less evidence," never "fake."
+- **Not penalized:** owner-only location mode, hidden location, or a phone without a depth
+  sensor (the depth points are covered by the other liveness checks instead). Protecting
+  yourself or owning an older phone shouldn't cost trust.
+- **Corroboration (later):** independent recordings of the same time and place, by unrelated
+  signers, can raise each other's scores.
+- **Formula changes** go through the same vote as other rules, with a new version number.
+  Reports say which version they used, and old reports can always be recomputed.
+- **No personal scores.** Recordings are scored, people aren't. A person's record shows only
+  facts: tier, how long they've been registered, upheld disputes.
+
 ## Lawful access: key holders and legal authority
 
 ### Recommendation: vote-driven, inside fixed safety limits
@@ -196,7 +225,7 @@ Kotlin), because that's where the security comes from.
 | 1. Signed capture | Native camera with fragmented MP4, hash chain, hardware key signing, C2PA manifest. Verify with a command-line tool. |
 | 2. Registered devices and location | Device issuer service (App Attest / Play Integrity), `DEVICE` signers and the `CAPTURED` origin in the contracts, relayer anchoring, sealed location with precision-level reveals. |
 | 3. Liveness | Light challenge, depth, parallax; then moiré and flicker models. Same checks on both platforms; the depth check uses whatever sensor each phone has. |
-| 4. Verify page and sharing | Web verify page, trimmed clips, perceptual matching for re-uploads. |
+| 4. Verify page and sharing | Web verify page with the trust score and its breakdown, trimmed clips, perceptual matching for re-uploads. |
 | 5. Lawful access | Shamir shares to 5 key holders, the policy contract with its floors, voting on changes, the on-chain request log, owner notification. |
 | 6. Hardening | Security review, a jailbreak and root response policy, accessibility, store release. |
 
@@ -208,10 +237,11 @@ Kotlin), because that's where the security comes from.
 - **Platforms (decided):** iPhone and Android, with the same features on both.
 - **Key holders (recommended):** 3 of 5 independent key holders in different countries,
   adjustable by vote within fixed floors, changes never retroactive. See "Lawful access".
-- **Who can record (decided):** VERIFIED people only. The app checks the person's tier when
-  the phone is registered, and the contracts only accept `CAPTURED` from devices whose owner
-  is VERIFIED. A person who drops below VERIFIED can't record until re-verified; their past
-  recordings stay valid.
+- **Who can record (decided):** BASIC and VERIFIED people. The contracts accept `CAPTURED`
+  from any registered device whose owner is in good standing, and record the owner's tier
+  at that moment. BASIC recordings score lower and are labeled "basic account" in reports.
+  Upgrading to VERIFIED later doesn't raise the score of earlier recordings.
+- **Trust score (decided):** 0–100 per recording with a published breakdown. See section 8.
 - **Originals (decided):** never stored by us. Only fingerprints are kept: the hash chain,
   the exact file hash and the perceptual fingerprint for matching re-uploads. The owner
   keeps the original, and disputes are settled against it.
