@@ -17,7 +17,6 @@ import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.lifecycle.LifecycleOwner
 import androidx.media3.common.Format
 import androidx.media3.common.MimeTypes
-import androidx.media3.muxer.BufferInfo
 import androidx.media3.muxer.FragmentedMp4Muxer
 import attest.capture.CaptureSession
 import attest.capture.CaptureSigner
@@ -210,7 +209,11 @@ class SealedRecorder(
         if (track < 0) return
         if (startPtsUs < 0) startPtsUs = ptsUs
         val keyFrame = flags and MediaCodec.BUFFER_FLAG_KEY_FRAME != 0
-        muxer.writeSampleData(track, data, BufferInfo(ptsUs - startPtsUs, data.remaining(), if (keyFrame) MediaCodec.BUFFER_FLAG_KEY_FRAME else 0))
+        // Media3 1.6 takes Android's own MediaCodec.BufferInfo.
+        val info = MediaCodec.BufferInfo().apply {
+            set(0, data.remaining(), ptsUs - startPtsUs, if (keyFrame) MediaCodec.BUFFER_FLAG_KEY_FRAME else 0)
+        }
+        muxer.writeSampleData(track, data, info)
         // Pick up any fragments the muxer has finished writing, at most every 250 ms.
         val now = System.currentTimeMillis()
         if (now - lastPollMs >= 250) {
