@@ -57,6 +57,7 @@ Design rules:
 | `docs/principles.md` | Founding principles: how Mandate applies the Constitution's ideas, and the gaps still to close |
 | `docs/us-city-pilot.md` | US city pilot plan: identity sources, anti-gaming, voice, capital, wallet-free participation |
 | `docs/scaling-plan.md` | Plan for scaling from one city to any government or institution |
+| `attest/` | Separate project: accountable identity and content provenance for AI agents (its own package and tests) |
 | `docs/testnet.md` | Base testnet deployment: contracts, hosted voter app, relayer, admin commands |
 | `services/identity/` | Sign-in identity service: Google / Apple / Microsoft (basic) and identity-verified providers (verified) |
 | `docs/identity-service.md` | How the sign-in identity service works and how to set up Google sign-in |
