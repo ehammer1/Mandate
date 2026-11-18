@@ -24,8 +24,14 @@ def mark_h(fg, ac, bg):
     return chain.chain_ring(fg, ac, bg) + chain.solid_t(fg)
 
 
+spec_m = importlib.util.spec_from_file_location('square', os.path.join(here, 'make-square-t.py'))
+square = importlib.util.module_from_spec(spec_m)
+spec_m.loader.exec_module(square)
+
+
 def mark_j(fg, ac, bg):
-    return chain.chain_t(fg, ac, bg)
+    # Secondary mark: the two-link T with rounded-rectangle links (M).
+    return square.square_t(fg, ac, bg)
 
 
 def wordmark_path(text, size, tracking=0.01):
