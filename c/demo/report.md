@@ -1,39 +1,36 @@
 # Mandate audit report
 
-Generated 2026-11-18T10:15:51.000Z · last 24 hours · 40 high, 8 medium, 2 info
+Generated 2026-11-18T10:45:31.000Z · last 24 hours · 40 high, 9 medium, 2 info
 
 # Daily Audit Note: 17–18 November 2026
 
-**Yes, there are items worth attention: the council has approved nine changes that give new powers to two accounts, and they can take effect from 18 November 2026 around 13:00–13:04 UTC unless a council member cancels them first.**
+**Several council changes need attention: one account was stripped of all its powers, and pending changes would give a replacement account broad powers from 18 November unless council members cancel them.**
 
-### New powers for account 0x433B…476F (changes #2, #3, #4, #5, #6, #14, #15)
-On 17 November, council member 0xC782…f834 proposed seven changes, each labelled "demo testing," that would let 0x433B…476F:
-- open polls (#2)
-- act as an identity source called "Demo front desk 2," up to the verified tier (#3)
-- record and confirm paper counts (#4)
-- create smaller voter lists (#5)
-- open budget rounds (#6)
-- register officials (#14)
-- set up government bodies (#15)
-
-All seven were approved and can run from 18 November between 13:00 and 13:04 UTC. Members can cancel them until then. This matters because, together, these changes would give one account broad control over polls, voter identity, vote counting, budgets and official appointments.
-
-### New powers for account 0x4C9a…b71B (changes #16, #17)
-The same council member proposed that 0x4C9a…b71B become an identity source called "Demo front desk 3," up to the verified tier (#16). The member also proposed that this account be allowed to record and confirm paper counts (#17). Both changes are labelled "demo testing." Both were approved and can run from 18 November at 13:00 UTC. They can be cancelled until then.
-
-### Powers removed from account 0xd868…6fD0 (changes #7–#13)
-The proposals describe this account as "lost." Using the faster process allowed for removing powers, the council approved and carried out seven changes on 17 November between 13:01 and 13:04 UTC. The account can no longer:
-- act as the identity source "Demo front desk"
+**A "lost" account was removed from every role.** On 17 November, council member 0xC782…f834 proposed seven changes (#7–#13) to remove account 0xd868…6fD0, which the proposals describe as "the lost account." The account was the "Demo front desk." Because these changes only removed power, they could take effect as soon as approved. All seven were approved and carried out the same afternoon, by 13:05 UTC. The account can no longer:
+- verify identities
 - open polls or budget rounds
 - register officials
 - set up government bodies
 - record paper counts
 - create voter lists
 
-Account 0xA0187E…028c carried out each removal. All of these steps completed as approved.
+This matters because an account described as lost should not keep powers. The record shows those powers are now gone.
 
-### Other activity
-On 18 November, Petition 1 was started. It needed only 1 signature to open a vote, so it reached its threshold and automatically opened Poll 1. The poll is advisory and not binding, and it closes on 25 November 2026 at 10:07 UTC.
+**One replacement account would receive all of those powers.** The same council member proposed seven changes (#2–#6, #14, #15) giving account 0x433B…476F the same range of powers. It would become the identity source "Demo front desk 2" and could:
+- open polls and budget rounds
+- record and confirm paper counts
+- create voter lists
+- register officials
+- set up government bodies
+
+All seven are labelled "demo testing." All have been approved and can take effect between 13:00 and 13:04 UTC on 18 November. Council members can cancel any of them until then. This matters because a single account would hold every one of these powers at once. The record does not yet show these changes being carried out.
+
+**A second new account is pending.** Changes #16 and #17 would approve account 0x4C9a…b71B as identity source "Demo front desk 3" and let it record and confirm paper counts. Both are labelled "demo testing." Both can take effect from 13:00 UTC on 18 November and can be cancelled until then.
+
+**Other activity.**
+- **Petition and poll:** On 18 November, Petition 1 was started. Its threshold to open a vote was 1 signature. It reached that threshold and automatically opened Poll 1, an advisory (non-binding) poll that closes on 25 November at 10:07 UTC.
+- **Voter list:** Later that morning, account 0x7b12…2889 removed one member from the voter list.
+- **Role-change alerts:** The remaining alerts record the individual role removals listed above.
 
 ## All alerts
 
@@ -87,5 +84,6 @@ On 18 November, Petition 1 was started. It needed only 1 signature to open a vot
 - **info** Petition 1 started (action 0): 1 signatures open its vote ([tx](https://sepolia.basescan.org/tx/0xa1a87e81a4b3b12a1c7482950fa0d6d403bcf7fca6ab5d97b86ad8bf80344707))
 - **info** Poll 1 opened, closes 2026-11-25 10:07 UTC ([tx](https://sepolia.basescan.org/tx/0x78a9ea792a6fbe0e9040da4631e000a4855f2f8b4db50753e7333a0cafc5e07b))
 - **medium** Petition 1 reached its signatures: poll 1 opened by itself ([tx](https://sepolia.basescan.org/tx/0x78a9ea792a6fbe0e9040da4631e000a4855f2f8b4db50753e7333a0cafc5e07b))
+- **medium** A member was removed from the voter list by 0x7b12…2889 ([tx](https://sepolia.basescan.org/tx/0x3aa1d3df06fe317c5079fd5d87c67ec4c4d33697a9572bbc9327ae6755feaf7d))
 
 Summary written by: AI (claude-opus-5-5); the alerts themselves come from fixed rules.

@@ -1,5 +1,19 @@
 [
  {
+  "tx": "0x3aa1d3df06fe317c5079fd5d87c67ec4c4d33697a9572bbc9327ae6755feaf7d",
+  "block": 60381462,
+  "time": 1794998161,
+  "contract": "identity registry",
+  "event": "Revoked",
+  "rule": "revocation",
+  "severity": "medium",
+  "title": "A member was removed from the voter list by 0x7b12…2889",
+  "facts": {
+   "by": "0x7b12B4ffe042902AC1b6916dc990EDbab5532889"
+  },
+  "id": "revocation:0x3aa1d3df06fe317c5079fd5d87c67ec4c4d33697a9572bbc9327ae6755feaf7d:1794998161"
+ },
+ {
   "tx": "0x78a9ea792a6fbe0e9040da4631e000a4855f2f8b4db50753e7333a0cafc5e07b",
   "block": 60373049,
   "time": 1794996478,

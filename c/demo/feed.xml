@@ -4,7 +4,15 @@
   <subtitle>Every poll, mandate, budget round, petition and change of power, from the public blockchain record.</subtitle>
   <id>urn:mandate:feed</id>
   <link href="https://ehammer1.github.io/Mandate/"/>
-  <updated>2026-11-18T10:07:58.000Z</updated>
+  <updated>2026-11-18T10:36:01.000Z</updated>
+  <entry>
+    <id>urn:mandate:revocation:0x3aa1d3df06fe317c5079fd5d87c67ec4c4d33697a9572bbc9327ae6755feaf7d:1794998161</id>
+    <title>A member was removed from the voter list by 0x7b12…2889</title>
+    <updated>2026-11-18T10:36:01.000Z</updated>
+    <link href="https://sepolia.basescan.org/tx/0x3aa1d3df06fe317c5079fd5d87c67ec4c4d33697a9572bbc9327ae6755feaf7d"/>
+    <category term="medium"/>
+    <summary>A member was removed from the voter list by 0x7b12…2889</summary>
+  </entry>
   <entry>
     <id>urn:mandate:petition:0x78a9ea792a6fbe0e9040da4631e000a4855f2f8b4db50753e7333a0cafc5e07b:1794996478</id>
     <title>Petition 1 reached its signatures: poll 1 opened by itself</title>
@@ -796,13 +804,5 @@
     <link href="https://sepolia.basescan.org/tx/0xd18a5b1e4755567f44a9b5ff901e2119197c66f11204279e19cb2cc3e49cbec5"/>
     <category term="medium"/>
     <summary>0xd603cc2d39ea2ab57038652f29ac8e7fd0e40e6a9b0f81de9bbc4acc6780d962 role granted to 0xC782…f834 on paper and in-person results</summary>
-  </entry>
-  <entry>
-    <id>urn:mandate:role-change:0xd18a5b1e4755567f44a9b5ff901e2119197c66f11204279e19cb2cc3e49cbec5:1794561716</id>
-    <title>ADMIN role granted to 0xC782…f834 on paper and in-person results</title>
-    <updated>2026-11-13T09:21:56.000Z</updated>
-    <link href="https://sepolia.basescan.org/tx/0xd18a5b1e4755567f44a9b5ff901e2119197c66f11204279e19cb2cc3e49cbec5"/>
-    <category term="high"/>
-    <summary>Urgent: ADMIN role granted to 0xC782…f834 on paper and in-person results</summary>
   </entry>
 </feed>
