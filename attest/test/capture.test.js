@@ -165,3 +165,15 @@ test('malformed files are rejected, not crashed on', () => {
   const extra = Buffer.concat([sample, Buffer.from('\x00\x00\x00\x0cjunkjunk', 'latin1')]);
   assert.match(c.verifyCapture(extra).problems[0], /unexpected junk box/);
 });
+
+// Cross-implementation check: files sealed by the Kotlin (Android) core must verify here.
+// Produced by `gradle :core:test` in capture/android; skipped if that hasn't been run.
+const KOTLIN_OUT = path.join(__dirname, '..', 'capture', 'android', 'core', 'build', 'vector-out');
+test('recordings sealed by the Android core verify with this verifier', { skip: !fs.existsSync(path.join(KOTLIN_OUT, 'kotlin-sealed.mp4')) && 'run gradle :core:test in capture/android first' }, () => {
+  const r = c.verifyCapture(fs.readFileSync(path.join(KOTLIN_OUT, 'kotlin-sealed.mp4')));
+  assert.equal(r.status, 'sealed');
+  assert.equal(r.manifest.meta.keyId, vectors.keyId);
+  const unsealed = JSON.parse(fs.readFileSync(path.join(KOTLIN_OUT, 'kotlin-unsealed.json'), 'utf8'));
+  const p = c.verifyCapture(sample, { manifest: unsealed });
+  assert.deepEqual([p.status, p.verifiedFragments], ['partial', 10]);
+});
