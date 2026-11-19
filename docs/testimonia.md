@@ -78,3 +78,23 @@ media mandates wait rather than being judged without the check.
 
 copies Testimonia's checking code into `vendor/testimonia/` and records the commit in
 `vendor/testimonia/VERSION`.
+
+## Governed by the council, watched by the watchdog
+
+Testimonia's admin powers (who may vouch for people, who may register phones, the dispute
+bond, granting roles) are handed to this council with Testimonia's
+`scripts/council-handover.js` (its `docs/governance.md`). From then on they change only by
+council proposal, approval and public waiting period, like Promissa's own.
+
+The watchdog watches Testimonia's contracts when they are on the same network: set
+`testimonia: { principals, devices, agents, disputes }` in the app config, or
+`TESTIMONIA_ADDRESSES` (the same as JSON). It announces:
+
+| Severity | What |
+|---|---|
+| high | an identity issuer or phone checker approved or removed; admin granted or revoked; the dispute bond changed; a burst of enrolments or phone registrations from one issuer (more than `ENROL_PER_HOUR`) |
+| medium | revocations and bans, strikes against people or AI agents, dispute rulings, money withdrawn from disputes |
+| info | disputes opened |
+
+Council proposals that touch Testimonia read in plain words in the app and the watchdog,
+for example "Approve 0x12…ab ("Acme phone checks") to register phones in Testimonia".

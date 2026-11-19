@@ -48,7 +48,29 @@ const { ethers } = require('ethers');
 const { rulesForEvent, short } = require('./rules');
 const { summarize } = require('./summarize');
 
+const TESTIMONIA_ABIS = {
+  tmPrincipals: [
+    'event IssuerSet(address indexed issuer, uint8 maxTier, bool active, string name)',
+    'event HumanEnrolled(address indexed account, address indexed issuer, uint8 tier)',
+    'event Revoked(address indexed account, address indexed by, bool banned)',
+    'event Struck(address indexed account, uint32 strikes)',
+  ],
+  tmDevices: [
+    'event DeviceIssuerSet(address indexed issuer, bool active, string name)',
+    'event DeviceRegistered(bytes32 indexed keyId, address indexed owner, address indexed issuer, uint8 platform, uint8 ownerTier)',
+    'event DeviceRevoked(bytes32 indexed keyId, address indexed by)',
+  ],
+  tmAgents: ['event AgentStruck(uint256 indexed agentId, uint32 strikes)'],
+  tmDisputes: [
+    'event BondSet(uint96 bond)',
+    'event Opened(uint256 indexed id, bytes32 indexed uid, address indexed challenger, string evidenceURI)',
+    'event Ruled(uint256 indexed id, bytes32 indexed uid, bool upheld, string ruling)',
+    'event Withdrawn(address indexed to, uint256 amount)',
+  ],
+};
+
 const ABIS = {
+  ...TESTIMONIA_ABIS,
   identity: [
     'event IssuerSet(address indexed issuer, uint8 maxTier, bool active, string name)',
     'event Enrolled(uint256 indexed commitment, address indexed issuer, uint8 tier, uint64 residentSince)',
@@ -152,7 +174,7 @@ const ROLE_EVENTS = [
   'event RoleGranted(bytes32 indexed role, address indexed account, address indexed sender)',
   'event RoleRevoked(bytes32 indexed role, address indexed account, address indexed sender)',
 ];
-const CONTRACT_LABEL = { identity: 'identity registry', vote: 'voting', registry: 'mandate registry', market: 'decision markets', council: 'council', charter: 'charter (voting rules)', budget: 'civic budget', feedback: 'petitions and comments', officials: 'officials registry', bodies: 'government bodies', bodyRecords: 'body records', tallies: 'paper and in-person results', progress: 'mandate progress', voterGroups: 'smaller voter lists' };
+const CONTRACT_LABEL = { identity: 'identity registry', vote: 'voting', registry: 'mandate registry', market: 'decision markets', council: 'council', charter: 'charter (voting rules)', budget: 'civic budget', feedback: 'petitions and comments', officials: 'officials registry', bodies: 'government bodies', bodyRecords: 'body records', tallies: 'paper and in-person results', progress: 'mandate progress', voterGroups: 'smaller voter lists', tmPrincipals: 'Testimonia identity registry', tmDevices: 'Testimonia phone registry', tmAgents: 'Testimonia AI-agent registry', tmDisputes: 'Testimonia disputes' };
 
 /**
  * @param {object} o
@@ -437,7 +459,19 @@ async function writeExplanations(dir, cfg, provider, limit, explainFn) {
   return made;
 }
 
-module.exports = { createWatchdog, writeExplanations };
+/**
+ * Testimonia's contracts, when they are on the same network as this watchdog: from the
+ * config's `testimonia` block or TESTIMONIA_ADDRESSES (JSON: principals, devices, agents,
+ * disputes). Testimonia on another network needs its own watchdog run with that RPC.
+ */
+function testimoniaAddresses(cfg, env) {
+  let t = cfg.testimonia || null;
+  if (env('TESTIMONIA_ADDRESSES')) t = JSON.parse(env('TESTIMONIA_ADDRESSES'));
+  if (!t) return {};
+  return { tmPrincipals: t.principals, tmDevices: t.devices, tmAgents: t.agents, tmDisputes: t.disputes };
+}
+
+module.exports = { createWatchdog, writeExplanations, testimoniaAddresses, TESTIMONIA_ABIS };
 
 if (require.main === module) {
   const fs = require('fs');
@@ -456,7 +490,7 @@ if (require.main === module) {
     const startBlock = env('START_BLOCK') ? Number(env('START_BLOCK')) : cfg.startBlock ? Number(cfg.startBlock) : Math.max(0, head - Number(env('LOOKBACK_BLOCKS') || 43_200));
     const dog = createWatchdog({
       provider,
-      addresses: { identity: cfg.identityAddress, vote: cfg.voteAddress, registry: cfg.registryAddress, market: cfg.marketAddress, council: cfg.councilAddress, charter: cfg.charterAddress, budget: cfg.budgetAddress, feedback: cfg.feedbackAddress, officials: cfg.officialsAddress, bodies: cfg.bodiesAddress, bodyRecords: cfg.bodyRecordsAddress, tallies: cfg.talliesAddress, progress: cfg.progressAddress, voterGroups: cfg.voterGroupsAddress },
+      addresses: { identity: cfg.identityAddress, vote: cfg.voteAddress, registry: cfg.registryAddress, market: cfg.marketAddress, council: cfg.councilAddress, charter: cfg.charterAddress, budget: cfg.budgetAddress, feedback: cfg.feedbackAddress, officials: cfg.officialsAddress, bodies: cfg.bodiesAddress, bodyRecords: cfg.bodyRecordsAddress, tallies: cfg.talliesAddress, progress: cfg.progressAddress, voterGroups: cfg.voterGroupsAddress, ...testimoniaAddresses(cfg, env) },
       startBlock,
       blockSpan: Number(env('LOG_BLOCK_SPAN') || 200),
       enrolPerHour: Number(env('ENROL_PER_HOUR') || 50),

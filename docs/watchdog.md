@@ -19,6 +19,7 @@ the rules still raise every alert.
 | medium | revocation, repeal, veto | A member removed, a mandate repealed, a market decision vetoed |
 | medium | binding poll, overdue mandate, metric resolved | Notable but expected events |
 | info | polls, mandates, markets | The normal public record |
+| high / medium | Testimonia | Testimonia's contracts (photo and video provenance), when configured: issuers and phone checkers approved or removed, admin changes, the dispute bond, registration bursts (high); bans, strikes, dispute rulings, withdrawals (medium). See [testimonia.md](testimonia.md). |
 
 Each alert names the transaction behind it, so anyone can check it on the block explorer.
 

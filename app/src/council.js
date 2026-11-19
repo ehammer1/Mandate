@@ -42,7 +42,7 @@ export const COUNCIL_ABI = [
   'error CallFailed(bytes reason)',
 ];
 const STATES = ['', 'Collecting approvals', 'Waiting period', 'Ready to run', 'Done', 'Cancelled', 'Expired'];
-const ROLE_NAMES = { [ethers.ZeroHash]: 'admin', [ethers.id('PROPOSER_ROLE')]: 'poll opener', [ethers.id('ISSUER_ROLE')]: 'clerk', [ethers.id('GOVERNOR_ROLE')]: 'governor', [ethers.id('VERIFIER_ROLE')]: 'verifier', [ethers.id('CREATOR_ROLE')]: 'market creator', [ethers.id('RESOLVER_ROLE')]: 'market resolver', [ethers.id('VETO_ROLE')]: 'veto', [ethers.id('REGISTRAR_ROLE')]: 'registrar', [ethers.id('CLERK_ROLE')]: 'tally clerk' };
+const ROLE_NAMES = { [ethers.ZeroHash]: 'admin', [ethers.id('PROPOSER_ROLE')]: 'poll opener', [ethers.id('ISSUER_ROLE')]: 'clerk', [ethers.id('GOVERNOR_ROLE')]: 'governor', [ethers.id('VERIFIER_ROLE')]: 'verifier', [ethers.id('CREATOR_ROLE')]: 'market creator', [ethers.id('RESOLVER_ROLE')]: 'market resolver', [ethers.id('VETO_ROLE')]: 'veto', [ethers.id('REGISTRAR_ROLE')]: 'registrar', [ethers.id('CLERK_ROLE')]: 'tally clerk', [ethers.id('DEVICE_ISSUER_ROLE')]: 'phone checker', [ethers.id('ARBITER_ROLE')]: 'dispute arbiter', [ethers.id('STRIKER_ROLE')]: 'striker' };
 const CALLS = new ethers.Interface([
   'function setIssuer(address issuer, uint8 maxTier, bool active, string name)',
   'function grantRole(bytes32 role, address account)',
@@ -55,6 +55,9 @@ const CALLS = new ethers.Interface([
   'function setMinBond(uint256 amount)',
   'function setElectorate(address electorate)',
   'function setDelegates(address registry)',
+  // Testimonia's contracts (docs/testimonia.md), governed by this council once handed over.
+  'function setDeviceIssuer(address issuer, bool active, string name)',
+  'function setBond(uint96 bond)',
 ]);
 const short = (a) => `${a.slice(0, 6)}…${a.slice(-4)}`;
 const hours = (s) => (Number(s) % 3600 === 0 ? `${Number(s) / 3600} hour${Number(s) === 3600 ? '' : 's'}` : `${Math.round(Number(s) / 60)} minutes`);
@@ -76,6 +79,10 @@ function contractNames(cfg) {
     [cfg.bodiesAddress?.toLowerCase()]: 'government bodies',
     [cfg.talliesAddress?.toLowerCase()]: 'paper results',
     [cfg.escrowFactoryAddress?.toLowerCase()]: 'mandate budgets',
+    [cfg.testimonia?.principals?.toLowerCase()]: 'Testimonia identity registry',
+    [cfg.testimonia?.devices?.toLowerCase()]: 'Testimonia phone registry',
+    [cfg.testimonia?.agents?.toLowerCase()]: 'Testimonia AI-agent registry',
+    [cfg.testimonia?.disputes?.toLowerCase()]: 'Testimonia disputes',
   };
 }
 
@@ -97,7 +104,14 @@ export function describeCall(cfg, target, data) {
   const a = f.args;
   switch (f.name) {
     case 'setIssuer':
+      if (/^Testimonia/.test(where)) {
+        return a.active ? `Approve ${short(a.issuer)} ("${a.name}") to vouch for people in Testimonia (${Number(a.maxTier) >= 2 ? 'identity-verified' : 'basic'} tier)` : `Remove ${short(a.issuer)} ("${a.name}") as a Testimonia identity issuer`;
+      }
       return a.active ? `Approve ${short(a.issuer)} as clerk "${a.name}" (${Number(a.maxTier) >= 1 ? 'can give full voting rights' : 'basic sign-ups only'})` : `Remove ${short(a.issuer)} ("${a.name}") as a clerk`;
+    case 'setDeviceIssuer':
+      return a.active ? `Approve ${short(a.issuer)} ("${a.name}") to register phones in Testimonia (genuine-phone checks)` : `Remove ${short(a.issuer)} ("${a.name}") as a Testimonia phone checker`;
+    case 'setBond':
+      return `Set the bond for challenging Testimonia content to ${ethers.formatEther(a.bond)} ETH`;
     case 'grantRole':
       return `Make ${who(a.account)} ${ROLE_NAMES[a.role] || 'a role holder'} on ${where}`;
     case 'revokeRole':

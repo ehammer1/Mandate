@@ -19,7 +19,7 @@
 const { ethers } = require('ethers');
 
 const ROLE_NAMES = Object.fromEntries(
-  ['GOVERNOR_ROLE', 'VERIFIER_ROLE', 'ISSUER_ROLE', 'PROPOSER_ROLE', 'CREATOR_ROLE', 'RESOLVER_ROLE', 'VETO_ROLE'].map((r) => [ethers.id(r), r.replace('_ROLE', '')]),
+  ['GOVERNOR_ROLE', 'VERIFIER_ROLE', 'ISSUER_ROLE', 'PROPOSER_ROLE', 'CREATOR_ROLE', 'RESOLVER_ROLE', 'VETO_ROLE', 'DEVICE_ISSUER_ROLE', 'ARBITER_ROLE', 'STRIKER_ROLE'].map((r) => [ethers.id(r), r.replace('_ROLE', '')]),
 );
 ROLE_NAMES[ethers.ZeroHash] = 'ADMIN';
 
@@ -39,6 +39,8 @@ const CALLS = new ethers.Interface([
   'function setMinBond(uint256 amount)',
   'function setElectorate(address electorate)',
   'function setDelegates(address registry)',
+  'function setDeviceIssuer(address issuer, bool active, string name)',
+  'function setBond(uint96 bond)',
 ]);
 const utc = (secs) => new Date(Number(secs) * 1000).toISOString().slice(0, 16).replace('T', ' ') + ' UTC';
 
@@ -55,7 +57,12 @@ function describeCall(target, data, names = {}) {
   const a = f.args;
   switch (f.name) {
     case 'setIssuer':
+      if (/^Testimonia/.test(where)) return a.active ? `approve ${short(a.issuer)} ("${a.name}") to vouch for people in Testimonia` : `remove Testimonia identity issuer ${short(a.issuer)} ("${a.name}")`;
       return a.active ? `approve ${short(a.issuer)} as identity source "${a.name}" (up to ${TIERS[Number(a.maxTier)] || a.maxTier} tier)` : `remove identity source ${short(a.issuer)} ("${a.name}")`;
+    case 'setDeviceIssuer':
+      return a.active ? `approve ${short(a.issuer)} ("${a.name}") to register phones in Testimonia` : `remove Testimonia phone checker ${short(a.issuer)} ("${a.name}")`;
+    case 'setBond':
+      return `set the Testimonia dispute bond to ${ethers.formatEther(a.bond)} ETH`;
     case 'grantRole':
       return `grant ${ROLE_NAMES[a.role] || a.role} to ${short(a.account)} on ${where}`;
     case 'revokeRole':
@@ -89,6 +96,7 @@ function describeCall(target, data, names = {}) {
 function rulesForEvent(ev, ctx) {
   const a = ev.args;
   const base = { tx: ev.tx, block: ev.block, time: ev.time, contract: ev.contract, event: ev.name };
+  if (String(ev.contract).startsWith('Testimonia') && ev.name !== 'RoleGranted' && ev.name !== 'RoleRevoked') return testimoniaRules(ev, ctx, base);
   switch (ev.name) {
     case 'RoleGranted':
     case 'RoleRevoked': {
@@ -294,6 +302,51 @@ function rulesForEvent(ev, ctx) {
       return [{ ...base, rule: 'council-settings', severity: 'high', title: `The council waiting period is now ${Number(a.delay) / 3600} hours`, facts: { delay: Number(a.delay) } }];
     case 'Decided':
       return [{ ...base, rule: 'market', severity: 'info', title: `Market ${a.id} closed: ${Number(a.chosen) === 0 ? 'PASS' : 'FAIL'} recommended`, facts: { market: String(a.id) } }];
+    default:
+      return [];
+  }
+}
+
+/**
+ * Testimonia's contracts (photo and video provenance, governed by the council once handed
+ * over; docs/testimonia.md). Who may vouch for people and phones is power; a burst of
+ * registrations from one checker can mean a compromised key.
+ */
+function testimoniaRules(ev, ctx, base) {
+  const a = ev.args;
+  const spike = (key, what) => {
+    const win = (ctx.enrolWindows.get(key) || []).filter((t) => ev.time - t < 3600);
+    win.push(ev.time);
+    ctx.enrolWindows.set(key, win);
+    const limit = ctx.thresholds.enrolPerHour;
+    if (win.length <= limit || (ctx.spikeFlagged.has(key) && ev.time - ctx.spikeFlagged.get(key) < 3600)) return [];
+    ctx.spikeFlagged.set(key, ev.time);
+    return [{ ...base, rule: 'testimonia-spike', severity: 'high', title: `${win.length} ${what} by ${short(key.split(':')[1])} in an hour on ${ev.contract}`, facts: { issuer: key.split(':')[1], count: win.length, limit } }];
+  };
+  switch (ev.name) {
+    case 'IssuerSet':
+      return [{ ...base, rule: 'testimonia-issuer', severity: 'high', title: a.active ? `"${a.name}" (${short(a.issuer)}) approved to vouch for people in Testimonia` : `Testimonia identity issuer "${a.name}" (${short(a.issuer)}) removed`, facts: { issuer: a.issuer, name: a.name, maxTier: Number(a.maxTier), active: a.active } }];
+    case 'DeviceIssuerSet':
+      return [{ ...base, rule: 'testimonia-device-checker', severity: 'high', title: a.active ? `"${a.name}" (${short(a.issuer)}) approved to register phones in Testimonia` : `Testimonia phone checker "${a.name}" (${short(a.issuer)}) removed`, facts: { issuer: a.issuer, name: a.name, active: a.active } }];
+    case 'BondSet':
+      return [{ ...base, rule: 'testimonia-bond', severity: 'high', title: `Testimonia dispute bond set to ${ethers.formatEther(a.bond)} ETH`, facts: { bond: a.bond.toString() } }];
+    case 'HumanEnrolled':
+      return spike(`tm-people:${String(a.issuer).toLowerCase()}`, 'people enrolled');
+    case 'DeviceRegistered':
+      return spike(`tm-phones:${String(a.issuer).toLowerCase()}`, 'phones registered');
+    case 'DeviceRevoked':
+      return [{ ...base, rule: 'testimonia-revocation', severity: 'medium', title: `A phone's Testimonia registration was revoked by ${short(a.by)}`, facts: { keyId: a.keyId, by: a.by } }];
+    case 'Revoked':
+      return [{ ...base, rule: 'testimonia-revocation', severity: 'medium', title: `${short(a.account)} ${a.banned ? 'banned' : 'revoked'} in Testimonia by ${short(a.by)}`, facts: { account: a.account, by: a.by, banned: a.banned } }];
+    case 'Struck':
+    case 'AgentStruck':
+      return [{ ...base, rule: 'testimonia-strike', severity: 'medium', title: `${ev.name === 'AgentStruck' ? `AI agent #${a.agentId}` : short(a.account)} struck in Testimonia (${a.strikes} strike${Number(a.strikes) === 1 ? '' : 's'})`, facts: { strikes: Number(a.strikes) } }];
+    case 'Ruled':
+      return [{ ...base, rule: 'testimonia-ruling', severity: 'medium', title: `Testimonia dispute #${a.id} ${a.upheld ? 'upheld: the content was found mislabelled' : 'rejected'}`, facts: { id: a.id.toString(), uid: a.uid, upheld: a.upheld, ruling: a.ruling } }];
+    case 'Withdrawn':
+      return [{ ...base, rule: 'testimonia-withdrawal', severity: 'medium', title: `${ethers.formatEther(a.amount)} ETH withdrawn from Testimonia disputes to ${short(a.to)}`, facts: { to: a.to, amount: a.amount.toString() } }];
+    case 'Opened':
+      return [{ ...base, rule: 'testimonia-dispute', severity: 'info', title: `Testimonia dispute #${a.id} opened by ${short(a.challenger)}`, facts: { id: a.id.toString(), uid: a.uid, evidenceURI: a.evidenceURI } }];
     default:
       return [];
   }
