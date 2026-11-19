@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Security · Promissa Protocol</title>
+<meta name="description" content="How Promissa Protocol keeps ballots secret, counts every vote once, keeps power in check, and plans for AI and quantum threats." />
+<style>
+:root{--bg:#fff;--fg:#1a1a1a;--muted:#555;--link:#1d4ed8;--line:#ddd;--soft:#f4f6fb}
+@media (prefers-color-scheme:dark){:root{--bg:#111;--fg:#eee;--muted:#aaa;--link:#8ab4ff;--line:#333;--soft:#1b1f2a}}
+body{background:var(--bg);color:var(--fg);font:16px/1.6 system-ui,sans-serif;max-width:46rem;margin:0 auto;padding:24px 16px}
+a{color:var(--link)} small,.muted{color:var(--muted)} h2{font-size:1.15rem;margin-top:1.8rem}
+table{width:100%;border-collapse:collapse;margin:.6rem 0;font-size:.95rem}
+th,td{text-align:left;vertical-align:top;padding:8px;border-bottom:1px solid var(--line)}
+th{font-weight:600}
+.box{background:var(--soft);border-radius:10px;padding:12px 16px;margin:1rem 0}
+</style>
+  <link rel="icon" href="icons/favicon.svg" type="image/svg+xml" />
+  <link rel="icon" href="icons/favicon-32.png" sizes="32x32" type="image/png" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+  <meta property="og:image" content="https://ehammer1.github.io/Mandate/icons/og.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+</head><body>
+<p><a href="./">← Back to Promissa</a> <span id="lang-switch"></span></p>
+<h1>Security</h1>
+<p><small>Last updated 19 November 2026 · Pilot on a test network</small></p>
+
+<div class="box">
+<p style="margin:0"><strong>In short.</strong> Promissa Protocol is a decentralized, open-source voting protocol on Base, a public blockchain. Your ballot is secret, even from us. Each person votes once. Results, records and every change of power are public, so anyone can check them, and nobody (including the people who run the app) can quietly change or delete them.</p>
+</div>
+
+<h2>Where things stand today</h2>
+<ul>
+<li><strong>Not yet independently audited.</strong> Until an independent security audit is complete, Promissa runs advisory pilots only, on Base's free test network. Binding votes and Base's main network come after the audit, and its report will be published here.</li>
+<li><strong>Open source.</strong> Anyone can read every line: <a href="https://github.com/ehammer1/Mandate">github.com/ehammer1/Mandate</a>. More than 130 automated tests run before every change goes live.</li>
+</ul>
+
+<h2>Your ballot stays secret</h2>
+<ul>
+<li>Your phone proves you are on the voter list <em>without revealing who you are</em>, using a zero-knowledge proof (the open-source Semaphore system). The proof shows "an eligible member voted, once" and nothing more.</li>
+<li>Nobody can see how you voted: not officials, not the council, not the people who run the app.</li>
+<li>You can check that your own vote was counted, using a one-time code only your voter key can recompute.</li>
+<li>If someone pressures or pays you to vote a certain way, you can quietly change your vote later (where the poll allows): only your last vote counts.</li>
+</ul>
+
+<h2>One person, one vote</h2>
+<ul>
+<li>Each voter key can vote once per poll, enforced by the blockchain.</li>
+<li>Each Google, Microsoft or email account can join only once per community, and throwaway email services are refused.</li>
+<li>Each ID can be used only once at a clerk desk. Only a scrambled fingerprint of the ID number is kept, never the number itself.</li>
+<li>Binding decisions are for ID-checked residents. Polls open to online sign-ups can be <strong>cross-checked</strong> against ID-checked voters: if they clearly disagree, the result is held.</li>
+<li>Paper, mail and online ballots are combined so nobody is counted twice. Paper counts need a second clerk to confirm them.</li>
+<li>A poll's voter list is frozen when it opens: people who join later, or who replace a lost key, can't vote twice in it.</li>
+</ul>
+
+<h2>Power is kept in check</h2>
+<ul>
+<li>No single person holds admin power. A <strong>council</strong> does: every change is proposed in public, needs several members' approval, then waits a public period (24 hours in the demo) before it can run. Removing someone's power needs approvals but no wait.</li>
+<li>An <strong>independent watchdog</strong> checks every change every 15 minutes, publishes plain-language reports, and flags anything that moves power or looks unusual, such as a burst of sign-ups.</li>
+<li>Residents can call a vote by petition, elect and recall council members, and remove anyone's role by vote, without the council.</li>
+<li>Emergency changes run at once but must be ratified by residents within a set window, or they are undone.</li>
+</ul>
+
+<h2>Keys and signing in</h2>
+<ul>
+<li>Your voter key is made on your device and never sent to us. It is usually a <strong>passkey</strong>, unlocked with Face ID, a fingerprint or your device PIN and synced by Apple, Google or Microsoft. Passkeys can't be phished.</li>
+<li>Each community gets its own voter code from the same passkey, so your participation in different communities can't be linked.</li>
+<li>Lost your key? Sign in again with the same Google, Microsoft or email account to replace it: the old key is removed from the voter list. This can be done once a day per account and appears on the public record.</li>
+<li>On shared and library computers, nothing is kept and you are signed out after 5 minutes without activity. "Keep me signed in" is off unless a community turns it on, and never offered on shared computers.</li>
+<li>We will never ask for your backup code. Nobody needs it but you.</li>
+</ul>
+
+<h2>How AI is used, and its limits</h2>
+<p>Promissa uses Claude, an AI by Anthropic, to answer questions about a proposal from its published text, to read uploaded files (text, a short summary, a description for screen readers, and a check for private details), and to write the watchdog's plain-language reports.</p>
+<ul>
+<li>AI never counts votes, decides anything or holds any power, and it can't see how anyone voted.</li>
+<li>Everything it writes is labeled as AI and links to the original, so you can check it.</li>
+</ul>
+
+<h2>New threats we plan for</h2>
+<table>
+<thead><tr><th>Threat</th><th>How Promissa responds</th></tr></thead>
+<tbody>
+<tr><td>AI-made fake people signing up in bulk</td><td>One account per voter, throwaway email refused, ID checks for binding votes, cross-checks, and watchdog alerts on sign-up spikes</td></tr>
+<tr><td>AI-written disinformation</td><td>Every petition and comment comes from a real voter on the public record; AI summaries always link to the original</td></tr>
+<tr><td>Tricks hidden in uploaded documents to fool the AI</td><td>The AI has no power: it can only summarize, and what it writes is labeled and checkable</td></tr>
+<tr><td>Attacks on the contracts</td><td>An independent audit before binding votes, a public reward for reporting problems after it, council approvals with a public wait, and the watchdog</td></tr>
+<tr><td>Phishing for keys</td><td>Passkeys can't be phished; the app warns that nobody will ever ask for your backup code</td></tr>
+</tbody>
+</table>
+
+<h2>Quantum computers</h2>
+<p>Quantum computers large enough to break today's digital signatures don't exist yet, and are generally expected to be years away. When they come, they affect banks, Bitcoin, Ethereum and Base alike.</p>
+<ul>
+<li><strong>Who voted how:</strong> the ballot proofs are designed to reveal nothing about the voter, so a future computer should not be able to go back and unmask past votes. The audit will confirm this.</li>
+<li><strong>Fingerprints</strong> of emails and IDs use keyed hashing, which quantum computers barely speed up.</li>
+<li><strong>Signatures and proofs</strong> (accounts, the council, passkeys, ballot proofs) would eventually need quantum-safe versions. Ethereum and Base are preparing them, Apple, Google and Microsoft will move passkeys over, and Promissa's contracts can be upgraded by the council, in public, with the watchdog watching.</li>
+</ul>
+
+<h2>Report a problem</h2>
+<p>Found a security problem? Please report it privately first, through the repository's <a href="https://github.com/ehammer1/Mandate/security/advisories/new">security advisory form</a> (GitHub, Security tab, "Report a vulnerability"). Tell us what you found, how to reproduce it, and what it affects. We aim to reply within 7 days and to publish the fix once it's safe. Please don't test against other people's data or disrupt a live poll. See also the <a href="privacy.html">privacy policy</a>.</p>
+
+  <footer style="text-align:center;margin:24px 16px;font-size:.85rem"><span class="muted">Promissa Protocol™ © 2026 · <a href="https://github.com/ehammer1/Mandate/blob/main/TRADEMARKS.md">Name and logo</a></span></footer>
+  <script type="module" src="dist/one-pager.js"></script>
+</body></html>

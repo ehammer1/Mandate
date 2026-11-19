@@ -34,7 +34,7 @@ Most online voting apps are one company's private database: the company runs the
 ## Frequently asked questions
 
 **How is this different from other online voting apps?**
-Other apps keep the votes in one company's database, and you have to trust that company. Promissa keeps them on Base, a public blockchain: secret ballots, results nobody can quietly change, anyone can recount, and decisions tracked until they're done. See [Why Promissa is different](#why).
+Other apps keep the votes in one company's database, and you have to trust that company. Promissa keeps them on Base, a public blockchain: secret ballots, results nobody can quietly change, anyone can recount, and decisions tracked until they're done. See [Why Promissa is different](#why), and the Security page for the details.
 
 **Is this a blockchain? What is Base?**
 Yes. Promissa records polls, petitions, results, mandates and every change of who holds power on **Base**, a public blockchain built on Ethereum. A blockchain is a shared public record kept by many computers at once, so no single company or official can secretly edit or delete it, and anyone can check it (see the live dashboard, or "View on the blockchain" links). Pilots use Base's free test network until an independent security audit is complete. Voters never need cryptocurrency: network fees are covered.

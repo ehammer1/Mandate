@@ -159,6 +159,11 @@ async function signedIn(k, backupCode) {
   state.publicMode = k.method === 'public';
   $('signin-method').textContent = state.publicMode ? 'Shared computer: nothing is saved here. You will be signed out after 5 minutes without activity.' : $('signin-method').textContent;
   armIdleSignOut();
+  try {
+    sessionStorage.removeItem('mandate.signedOut'); // signed in again: the sign-out is over
+  } catch {
+    /* ignore */
+  }
   // "Keep me signed in on this device": offered on your own device, never on a shared computer.
   const scope = state.config?.communitySlug || '';
   state.keptUntil = k.kept ? k.until : 0;
@@ -1718,7 +1723,13 @@ async function boot() {
   }
   // Kept signed in on this device: straight in.
   // "Keep me signed in" is off unless the community turns it on; turning it off ends any kept sign-in.
-  const keepAllowed = state.config.keepSignedIn === true && !SHARED;
+  let justSignedOut = false; // "Sign out" in this tab: never sign straight back in, even mid-erase
+  try {
+    justSignedOut = sessionStorage.getItem('mandate.signedOut') === '1';
+  } catch {
+    /* ignore */
+  }
+  const keepAllowed = state.config.keepSignedIn === true && !SHARED && !justSignedOut;
   if (!keepAllowed) await forget(state.config.communitySlug || '');
   const kept = keepAllowed ? await recall(state.config.communitySlug || '') : null;
   if (SHARED) {
