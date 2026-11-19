@@ -43,6 +43,7 @@ const { spawn } = require('child_process');
 const axios = require('axios');
 const { ethers } = require('ethers');
 const { pinJSON, hasPinataCredentials } = require('./upload');
+const { checkMedia, factsSection } = require('./media-evidence');
 
 // ---------------------------------------------------------------------------
 // Config
@@ -71,6 +72,10 @@ const CFG = {
   stateFile: path.resolve(process.env.STATE_FILE || '.attestor-state.json'),
   dryRun: process.env.DRY_RUN === '1',
   maxBlockSpan: Number(process.env.LOG_BLOCK_SPAN || 200), // public RPCs cap log ranges (Base Sepolia: 200)
+  // Testimonia media in evidence (spec "checks": ["media"]): the network Testimonia anchors
+  // to, and its AnchorRegistry. Without these, media checks wait (they're never skipped).
+  testimoniaRpcUrl: process.env.TESTIMONIA_RPC_URL || process.env.RPC_URL,
+  testimoniaAnchors: process.env.TESTIMONIA_ANCHORS || null,
 };
 
 const ORACLE_DIR = path.join(__dirname, '..', 'oracle');
@@ -156,6 +161,27 @@ async function fetchText(cid) {
   }
 }
 
+/** A file from IPFS as bytes (photos and videos in evidence). */
+async function fetchBytes(cid) {
+  if (!CID_RE.test(cid)) throw new Error(`malformed CID ${cid}`);
+  try {
+    const res = await axios.get(`${CFG.gateway}/ipfs/${cid}`, { responseType: 'arraybuffer', timeout: 300_000, maxContentLength: CFG.ipfsMaxBytes });
+    return Buffer.from(res.data);
+  } catch (e) {
+    const status = e.response?.status;
+    if (status && status < 500 && status !== 408 && status !== 429) throw new Error(`${cid}: IPFS HTTP ${status}`);
+    if (String(e.message).includes('maxContentLength')) throw new Error(`${cid} exceeds ${CFG.ipfsMaxBytes} bytes`);
+    throw new TransientError(`IPFS fetch ${cid} failed: ${status || e.code || e.message}`);
+  }
+}
+
+let testimonia = null;
+function testimoniaChain() {
+  if (!CFG.testimoniaAnchors) throw new TransientError('a mandate checks Testimonia media: set TESTIMONIA_ANCHORS (and TESTIMONIA_RPC_URL)');
+  if (!testimonia) testimonia = { provider: new ethers.JsonRpcProvider(CFG.testimoniaRpcUrl), anchors: CFG.testimoniaAnchors };
+  return testimonia;
+}
+
 // ---------------------------------------------------------------------------
 // Python checks
 // ---------------------------------------------------------------------------
@@ -202,12 +228,19 @@ async function reviewEvidence(spec, evidenceText) {
   const specPath = path.join(tmp, 'spec.json');
   fs.writeFileSync(specPath, JSON.stringify(spec));
   try {
+    // Testimonia media first: its verified facts go to the reviewer with the evidence.
+    let media = null;
+    if ((spec.checks || []).includes('media')) {
+      media = await checkMedia(spec, evidenceText, { fetchBytes, chain: testimoniaChain() });
+      evidenceText += factsSection(media.facts);
+    }
     const review = await runPython('review.py', ['--spec', specPath], evidenceText);
     const checks = {};
     if (review.code === 2) {
       return { approve: false, failures: ['evidence or spec rejected as invalid input'], review: null, checks };
     }
-    const failures = [...(review.result.failures || [])];
+    const failures = [...(review.result.failures || []), ...(media?.failures || [])];
+    if (media) checks.media = { facts: media.facts, items: media.items.map((i) => ({ ref: i.ref, ok: i.ok, kind: i.kind, words: i.words, problems: i.problems })) };
 
     if ((spec.checks || []).includes('redaction')) {
       const r = await runPython('redact.py', ['--mode', 'verify'], evidenceText);

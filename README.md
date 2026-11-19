@@ -74,6 +74,8 @@ Design rules:
 | `oracle/claude_call.py` | Shared Claude call: streaming, refusal fallback, error handling |
 | `broker/attestor.js` | Verifier node: watches evidence, runs the checks, pins a report, attests on-chain |
 | `broker/upload.js` | Pins specs, evidence and reports to IPFS through Pinata |
+| `broker/media-evidence.js` | Checks Testimonia-sealed photos and videos in evidence: seal, redacted copies, capture time on Base |
+| `vendor/testimonia/` | Testimonia's checking code, copied by `scripts/sync-testimonia.js` |
 | `dashboard/index.html` | Public mandate and market tracker (simulation for now) |
 | `test/` | Contract tests, oracle tests, attestor end-to-end test |
 
@@ -97,6 +99,12 @@ Each mandate points to a JSON spec on IPFS (`specCID`):
 
 Add `"checks": ["redaction"]` for records releases, so verifiers also confirm that no
 living individuals or sensitive methods are exposed.
+
+Add `"checks": ["media"]` when the evidence is a photo or video. Verifiers then check
+Testimonia-sealed media: that each file is exactly what the phone captured, that any
+redacted copy was made from it (and what was covered), and when, proven on Base. Optional
+rules: `"media": { "required": 1, "capturedAfter": "…", "capturedBefore": "…" }`. See
+[docs/testimonia.md](docs/testimonia.md).
 
 ## Setup
 
