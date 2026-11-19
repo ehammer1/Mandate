@@ -5,27 +5,27 @@ CALSCALE:GREGORIAN
 X-WR-CALNAME:Mandate: votes and deadlines
 BEGIN:VEVENT
 UID:round-0xB470252aCFcFe460fa4F3Cab6d3fBE10dF849c96-1@mandate
-DTSTAMP:20261119T170042Z
+DTSTAMP:20261119T171546Z
 DTSTART:20261211T060312Z
 DTEND:20261211T063312Z
-SUMMARY:Budget round closes: see the app
+SUMMARY:Budget round closes: Neighborhood projects
 DESCRIPTION:Spend your civic credits before it closes. https://ehammer1.g
  ithub.io/Mandate/
 URL:https://ehammer1.github.io/Mandate/
 BEGIN:VALARM
 TRIGGER;RELATED=END:-P1D
 ACTION:DISPLAY
-DESCRIPTION:1 day left: Budget round closes: see the app
+DESCRIPTION:1 day left: Budget round closes: Neighborhood projects
 END:VALARM
 BEGIN:VALARM
 TRIGGER;RELATED=END:-PT8H
 ACTION:DISPLAY
-DESCRIPTION:8 hours left: Budget round closes: see the app
+DESCRIPTION:8 hours left: Budget round closes: Neighborhood projects
 END:VALARM
 BEGIN:VALARM
 TRIGGER;RELATED=END:-PT1H
 ACTION:DISPLAY
-DESCRIPTION:1 hour left: Budget round closes: see the app
+DESCRIPTION:1 hour left: Budget round closes: Neighborhood projects
 END:VALARM
 END:VEVENT
 END:VCALENDAR
