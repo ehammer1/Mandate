@@ -1121,6 +1121,49 @@ async function sendOutbox() {
   return r;
 }
 
+// "Install Promissa": its own icon and window, and it opens with no signal. Shown once per
+// device until dismissed; never once installed, nor on a public computer link.
+function wireInstallTip() {
+  const box = $('install-tip');
+  const installed = matchMedia?.('(display-mode: standalone)').matches || navigator.standalone === true;
+  let dismissed = false;
+  try {
+    dismissed = localStorage.getItem('mandate.installTip') === 'no';
+  } catch {
+    /* ignore */
+  }
+  if (installed || dismissed || SHARED) return;
+  const ua = navigator.userAgent || '';
+  const iOS = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+  const macSafari = /Macintosh/.test(ua) && /Safari\//.test(ua) && !/Chrome|Chromium|Edg\//.test(ua) && !iOS;
+  const show = (text, button) => {
+    $('install-text').textContent = text;
+    $('btn-install').hidden = !button;
+    box.hidden = false;
+  };
+  if (iOS) show('to your home screen: tap the Share button, then "Add to Home Screen". It gets its own icon and opens even with no signal.');
+  else if (macSafari) show('on this Mac: in Safari, choose File, then "Add to Dock". It opens in its own window, even offline.');
+  // Chrome, Edge and Android offer a real install button.
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    $('btn-install').onclick = async () => {
+      e.prompt();
+      const choice = await e.userChoice.catch(() => null);
+      if (choice?.outcome === 'accepted') box.hidden = true;
+    };
+    show('on this device: its own icon and window, and it opens even with no signal.', true);
+  });
+  window.addEventListener('appinstalled', () => (box.hidden = true));
+  $('btn-install-dismiss').onclick = () => {
+    box.hidden = true;
+    try {
+      localStorage.setItem('mandate.installTip', 'no');
+    } catch {
+      /* ignore */
+    }
+  };
+}
+
 function wireCarry() {
   const el = $('carry-status');
   let stop = null;
@@ -1769,6 +1812,7 @@ async function boot() {
   wireCopy(document);
   wireCarry();
   window.addEventListener('online', () => sendOutbox().catch(() => {}));
+  wireInstallTip();
   wireSignIn();
   wireAccount();
   wireAdmin();

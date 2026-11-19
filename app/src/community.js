@@ -16,6 +16,23 @@ export const ORG = (() => {
   }
 })();
 
+// The installed app always opens at the site's start page: take it back to the community the
+// person last used in the browser (?org=), so an app installed from a community opens there.
+try {
+  const installed = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+  const last = localStorage.getItem('mandate.lastOrg') || '';
+  if (!installed) {
+    if (ORG) localStorage.setItem('mandate.lastOrg', ORG);
+    else if (last && !/\.html$/.test(location.pathname) && /\/$/.test(location.pathname)) localStorage.removeItem('mandate.lastOrg');
+  } else if (!ORG && last && /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/.test(last)) {
+    const u = new URL(location.href);
+    u.searchParams.set('org', last);
+    location.replace(u.href);
+  }
+} catch {
+  /* no storage: open as is */
+}
+
 export const configPath = () => (ORG ? `communities/${ORG}.json` : 'config.json');
 
 // The shared addresses (and local testing), where a community is picked only by ?org=.

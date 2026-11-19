@@ -674,7 +674,7 @@ test('no duplicate passkeys: creating again on a device that has one unlocks the
 test('a device that already has a voter key leads with "Welcome back", not "Join"', async () => {
   await page.click('#btn-signout');
   await page.reload();
-  assert.equal(await page.isVisible('#welcome-back'), true);
+  await page.waitForSelector('#welcome-back:not([hidden])');
   assert.equal(await page.isVisible('#new-here'), false);
   await page.click('#btn-welcome-unlock');
   await page.waitForSelector('#screen-home:not([hidden])');
@@ -1854,7 +1854,7 @@ test('a key saved in this browser is reopened, never replaced, when someone join
   // And a returning visit leads with "Welcome back".
   await page.click('#btn-signout');
   await page.reload();
-  assert.equal(await page.isVisible('#welcome-back'), true);
+  await page.waitForSelector('#welcome-back:not([hidden])');
   assert.equal(await page.isVisible('#new-here'), false);
   await page.click('#btn-welcome-unlock');
   await same();
@@ -2028,4 +2028,23 @@ test('public computer link (&shared=1): only shared sign-in, nothing kept, no "k
   delete appConfig.keepSignedIn;
   await page.click('#btn-signout');
   await page.goto(appUrl);
+});
+
+test('install tip: an iPhone is told how to add Promissa to its home screen, once', async () => {
+  const phone = await browser.newContext({ viewport: { width: 390, height: 844 }, userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1' });
+  try {
+    const p = await phone.newPage();
+    await p.goto(appUrl);
+    await p.click('#device-option summary');
+    await p.click('#btn-device');
+    await p.waitForSelector('#install-tip:not([hidden]) >> text=Add to Home Screen');
+    await p.click('#btn-install-dismiss');
+    assert.equal(await p.isVisible('#install-tip'), false);
+    await p.reload();
+    await p.click('#btn-welcome-unlock');
+    await p.waitForSelector('#screen-home:not([hidden])');
+    assert.equal(await p.isVisible('#install-tip'), false); // not shown again
+  } finally {
+    await phone.close();
+  }
 });

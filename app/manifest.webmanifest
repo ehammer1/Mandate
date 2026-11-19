@@ -1,7 +1,7 @@
 {
   "name": "Promissa Protocol",
   "short_name": "Promissa",
-  "description": "Vote privately on public decisions. No wallet needed.",
+  "description": "Decentralized, open-source voting protocol on the Base blockchain. Vote privately on public decisions; no wallet needed.",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#f6f7f5",
