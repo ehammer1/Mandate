@@ -14,6 +14,7 @@ import { ethers } from 'ethers';
 import { Identity } from '@semaphore-protocol/identity';
 import * as keys from './keys.js';
 import { keep, recall, forget, KEEP_DAYS } from './remember.js';
+import * as offline from './offline.js';
 import { poseidon2 } from 'poseidon-lite/poseidon2';
 import { buildBallot } from '../../client/ballot.js';
 import { readSettings, settingsNote, changesOpen, rankedPickerHtml, wireRankers, rankedResultsHtml, groupInfo, groupOptionsHtml, hasSettings, wireVoterGroups, V5_ABI, ERRORS as V5_ERRORS } from './pollsettings.js';
@@ -920,6 +921,7 @@ async function refreshPolls() {
     const cards = [];
     const soon = [];
     const labelsById = {};
+    const toSave = []; // open polls this person can vote in: saved for voting with no signal
     for (let id = count; id >= 1n && cards.length < 20; id--) {
       const [p, tally] = await Promise.all([state.vote.getPoll(id), state.vote.tally(id)]);
       const [ck, ckCounts] = await state.vote.getCheck(id).catch(() => [{ root: 0n }, [0n, 0n]]);
@@ -950,6 +952,7 @@ async function refreshPolls() {
         if (gi) [who, eligibleTier] = [gi.name, gi.member];
       }
       const onlineOk = st.channels !== 2;
+      if (open && eligibleTier && onlineOk && !paperLocks && !st.ranked) toSave.push({ id: String(id), title: q?.title || `Poll ${id}`, labels, ranked: false, end: p.end });
       const canChange = changesOpen(st, p, now);
       if (open && !voted && eligibleTier && Number(p.end) - Number(now) < 48 * 3600) soon.push({ id, end: p.end });
       const total = tally.reduce((a, b) => a + b, 0n);
@@ -1025,6 +1028,9 @@ async function refreshPolls() {
       state.officials.pollSection(box, Number(box.dataset.id), box.dataset.canvote === '1', (option, btn) => castVote(BigInt(box.dataset.id), option, btn)).catch(() => {});
     }
     for (const box of list.querySelectorAll('.explain-box')) renderExplainer({ state, esc, status }, box, 'poll', Number(box.dataset.id)).catch(() => {});
+    (async () => {
+      for (const poll of toSave) await offline.savePoll(state, poll); // one at a time, in the background
+    })();
     // Anyone may record a finished poll's result (and so trigger a binding action).
     for (const b of list.querySelectorAll('button.finalize')) {
       b.onclick = async () => {
@@ -1035,9 +1041,122 @@ async function refreshPolls() {
       };
     }
   } catch (e) {
+    if (await showOfflinePolls(list)) return;
     list.innerHTML = `<p class="error">Could not load polls: ${esc(e.shortMessage || e.message)}</p>`;
   }
 }
+
+// No connection: show the polls saved on this phone, and let people vote in them anyway.
+async function showOfflinePolls(list) {
+  if (!state.identity) return false;
+  const saved = await offline.savedPolls(state);
+  const note = `<div class="card"><p style="margin:0"><strong>You're offline.</strong> ${saved.length ? 'You can still vote in the polls below: your ballot is sealed on this phone and sent as soon as you have a connection, or shown as a QR code for someone who has one.' : 'No polls are saved on this phone yet. Open the app once while you have a connection, and the open polls you can vote in are saved for next time.'}</p></div>`;
+  list.innerHTML = note + saved.map((p) => `<article class="card stack" id="poll-${esc(p.id)}">
+      <p class="eyebrow">Poll ${esc(p.id)} · saved for offline voting</p>
+      <h3>${esc(p.title)}</h3>
+      <div class="choices">${p.labels.map((l, i) => `<button class="choice" data-offline-poll="${esc(p.id)}" data-option="${i}">${esc(l)}</button>`).join('')}</div>
+      <p class="status" id="poll-status-${esc(p.id)}" role="status"></p>
+    </article>`).join('');
+  for (const b of list.querySelectorAll('button[data-offline-poll]')) b.onclick = () => castOffline(BigInt(b.dataset.offlinePoll), Number(b.dataset.option), b);
+  return true;
+}
+
+/** Seal a ballot on this phone with no network, keep it to send later, and offer a QR code. */
+async function castOffline(pollId, option, button) {
+  const el = $(`poll-status-${pollId}`);
+  const card = $(`poll-${pollId}`);
+  for (const b of card.querySelectorAll('button.choice')) b.disabled = true;
+  button.classList.add('picked');
+  status(el, 'Building your private ballot on this device… this can take a few seconds.');
+  try {
+    const item = await offline.voteOffline(state, pollId, option);
+    showSaved(el, item);
+    renderOutbox();
+  } catch (e) {
+    status(el, e.message, 'error');
+    for (const b of card.querySelectorAll('button.choice')) b.disabled = false;
+    button.classList.remove('picked');
+  }
+}
+
+function showSaved(el, item) {
+  el.innerHTML = `<span class="ok">Sealed and saved on this phone, not sent yet. It is sent by itself as soon as you have a connection.</span>
+    <br/><button type="button" class="primary" data-show-code style="margin-top:8px">No signal? Show it as a QR code</button>
+    <div data-code hidden></div>`;
+  el.querySelector('[data-show-code]').onclick = () => showBallotCode(el.querySelector('[data-code]'), item.code);
+}
+
+function showBallotCode(box, code) {
+  box.hidden = false;
+  box.innerHTML = `<canvas style="display:block;margin:10px auto;background:#fff;padding:8px;border-radius:12px;max-width:100%"></canvas>
+    <p class="note">Show this to a clerk, or anyone whose app has a connection: they scan it under "Carry ballots for people without signal" and it is sent for you. They can't change it or use it to vote. The code does contain your choice, so hand it only to someone you trust, or wait and it is sent by itself.</p>`;
+  box.dataset.ballotCode = code;
+  QRCode.toCanvas(box.querySelector('canvas'), code, { errorCorrectionLevel: 'L', margin: 2, width: 300 }).catch(() => {});
+}
+
+// Ballots waiting on this phone (this person's own, and any carried for others).
+async function renderOutbox() {
+  if (!state.config) return;
+  const items = await offline.outbox(state.config);
+  const mine = items.filter((i) => i.mine && i.status === 'waiting');
+  const carried = items.filter((i) => !i.mine);
+  const card = $('outbox-card');
+  card.hidden = !mine.length;
+  if (mine.length) {
+    card.innerHTML = `<p style="margin:0"><strong>📦 ${mine.length === 1 ? 'Your ballot is' : `${mine.length} of your ballots are`} saved on this phone, waiting to be sent.</strong> ${navigator.onLine ? 'Sending…' : 'It goes as soon as you have a connection.'}</p>
+      ${mine.map((i, n) => `<p style="margin:6px 0 0">Poll ${esc(i.pollId)}${i.title ? `: ${esc(i.title)}` : ''} <button type="button" data-qr="${n}">Show as a QR code</button></p><div data-qrbox="${n}" hidden></div>`).join('')}`;
+    for (const b of card.querySelectorAll('[data-qr]')) b.onclick = () => showBallotCode(card.querySelector(`[data-qrbox="${b.dataset.qr}"]`), mine[Number(b.dataset.qr)].code);
+  }
+  const sent = carried.filter((i) => i.status === 'sent').length;
+  const waiting = carried.filter((i) => i.status === 'waiting').length;
+  const rejected = carried.filter((i) => i.status === 'rejected').length;
+  $('carry-list').textContent = carried.length ? `Carried here: ${carried.length} · sent ${sent} · waiting ${waiting}${rejected ? ` · not accepted ${rejected}` : ''}` : '';
+}
+
+async function sendOutbox() {
+  if (!state.config) return null;
+  const r = await offline.sendWaiting(state.config).catch(() => null);
+  await renderOutbox();
+  if (r?.sent && state.identity) setTimeout(refreshPolls, 1500);
+  return r;
+}
+
+function wireCarry() {
+  const el = $('carry-status');
+  let stop = null;
+  const idle = () => {
+    stop = null;
+    $('btn-carry-scan').textContent = 'Scan a ballot QR code';
+  };
+  const take = async (text) => {
+    try {
+      await offline.carryCode(state.config, text);
+      status(el, 'Ballot added. It is sent as soon as this device has a connection.', 'ok');
+      $('carry-code').value = '';
+      await renderOutbox();
+      if (navigator.onLine) await sendOutbox();
+    } catch (e) {
+      status(el, e.message, 'error');
+    }
+  };
+  $('btn-carry-scan').onclick = async () => {
+    if (stop) return (stop(), idle());
+    try {
+      $('btn-carry-scan').textContent = 'Stop camera';
+      stop = await offline.scanInto($('carry-video'), (code) => (idle(), take(code)), (m) => status(el, m));
+    } catch (e) {
+      idle();
+      status(el, e.message, 'warn');
+    }
+  };
+  $('btn-carry-add').onclick = () => take($('carry-code').value);
+  $('btn-carry-send').onclick = async () => {
+    status(el, 'Sending…');
+    const r = await sendOutbox();
+    status(el, r ? `Sent ${r.sent}${r.waiting ? `, still waiting ${r.waiting} (no connection)` : ''}${r.rejected ? `, not accepted ${r.rejected}` : ''}.` : 'Nothing to send.', r?.waiting ? 'warn' : 'ok');
+  };
+}
+
 
 // The nullifier is public once a ballot is cast; computing it locally lets the app
 // tell the voter "you already voted" without revealing anything new.
@@ -1053,6 +1172,10 @@ async function castVote(pollId, option, button) {
   const card = $(`poll-${pollId}`);
   for (const b of card.querySelectorAll('button.choice')) b.disabled = true;
   button.classList.add('picked');
+  if (!navigator.onLine) {
+    for (const b of card.querySelectorAll('button.choice')) b.disabled = false;
+    return castOffline(pollId, option, button);
+  }
   status(el, 'Building your private ballot on this device… this can take a few seconds.');
   let ballot;
   try {
@@ -1095,6 +1218,12 @@ async function castVote(pollId, option, button) {
     } catch {
       lastError = 'A relayer could not be reached; trying the next one.';
     }
+  }
+  if (!/rejected/.test(lastError) && !navigator.onLine) {
+    // The connection dropped after sealing: keep it and send it later.
+    const item = await offline.addToOutbox(state.config, { pollId, ballot, title: card.querySelector('h3')?.textContent || '', mine: true });
+    showSaved(el, item);
+    return renderOutbox();
   }
   if (!/rejected/.test(lastError)) return offerDirectSubmit(el, card, button, pollId, ballot, lastError);
   status(el, lastError, 'error');
@@ -1635,7 +1764,11 @@ function wireAdmin() {
 // --------------------------------------------------------------------- boot
 
 async function boot() {
+  // Open with no signal next time (see sw.js).
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
   wireCopy(document);
+  wireCarry();
+  window.addEventListener('online', () => sendOutbox().catch(() => {}));
   wireSignIn();
   wireAccount();
   wireAdmin();
@@ -1700,6 +1833,8 @@ async function boot() {
     status($('signin-status'), e.message, 'error');
     return;
   }
+  renderOutbox().catch(() => {}); // ballots waiting on this phone
+  if (navigator.onLine) sendOutbox().catch(() => {});
   if (keys.savedMethod() === 'passkey') $('btn-unlock').classList.add('primary');
   if (keys.hasSavedPasskey()) {
     // A returning device: lead with unlocking, not with joining (which would reuse this key anyway).

@@ -36,6 +36,9 @@ Most online voting apps are one company's private database: the company runs the
 **How is this different from other online voting apps?**
 Other apps keep the votes in one company's database, and you have to trust that company. Promissa keeps them on Base, a public blockchain: secret ballots, results nobody can quietly change, anyone can recount, and decisions tracked until they're done. See [Why Promissa is different](#why), and the Security page for the details.
 
+**Can I vote with no signal?**
+Yes, in polls your phone saved while it had a connection. Open Promissa once while online and the open polls you can vote in are kept on your phone. With no signal, the app still opens, shows those polls, and seals your ballot on the phone. It is sent by itself as soon as you have a connection. In a hurry? Tap *No signal? Show it as a QR code* and let a clerk, or anyone with a connection, scan it under *Carry ballots for people without signal*: their app sends it for you. A sealed ballot can't be changed or used to vote twice, but the code does contain your choice, so hand it only to someone you trust.
+
 **Is this a blockchain? What is Base?**
 Yes. Promissa records polls, petitions, results, mandates and every change of who holds power on **Base**, a public blockchain built on Ethereum. A blockchain is a shared public record kept by many computers at once, so no single company or official can secretly edit or delete it, and anyone can check it (see the live dashboard, or "View on the blockchain" links). Pilots use Base's free test network until an independent security audit is complete. Voters never need cryptocurrency: network fees are covered.
 

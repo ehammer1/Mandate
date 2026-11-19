@@ -57,10 +57,17 @@ async function groupAtSnapshot({ registry, groupId, electorate, snapshotRoot, vo
   const candidates = [0, ...[...new Set(removedAt.filter((x) => x > 0))].sort((x, y) => x - y)];
   for (const s of candidates) {
     const group = new Group(leaves);
+    const removed = [];
     removedAt.forEach((r, i) => {
-      if (r > 0 && r <= s) group.removeMember(i);
+      if (r > 0 && r <= s) {
+        group.removeMember(i);
+        removed.push(i);
+      }
     });
-    if (group.root === BigInt(snapshotRoot)) return group;
+    if (group.root === BigInt(snapshotRoot)) {
+      group.snapshot = { leaves: leaves.map(String), removed }; // to rebuild it later, e.g. offline
+      return group;
+    }
   }
   throw new Error('could not reconstruct the poll snapshot from the voter list');
 }
@@ -84,6 +91,14 @@ const envArtifacts = () => (typeof process !== 'undefined' && process.env ? proc
  * @returns {Promise<object>} Ballot struct ready for castBallot / the relayer
  */
 async function buildBallot({ provider, vote, pollId, identity, option, artifactsBase }) {
+  return proveBallot({ identity, option, artifactsBase, inputs: await ballotInputs({ provider, vote, pollId, identity }) });
+}
+
+/**
+ * Everything a ballot needs from the network: the poll's frozen voter list (the one this voter
+ * proves membership of) and its scope. Plain data, so it can be saved and used offline later.
+ */
+async function ballotInputs({ provider, vote, pollId, identity }) {
   const poll = await vote.getPoll(pollId);
   const [identityAddr, scope] = await Promise.all([vote.identity(), vote.scopeOf(pollId)]);
   const registry = new ethers.Contract(identityAddr, REGISTRY_ABI, provider);
@@ -116,9 +131,22 @@ async function buildBallot({ provider, vote, pollId, identity, option, artifacts
     snapshotRoot: poll.snapshotRoot,
   });
   if (group.indexOf(identity.commitment) === -1) throw new Error('this identity was not eligible when the poll opened');
+  return { scope: String(scope), depth: Math.max(group.depth, 1), leaves: group.snapshot.leaves, removed: group.snapshot.removed };
+}
 
-  const depth = Math.max(group.depth, 1);
-  const proof = await generateProof(identity, group, option, scope, depth, artifactsAt(artifactsBase || envArtifacts(), depth));
+/** Rebuild the frozen voter list from saved inputs. */
+function groupFromInputs(inputs) {
+  const group = new Group(inputs.leaves.map(BigInt));
+  for (const i of inputs.removed) group.removeMember(i);
+  return group;
+}
+
+/** Seal a ballot on this device from saved inputs: works with no network once the proving files are cached. */
+async function proveBallot({ identity, inputs, option, artifactsBase }) {
+  const group = groupFromInputs(inputs);
+  if (group.indexOf(identity.commitment) === -1) throw new Error('this identity was not eligible when the poll opened');
+  const depth = inputs.depth;
+  const proof = await generateProof(identity, group, option, BigInt(inputs.scope), depth, artifactsAt(artifactsBase || envArtifacts(), depth));
   return {
     merkleTreeDepth: proof.merkleTreeDepth,
     merkleTreeRoot: proof.merkleTreeRoot,
@@ -171,4 +199,4 @@ function instantRunoff(options, codes, counts) {
   }
 }
 
-module.exports = { buildBallot, groupAtSnapshot, artifactsAt, envArtifacts, REGISTRY_ABI, VOTER_GROUPS_ABI, encodeRanking, decodeRanking, instantRunoff };
+module.exports = { buildBallot, ballotInputs, proveBallot, groupFromInputs, groupAtSnapshot, artifactsAt, envArtifacts, REGISTRY_ABI, VOTER_GROUPS_ABI, encodeRanking, decodeRanking, instantRunoff };

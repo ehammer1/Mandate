@@ -127,6 +127,7 @@
         <p class="status" id="save-code-status" role="status"></p>
       </div>
       <p class="status" id="home-notice" role="status"></p>
+      <div class="card stack" id="outbox-card" hidden></div>
       <p class="eyebrow" id="signin-method"></p>
       <p><button id="btn-show-backup" hidden>Show my backup code</button></p>
       <div class="row" id="keep-row" hidden><button id="btn-keep" type="button">Keep me signed in on this device (30 days)</button><span class="note" id="keep-note">Only on your own phone or computer: anyone using this browser could vote as you until you sign out.</span></div>
@@ -146,6 +147,19 @@
       </section>
       <div class="row"><h2 style="flex:1">Polls</h2><button id="btn-refresh">Refresh</button></div>
       <div id="poll-list"></div>
+      <details class="card" id="carry">
+        <summary><strong>📦 Carry ballots for people without signal</strong></summary>
+        <div class="stack" style="margin-top:12px">
+          <p class="note" style="margin:0">Someone with no connection can show their sealed ballot as a QR code. Scan it here and this device sends it for them as soon as it has a connection. A sealed ballot can't be changed or used to vote twice: you just carry it.</p>
+          <button type="button" id="btn-carry-scan">Scan a ballot QR code</button>
+          <video id="carry-video" playsinline muted hidden style="width:100%;max-width:360px;border-radius:12px"></video>
+          <label for="carry-code">Or paste a ballot code (it starts with PB1:)</label>
+          <textarea id="carry-code" rows="3" spellcheck="false" autocomplete="off"></textarea>
+          <div class="row"><button type="button" id="btn-carry-add">Add this ballot</button><button type="button" id="btn-carry-send">Send waiting ballots now</button></div>
+          <p class="muted" id="carry-list"></p>
+          <p class="status" id="carry-status" role="status"></p>
+        </div>
+      </details>
     </section>
 
     <!-- Voter code -->

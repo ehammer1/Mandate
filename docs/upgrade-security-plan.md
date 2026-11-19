@@ -58,7 +58,7 @@ vote (it is sent to the blockchain), and seeing live results.
 
 **Options to build, from simplest:**
 
-1. **Installable app that opens offline** (small). The app saves itself on the phone, opens with
+1. **Installable app that opens offline** (built, November 2026). The app saves itself on the phone, opens with
    no signal, shows your voter code and the last polls it saw, and can prepare a ballot to send
    as soon as there is a connection. [Service worker; ballots are built on the device already.]
 2. **Polling-place box** (medium). One laptop runs everything locally: the app, the voting
@@ -77,8 +77,8 @@ carry it to the blockchain. With no internet, a phone builds its ballot (from th
 list it downloaded beforehand) and hands it to an anchor (a clerk's tablet, an admin, a
 neighbor's phone), which uploads it when it's back online.
 
-- Handoff, from first to build: **QR code** (the phone shows the ballot, the anchor scans it;
-  works on every phone today), then the **local Wi-Fi box**, then **Bluetooth** or a phone mesh
+- Handoff, from first to build: **QR code** (built, November 2026: the phone shows the ballot,
+  the anchor scans it under "Carry ballots for people without signal"; works on every phone), then the **local Wi-Fi box**, then **Bluetooth** or a phone mesh
   (needs a native app: iPhone browsers don't allow Bluetooth).
 - Anchors can't alter, read or duplicate ballots. They could fail to deliver: voters keep their
   receipt to check, their phone also sends the ballot once online, and several anchors can carry
