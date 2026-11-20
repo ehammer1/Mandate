@@ -55,6 +55,16 @@ contract CivicBudget is AccessControl {
         uint256 fundedMask; // bit i set = proposal i funded
     }
 
+    /// A plain proof (the same layout as a MandateVote ballot), used to test a new checker.
+    struct TestProof {
+        uint256 merkleTreeDepth;
+        uint256 merkleTreeRoot;
+        uint256 nullifier;
+        uint256 message;
+        uint256 scope;
+        uint256[8] points;
+    }
+
     struct Allocation {
         uint256 merkleTreeDepth;
         uint256 merkleTreeRoot;
@@ -66,7 +76,10 @@ contract CivicBudget is AccessControl {
 
     IBudgetGroups public immutable identity;
     IBudgetSemaphore public immutable groups;
-    ISemaphoreVerifier public immutable verifier;
+    /// @notice The proof checker new rounds use; the council can switch it (see MandateVote.setVerifier).
+    ISemaphoreVerifier public verifier;
+    /// @notice The checker each round uses, fixed when it opens.
+    mapping(uint256 => ISemaphoreVerifier) public verifierOf;
     IBudgetCharter public immutable charter; // may be address(0)
 
     uint256 public roundCount;
@@ -78,6 +91,7 @@ contract CivicBudget is AccessControl {
 
     event RoundCreated(uint256 indexed id, uint256 indexed groupId, uint64 end, uint32 credits, uint256 budget, uint256 proposals, string ref);
     event Allocated(uint256 indexed id, uint256 nullifier, uint32[] votes);
+    event VerifierSet(address indexed previous, address indexed next);
     event RoundFinalized(uint256 indexed id, uint256 fundedMask, uint256 spent, uint256 participants);
 
     error InvalidParams();
@@ -96,6 +110,8 @@ contract CivicBudget is AccessControl {
     error OverBudget(uint256 cost, uint32 credits);
     error NullifierUsed();
     error InvalidProof();
+    error VerifierFailedTest();
+    error ZeroVerifier();
 
     constructor(address admin, address identity_, address verifier_, address charter_) {
         identity = IBudgetGroups(identity_);
@@ -148,6 +164,7 @@ contract CivicBudget is AccessControl {
         Round storage r = _rounds[id];
         r.groupId = groupId;
         r.snapshotRoot = groups.getMerkleTreeRoot(groupId);
+        verifierOf[id] = verifier;
         r.electorate = size;
         r.start = uint64(block.timestamp);
         r.end = uint64(block.timestamp) + duration;
@@ -175,14 +192,9 @@ contract CivicBudget is AccessControl {
         if (cost > r.credits) revert OverBudget(cost, r.credits);
         if (nullifierUsed[id][a.nullifier]) revert NullifierUsed();
 
-        bool ok = verifier.verifyProof(
-            [a.points[0], a.points[1]],
-            [[a.points[2], a.points[3]], [a.points[4], a.points[5]]],
-            [a.points[6], a.points[7]],
-            [a.merkleTreeRoot, a.nullifier, _hash(allocationMessage(id, a.votes)), _hash(a.scope)],
-            a.merkleTreeDepth
-        );
-        if (!ok) revert InvalidProof();
+        if (!_accepts(verifierOf[id], TestProof(a.merkleTreeDepth, a.merkleTreeRoot, a.nullifier, allocationMessage(id, a.votes), a.scope, a.points))) {
+            revert InvalidProof();
+        }
 
         nullifierUsed[id][a.nullifier] = true;
         for (uint256 i = 0; i < a.votes.length; i++) tally[i] += a.votes[i];
@@ -191,6 +203,32 @@ contract CivicBudget is AccessControl {
     }
 
     /// @notice Close the round and fund proposals from most votes down while the budget lasts. Anyone may call.
+    /// @notice Switch the proof checker for rounds opened from now on: it must accept `test` and
+    ///         reject the same proof with one value changed.
+    function setVerifier(address next, TestProof calldata test) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (next == address(0)) revert ZeroVerifier();
+        ISemaphoreVerifier v = ISemaphoreVerifier(next);
+        TestProof memory tampered = test;
+        tampered.nullifier ^= 1;
+        if (!_accepts(v, test) || _accepts(v, tampered)) revert VerifierFailedTest();
+        emit VerifierSet(address(verifier), next);
+        verifier = v;
+    }
+
+    function _accepts(ISemaphoreVerifier v, TestProof memory b) private view returns (bool) {
+        try v.verifyProof(
+            [b.points[0], b.points[1]],
+            [[b.points[2], b.points[3]], [b.points[4], b.points[5]]],
+            [b.points[6], b.points[7]],
+            [b.merkleTreeRoot, b.nullifier, _hash(b.message), _hash(b.scope)],
+            b.merkleTreeDepth
+        ) returns (bool ok) {
+            return ok;
+        } catch {
+            return false;
+        }
+    }
+
     function finalize(uint256 id) external {
         Round storage r = _get(id);
         if (r.finalized) revert AlreadyFinalized();

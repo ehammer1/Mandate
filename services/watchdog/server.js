@@ -53,11 +53,13 @@ const ABIS = {
     'event IssuerSet(address indexed issuer, uint8 maxTier, bool active, string name)',
     'event Enrolled(uint256 indexed commitment, address indexed issuer, uint8 tier, uint64 residentSince)',
     'event Revoked(uint256 indexed commitment, address indexed by)',
+    'event Replaced(uint256 indexed oldCommitment, uint256 indexed newCommitment, address indexed by)',
   ],
   vote: [
     'event PollCreated(uint256 indexed id, uint256 indexed groupId, uint256 snapshotRoot, uint8 action, uint64 end, string questionCID)',
     'event PollFinalized(uint256 indexed id, bool passed, uint256 totalBallots)',
     'event VoterGroupsSet(address groups)',
+    'event VerifierSet(address indexed previous, address indexed next)',
     'event ActionFailed(uint256 indexed id, uint8 action, bytes reason)',
     'event PollCrossChecked(uint256 indexed id, uint256 indexed checkGroupId, uint256 checkRoot, uint32 checkQuorum)',
     'event PollDisputed(uint256 indexed id, uint256 yes, uint256 no, uint256 checkYes, uint256 checkNo)',
@@ -82,6 +84,7 @@ const ABIS = {
   budget: [
     'event RoundCreated(uint256 indexed id, uint256 indexed groupId, uint64 end, uint32 credits, uint256 budget, uint256 proposals, string ref)',
     'event RoundFinalized(uint256 indexed id, uint256 fundedMask, uint256 spent, uint256 participants)',
+    'event VerifierSet(address indexed previous, address indexed next)',
   ],
   council: [
     'event Proposed(uint256 indexed id, address indexed proposer, address target, uint256 value, bytes data, string description, bool fast)',

@@ -53,6 +53,8 @@ contract IdentityRegistry is AccessControlEnumerable {
 
     uint64 public constant MIN_SEASONING = 1 days;
     uint64 public constant MAX_SEASONING = 365 days;
+    /// @notice Lost-code replacements one issuer may make per day (bounds a compromised desk).
+    uint256 public constant MAX_REPLACEMENTS_PER_DAY = 50;
 
     struct Issuer {
         uint8 maxTier; // BASIC or VERIFIED
@@ -83,6 +85,7 @@ contract IdentityRegistry is AccessControlEnumerable {
     mapping(uint8 => mapping(uint256 => uint256)) private _leafIndex; // group -> commitment -> index + 1
     mapping(uint256 => Member) public members;
     mapping(bytes32 => uint256) public commitmentOfDoc;
+    mapping(address => mapping(uint256 => uint256)) public replacementsOn; // issuer -> day -> count
     /// @notice Sign-in account fingerprint -> member, so one online account enrols one person.
     mapping(bytes32 => uint256) public commitmentOfAccount;
 
@@ -91,6 +94,7 @@ contract IdentityRegistry is AccessControlEnumerable {
     event Upgraded(uint256 indexed commitment, address indexed issuer);
     event Seasoned(uint256 indexed commitment);
     event Revoked(uint256 indexed commitment, address indexed by);
+    event Replaced(uint256 indexed oldCommitment, uint256 indexed newCommitment, address indexed by);
 
     error ZeroAddress();
     error InvalidSeasoning();
@@ -107,6 +111,7 @@ contract IdentityRegistry is AccessControlEnumerable {
     error AlreadySeasoned();
     error NotAuthorized();
     error WrongSiblingsCount();
+    error TooManyReplacements();
 
     constructor(address admin, address semaphore_, uint64 seasoningPeriod_) {
         if (admin == address(0) || semaphore_ == address(0)) revert ZeroAddress();
@@ -200,6 +205,46 @@ contract IdentityRegistry is AccessControlEnumerable {
         if (m.docHash != bytes32(0)) delete commitmentOfDoc[m.docHash];
         if (m.accountHash != bytes32(0)) delete commitmentOfAccount[m.accountHash];
         emit Revoked(commitment, msg.sender);
+    }
+
+    /**
+     * @notice Replace a lost voter code with a new one in one step: the old code leaves every
+     *         group, the new one joins the same groups and keeps the member's tier, document,
+     *         sign-in account and residency. For a lost phone, after the person is checked
+     *         again. Callable by the issuer that enrolled the old code (while still active,
+     *         at most MAX_REPLACEMENTS_PER_DAY a day) or the admin (the council).
+     *         Polls already open keep their frozen list, so nobody votes twice in them.
+     */
+    function replace(uint256 oldCommitment, uint256 newCommitment, uint256[][] calldata siblings) external {
+        Member storage o = members[oldCommitment];
+        if (!o.active) revert NotEnrolled();
+        bool admin = hasRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        if (msg.sender != o.issuer && !admin) revert NotAuthorized();
+        if (!admin) {
+            _activeIssuer();
+            uint256 day = block.timestamp / 1 days;
+            if (++replacementsOn[msg.sender][day] > MAX_REPLACEMENTS_PER_DAY) revert TooManyReplacements();
+        }
+        if (siblings.length != GROUP_COUNT) revert WrongSiblingsCount();
+        Member storage n = members[newCommitment];
+        if (n.active || n.issuer != address(0)) revert AlreadyEnrolled();
+
+        o.active = false;
+        for (uint8 g = 0; g <= o.tier; g++) {
+            semaphore.removeMember(groupIds[g], oldCommitment, siblings[g]);
+            _removedAt[g][_leafIndex[g][oldCommitment] - 1] = ++changeCount;
+        }
+        n.issuer = o.issuer;
+        n.active = true;
+        n.tier = o.tier;
+        n.verifiedAt = o.verifiedAt;
+        n.residentSince = o.residentSince;
+        n.docHash = o.docHash;
+        n.accountHash = o.accountHash;
+        if (o.docHash != bytes32(0)) commitmentOfDoc[o.docHash] = newCommitment;
+        if (o.accountHash != bytes32(0)) commitmentOfAccount[o.accountHash] = newCommitment;
+        for (uint8 g = 0; g <= o.tier; g++) _add(g, newCommitment);
+        emit Replaced(oldCommitment, newCommitment, msg.sender);
     }
 
     // ----------------------------------------------------------------- public

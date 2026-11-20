@@ -5,7 +5,7 @@
  */
 
 import { ethers } from 'ethers';
-import { commentProof, ratingProof, signatureProof, topicOf } from '../../client/feedback.js';
+import { commentProof, ratingProof, markProof, signatureProof, topicOf, bridgeScore } from '../../client/feedback.js';
 import { readDoc } from './notices.js';
 import { countdown } from './time.js';
 import { categoryChip, categoryOf } from './priority.js';
@@ -17,6 +17,8 @@ const FEEDBACK_ABI = [
   'function commentScope(bytes32, string) view returns (uint256)',
   'function rateScope(bytes32) view returns (uint256)',
   'function petitionScope(uint256) view returns (uint256)',
+  'function markScope(bytes32, uint256) view returns (uint256)',
+  'function marks(bytes32, uint256, uint256) view returns (uint32[6][])',
   'function nullifierUsed(uint256) view returns (bool)',
   'function commentCount(bytes32) view returns (uint256)',
   'function comments(bytes32, uint256, uint256) view returns (tuple(string ref, uint8 tier, uint64 at)[])',
@@ -32,6 +34,15 @@ export const PETITION_KINDS = {
   7: 'Elect someone to the council',
   8: 'Recall a council member',
   9: "Remove someone's role (clerk or verifier)",
+};
+const LEANS = [['0', 'Undecided'], ['1', 'Leaning for (Yes)'], ['2', 'Leaning against (No)']];
+const leanKey = (topic) => `mandate.lean.${topic}`;
+const savedLean = (topic) => {
+  try {
+    return localStorage.getItem(leanKey(topic));
+  } catch {
+    return null;
+  }
 };
 const when = (secs) => new Date(Number(secs) * 1000).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 
@@ -85,14 +96,59 @@ export function wireFeedback(ctx) {
     wrap.addEventListener('toggle', () => {
       if (wrap.open && !picker) picker = attachPicker(wrap.querySelector('[data-attach]'), { state, esc });
     });
+    let order = 'helpful';
     const load = async () => {
       await uploadService(state.config);
-      const list = n ? await f.comments(topic, Math.max(0, n - 50), 50) : [];
+      const start = Math.max(0, n - 50);
+      const list = n ? await f.comments(topic, start, 50) : [];
+      // Helpful marks (newer feedback contracts): arguments people leaning both ways find helpful rise.
+      const marks = list.length ? await f.marks(topic, start, 50).catch(() => null) : null;
       const docs = await Promise.all(list.map((cm) => readDoc(state.config, state.provider, cm.ref)));
-      box.querySelector('.comments').innerHTML = list.length
-        ? list.map((cm, i) => `<div class="comment"><p class="meta">${esc(TIER_WHO[Number(cm.tier)] || 'Member')} · ${esc(when(cm.at))}</p><p>${esc(docs[i].body || docs[i].title)}</p>${attachmentsHtml(state.config, docs[i], esc)}</div>`).join('')
+      const rows = list.map((cm, i) => ({ cm, doc: docs[i], index: start + i, b: marks ? bridgeScore(marks[i]) : null }));
+      if (marks && order === 'helpful') rows.sort((x, y) => y.b.score - x.b.score || y.b.overall - x.b.overall || y.index - x.index);
+      else rows.reverse();
+      const lean = savedLean(topic);
+      const box2 = box.querySelector('.comments');
+      box2.innerHTML = rows.length
+        ? `${marks ? `<div class="row" style="align-items:center"><label>Order <select data-order><option value="helpful"${order === 'helpful' ? ' selected' : ''}>Helpful to people on both sides</option><option value="new"${order === 'new' ? ' selected' : ''}>Newest first</option></select></label></div>
+          ${state.identity ? `<label>Which way are you leaning? <select data-lean><option value="">Choose…</option>${LEANS.map(([v, l]) => `<option value="${v}"${lean === v ? ' selected' : ''}>${l}</option>`).join('')}</select></label>
+          <p class="note">Asked only so that arguments people on both sides find helpful rise to the top. Your answer stays anonymous, like your marks.</p>` : ''}` : ''}
+          ${rows.map((r) => `<div class="comment"><p class="meta">${esc(TIER_WHO[Number(r.cm.tier)] || 'Member')} · ${esc(when(r.cm.at))}${r.b?.bothSides ? ' · <strong>✓ Helpful to people on both sides</strong>' : ''}</p><p>${esc(r.doc.body || r.doc.title)}</p>${attachmentsHtml(state.config, r.doc, esc)}
+          ${r.b ? `<p class="meta">${r.b.marks ? `${r.b.helpful} of ${r.b.marks} found this helpful` : 'Not marked yet'}${state.identity ? ` · Helpful? <button type="button" data-mark="${r.index}" data-helpful="1">Yes</button> <button type="button" data-mark="${r.index}" data-helpful="0">No</button>` : ''}</p>` : ''}</div>`).join('')}`
         : '<p class="muted">No comments yet.</p>';
-      wireAttachments(box.querySelector('.comments'), state.config);
+      wireAttachments(box2, state.config);
+      box2.querySelector('[data-order]')?.addEventListener('change', (e) => {
+        order = e.target.value;
+        load().catch(() => {});
+      });
+      box2.querySelector('[data-lean]')?.addEventListener('change', (e) => {
+        try {
+          localStorage.setItem(leanKey(topic), e.target.value);
+        } catch {
+          /* private mode: asked again next time */
+        }
+      });
+      for (const b of box2.querySelectorAll('[data-mark]')) {
+        b.onclick = async () => {
+          const leanNow = box2.querySelector('[data-lean]')?.value || savedLean(topic);
+          if (!leanNow) return status(el, 'First choose which way you are leaning (above).', 'error');
+          for (const x of box2.querySelectorAll(`[data-mark="${b.dataset.mark}"]`)) x.disabled = true;
+          try {
+            const tier = await tierNow();
+            if (tier < 0) throw new Error('Join first to mark comments.');
+            status(el, 'Recording your mark privately…');
+            const index = BigInt(b.dataset.mark);
+            const helpful = b.dataset.helpful === '1';
+            const proof = await markProof({ provider: state.provider, feedback: f, identity: state.identity, tier, topic, index, lean: Number(leanNow), helpful, artifactsBase: state.config.artifactsBase || undefined });
+            await relay('/feedback', { method: 'mark', args: [topic, index, Number(leanNow), helpful, tier], proof });
+            status(el, 'Thanks: your mark is counted.', 'ok');
+            await load();
+          } catch (e) {
+            status(el, e.message, 'error');
+            for (const x of box2.querySelectorAll(`[data-mark="${b.dataset.mark}"]`)) x.disabled = false;
+          }
+        };
+      }
     };
     det.addEventListener('toggle', () => det.open && load().catch(() => {}), { once: true });
     const el = box.querySelector('.status');

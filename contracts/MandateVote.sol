@@ -87,6 +87,10 @@ contract MandateVote is AccessControl, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     bytes32 public constant PROPOSER_ROLE = keccak256("PROPOSER_ROLE");
+    /// @notice Approved carriers (clerk tablets, polling-place boxes) that deliver ballots sealed
+    ///         offline. Only they may deliver during a poll's grace period. Never the public relay.
+    bytes32 public constant CARRIER_ROLE = keccak256("CARRIER_ROLE");
+    uint32 public constant MAX_GRACE = 1 days;
 
     uint8 public constant YES = 0;
     uint8 public constant NO = 1;
@@ -139,6 +143,7 @@ contract MandateVote is AccessControl, ReentrancyGuard {
         uint32 changeCutoff; // seconds before the close after which a cast ballot can't be changed; NO_CHANGES = never
         uint8 channels; // ONLINE_AND_PAPER, ONLINE_ONLY or PAPER_ONLY (online ballots refused)
         bool ranked; // voters rank the choices (advisory polls with 3 or more choices)
+        uint32 grace; // after the close, seconds during which approved carriers may still deliver ballots (at most MAX_GRACE)
     }
 
     /// @notice Everything needed to open a poll with settings (one argument, so it stays readable).
@@ -165,7 +170,11 @@ contract MandateVote is AccessControl, ReentrancyGuard {
 
     IIdentityGroups public immutable identity;
     ISemaphoreGroupsView public immutable groups;
-    ISemaphoreVerifier public immutable verifier;
+    /// @notice The ballot-proof checker new polls use. The council can replace it (with the public
+    ///         wait), e.g. with a quantum-safe one, only by one that passes a test proof.
+    ISemaphoreVerifier public verifier;
+    /// @notice The checker each poll uses, fixed when it opens: a later switch never changes an open poll.
+    mapping(uint256 => ISemaphoreVerifier) public verifierOf;
     IERC20 public immutable bondToken;
     address public immutable treasury;
     uint256 public minBond;
@@ -220,6 +229,7 @@ contract MandateVote is AccessControl, ReentrancyGuard {
     event ActionExecuted(uint256 indexed id, Action action);
     event ActionFailed(uint256 indexed id, Action action, bytes reason);
     event MandateCreatedByVote(uint256 indexed pollId, uint256 indexed mandateId);
+    event VerifierSet(address indexed previous, address indexed next);
 
     error ZeroAddress();
     error InvalidParams();
@@ -249,6 +259,7 @@ contract MandateVote is AccessControl, ReentrancyGuard {
     error ChangesClosed();
     error OnlineClosed();
     error BadRanking();
+    error VerifierFailedTest();
 
     constructor(address admin, address identity_, address verifier_, address bondToken_, address treasury_, uint256 minBond_, address charter_) {
         if (admin == address(0) || identity_ == address(0) || verifier_ == address(0) || bondToken_ == address(0) || treasury_ == address(0)) {
@@ -274,6 +285,34 @@ contract MandateVote is AccessControl, ReentrancyGuard {
     function setVoterGroups(address registry) external onlyRole(DEFAULT_ADMIN_ROLE) {
         voterGroups = IVoterGroupsView(registry);
         emit VoterGroupsSet(registry);
+    }
+
+    /// @notice Switch the ballot-proof checker for polls opened from now on. `test` must be a valid
+    ///         ballot proof (any poll, any community) that the new checker accepts, and it must
+    ///         reject the same proof with one value changed, so a checker that accepts everything
+    ///         can't be installed.
+    function setVerifier(address next, Ballot calldata test) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (next == address(0)) revert ZeroAddress();
+        ISemaphoreVerifier v = ISemaphoreVerifier(next);
+        Ballot memory tampered = test;
+        tampered.nullifier ^= 1;
+        if (!_accepts(v, test) || _accepts(v, tampered)) revert VerifierFailedTest();
+        emit VerifierSet(address(verifier), next);
+        verifier = v;
+    }
+
+    function _accepts(ISemaphoreVerifier v, Ballot memory b) private view returns (bool) {
+        try v.verifyProof(
+            [b.points[0], b.points[1]],
+            [[b.points[2], b.points[3]], [b.points[4], b.points[5]]],
+            [b.points[6], b.points[7]],
+            [b.merkleTreeRoot, b.nullifier, _hash(b.message), _hash(b.scope)],
+            b.merkleTreeDepth
+        ) returns (bool ok) {
+            return ok;
+        } catch {
+            return false;
+        }
     }
 
     function setMinBond(uint256 amount) external onlyRole(DEFAULT_ADMIN_ROLE) {
@@ -314,7 +353,7 @@ contract MandateVote is AccessControl, ReentrancyGuard {
      */
     function createPollWith(NewPoll calldata n) external nonReentrant returns (uint256 id) {
         Settings calldata st = n.settings;
-        if (st.channels > PAPER_ONLY || (st.ranked && (n.action != Action.Advisory || n.options < 3))) revert InvalidParams();
+        if (st.channels > PAPER_ONLY || st.grace > MAX_GRACE || (st.ranked && (n.action != Action.Advisory || n.options < 3))) revert InvalidParams();
         _applyRules(n.groupId, false, 0, n.duration, n.quorum, n.action, n.actionData);
         id = _create(n.groupId, n.duration, n.quorum, n.options, n.action, n.actionData, n.questionCID, n.bond);
         _afterCreate(id, n.action);
@@ -391,6 +430,7 @@ contract MandateVote is AccessControl, ReentrancyGuard {
         Poll storage p = _polls[id];
         p.groupId = groupId;
         p.snapshotRoot = groups.getMerkleTreeRoot(groupId);
+        verifierOf[id] = verifier;
         p.electorate = size;
         p.start = uint64(block.timestamp);
         p.end = uint64(block.timestamp) + duration;
@@ -414,8 +454,12 @@ contract MandateVote is AccessControl, ReentrancyGuard {
     ///         change it later. Anyone may submit it; the proof is the authorisation.
     function castBallot(uint256 id, Ballot calldata b) external {
         Poll storage p = _get(id);
-        if (block.timestamp >= p.end || p.finalized) revert NotOpen();
         Settings storage st = settingsOf[id];
+        // After the close, only an approved carrier may deliver, and only within the grace period;
+        // a ballot delivered then can't change an earlier vote (changes close with the poll).
+        uint256 until = p.end;
+        if (block.timestamp >= until && hasRole(CARRIER_ROLE, msg.sender)) until += st.grace;
+        if (block.timestamp >= until || p.finalized) revert NotOpen();
         if (st.channels == PAPER_ONLY) revert OnlineClosed();
         uint256 checkRoot = _checks[id].root;
         bool checked = checkRoot != 0 && b.merkleTreeRoot == checkRoot;
@@ -433,14 +477,7 @@ contract MandateVote is AccessControl, ReentrancyGuard {
         if (previous == b.message + 1) revert NullifierUsed(); // the same choice again: nothing to change
         if (previous != 0 && (st.changeCutoff == NO_CHANGES || block.timestamp + st.changeCutoff >= p.end)) revert ChangesClosed();
 
-        bool ok = verifier.verifyProof(
-            [b.points[0], b.points[1]],
-            [[b.points[2], b.points[3]], [b.points[4], b.points[5]]],
-            [b.points[6], b.points[7]],
-            [b.merkleTreeRoot, b.nullifier, _hash(b.message), _hash(b.scope)],
-            b.merkleTreeDepth
-        );
-        if (!ok) revert InvalidProof();
+        if (!_accepts(verifierOf[id], b)) revert InvalidProof();
 
         nullifierUsed[id][b.nullifier] = true;
         if (previous != 0) {
@@ -501,7 +538,7 @@ contract MandateVote is AccessControl, ReentrancyGuard {
     function finalize(uint256 id) external nonReentrant {
         Poll storage p = _get(id);
         if (p.finalized) revert AlreadyFinalized();
-        if (block.timestamp < p.end) revert StillOpen();
+        if (block.timestamp < p.end + settingsOf[id].grace) revert StillOpen();
         p.finalized = true;
 
         // Delegated ballots join the count as their delegate stated; unstated ones are not counted.

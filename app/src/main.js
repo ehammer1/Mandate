@@ -17,7 +17,7 @@ import { keep, recall, forget, KEEP_DAYS } from './remember.js';
 import * as offline from './offline.js';
 import { poseidon2 } from 'poseidon-lite/poseidon2';
 import { buildBallot } from '../../client/ballot.js';
-import { readSettings, settingsNote, changesOpen, rankedPickerHtml, wireRankers, rankedResultsHtml, groupInfo, groupOptionsHtml, hasSettings, wireVoterGroups, V5_ABI, ERRORS as V5_ERRORS } from './pollsettings.js';
+import { readSettings, settingsNote, changesOpen, rankedPickerHtml, wireRankers, rankedResultsHtml, groupInfo, groupOptionsHtml, hasSettings, hasGrace, carrierDelivery, wireVoterGroups, V5_ABI, V6_ABI, ERRORS as V5_ERRORS } from './pollsettings.js';
 import { enrolStartUrl, ownershipProof } from '../../client/enrol.js';
 import { voterCodeQr } from '../../client/clerk.js';
 import QRCode from 'qrcode';
@@ -28,6 +28,7 @@ import { wireMandates } from './mandates.js';
 import { loadRules, describeRuleChange, RULE_ERRORS } from './rules.js';
 import { wireBudget } from './budget.js';
 import { wireFeedback } from './feedback.js';
+import { wireAssemblies } from './assemblies.js';
 import { renderExplainer } from './explain.js';
 import { informedHtml } from './informed.js';
 import { wireOfficials } from './officials.js';
@@ -955,7 +956,7 @@ async function refreshPolls() {
         if (gi) [who, eligibleTier] = [gi.name, gi.member];
       }
       const onlineOk = st.channels !== 2;
-      if (open && eligibleTier && onlineOk && !paperLocks && !st.ranked) toSave.push({ id: String(id), title: q?.title || `Poll ${id}`, labels, ranked: false, end: p.end });
+      if (open && eligibleTier && onlineOk && !paperLocks) toSave.push({ id: String(id), title: q?.title || `Poll ${id}`, labels, ranked: !!st.ranked, end: p.end });
       const canChange = changesOpen(st, p, now);
       if (open && !voted && eligibleTier && Number(p.end) - Number(now) < 48 * 3600) soon.push({ id, end: p.end });
       const total = tally.reduce((a, b) => a + b, 0n);
@@ -1057,10 +1058,12 @@ async function showOfflinePolls(list) {
   list.innerHTML = note + saved.map((p) => `<article class="card stack" id="poll-${esc(p.id)}">
       <p class="eyebrow">Poll ${esc(p.id)} · saved for offline voting</p>
       <h3>${esc(p.title)}</h3>
-      <div class="choices">${p.labels.map((l, i) => `<button class="choice" data-offline-poll="${esc(p.id)}" data-option="${i}">${esc(l)}</button>`).join('')}</div>
+      ${p.ranked ? rankedPickerHtml(esc(p.id), p.labels, esc) : `<div class="choices">${p.labels.map((l, i) => `<button class="choice" data-offline-poll="${esc(p.id)}" data-option="${i}">${esc(l)}</button>`).join('')}</div>`}
       <p class="status" id="poll-status-${esc(p.id)}" role="status"></p>
     </article>`).join('');
   for (const b of list.querySelectorAll('button[data-offline-poll]')) b.onclick = () => castOffline(BigInt(b.dataset.offlinePoll), Number(b.dataset.option), b);
+  const labelsOf = Object.fromEntries(saved.map((p) => [p.id, p.labels]));
+  wireRankers(list, (pid) => labelsOf[pid] || [], castOffline, esc); // ranked polls too: the ranking is sealed the same way
   return true;
 }
 
@@ -1118,7 +1121,8 @@ async function renderOutbox() {
 
 async function sendOutbox() {
   if (!state.config) return null;
-  const r = await offline.sendWaiting(state.config).catch(() => null);
+  const late = await carrierDelivery(state, state.identity ? activeSigner() : null).catch(() => undefined);
+  const r = await offline.sendWaiting(state.config, { late }).catch(() => null);
   await renderOutbox();
   if (r?.sent && state.identity) setTimeout(refreshPolls, 1500);
   return r;
@@ -1533,6 +1537,7 @@ async function refreshAdmin() {
     groupOptionsHtml(state, esc).then((h) => h && $('poll-group').insertAdjacentHTML('beforeend', h)).catch(() => {});
   }
   if (!(await hasSettings(state).catch(() => false))) $('poll-settings').hidden = true; // an older voting contract
+  $('poll-grace-row').hidden = !(await hasGrace(state).catch(() => false)); // delivery windows: v6
   $('admin-budget').hidden = !r.budgetProposer;
   $('admin-roles').hidden = !(r.admin || r.councilMember);
   // With a council, role changes are proposals (unless this account is still a direct admin).
@@ -1630,8 +1635,9 @@ function wireAdmin() {
     const ranked = $('poll-ballot').value === 'ranked';
     const choices = ranked ? $('poll-choices').value.split('\n').map((x) => x.trim()).filter(Boolean) : ['Yes', 'No'];
     const changes = $('poll-changes').value;
-    const settings = { changeCutoff: changes === 'none' ? 2 ** 32 - 1 : Number(changes), channels: Number($('poll-channels').value), ranked };
-    const special = custom !== null || ranked || settings.changeCutoff || settings.channels;
+    const v6 = await hasGrace(state).catch(() => false);
+    const settings = { changeCutoff: changes === 'none' ? 2 ** 32 - 1 : Number(changes), channels: Number($('poll-channels').value), ranked, ...(v6 ? { grace: Number($('poll-grace').value) } : {}) };
+    const special = custom !== null || ranked || settings.changeCutoff || settings.channels || settings.grace;
     if (ranked && (choices.length < 3 || choices.length > 8 || new Set(choices).size !== choices.length)) return status(el, 'List 3 to 8 different choices, one per line.', 'error');
     if ((ranked || custom !== null) && action !== 0) return status(el, ranked ? 'Ranked-choice polls are advisory: choose "Advisory" for what a Yes does.' : 'Polls for a smaller voter list are advisory: choose "Advisory" for what a Yes does.', 'error');
     if (special && !(await hasSettings(state))) return status(el, 'These poll settings need the upgraded voting contract, which this deployment does not have yet.', 'error');
@@ -1681,7 +1687,7 @@ function wireAdmin() {
     if (checkTier >= 0 && special) return status(el, 'A cross-checked poll uses the standard settings (Yes or No, online and paper, changes until the close). Turn off the cross-check or the other settings.', 'error');
     const checkMin = Number($('poll-check-min').value);
     if (checkTier >= 0 && (checkTier <= tier || !(checkMin >= 1))) return status(el, 'The cross-check must use a stricter group than who can vote, and need at least 1 checked vote.', 'error');
-    const vote = new ethers.Contract(state.config.voteAddress, ['function createPoll(uint256,uint64,uint32,uint8,uint8,bytes,string,uint256)', 'function createCheckedPoll(uint256,uint256,uint32,uint64,uint32,uint8,bytes,string,uint256)', ...V5_ABI], state.provider);
+    const vote = new ethers.Contract(state.config.voteAddress, ['function createPoll(uint256,uint64,uint32,uint8,uint8,bytes,string,uint256)', 'function createCheckedPoll(uint256,uint256,uint32,uint64,uint32,uint8,bytes,string,uint256)', ...(v6 ? [...V5_ABI.filter((x) => !/createPollWith|settingsOf/.test(x)), ...V6_ABI] : V5_ABI)], state.provider);
     const dataFor = (r) =>
       mandate
         ? ethers.AbiCoder.defaultAbiCoder().encode(
@@ -1758,6 +1764,8 @@ function wireAdmin() {
       groups: [[cfg.voterGroupsAddress, 'GROUP_CREATOR_ROLE', 'create smaller voter lists']],
       budget: [[cfg.budgetAddress, 'PROPOSER_ROLE', 'open budget rounds']],
       registrar: [[cfg.officialsAddress, 'REGISTRAR_ROLE', 'register officials'], [cfg.bodiesAddress, 'REGISTRAR_ROLE', 'set up government bodies']],
+      assembly: [[cfg.assembliesAddress, 'ORGANIZER_ROLE', "organize citizens' assemblies"]],
+      carrier: [[cfg.voteAddress, 'CARRIER_ROLE', 'deliver ballots carried offline after a poll closes, within its delivery window']],
     };
     const roleChange = ([at, role, what]) => [new ethers.Contract(at, ROLE_ABI, state.provider), give ? 'grantRole' : 'revokeRole', [ethers.id(role), target], `${give ? 'Allow' : 'Stop'}: ${what}`];
     if (kind === 'all') {
@@ -1871,6 +1879,11 @@ async function boot() {
   state.council = wireCouncil({ state, $, status, esc, activeSigner, activeAddress });
   state.prevCouncil = wireCouncil({ state, $, status, esc, activeSigner, activeAddress }, { addressKey: 'previousCouncilAddress', prefix: 'prevcouncil', box: 'admin-prevcouncil' });
   state.clerk = wireClerk({ state, $, status, esc, show, activeSigner, activeAddress });
+  state.assemblies = wireAssemblies({ state, $, status, esc, show, activeSigner, activeAddress });
+  $('nav-assemblies').onclick = async () => {
+    show('screen-assemblies');
+    await state.assemblies.render();
+  };
   $('nav-polls').onclick = async () => {
     show('screen-home');
     await Promise.all([refreshStatus(), refreshPolls(), refreshAdminNav()]);
@@ -1883,6 +1896,7 @@ async function boot() {
     return;
   }
   state.assistant.refresh();
+  $('nav-assemblies').hidden = !state.config.assembliesAddress;
   renderOutbox().catch(() => {}); // ballots waiting on this phone
   if (navigator.onLine) sendOutbox().catch(() => {});
   if (keys.savedMethod() === 'passkey') $('btn-unlock').classList.add('primary');

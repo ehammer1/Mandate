@@ -74,7 +74,9 @@ with (a private browser tab closed, a phone without a passkey), signing in again
 same account shows **"Replace my lost voter key with this one"**:
 
 - The service removes the old voter code from the voter list and adds the new one.
-- Only basic members this service enrolled. People signed up at a clerk desk go back to a clerk.
+- Only basic members this service enrolled. People signed up at a clerk desk go back to the desk
+  that enrolled them: after checking their ID, the clerk enrolls the new voter code and the app
+  offers to replace the old one (Clerk desk, "Replace it with this person's new code?").
 - Polls already open keep their frozen voter list, so nobody gets a second vote in them; the
   new key votes in polls opened afterwards.
 - Once per account per 24 hours (`replaceCooldownMs`), so someone who took over the account

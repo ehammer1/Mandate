@@ -92,6 +92,7 @@ before(async () => {
       charterAddress: await c.charter.getAddress(),
       budgetAddress: await c.budget.getAddress(),
       feedbackAddress: await c.feedback.getAddress(),
+      assembliesAddress: await c.assemblies.getAddress(),
       escrowFactoryAddress: await c.escrows.getAddress(),
       officialsAddress: await c.officials.getAddress(),
       bodiesAddress: await c.bodies.getAddress(),
@@ -337,8 +338,11 @@ test('admin from the passkey account, and from a connected wallet', async () => 
   await page.fill('#clerk-doc-number', 'd-123 4567');
   await page.check('#clerk-new-resident');
   await page.selectOption('#clerk-residence', 'id');
+  // The same desk enrolled the first code: it is asked whether to replace it (a lost phone). No: nothing changes.
+  const asked = new Promise((resolve) => page.once('dialog', (d) => (resolve(d.message()), d.dismiss())));
   await page.click('#btn-clerk-submit');
-  await page.waitForFunction(() => /already linked to another voter code/.test(document.querySelector('#clerk-result').textContent), null, { timeout: 30_000 });
+  assert.match(await asked, /already linked to an older voter code/);
+  await page.waitForFunction(() => /Not replaced/.test(document.querySelector('#clerk-result').textContent), null, { timeout: 30_000 });
   assert.equal((await c.identity.members(twice.commitment)).active, false);
 
   // A basic member who joined online, QR scanned with the camera: upgraded, long-time resident.
@@ -745,6 +749,16 @@ test('public dashboard: voter list, polls with counts, clerks and watchdog alert
   const tiles = await dash.textContent('#tiles');
   const members = Number((await dash.textContent('#tiles .tile .n')).replace(/,/g, ''));
   assert.ok(members >= 5, tiles); // the voters enrolled by earlier tests
+  // Turnout at a glance, and a results sheet to print for a meeting.
+  await dash.waitForSelector('#turnout:not([hidden]) >> text=Turnout by poll', { timeout: 60_000 });
+  assert.match(await dash.textContent('#turnout'), /Poll 1[\s\S]*% · \d+ of \d+/);
+  const [sheet] = await Promise.all([dash.waitForEvent('popup'), dash.click('#dash-poll-1 [data-print-poll]')]);
+  await sheet.waitForLoadState();
+  const printed = await sheet.textContent('body');
+  assert.match(printed, /Publish the FY2027 line-item budget\?/);
+  assert.match(printed, /eligible voted \(\d+% turnout\)/);
+  assert.match(printed, /Anyone can check these numbers/);
+  await sheet.close();
   assert.match(tiles, /1\s*urgent watchdog alerts/);
   await dash.waitForSelector('#dash-poll-1 >> text=Publish the FY2027 line-item budget?');
   assert.match(await dash.textContent('#dash-poll-1'), /Yes\s*1 · 100%/);
@@ -916,8 +930,11 @@ test('voter-roll city: the desk enrolls by voter registration record, no photo I
   await page.fill('#clerk-doc-number', '000555123');
   await page.selectOption('#clerk-residence', 'utility');
   await page.check('#clerk-new-resident');
+  // The same desk enrolled the first code: it is asked whether to replace it (a lost phone). No: nothing changes.
+  const asked = new Promise((resolve) => page.once('dialog', (d) => (resolve(d.message()), d.dismiss())));
   await page.click('#btn-clerk-submit');
-  await page.waitForFunction(() => /already linked to another voter code/.test(document.querySelector('#clerk-result').textContent), null, { timeout: 30_000 });
+  assert.match(await asked, /already linked to an older voter code/);
+  await page.waitForFunction(() => /Not replaced/.test(document.querySelector('#clerk-result').textContent), null, { timeout: 30_000 });
   delete appConfig.clerkAnchor;
 });
 
@@ -1053,6 +1070,17 @@ test('voter-roll lookup at the desk: found by name, birth date and address, enro
   await page.click('#btn-clerk-roll');
   await page.waitForSelector('#clerk-roll-status >> text=already linked to another voter code');
   await shot('13-roll-lookup');
+  // Maria lost her phone: after checking her ID, the desk that enrolled her replaces the old code.
+  await page.fill('#clerk-since', '2001-09');
+  page.once('dialog', (d) => d.dismiss()); // first, the clerk says no: nothing changes
+  await page.click('#btn-clerk-submit');
+  await page.waitForSelector('#clerk-result >> text=Not replaced');
+  assert.equal((await c.identity.members(maria.commitment)).active, true);
+  page.once('dialog', (d) => d.accept());
+  await page.click('#btn-clerk-submit');
+  await page.waitForFunction(() => /Done: enrolled/.test(document.querySelector('#clerk-result').textContent), null, { timeout: 120_000 });
+  assert.equal((await c.identity.members(maria.commitment)).active, false, 'the old code still votes');
+  assert.equal((await c.identity.members(again.commitment)).tier, 2n);
   delete appConfig.clerkAnchor;
 });
 
@@ -1156,6 +1184,12 @@ test('residents speak between votes: comments, a petition that opens its own pol
   await page.waitForSelector('#poll-1 .thread-box >> text=Please publish the spreadsheet in an open format too.', { timeout: 120_000 });
   assert.match(await page.textContent('#poll-1 .thread-box'), /Comments \(1\)/);
   assert.match(await page.textContent('#poll-1 .thread-box .comment'), /ID-checked resident/);
+  // Mark it helpful, saying which way you lean: counted anonymously, by lean.
+  await page.selectOption('#poll-1 .thread-box [data-lean]', '1');
+  await page.click('#poll-1 .thread-box [data-mark="0"][data-helpful="1"]');
+  await page.waitForSelector('#poll-1 .thread-box >> text=1 of 1 found this helpful', { timeout: 120_000 });
+  const [marks] = await c.feedback.marks(require('../client/feedback').topicOf('poll', 1), 0, 1);
+  assert.deepEqual(marks.map(Number), [0, 0, 0, 1, 0, 0]);
 
   // A petition: once it has enough signatures, its poll opens by itself.
   await page.click('#nav-petitions');
@@ -1178,6 +1212,31 @@ test('residents speak between votes: comments, a petition that opens its own pol
   await page.click('#mandate-1 .rating-box button[data-score="4"]');
   await page.waitForSelector('#mandate-1 .rating-box >> text=4.0 of 5 from 1 resident', { timeout: 120_000 });
   await shot('16-feedback');
+});
+
+test("citizens' assembly: a drawn resident sees it on their phone and gets a seat code the organizer can check", async () => {
+  const { drawOrder, checkAcceptCode } = require('../client/assembly');
+  const text = JSON.stringify({ title: 'How should we make Main Street safer to cross?' });
+  await (await c.notices.post(text)).wait();
+  const size = Number(await c.identity.leafCount(0));
+  await (await c.assemblies.announce(0, size, 30, `nb:${ethers.keccak256(ethers.toUtf8Bytes(text))}`)).wait(); // as many seats as members: everyone is drawn
+  const id = await c.assemblies.assemblyCount();
+  await page.click('#nav-assemblies');
+  await page.waitForSelector('#assembly-list >> text=Main Street safer', { timeout: 60_000 });
+  assert.match(await page.textContent('#assembly-list'), /The draw happens in about/);
+  for (let i = 0; i < 31; i++) await provider.send('evm_mine', []);
+  await (await c.assemblies.draw(id)).wait();
+  await page.click('#nav-assemblies');
+  await page.waitForSelector('#assembly-list >> text=You were drawn', { timeout: 120_000 });
+  await page.click('#assembly-list [data-seat]');
+  const code = (await page.textContent('#assembly-list [data-seat-code] .addr')).trim();
+  const order = await drawOrder({ assemblies: c.assemblies, provider, id });
+  const net = await provider.getNetwork();
+  const r = checkAcceptCode(code, { chainId: net.chainId, address: await c.assemblies.getAddress(), order });
+  assert.equal(r.ok, true);
+  await (await c.assemblies.acceptSeat(id, r.position)).wait();
+  await page.click('#nav-assemblies');
+  await page.waitForSelector('#assembly-list >> text=You have a seat on this assembly', { timeout: 60_000 });
 });
 
 test('most requested petitions are ranked, and times count down live', async () => {
@@ -1461,7 +1520,11 @@ test('paper ballots: check in on the phone, clerks record and confirm, each pers
   assert.match(await page.textContent(`#poll-${pollId} [data-receipt] details.reveal`), /This ballot: Yes/);
 
   // Then they go to the library, check in on their phone (a code for the clerk), and vote No on paper.
-  await page.click(`#poll-${pollId} .tallies-box details.checkin summary`);
+  // (The poll list refreshes itself a moment after a vote, which can close the section again: retry.)
+  for (let i = 0; i < 5; i++) {
+    await page.evaluate((id) => { const d = document.querySelector(`#poll-${id} .tallies-box details.checkin`); if (d) d.open = true; }, String(pollId));
+    if (await page.waitForSelector(`#poll-${pollId} [data-checkin]`, { state: 'visible', timeout: 5_000 }).then(() => true, () => false)) break;
+  }
   await page.click(`#poll-${pollId} [data-checkin]`);
   // The code stays on the poll for the clerk; paper is final: no more online voting or changes.
   await page.waitForSelector(`#poll-${pollId} [data-paper-code]`, { timeout: 120_000 }).catch(async () => {
@@ -1534,7 +1597,11 @@ test('a community can choose "last vote counts": a later online vote replaces a 
   await page.click('#nav-polls');
   await page.waitForSelector(`#poll-${pollId} .tallies-box details.checkin summary`, { timeout: 60_000 });
   assert.match(await page.textContent(`#poll-${pollId} .tallies-box`), /whichever they cast last counts/);
-  await page.click(`#poll-${pollId} .tallies-box details.checkin summary`);
+  // (The poll list refreshes itself a moment after a vote, which can close the section again: retry.)
+  for (let i = 0; i < 5; i++) {
+    await page.evaluate((id) => { const d = document.querySelector(`#poll-${id} .tallies-box details.checkin`); if (d) d.open = true; }, String(pollId));
+    if (await page.waitForSelector(`#poll-${pollId} [data-checkin]`, { state: 'visible', timeout: 5_000 }).then(() => true, () => false)) break;
+  }
   await page.click(`#poll-${pollId} [data-checkin]`);
   await page.waitForSelector(`#poll-${pollId} [data-paper-code]`, { timeout: 120_000 }).catch(async () => {
     await page.click('#nav-polls');
@@ -1560,7 +1627,7 @@ test('poll settings: ranked choice, paper only, and a first vote that is final',
     return `nb:${ethers.keccak256(ethers.toUtf8Bytes(text))}`;
   };
   const make = async (doc, settings, options = 2) => {
-    await (await c.vote.createPollWith({ groupId: await c.identity.groupId(1), duration: 86_400, quorum: 1, options, action: 0, actionData: '0x', questionCID: await post(doc), bond: 0, settings: { changeCutoff: 0, channels: 0, ranked: false, ...settings } })).wait();
+    await (await c.vote.createPollWith({ groupId: await c.identity.groupId(1), duration: 86_400, quorum: 1, options, action: 0, actionData: '0x', questionCID: await post(doc), bond: 0, settings: { changeCutoff: 0, channels: 0, grace: 0, ranked: false, ...settings } })).wait();
     return c.vote.pollCount();
   };
   const ranked = await make({ title: 'Which park project first?', options: ['Skate park', 'Community garden', 'Splash pad'] }, { ranked: true }, 3);
@@ -1597,9 +1664,13 @@ test('poll settings: ranked choice, paper only, and a first vote that is final',
 test('no signal: vote from a saved poll, show the sealed ballot as a QR code, another device carries it', async () => {
   const doc = JSON.stringify({ title: 'Open the pool on weekday evenings?', options: ['Yes', 'No'] });
   await (await c.notices.post(doc)).wait();
-  await (await c.vote.createPollWith({ groupId: await c.identity.groupId(1), duration: 86_400, quorum: 1, options: 2, action: 0, actionData: '0x', questionCID: `nb:${ethers.keccak256(ethers.toUtf8Bytes(doc))}`, bond: 0, settings: { changeCutoff: 0, channels: 0, ranked: false } })).wait();
+  await (await c.vote.createPollWith({ groupId: await c.identity.groupId(1), duration: 86_400, quorum: 1, options: 2, action: 0, actionData: '0x', questionCID: `nb:${ethers.keccak256(ethers.toUtf8Bytes(doc))}`, bond: 0, settings: { changeCutoff: 0, channels: 0, grace: 0, ranked: false } })).wait();
   const id = String(await c.vote.pollCount());
-  // Online: the app keeps itself and the open poll on this phone for later.
+  const rdoc = JSON.stringify({ title: 'Which pool hours matter most?', options: ['Mornings', 'Evenings', 'Weekends'] });
+  await (await c.notices.post(rdoc)).wait();
+  await (await c.vote.createPollWith({ groupId: await c.identity.groupId(1), duration: 86_400, quorum: 1, options: 3, action: 0, actionData: '0x', questionCID: `nb:${ethers.keccak256(ethers.toUtf8Bytes(rdoc))}`, bond: 0, settings: { changeCutoff: 0, channels: 0, grace: 0, ranked: true } })).wait();
+  const rid = String(await c.vote.pollCount());
+  // Online: the app keeps itself and the open polls on this phone for later.
   await page.click('[data-go="screen-code"]');
   const me = (await page.textContent('#voter-code')).trim();
   const unlock = async () => {
@@ -1616,8 +1687,13 @@ test('no signal: vote from a saved poll, show the sealed ballot as a QR code, an
     r.onsuccess = () => { const q = r.result.transaction('polls').objectStore('polls').getAll(); q.onsuccess = () => res(q.result.some((x) => x.id === pid)); q.onerror = () => res(false); };
     r.onerror = () => res(false);
   }), id);
-  for (let i = 0; i < 120 && !(await saved()); i++) await new Promise((r) => setTimeout(r, 500));
-  assert.equal(await saved(), true, 'the poll was not saved for offline voting');
+  const savedBoth = async () => (await saved()) && (await page.evaluate((pid) => new Promise((res) => {
+    const r = indexedDB.open('promissa-offline', 1);
+    r.onsuccess = () => { const q = r.result.transaction('polls').objectStore('polls').getAll(); q.onsuccess = () => res(q.result.some((x) => x.id === pid && x.ranked)); q.onerror = () => res(false); };
+    r.onerror = () => res(false);
+  }), rid));
+  for (let i = 0; i < 120 && !(await savedBoth()); i++) await new Promise((r) => setTimeout(r, 500));
+  assert.equal(await savedBoth(), true, 'the polls were not saved for offline voting');
   await page.waitForFunction(() => !!navigator.serviceWorker?.controller, null, { timeout: 30_000 });
 
   // No signal: the poll is still there, and voting seals the ballot on the phone.
@@ -1633,6 +1709,11 @@ test('no signal: vote from a saved poll, show the sealed ballot as a QR code, an
     const code = await page.getAttribute(`#poll-status-${id} [data-code]`, 'data-ballot-code');
     assert.match(code, /^PB1:/);
     assert.deepEqual((await c.vote.tally(id)).map(Number), [0, 0]); // nothing sent yet
+    // A ranked-choice poll works offline too: Weekends first, then Evenings.
+    await page.click(`#poll-${rid} .rank-opt[data-option="2"]`);
+    await page.click(`#poll-${rid} .rank-opt[data-option="1"]`);
+    await page.click(`#poll-${rid} [data-ranked]`);
+    await page.waitForSelector(`#poll-status-${rid} >> text=Sealed and saved on this phone`, { timeout: 120_000 });
 
     // Someone with a connection carries it: their app sends it, and it counts.
     const other = await browser.newContext({ viewport: { width: 390, height: 844 } });
@@ -1665,6 +1746,8 @@ test('no signal: vote from a saved poll, show the sealed ballot as a QR code, an
   await unlock();
   await page.waitForSelector('#outbox-card', { state: 'hidden', timeout: 60_000 });
   assert.deepEqual((await c.vote.tally(id)).map(Number), [1, 0]);
+  const [codes] = await c.vote.rankings(rid);
+  assert.deepEqual(codes.map(Number), [0x23]); // the ranking sealed offline, sent once back online
 });
 
 test('search finds items by number, address, text reference and words; FAQ in Help', async () => {

@@ -24,6 +24,18 @@ export const V5_ABI = [
   'error OnlineClosed()',
   'error BadRanking()',
 ];
+// Voting contract v6: polls may have a delivery window ("grace") for ballots carried offline.
+const POLL_TUPLE = 'tuple(uint256 groupId, uint64 duration, uint32 quorum, uint8 options, uint8 action, bytes actionData, string questionCID, uint256 bond, tuple(uint32 changeCutoff, uint8 channels, bool ranked, uint32 grace) settings) n';
+export const V6_ABI = [
+  'function settingsOf(uint256) view returns (uint32 changeCutoff, uint8 channels, bool ranked, uint32 grace)',
+  `function createPollWith(${POLL_TUPLE}) returns (uint256)`,
+  'function MAX_GRACE() view returns (uint32)',
+  'function CARRIER_ROLE() view returns (bytes32)',
+  'function hasRole(bytes32, address) view returns (bool)',
+  'function getPoll(uint256) view returns (tuple(uint256 groupId, uint256 snapshotRoot, uint256 electorate, uint64 start, uint64 end, uint32 quorum, uint8 options, uint8 action, bool finalized, bool passed, address proposer, uint256 bond, string questionCID, bytes actionData))',
+  'function castBallot(uint256 id, tuple(uint256 merkleTreeDepth, uint256 merkleTreeRoot, uint256 nullifier, uint256 message, uint256 scope, uint256[8] points) b)',
+  'error NotOpen()', 'error NullifierUsed()',
+];
 export const GROUPS_ABI = [
   'function GROUP_CREATOR_ROLE() view returns (bytes32)',
   'function hasRole(bytes32, address) view returns (bool)',
@@ -39,7 +51,7 @@ export const GROUPS_ABI = [
   'error NotManager()', 'error UnknownGroup()', 'error BadInput()', 'error NotOnVoterList(uint256 commitment)', 'error AlreadyMember(uint256 commitment)', 'error NotMember()',
 ];
 const NO_CHANGES = 2 ** 32 - 1;
-export const DEFAULTS = { changeCutoff: 0, channels: 0, ranked: false };
+export const DEFAULTS = { changeCutoff: 0, channels: 0, ranked: false, grace: 0 };
 export const ERRORS = {
   ChangesClosed: 'Votes can no longer be changed in this poll (its rules fix them before the close).',
   OnlineClosed: 'This poll is on paper only: check in and vote at a polling place.',
@@ -62,10 +74,45 @@ export async function hasSettings(state) {
   return state.voteV5;
 }
 
+/** Does the voting contract have delivery windows for offline ballots (v6)? Cached. */
+export async function hasGrace(state) {
+  if (state.voteV6 === undefined) state.voteV6 = await new ethers.Contract(state.config.voteAddress, V6_ABI, state.provider).MAX_GRACE().then(() => true, () => false);
+  return state.voteV6;
+}
+
 export async function readSettings(state, id) {
   if (!(await hasSettings(state))) return DEFAULTS;
-  const s = await vote5(state).settingsOf(id).catch(() => null);
-  return s ? { changeCutoff: Number(s.changeCutoff), channels: Number(s.channels), ranked: s.ranked } : DEFAULTS;
+  const v6 = await hasGrace(state);
+  const s = await (v6 ? new ethers.Contract(state.config.voteAddress, V6_ABI, state.provider) : vote5(state)).settingsOf(id).catch(() => null);
+  return s ? { changeCutoff: Number(s.changeCutoff), channels: Number(s.channels), ranked: s.ranked, grace: v6 ? Number(s.grace) : 0 } : DEFAULTS;
+}
+
+/**
+ * For an approved carrier (v6): deliver ballots after the close, within the poll's delivery
+ * window, from this account. Only ballots this device took in before the close are delivered.
+ * Returns undefined when this account is not an approved carrier.
+ */
+export async function carrierDelivery(state, signer) {
+  if (!signer || !(await hasGrace(state))) return undefined;
+  const v = new ethers.Contract(state.config.voteAddress, V6_ABI, signer);
+  const me = await signer.getAddress();
+  if (!(await v.hasRole(await v.CARRIER_ROLE(), me).catch(() => false))) return undefined;
+  return async (item) => {
+    const poll = await v.getPoll(item.pollId);
+    if (item.at / 1000 >= Number(poll.end)) return 'rejected'; // taken in after the close: not ours to deliver
+    try {
+      await (await v.castBallot(item.pollId, item.ballot)).wait();
+      return 'sent';
+    } catch (e) {
+      let name = e.revert?.name;
+      try {
+        name ||= v.interface.parseError(e.data)?.name;
+      } catch {
+        /* not ours */
+      }
+      return name === 'NullifierUsed' ? 'sent' : name ? 'rejected' : null;
+    }
+  };
 }
 
 /** Can a cast vote still be changed now? */
@@ -77,6 +124,7 @@ export function settingsNote(st, poll, now, esc) {
   if (st.ranked) bits.push('<strong>Ranked choice:</strong> rank the choices in order; counted by instant runoff');
   if (st.channels === 1) bits.push('Online only');
   if (st.channels === 2) bits.push('<strong>On paper only:</strong> check in and vote at a polling place');
+  if (st.grace > 0) bits.push(`Ballots sealed offline before the close can be delivered by approved carriers up to ${st.grace >= 3600 ? `${Math.round(st.grace / 3600)} hour${st.grace >= 7200 ? 's' : ''}` : `${Math.round(st.grace / 60)} minutes`} after it; the result follows then`);
   if (st.changeCutoff === NO_CHANGES) bits.push('Your first vote is final: it cannot be changed');
   else if (st.changeCutoff > 0) {
     const until = Number(poll.end) - st.changeCutoff;

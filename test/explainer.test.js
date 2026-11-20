@@ -75,3 +75,10 @@ test('the watchdog publishes one explanation per poll, once', async () => {
   assert.equal(JSON.parse(fs.readFileSync(file, 'utf8')).summary, EXPLAINED.summary);
   assert.equal(await writeExplanations(dir, cfg, provider, 3, fake), 0); // not written twice
 });
+
+test('explain: asks for "what it means for you" and a Spanish version with the same fields', () => {
+  const { SCHEMA } = require('../services/explainer/explain');
+  for (const k of ['for_you', 'es']) assert.ok(SCHEMA.required.includes(k), k);
+  assert.deepEqual(SCHEMA.properties.es.required.sort(), ['affected', 'arguments_against', 'arguments_for', 'changes', 'cost', 'for_you', 'summary', 'timeline', 'unanswered']);
+  assert.ok(!SCHEMA.properties.es.properties.quotes); // quotes stay word for word, untranslated
+});

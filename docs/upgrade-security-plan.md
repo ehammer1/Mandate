@@ -15,6 +15,8 @@ technical notes in brackets.
 
 ## Phase 2: the contract upgrade (before the audit)
 
+Full specification: [contract-upgrade-v6.md](contract-upgrade-v6.md).
+
 One bundled upgrade, so the auditor checks the final version:
 
 - **New community rules residents can vote on**, e.g. whether "keep me signed in" is offered.
@@ -28,6 +30,8 @@ One bundled upgrade, so the auditor checks the final version:
 - Anything the pilots turn up.
 
 ## Phase 3: the independent security audit
+
+Audit package (scope, priorities, trust assumptions) and a quote request: [audit/](audit/README.md).
 
 - A recognized smart-contract and zero-knowledge auditor reviews the contracts, the ballot
   proofs, the sign-up service, the relay and the app's key handling.
