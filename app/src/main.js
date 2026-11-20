@@ -14,6 +14,8 @@ import { loadConfig as loadCommunityConfig, withOrg, keepOrgInLinks, orgKey, ORG
 import { ethers } from 'ethers';
 import { Identity } from '@semaphore-protocol/identity';
 import * as keys from './keys.js';
+import { keep, recall, forget, KEEP_DAYS } from './remember.js';
+import * as offline from './offline.js';
 import { poseidon2 } from 'poseidon-lite/poseidon2';
 import { buildBallot } from '../../client/ballot.js';
 import { readSettings, settingsNote, changesOpen, rankedPickerHtml, wireRankers, rankedResultsHtml, groupInfo, groupOptionsHtml, hasSettings, wireVoterGroups, V5_ABI, ERRORS as V5_ERRORS } from './pollsettings.js';
@@ -46,6 +48,31 @@ startI18n();
 if (typeof document !== 'undefined' && document.getElementById('lang-switch')) document.getElementById('lang-switch').innerHTML = langSwitchHtml();
 wireLangSwitch(document, { live: true });
 keepOrgInLinks(document); // no reload: the voter's key stays unlocked
+// A public computer link (…&shared=1, e.g. a library's home page): only "Shared or public
+// computer" sign-in, nothing kept on this machine, no passkeys made here, no automatic prompt.
+const SHARED = (() => {
+  try {
+    return new URLSearchParams(location.search).has('shared');
+  } catch {
+    return false;
+  }
+})();
+// While signed in, other pages of the site (notice, dashboard, proposals, about…) open in a
+// new tab, so this one stays unlocked and nobody has to sign in again.
+document.addEventListener(
+  'click',
+  (e) => {
+    const a = e.target.closest?.('a[href]');
+    if (!a || !state.keys || a.target || a.hasAttribute('download') || e.ctrlKey || e.metaKey || e.shiftKey) return;
+    const raw = a.getAttribute('href');
+    if (!raw || raw.startsWith('#') || /^(mailto|tel|javascript):/i.test(raw)) return;
+    const u = new URL(raw, location.href);
+    if (u.origin !== location.origin || u.pathname === location.pathname || !/(\.html|\/)$/.test(u.pathname)) return;
+    e.preventDefault();
+    window.open(withOrg(u.href), '_blank', 'noopener');
+  },
+  true,
+);
 document.addEventListener('langchange', () => $('btn-refresh')?.click()); // dates and countdown labels
 
 const VOTE_ABI = [
@@ -137,6 +164,34 @@ async function signedIn(k, backupCode) {
   state.publicMode = k.method === 'public';
   $('signin-method').textContent = state.publicMode ? 'Shared computer: nothing is saved here. You will be signed out after 5 minutes without activity.' : $('signin-method').textContent;
   armIdleSignOut();
+  try {
+    sessionStorage.removeItem('mandate.signedOut'); // signed in again: the sign-out is over
+  } catch {
+    /* ignore */
+  }
+  // "Keep me signed in on this device": offered on your own device, never on a shared computer.
+  const scope = state.config?.communitySlug || '';
+  state.keptUntil = k.kept ? k.until : 0;
+  const showKeep = () => {
+    $('keep-row').hidden = SHARED || k.method === 'public' || state.config?.keepSignedIn !== true; // off unless the community turns it on
+    const until = state.keptUntil ? new Date(state.keptUntil).toLocaleDateString(undefined, { dateStyle: 'medium' }) : '';
+    $('btn-keep').textContent = state.keptUntil ? 'Stop keeping me signed in here' : `Keep me signed in on this device (${KEEP_DAYS} days)`;
+    $('keep-note').textContent = state.keptUntil
+      ? `Signed in on this device until ${until}, without Face ID or a fingerprint. "Sign out" also ends it.`
+      : 'Only on your own phone or computer: anyone using this browser could vote as you until you sign out.';
+  };
+  showKeep();
+  $('btn-keep').onclick = async () => {
+    if (state.keptUntil) {
+      await forget(scope);
+      state.keptUntil = 0;
+    } else {
+      if (!window.confirm('Keep me signed in: only on your own phone or computer. Is this your own device?\n\nOn a library, work or borrowed computer, choose Cancel: anyone using it next could vote as you.')) return;
+      state.keptUntil = await keep(state.keys, scope).catch(() => 0);
+      if (!state.keptUntil) status($('home-notice'), 'This browser cannot keep you signed in (private browsing, or storage is off).', 'warn');
+    }
+    showKeep();
+  };
   if (backupCode) {
     $('backup-code').textContent = backupCode;
     $('backup-intro').textContent =
@@ -303,7 +358,13 @@ function wireSignIn() {
   };
   $('btn-signout').onclick = () => signOut();
   function signOut(reason) {
-    Object.assign(state, { keys: null, identity: null, wallet: null, external: null, roles: null, publicMode: false, clerkSession: null, clerkCount: 0 });
+    Object.assign(state, { keys: null, identity: null, wallet: null, external: null, roles: null, publicMode: false, clerkSession: null, clerkCount: 0, keptUntil: 0 });
+    forget(state.config?.communitySlug || ''); // signing out ends "keep me signed in"
+    try {
+      sessionStorage.setItem('mandate.signedOut', '1'); // and no Face ID prompt again until the tab is closed
+    } catch {
+      /* ignore */
+    }
     $('join-choice').hidden = true;
     $('btn-join-email').hidden = false;
     state.clerk?.nextPerson();
@@ -457,7 +518,7 @@ async function renderJoinOnline() {
       } catch {
         /* storage unavailable: they'll unlock manually */
       }
-      location.href = enrolStartUrl({ serviceUrl: url, providerId: b.dataset.join, identity: state.identity, returnUrl: withOrg(location.origin + location.pathname) });
+      location.href = enrolStartUrl({ serviceUrl: url, providerId: b.dataset.join, identity: state.identity, returnUrl: withOrg(location.origin + location.pathname + (SHARED ? '?shared=1' : '')) });
     };
   }
 }
@@ -704,6 +765,22 @@ async function handleReturn() {
       /* fall through to the manual path */
     }
   }
+  // A passkey: ask for Face ID / the fingerprint straight away. Some browsers (Safari) only
+  // allow that after a tap, so if it is refused, offer one big button for it at the top.
+  if (method === 'passkey' && keys.hasSavedPasskey()) {
+    try {
+      return await signedIn(await keys.unlockWithPasskey());
+    } catch {
+      const top = $('return-notice');
+      status(top, `${notice.text} Unlock your voter key to continue.`, kind);
+      const b = Object.assign(document.createElement('button'), { className: 'primary', id: 'btn-return-unlock', type: 'button', textContent: 'Unlock with Face ID or fingerprint to continue' });
+      b.onclick = () => trySignIn(() => keys.unlockWithPasskey(), $('signin-status'));
+      top.append(document.createElement('br'), b);
+      top.hidden = false;
+      top.scrollIntoView({ block: 'start' });
+      return;
+    }
+  }
   // Otherwise show the result at the top, next to the right unlock button.
   const top = $('return-notice');
   const hint =
@@ -851,6 +928,7 @@ async function refreshPolls() {
     const cards = [];
     const soon = [];
     const labelsById = {};
+    const toSave = []; // open polls this person can vote in: saved for voting with no signal
     for (let id = count; id >= 1n && cards.length < 20; id--) {
       const [p, tally] = await Promise.all([state.vote.getPoll(id), state.vote.tally(id)]);
       const [ck, ckCounts] = await state.vote.getCheck(id).catch(() => [{ root: 0n }, [0n, 0n]]);
@@ -881,6 +959,7 @@ async function refreshPolls() {
         if (gi) [who, eligibleTier] = [gi.name, gi.member];
       }
       const onlineOk = st.channels !== 2;
+      if (open && eligibleTier && onlineOk && !paperLocks && !st.ranked) toSave.push({ id: String(id), title: q?.title || `Poll ${id}`, labels, ranked: false, end: p.end });
       const canChange = changesOpen(st, p, now);
       if (open && !voted && eligibleTier && Number(p.end) - Number(now) < 48 * 3600) soon.push({ id, end: p.end });
       const total = tally.reduce((a, b) => a + b, 0n);
@@ -956,6 +1035,9 @@ async function refreshPolls() {
       state.officials.pollSection(box, Number(box.dataset.id), box.dataset.canvote === '1', (option, btn) => castVote(BigInt(box.dataset.id), option, btn)).catch(() => {});
     }
     for (const box of list.querySelectorAll('.explain-box')) renderExplainer({ state, esc, status }, box, 'poll', Number(box.dataset.id)).catch(() => {});
+    (async () => {
+      for (const poll of toSave) await offline.savePoll(state, poll); // one at a time, in the background
+    })();
     // Anyone may record a finished poll's result (and so trigger a binding action).
     for (const b of list.querySelectorAll('button.finalize')) {
       b.onclick = async () => {
@@ -966,9 +1048,165 @@ async function refreshPolls() {
       };
     }
   } catch (e) {
+    if (await showOfflinePolls(list)) return;
     list.innerHTML = `<p class="error">Could not load polls: ${esc(e.shortMessage || e.message)}</p>`;
   }
 }
+
+// No connection: show the polls saved on this phone, and let people vote in them anyway.
+async function showOfflinePolls(list) {
+  if (!state.identity) return false;
+  const saved = await offline.savedPolls(state);
+  const note = `<div class="card"><p style="margin:0"><strong>You're offline.</strong> ${saved.length ? 'You can still vote in the polls below: your ballot is sealed on this phone and sent as soon as you have a connection, or shown as a QR code for someone who has one.' : 'No polls are saved on this phone yet. Open the app once while you have a connection, and the open polls you can vote in are saved for next time.'}</p></div>`;
+  list.innerHTML = note + saved.map((p) => `<article class="card stack" id="poll-${esc(p.id)}">
+      <p class="eyebrow">Poll ${esc(p.id)} · saved for offline voting</p>
+      <h3>${esc(p.title)}</h3>
+      <div class="choices">${p.labels.map((l, i) => `<button class="choice" data-offline-poll="${esc(p.id)}" data-option="${i}">${esc(l)}</button>`).join('')}</div>
+      <p class="status" id="poll-status-${esc(p.id)}" role="status"></p>
+    </article>`).join('');
+  for (const b of list.querySelectorAll('button[data-offline-poll]')) b.onclick = () => castOffline(BigInt(b.dataset.offlinePoll), Number(b.dataset.option), b);
+  return true;
+}
+
+/** Seal a ballot on this phone with no network, keep it to send later, and offer a QR code. */
+async function castOffline(pollId, option, button) {
+  const el = $(`poll-status-${pollId}`);
+  const card = $(`poll-${pollId}`);
+  for (const b of card.querySelectorAll('button.choice')) b.disabled = true;
+  button.classList.add('picked');
+  status(el, 'Building your private ballot on this device… this can take a few seconds.');
+  try {
+    const item = await offline.voteOffline(state, pollId, option);
+    showSaved(el, item);
+    renderOutbox();
+  } catch (e) {
+    status(el, e.message, 'error');
+    for (const b of card.querySelectorAll('button.choice')) b.disabled = false;
+    button.classList.remove('picked');
+  }
+}
+
+function showSaved(el, item) {
+  el.innerHTML = `<span class="ok">Sealed and saved on this phone, not sent yet. It is sent by itself as soon as you have a connection.</span>
+    <br/><button type="button" class="primary" data-show-code style="margin-top:8px">No signal? Show it as a QR code</button>
+    <div data-code hidden></div>`;
+  el.querySelector('[data-show-code]').onclick = () => showBallotCode(el.querySelector('[data-code]'), item.code);
+}
+
+function showBallotCode(box, code) {
+  box.hidden = false;
+  box.innerHTML = `<canvas style="display:block;margin:10px auto;background:#fff;padding:8px;border-radius:12px;max-width:100%"></canvas>
+    <p class="note">Show this to a clerk, or anyone whose app has a connection: they scan it under "Carry ballots for people without signal" and it is sent for you. They can't change it or use it to vote. The code does contain your choice, so hand it only to someone you trust, or wait and it is sent by itself.</p>`;
+  box.dataset.ballotCode = code;
+  QRCode.toCanvas(box.querySelector('canvas'), code, { errorCorrectionLevel: 'L', margin: 2, width: 300 }).catch(() => {});
+}
+
+// Ballots waiting on this phone (this person's own, and any carried for others).
+async function renderOutbox() {
+  if (!state.config) return;
+  const items = await offline.outbox(state.config);
+  const mine = items.filter((i) => i.mine && i.status === 'waiting');
+  const carried = items.filter((i) => !i.mine);
+  const card = $('outbox-card');
+  card.hidden = !mine.length;
+  if (mine.length) {
+    card.innerHTML = `<p style="margin:0"><strong>📦 ${mine.length === 1 ? 'Your ballot is' : `${mine.length} of your ballots are`} saved on this phone, waiting to be sent.</strong> ${navigator.onLine ? 'Sending…' : 'It goes as soon as you have a connection.'}</p>
+      ${mine.map((i, n) => `<p style="margin:6px 0 0">Poll ${esc(i.pollId)}${i.title ? `: ${esc(i.title)}` : ''} <button type="button" data-qr="${n}">Show as a QR code</button></p><div data-qrbox="${n}" hidden></div>`).join('')}`;
+    for (const b of card.querySelectorAll('[data-qr]')) b.onclick = () => showBallotCode(card.querySelector(`[data-qrbox="${b.dataset.qr}"]`), mine[Number(b.dataset.qr)].code);
+  }
+  const sent = carried.filter((i) => i.status === 'sent').length;
+  const waiting = carried.filter((i) => i.status === 'waiting').length;
+  const rejected = carried.filter((i) => i.status === 'rejected').length;
+  $('carry-list').textContent = carried.length ? `Carried here: ${carried.length} · sent ${sent} · waiting ${waiting}${rejected ? ` · not accepted ${rejected}` : ''}` : '';
+}
+
+async function sendOutbox() {
+  if (!state.config) return null;
+  const r = await offline.sendWaiting(state.config).catch(() => null);
+  await renderOutbox();
+  if (r?.sent && state.identity) setTimeout(refreshPolls, 1500);
+  return r;
+}
+
+// "Install Promissa": its own icon and window, and it opens with no signal. Shown once per
+// device until dismissed; never once installed, nor on a public computer link.
+function wireInstallTip() {
+  const box = $('install-tip');
+  const installed = matchMedia?.('(display-mode: standalone)').matches || navigator.standalone === true;
+  let dismissed = false;
+  try {
+    dismissed = localStorage.getItem('mandate.installTip') === 'no';
+  } catch {
+    /* ignore */
+  }
+  if (installed || dismissed || SHARED) return;
+  const ua = navigator.userAgent || '';
+  const iOS = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+  const macSafari = /Macintosh/.test(ua) && /Safari\//.test(ua) && !/Chrome|Chromium|Edg\//.test(ua) && !iOS;
+  const show = (text, button) => {
+    $('install-text').textContent = text;
+    $('btn-install').hidden = !button;
+    box.hidden = false;
+  };
+  if (iOS) show('to your home screen: tap the Share button, then "Add to Home Screen". It gets its own icon and opens even with no signal.');
+  else if (macSafari) show('on this Mac: in Safari, choose File, then "Add to Dock". It opens in its own window, even offline.');
+  // Chrome, Edge and Android offer a real install button.
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    $('btn-install').onclick = async () => {
+      e.prompt();
+      const choice = await e.userChoice.catch(() => null);
+      if (choice?.outcome === 'accepted') box.hidden = true;
+    };
+    show('on this device: its own icon and window, and it opens even with no signal.', true);
+  });
+  window.addEventListener('appinstalled', () => (box.hidden = true));
+  $('btn-install-dismiss').onclick = () => {
+    box.hidden = true;
+    try {
+      localStorage.setItem('mandate.installTip', 'no');
+    } catch {
+      /* ignore */
+    }
+  };
+}
+
+function wireCarry() {
+  const el = $('carry-status');
+  let stop = null;
+  const idle = () => {
+    stop = null;
+    $('btn-carry-scan').textContent = 'Scan a ballot QR code';
+  };
+  const take = async (text) => {
+    try {
+      await offline.carryCode(state.config, text);
+      status(el, 'Ballot added. It is sent as soon as this device has a connection.', 'ok');
+      $('carry-code').value = '';
+      await renderOutbox();
+      if (navigator.onLine) await sendOutbox();
+    } catch (e) {
+      status(el, e.message, 'error');
+    }
+  };
+  $('btn-carry-scan').onclick = async () => {
+    if (stop) return (stop(), idle());
+    try {
+      $('btn-carry-scan').textContent = 'Stop camera';
+      stop = await offline.scanInto($('carry-video'), (code) => (idle(), take(code)), (m) => status(el, m));
+    } catch (e) {
+      idle();
+      status(el, e.message, 'warn');
+    }
+  };
+  $('btn-carry-add').onclick = () => take($('carry-code').value);
+  $('btn-carry-send').onclick = async () => {
+    status(el, 'Sending…');
+    const r = await sendOutbox();
+    status(el, r ? `Sent ${r.sent}${r.waiting ? `, still waiting ${r.waiting} (no connection)` : ''}${r.rejected ? `, not accepted ${r.rejected}` : ''}.` : 'Nothing to send.', r?.waiting ? 'warn' : 'ok');
+  };
+}
+
 
 // The nullifier is public once a ballot is cast; computing it locally lets the app
 // tell the voter "you already voted" without revealing anything new.
@@ -984,6 +1222,10 @@ async function castVote(pollId, option, button) {
   const card = $(`poll-${pollId}`);
   for (const b of card.querySelectorAll('button.choice')) b.disabled = true;
   button.classList.add('picked');
+  if (!navigator.onLine) {
+    for (const b of card.querySelectorAll('button.choice')) b.disabled = false;
+    return castOffline(pollId, option, button);
+  }
   status(el, 'Building your private ballot on this device… this can take a few seconds.');
   let ballot;
   try {
@@ -1026,6 +1268,12 @@ async function castVote(pollId, option, button) {
     } catch {
       lastError = 'A relayer could not be reached; trying the next one.';
     }
+  }
+  if (!/rejected/.test(lastError) && !navigator.onLine) {
+    // The connection dropped after sealing: keep it and send it later.
+    const item = await offline.addToOutbox(state.config, { pollId, ballot, title: card.querySelector('h3')?.textContent || '', mine: true });
+    showSaved(el, item);
+    return renderOutbox();
   }
   if (!/rejected/.test(lastError)) return offerDirectSubmit(el, card, button, pollId, ballot, lastError);
   status(el, lastError, 'error');
@@ -1566,7 +1814,12 @@ function wireAdmin() {
 // --------------------------------------------------------------------- boot
 
 async function boot() {
+  // Open with no signal next time (see sw.js).
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
   wireCopy(document);
+  wireCarry();
+  window.addEventListener('online', () => sendOutbox().catch(() => {}));
+  wireInstallTip();
   wireSignIn();
   wireAccount();
   wireAdmin();
@@ -1631,6 +1884,8 @@ async function boot() {
     status($('signin-status'), e.message, 'error');
     return;
   }
+  renderOutbox().catch(() => {}); // ballots waiting on this phone
+  if (navigator.onLine) sendOutbox().catch(() => {});
   if (keys.savedMethod() === 'passkey') $('btn-unlock').classList.add('primary');
   if (keys.hasSavedPasskey()) {
     // A returning device: lead with unlocking, not with joining (which would reuse this key anyway).
@@ -1652,8 +1907,47 @@ async function boot() {
     $('btn-device').textContent = 'Unlock the key saved in this browser';
     $('btn-device').classList.add('primary');
   }
-  show('screen-signin');
-  handleReturn();
+  // Kept signed in on this device: straight in.
+  // "Keep me signed in" is off unless the community turns it on; turning it off ends any kept sign-in.
+  let justSignedOut = false; // "Sign out" in this tab: never sign straight back in, even mid-erase
+  try {
+    justSignedOut = sessionStorage.getItem('mandate.signedOut') === '1';
+  } catch {
+    /* ignore */
+  }
+  const keepAllowed = state.config.keepSignedIn === true && !SHARED && !justSignedOut;
+  if (!keepAllowed) await forget(state.config.communitySlug || '');
+  const kept = keepAllowed ? await recall(state.config.communitySlug || '') : null;
+  if (SHARED) {
+    for (const id of ['welcome-back', 'new-here', 'passkey-buttons', 'device-option']) $(id).hidden = true;
+    $('public-option').open = true;
+    $('shared-note').hidden = false;
+  }
+  if (kept) {
+    const notice = readReturnNotice();
+    try {
+      sessionStorage.removeItem('mandate.returnMethod');
+    } catch {
+      /* ignore */
+    }
+    if (notice) state.notice = notice;
+    await signedIn(kept);
+  } else {
+    show('screen-signin');
+    const returning = /(^#|&)(enrolled|enroll_error)=/.test(location.hash);
+    await handleReturn();
+    // Your own device with a passkey: ask for Face ID or the fingerprint straight away
+    // (not right after signing out; some browsers need a tap first, then the button is there).
+    let signedOut = false;
+    try {
+      signedOut = sessionStorage.getItem('mandate.signedOut') === '1';
+    } catch {
+      /* ignore */
+    }
+    if (!SHARED && !returning && !state.keys && keys.hasSavedPasskey() && !signedOut && state.config.autoUnlock !== false) {
+      keys.unlockWithPasskey().then((k) => (state.keys ? null : signedIn(k)), () => {});
+    }
+  }
   // The return from the identity service can arrive as a fragment change or a
   // back-forward-cache restore instead of a fresh load.
   window.addEventListener('hashchange', handleReturn);

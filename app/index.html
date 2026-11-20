@@ -3,15 +3,18 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Promissa Voter</title>
-  <meta name="description" content="Vote privately on public decisions from your phone or computer. No wallet needed." />
+  <title>Promissa Protocol · Decentralized, open-source voting protocol on the Base blockchain</title>
+  <meta name="description" content="Promissa Protocol: an open, decentralized way to vote, petition and track public decisions, recorded on Base, a public blockchain. Your vote stays secret; every result is public and checkable. No wallet needed." />
   <meta name="theme-color" content="#262a6e" />
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="stylesheet" href="style.css" />
   <link rel="icon" href="icons/favicon.svg" type="image/svg+xml" />
   <link rel="icon" href="icons/favicon-32.png" sizes="32x32" type="image/png" />
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+  <meta property="og:title" content="Promissa Protocol · Decentralized, open-source voting protocol on the Base blockchain" />
+  <meta property="og:description" content="Vote privately, petition, and track public decisions until they're done. Every result is public and checkable on the Base blockchain; your vote stays secret." />
   <meta property="og:image" content="https://ehammer1.github.io/Mandate/icons/og.png" />
+  <meta property="og:image:alt" content="Promissa Protocol: We the sovereign people, on the record. Decentralized, open-source voting protocol on the Base blockchain." />
   <meta name="twitter:card" content="summary_large_image" />
 </head>
 <body>
@@ -41,8 +44,10 @@
     <!-- Sign in -->
     <section id="screen-signin" data-screen hidden>
       <p class="status card" id="return-notice" role="status" hidden></p>
+      <p class="eyebrow" style="margin-bottom:2px">Decentralized, open-source voting protocol on the Base blockchain</p>
       <h1>Vote on public decisions, privately</h1>
       <p class="tagline">We the sovereign people, on the record.</p>
+      <p class="lead-in"><strong>Promissa Protocol</strong> is an open, decentralized way to vote, petition, and track public decisions until they're done. Everything is recorded on <strong>Base</strong>, a public blockchain: results, proposals and every change of power are open for anyone to check, and no single company (including us) can quietly change or delete them. How you voted stays secret.</p>
       <p>No app store, no wallet, no crypto. Your phone or computer unlocks a private voter key with Face ID, your fingerprint, or your device PIN.</p>
       <div class="card stack" id="welcome-back" hidden>
         <p class="big" style="margin:0">Welcome back</p>
@@ -74,6 +79,7 @@
         <button id="btn-create">Create a voter key (join another way next)</button>
         <p class="note">Your key syncs through your Apple, Google or Microsoft account, so your phone and computer vote as the same person. It is never sent to us.</p>
       </div>
+      <p class="status card warn" id="shared-note" hidden><strong>Public computer.</strong> Nothing is kept on this computer. Sign in with your phone or a written code below, and tap Sign out when you're done.</p>
       <details class="card" id="public-option">
         <summary><strong>Shared or public computer</strong> (library, borrowed, work)</summary>
         <div class="stack" style="margin-top:12px">
@@ -121,22 +127,43 @@
         <p class="status" id="save-code-status" role="status"></p>
       </div>
       <p class="status" id="home-notice" role="status"></p>
+      <div class="card stack" id="outbox-card" hidden></div>
+      <div class="card stack" id="install-tip" hidden>
+        <p style="margin:0"><strong>Install Promissa</strong> <span id="install-text"></span></p>
+        <div class="row"><button type="button" class="primary" id="btn-install" hidden>Install the app</button><button type="button" id="btn-install-dismiss">Not now</button></div>
+      </div>
       <p class="eyebrow" id="signin-method"></p>
       <p><button id="btn-show-backup" hidden>Show my backup code</button></p>
-      <div class="card" id="membership" aria-live="polite"><p class="muted">Checking your enrollment…</p></div>
+      <div class="row" id="keep-row" hidden><button id="btn-keep" type="button">Keep me signed in on this device (30 days)</button><span class="note" id="keep-note">Only on your own phone or computer: anyone using this browser could vote as you until you sign out.</span></div>
+      <h2 id="h-membership" style="margin-bottom:4px">Your membership</h2>
+      <p class="note" style="margin-top:0">Whether you are on this community's voter list, and which polls you can vote in.</p>
+      <div class="card" id="membership" aria-live="polite" aria-labelledby="h-membership"><p class="muted">Checking your enrollment…</p></div>
       <form id="home-search" class="row" role="search">
         <input type="search" id="home-search-q" placeholder="Search polls, proposals, IDs…" aria-label="Search" autocomplete="off" style="flex:1" />
         <button type="submit">Search</button>
       </form>
+      <h2 id="h-attention" style="margin-bottom:4px">Needs attention</h2>
+      <p class="note" style="margin-top:0">Everything open, ranked by how soon it closes and how much it can change.</p>
       <section class="card stack" id="attention-card" aria-labelledby="h-attention">
-        <h2 id="h-attention">Needs attention</h2>
-        <p class="note">Everything open, ranked by how soon it closes and how much it can change.</p>
         <div class="filters" id="attention-filters" role="group" aria-label="Show topic"></div>
         <div id="attention"><p class="muted">Loading…</p></div>
         <details><summary><strong>⏰ Reminders</strong></summary><div id="reminder-settings" class="stack"></div></details>
       </section>
       <div class="row"><h2 style="flex:1">Polls</h2><button id="btn-refresh">Refresh</button></div>
       <div id="poll-list"></div>
+      <details class="card" id="carry">
+        <summary><strong>📦 Carry ballots for people without signal</strong></summary>
+        <div class="stack" style="margin-top:12px">
+          <p class="note" style="margin:0">Someone with no connection can show their sealed ballot as a QR code. Scan it here and this device sends it for them as soon as it has a connection. A sealed ballot can't be changed or used to vote twice: you just carry it.</p>
+          <button type="button" id="btn-carry-scan">Scan a ballot QR code</button>
+          <video id="carry-video" playsinline muted hidden style="width:100%;max-width:360px;border-radius:12px"></video>
+          <label for="carry-code">Or paste a ballot code (it starts with PB1:)</label>
+          <textarea id="carry-code" rows="3" spellcheck="false" autocomplete="off"></textarea>
+          <div class="row"><button type="button" id="btn-carry-add">Add this ballot</button><button type="button" id="btn-carry-send">Send waiting ballots now</button></div>
+          <p class="muted" id="carry-list"></p>
+          <p class="status" id="carry-status" role="status"></p>
+        </div>
+      </details>
     </section>
 
     <!-- Voter code -->
@@ -621,7 +648,7 @@
     </section>
   </main>
   <div id="toasts" aria-live="assertive"></div>
-  <footer style="text-align:center;margin:24px 16px;font-size:.85rem"><a href="dashboard.html">Live dashboard</a> · <a href="one-pager.html">About (one page)</a> · <a href="pricing.html">Pricing</a> · <a href="privacy.html">Privacy</a> · <a href="terms.html">Terms</a> · <a href="https://github.com/ehammer1/Mandate">Source code</a><br><span class="muted">Promissa Protocol™ © 2026 · <a href="https://github.com/ehammer1/Mandate/blob/main/TRADEMARKS.md">Name and logo</a></span></footer>
+  <footer style="text-align:center;margin:24px 16px;font-size:.85rem"><a href="dashboard.html">Live dashboard</a> · <a href="one-pager.html">About (one page)</a> · <a href="pricing.html">Pricing</a> · <a href="privacy.html">Privacy</a> · <a href="security.html">Security</a> · <a href="terms.html">Terms</a> · <a href="https://github.com/ehammer1/Mandate">Source code</a><br><span class="muted">Promissa Protocol™ © 2026 · <a href="https://github.com/ehammer1/Mandate/blob/main/TRADEMARKS.md">Name and logo</a></span></footer>
 
   <script type="module" src="dist/main.js"></script>
 </body>

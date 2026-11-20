@@ -23,6 +23,7 @@ const net = require('node:net');
 const fs = require('node:fs');
 const collectors = [];
 let appOptsRef;
+let idpRef;
 const os = require('node:os');
 const path = require('node:path');
 const QRCode = require('qrcode');
@@ -96,6 +97,7 @@ before(async () => {
       bodiesAddress: await c.bodies.getAddress(),
       bodyRecordsAddress: await c.bodyRecords.getAddress(),
       talliesAddress: await c.tallies.getAddress(),
+      autoUnlock: false, // tests unlock by tapping; one test turns this on
       progressAddress: await c.progress.getAddress(),
       relayers: ['http://127.0.0.1:1', `http://127.0.0.1:${relayPort}`], // the first is down: tests fail-over
       artifactsBase: '/artifacts',
@@ -105,6 +107,7 @@ before(async () => {
   walletAccount = (await provider.getSigner(4)).address;
   // Sign-in identity service with a mock OpenID provider ("Test Login").
   const idp = await createMockOidc({ clientId: 'mandate-app', clientSecret: 'app-secret' });
+  idpRef = idp;
   servers.push(idp.server);
   const idPort = await new Promise((r) => { const t = net.createServer().listen(0, '127.0.0.1', () => { const p = t.address().port; t.close(() => r(p)); }); });
   const identitySigner = await provider.getSigner(3);
@@ -671,7 +674,7 @@ test('no duplicate passkeys: creating again on a device that has one unlocks the
 test('a device that already has a voter key leads with "Welcome back", not "Join"', async () => {
   await page.click('#btn-signout');
   await page.reload();
-  assert.equal(await page.isVisible('#welcome-back'), true);
+  await page.waitForSelector('#welcome-back:not([hidden])');
   assert.equal(await page.isVisible('#new-here'), false);
   await page.click('#btn-welcome-unlock');
   await page.waitForSelector('#screen-home:not([hidden])');
@@ -1591,6 +1594,79 @@ test('poll settings: ranked choice, paper only, and a first vote that is final',
   assert.equal(await page.locator(`#poll-${firm} details.change-vote`).count(), 0);
 });
 
+test('no signal: vote from a saved poll, show the sealed ballot as a QR code, another device carries it', async () => {
+  const doc = JSON.stringify({ title: 'Open the pool on weekday evenings?', options: ['Yes', 'No'] });
+  await (await c.notices.post(doc)).wait();
+  await (await c.vote.createPollWith({ groupId: await c.identity.groupId(1), duration: 86_400, quorum: 1, options: 2, action: 0, actionData: '0x', questionCID: `nb:${ethers.keccak256(ethers.toUtf8Bytes(doc))}`, bond: 0, settings: { changeCutoff: 0, channels: 0, ranked: false } })).wait();
+  const id = String(await c.vote.pollCount());
+  // Online: the app keeps itself and the open poll on this phone for later.
+  await page.click('[data-go="screen-code"]');
+  const me = (await page.textContent('#voter-code')).trim();
+  const unlock = async () => {
+    await page.click('#btn-welcome-unlock');
+    await page.waitForSelector('#screen-home:not([hidden])');
+    assert.equal((await page.textContent('#voter-code')).trim(), me);
+  };
+  await page.reload();
+  await unlock();
+  await page.click('#nav-polls');
+  await page.waitForSelector(`#poll-${id} button.choice`, { timeout: 60_000 });
+  const saved = () => page.evaluate((pid) => new Promise((res) => {
+    const r = indexedDB.open('promissa-offline', 1);
+    r.onsuccess = () => { const q = r.result.transaction('polls').objectStore('polls').getAll(); q.onsuccess = () => res(q.result.some((x) => x.id === pid)); q.onerror = () => res(false); };
+    r.onerror = () => res(false);
+  }), id);
+  for (let i = 0; i < 120 && !(await saved()); i++) await new Promise((r) => setTimeout(r, 500));
+  assert.equal(await saved(), true, 'the poll was not saved for offline voting');
+  await page.waitForFunction(() => !!navigator.serviceWorker?.controller, null, { timeout: 30_000 });
+
+  // No signal: the poll is still there, and voting seals the ballot on the phone.
+  await page.context().setOffline(true);
+  try {
+    await page.click('#btn-refresh');
+    await page.waitForSelector("#poll-list >> text=You're offline", { timeout: 60_000 });
+    await page.click(`button[data-offline-poll="${id}"][data-option="0"]`);
+    await page.waitForSelector(`#poll-status-${id} >> text=Sealed and saved on this phone`, { timeout: 120_000 });
+    await page.waitForSelector('#outbox-card:not([hidden]) >> text=saved on this phone, waiting to be sent');
+    await page.click(`#poll-status-${id} [data-show-code]`);
+    await page.waitForSelector(`#poll-status-${id} [data-code] canvas`);
+    const code = await page.getAttribute(`#poll-status-${id} [data-code]`, 'data-ballot-code');
+    assert.match(code, /^PB1:/);
+    assert.deepEqual((await c.vote.tally(id)).map(Number), [0, 0]); // nothing sent yet
+
+    // Someone with a connection carries it: their app sends it, and it counts.
+    const other = await browser.newContext({ viewport: { width: 390, height: 844 } });
+    try {
+      const anchor = await other.newPage();
+      await anchor.goto(appUrl);
+      await anchor.click('#device-option summary');
+      await anchor.click('#btn-device');
+      await anchor.waitForSelector('#screen-home:not([hidden])');
+      await anchor.click('#carry summary');
+      await anchor.fill('#carry-code', 'PB1:not-a-ballot');
+      await anchor.click('#btn-carry-add');
+      await anchor.waitForSelector('#carry-status >> text=damaged');
+      await anchor.fill('#carry-code', code);
+      await anchor.click('#btn-carry-add');
+      await anchor.waitForSelector('#carry-list >> text=sent 1', { timeout: 120_000 });
+    } finally {
+      await other.close();
+    }
+    assert.deepEqual((await c.vote.tally(id)).map(Number), [1, 0]);
+
+    // The app itself opens with no signal.
+    await page.reload();
+    await page.waitForSelector('#screen-signin:not([hidden])', { timeout: 30_000 });
+  } finally {
+    await page.context().setOffline(false);
+  }
+  // Back online, the phone's own copy is sent too: already counted, so nothing changes.
+  await page.reload();
+  await unlock();
+  await page.waitForSelector('#outbox-card', { state: 'hidden', timeout: 60_000 });
+  assert.deepEqual((await c.vote.tally(id)).map(Number), [1, 0]);
+});
+
 test('search finds items by number, address, text reference and words; FAQ in Help', async () => {
   await page.click('#nav-polls');
   await page.fill('#home-search-q', 'poll 1');
@@ -1778,7 +1854,7 @@ test('a key saved in this browser is reopened, never replaced, when someone join
   // And a returning visit leads with "Welcome back".
   await page.click('#btn-signout');
   await page.reload();
-  assert.equal(await page.isVisible('#welcome-back'), true);
+  await page.waitForSelector('#welcome-back:not([hidden])');
   assert.equal(await page.isVisible('#new-here'), false);
   await page.click('#btn-welcome-unlock');
   await same();
@@ -1866,4 +1942,109 @@ test('one key, a different voter code in each community (not linkable); the main
   assert.notEqual(main, ward, 'the same voter code in two communities');
   assert.equal(await codeAt(appUrl), main); // the main community's code is unchanged
   delete appOptsRef.communities;
+});
+
+test('back from a sign-in provider with a passkey: Face ID is asked for at once, no extra tap', async () => {
+  await cdpMain.send('WebAuthn.clearCredentials', { authenticatorId: authIdMain });
+  await page.click('#btn-signout').catch(() => {});
+  await page.evaluate(() => localStorage.clear());
+  await page.reload();
+  await page.click('#btn-join-email');
+  await page.click('#btn-join-here');
+  await page.waitForSelector('#screen-home:not([hidden])');
+  idpRef.setUser({ sub: 'passkey-returner', email: 'returner@gmail.com', email_verified: true });
+  await page.waitForSelector('#join-online button[data-join="testlogin"]');
+  await page.click('#join-online button[data-join="testlogin"]');
+  // Straight back in: the passkey is asked for on return, and the result is shown.
+  await page.waitForFunction(() => /You joined as a basic member with Test Login/.test(document.querySelector('#home-notice')?.textContent || ''), null, { timeout: 60_000 });
+  assert.equal(await page.isVisible('#screen-home'), true);
+  await page.waitForFunction(() => /^Basic/.test(document.querySelector('#membership .big')?.textContent || ''), null, { timeout: 60_000 });
+});
+
+test('signed in, links to other pages open in a new tab, so the app stays unlocked', async () => {
+  await page.waitForSelector('#screen-home:not([hidden])');
+  const [tab] = await Promise.all([page.context().waitForEvent('page'), page.click('footer a[href="dashboard.html"]')]);
+  await tab.waitForLoadState();
+  assert.match(tab.url(), /dashboard\.html/);
+  assert.equal(await page.isVisible('#screen-home'), true); // still signed in here
+  await tab.close();
+});
+
+test('own device: Face ID is asked for on opening, and "keep me signed in" skips it for 30 days', async () => {
+  appConfig.autoUnlock = true;
+  appConfig.keepSignedIn = true; // off by default: a community turns it on
+  await page.bringToFront(); // the last test opened another tab
+  try {
+    await page.click('#btn-signout').catch(() => {});
+    await page.evaluate(() => sessionStorage.clear());
+    await page.reload();
+    await page.waitForSelector('#screen-home:not([hidden])', { timeout: 30_000 }); // the passkey was asked for straight away
+    await page.waitForSelector('#btn-keep', { timeout: 15_000 }).catch(async (e) => {
+      const why = await page.evaluate(() => ({ row: document.getElementById('keep-row').hidden, method: document.getElementById('signin-method').textContent, url: location.href }));
+      throw new Error(`keep button not shown: ${JSON.stringify(why)}; ${e.message.split('\n')[0]}`);
+    });
+    page.once('dialog', (d) => d.accept()); // "Is this your own device?"
+    await page.click('#btn-keep');
+    await page.waitForSelector('#keep-note >> text=Signed in on this device until');
+    appConfig.autoUnlock = false;
+    await page.reload();
+    await page.waitForSelector('#screen-home:not([hidden])', { timeout: 30_000 }); // straight in, no passkey
+    assert.match(await page.textContent('#btn-keep'), /Stop keeping me signed in/);
+    // The community turns the option off: the kept sign-in ends on the next visit.
+    appConfig.keepSignedIn = false;
+    await page.reload();
+    await page.waitForSelector('#screen-signin:not([hidden])');
+    assert.equal(await page.isVisible('#screen-home'), false);
+    appConfig.keepSignedIn = true;
+    // And "Sign out" ends it too.
+    await page.reload(); // pick up the setting again
+    await page.click('#btn-welcome-unlock');
+    await page.waitForSelector('#screen-home:not([hidden])');
+    page.once('dialog', (d) => d.accept());
+    await page.click('#btn-keep');
+    await page.waitForSelector('#keep-note >> text=Signed in on this device until');
+    await page.click('#btn-signout');
+    await page.reload();
+    await page.waitForSelector('#screen-signin:not([hidden])');
+    assert.equal(await page.isVisible('#screen-home'), false);
+  } finally {
+    appConfig.autoUnlock = false;
+    delete appConfig.keepSignedIn;
+  }
+});
+
+test('public computer link (&shared=1): only shared sign-in, nothing kept, no "keep me signed in"', async () => {
+  appConfig.keepSignedIn = true; // even where the community allows it
+  await page.click('#btn-signout').catch(() => {});
+  await page.goto(`${appUrl}?shared=1`);
+  await page.waitForSelector('#shared-note:not([hidden])');
+  assert.equal(await page.isVisible('#welcome-back'), false);
+  assert.equal(await page.isVisible('#new-here'), false);
+  assert.equal(await page.isVisible('#passkey-buttons'), false);
+  assert.equal(await page.evaluate(() => document.getElementById('public-option').open), true);
+  await page.click('#btn-public-code');
+  await page.waitForSelector('#screen-home:not([hidden])');
+  assert.equal(await page.isVisible('#keep-row'), false);
+  delete appConfig.keepSignedIn;
+  await page.click('#btn-signout');
+  await page.goto(appUrl);
+});
+
+test('install tip: an iPhone is told how to add Promissa to its home screen, once', async () => {
+  const phone = await browser.newContext({ viewport: { width: 390, height: 844 }, userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1' });
+  try {
+    const p = await phone.newPage();
+    await p.goto(appUrl);
+    await p.click('#device-option summary');
+    await p.click('#btn-device');
+    await p.waitForSelector('#install-tip:not([hidden]) >> text=Add to Home Screen');
+    await p.click('#btn-install-dismiss');
+    assert.equal(await p.isVisible('#install-tip'), false);
+    await p.reload();
+    await p.click('#btn-welcome-unlock');
+    await p.waitForSelector('#screen-home:not([hidden])');
+    assert.equal(await p.isVisible('#install-tip'), false); // not shown again
+  } finally {
+    await phone.close();
+  }
 });

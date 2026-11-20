@@ -195,6 +195,7 @@ function communityConfig(spec, addresses, startBlock, base = {}, services = {}) 
     walletConnectProjectId: base.walletConnectProjectId || '',
     ...(base.analyticsUrl ? { analyticsUrl: base.analyticsUrl } : {}),
     ...(spec.languages ? { languages: spec.languages } : {}),
+    ...(spec.keepSignedIn === true ? { keepSignedIn: true } : {}),
   };
 }
 

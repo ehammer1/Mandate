@@ -181,7 +181,7 @@ export function wireFeedback(ctx) {
       const pct = Math.min(100, Math.round((Number(p.signatures) / Math.max(1, Number(p.needed))) * 100));
       const opened = p.pollId > 0n;
       cards.push(`<article class="card stack" id="petition-${id}">
-        <p class="eyebrow">${sortBy === 'top' && !opened ? `#${rank + 1} most requested · ` : ''}Petition ${id} · ${esc(PETITION_KINDS[Number(p.action)] || 'A vote')} · started ${countdown(p.createdAt)} · signed by ${esc(TIER_WHO[Number(p.tier)].toLowerCase())}s</p>
+        <p class="eyebrow">${sortBy === 'top' && !opened ? `<span>#${rank + 1} most requested</span> · ` : ''}<span>Petition ${id}</span> · <span>${esc(PETITION_KINDS[Number(p.action)] || 'A vote')}</span> · <span>started</span> ${countdown(p.createdAt)} · <span>signed by ${esc(TIER_WHO[Number(p.tier)].toLowerCase())}s</span></p>
         <h3>${esc(doc.title)} ${categoryChip(categoryOf(doc), esc)}</h3>${doc.body ? `<p>${esc(doc.body)}</p>` : ''}${attachmentsHtml(state.config, doc, esc)}
         ${itemTools({ anchor: `petition-${id}`, idText: `Petition ${id} (${state.config.feedbackAddress})`, ref: p.ref, explorer: state.config.explorer, address: state.config.feedbackAddress })}
         <p><strong>${p.signatures} of ${p.needed}</strong> signatures</p>
