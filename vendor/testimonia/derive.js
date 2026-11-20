@@ -13,7 +13,7 @@ const crypto = require('crypto');
 const { canonicalJSON, keyIdOf, verifySig } = require('./capture');
 
 const FORMAT = 'attest-derive/1';
-const OPS = ['blur', 'box', 'pixelate', 'crop', 'mute', 'trim'];
+const OPS = ['blur', 'box', 'pixelate', 'crop', 'mute', 'trim', 'scale'];
 const PICTURE = ['blur', 'box', 'pixelate', 'crop'];
 const REASONS = ['face', 'license-plate', 'personal-data', 'nudity', 'minor', 'voice', 'classified', 'other'];
 
@@ -22,6 +22,17 @@ const sha256hex = (b) => crypto.createHash('sha256').update(b).digest('hex');
 /** Returns null if an edit is well formed, else what's wrong. */
 function editProblem(e) {
   if (!e || !OPS.includes(e.op)) return `unknown edit ${JSON.stringify(e?.op)}`;
+  // scale: the whole copy made smaller, { width, height } in pixels, and for a photo the JPEG
+  // `quality` (0 to 1), for a video the average `bitrate` (bits per second) it was saved at,
+  // if known. No region and no time.
+  if (e.op === 'scale') {
+    const dim = (v) => Number.isInteger(v) && v >= 16 && v <= 20000;
+    if (!dim(e.width) || !dim(e.height)) return 'a scale edit needs the new { width, height } in pixels';
+    if (e.quality !== undefined && !(typeof e.quality === 'number' && e.quality > 0 && e.quality <= 1)) return 'a scale edit’s quality is between 0 and 1';
+    if (e.bitrate !== undefined && !(Number.isInteger(e.bitrate) && e.bitrate >= 50_000 && e.bitrate <= 200_000_000)) return 'a scale edit’s bitrate is in bits per second';
+    if (e.region !== undefined || e.time !== undefined) return 'a scale edit applies to the whole copy: no region or time';
+    return null;
+  }
   if (e.reason !== undefined && !REASONS.includes(e.reason)) return `unknown reason ${JSON.stringify(e.reason)}`;
   const t = e.time;
   const needsTime = !PICTURE.includes(e.op);
@@ -41,6 +52,7 @@ function editsProblem(edits) {
     if (p) return p;
   }
   if (edits.filter((e) => e.op === 'crop').length > 1) return 'a copy can be cropped only once';
+  if (edits.filter((e) => e.op === 'scale').length > 1) return 'a copy can be resized only once';
   return null;
 }
 
@@ -69,7 +81,9 @@ function signDerive({ signer, original, output, edits, tools = [], reviewedBy = 
     ...(notBefore ? { notBefore } : {}),
     signer: { keyId: keyIdOf(signer.publicKeyDer), publicKey: signer.publicKeyDer.toString('base64') },
   };
-  return { ...r, sig: signer.sign(message(r)) };
+  // A phone or software key signs at once; an HSM (src/keys.js recordSigner) returns a promise.
+  const sig = signer.sign(message(r));
+  return typeof sig?.then === 'function' ? sig.then((v) => ({ ...r, sig: v })) : { ...r, sig };
 }
 
 /**
@@ -92,9 +106,10 @@ function verifyDerive(r, { file, original } = {}) {
 /** Plain-words summary, e.g. "3 faces blurred, 1 voice muted · reviewed by Jane Doe". */
 function summarize(r) {
   const counts = new Map();
-  for (const e of r.edits) {
+  const scale = r.edits.find((e) => e.op === 'scale');
+  for (const e of r.edits.filter((x) => x.op !== 'scale')) {
     const verb = { blur: 'blurred', box: 'covered', pixelate: 'pixelated', crop: 'cropped', mute: 'muted', trim: 'cut' }[e.op];
-    const what = e.op === 'trim' ? 'section' : e.op === 'crop' ? 'frame' : e.op === 'mute' && !e.reason ? 'sound' : (e.reason || 'area').replace('-', ' ');
+    const what = e.op === 'trim' ? 'section' : e.op === 'crop' ? 'frame' : e.op === 'mute' && (!e.reason || e.reason === 'other') ? 'sound' : (e.reason && e.reason !== 'other' ? e.reason : 'area').replace('-', ' ');
     const k = `${what}|${verb}`;
     counts.set(k, (counts.get(k) || 0) + 1);
   }
@@ -102,6 +117,7 @@ function summarize(r) {
     const [what, verb] = k.split('|');
     return `${n} ${what}${n > 1 ? 's' : ''} ${verb}`;
   });
+  if (scale) parts.push(`resized to ${scale.width}×${scale.height}${scale.quality ? ` at quality ${Math.round(scale.quality * 100)}` : ''}${scale.bitrate ? ` at ${Math.round(scale.bitrate / 100_000) / 10} Mbps` : ''}`);
   return `${parts.join(', ')} · ${r.reviewedBy ? `reviewed by ${r.reviewedBy}` : 'not reviewed by a person'}`;
 }
 

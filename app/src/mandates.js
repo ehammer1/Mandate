@@ -16,6 +16,7 @@ import { readDoc, postDoc } from './notices.js';
 import { renderExplainer } from './explain.js';
 import { countdown } from './time.js';
 import { attachPicker, attachmentsHtml, wireAttachments, uploadService } from './attach.js';
+import { clearPendingEvidence, fillEvidence, pendingEvidence } from './from-testimonia.js';
 import { itemTools } from './copy.js';
 import { renderProgress } from './progress.js';
 
@@ -109,6 +110,7 @@ export function wireMandates(ctx) {
         ${st === 3 || st === 4 ? `<div class="rating-box" data-id="${id}"></div>` : ''}<div class="explain-box" data-id="${id}"></div><div class="thread-box" data-id="${id}"></div></article>`);
     }
     list.innerHTML = cards.join('') || '<p class="muted">No mandates yet. A mandate is created when a binding poll passes.</p>';
+    fillEvidence(list); // evidence handed over from Testimonia, if any
     for (const b of list.querySelectorAll('button[data-act]')) b.onclick = () => act(b, Number(b.dataset.id), b.dataset.act);
     for (const el of list.querySelectorAll('[data-attach]')) pickers[el.dataset.attach] = attachPicker(el, { state, esc });
     for (const box of list.querySelectorAll('.progress-box')) {
@@ -145,6 +147,7 @@ export function wireMandates(ctx) {
         const files = pickers[`evidence-${id}`]?.list() || [];
         const ref = await postDoc(state.config, signer, { title: `Evidence for mandate ${id}`, body: text, ...(files.length ? { attachments: files } : {}) });
         ok = await ctx.sendTx(el, 'Submit for checking', () => r.submitEvidence(id, ref));
+        if (ok && pendingEvidence() && text.includes(pendingEvidence().trim())) clearPendingEvidence();
       } else if (kind === 'approve' || kind === 'reject') {
         const text = $(`reason-${id}`).value.trim();
         let ref = '';

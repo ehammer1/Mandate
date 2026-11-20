@@ -197,9 +197,39 @@ function checkExtraSigs(extras, message, sigs = []) {
 function verifySig(spkiDer, message, sigB64) {
   try {
     const key = crypto.createPublicKey({ key: spkiDer, format: 'der', type: 'spki' });
+    if (sigB64 && typeof sigB64 === 'object') return verifyPasskeySig(key, message, sigB64);
     return crypto.verify('sha256', Buffer.from(message, 'utf8'), { key, dsaEncoding: 'der' }, Buffer.from(sigB64, 'base64'));
   } catch {
     return false;
+  }
+}
+
+/**
+ * A passkey signature (FORMAT.md section 10): what a browser's WebAuthn returns when asked
+ * to sign the SHA-256 of the message as its challenge. Valid if the challenge is exactly
+ * this message's hash, a person was present (user-present flag), and the key signed
+ * authenticatorData || SHA-256(clientDataJSON).
+ */
+function verifyPasskeySig(key, message, sig) {
+  if (sig.type !== 'webauthn') return false;
+  const authData = Buffer.from(sig.authenticatorData, 'base64');
+  const clientDataJSON = Buffer.from(sig.clientDataJSON, 'base64');
+  const client = JSON.parse(clientDataJSON.toString('utf8'));
+  const want = crypto.createHash('sha256').update(Buffer.from(message, 'utf8')).digest('base64url');
+  if (client.type !== 'webauthn.get' || client.challenge !== want) return false;
+  if (authData.length < 37 || !(authData[32] & 0x01)) return false; // user present
+  const signed = Buffer.concat([authData, crypto.createHash('sha256').update(clientDataJSON).digest()]);
+  return crypto.verify('sha256', signed, { key, dsaEncoding: 'der' }, Buffer.from(sig.signature, 'base64'));
+}
+
+/** Facts about a passkey signature for display: { origin, userVerified } (unchecked fields). */
+function passkeyInfo(sig) {
+  if (!sig || typeof sig !== 'object' || sig.type !== 'webauthn') return null;
+  try {
+    const client = JSON.parse(Buffer.from(sig.clientDataJSON, 'base64').toString('utf8'));
+    return { origin: client.origin, userVerified: !!(Buffer.from(sig.authenticatorData, 'base64')[32] & 0x04) };
+  } catch {
+    return null;
   }
 }
 
@@ -546,6 +576,7 @@ function describe(where) {
 }
 
 module.exports = {
+  passkeyInfo,
   TAG,
   MANIFEST_UUID,
   canonicalJSON,

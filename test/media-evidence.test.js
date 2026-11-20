@@ -137,3 +137,37 @@ test('evidence without media, or with a broken block, is explained', async () =>
   assert.throws(() => parseMediaRefs('```testimonia\n{not json\n```'), /not valid JSON/);
   assert.equal(parseMediaRefs('```testimonia\n{"file":"bafy"}\n```')[0].file, 'bafy');
 });
+
+/** What navigator.credentials.get() returns when the Testimonia web app signs a record with a passkey. */
+function passkeySign(privateKey, message) {
+  const challenge = crypto.createHash('sha256').update(message).digest('base64url');
+  const clientDataJSON = Buffer.from(JSON.stringify({ type: 'webauthn.get', challenge, origin: 'https://ehammer1.github.io', crossOrigin: false }));
+  const authenticatorData = Buffer.concat([crypto.createHash('sha256').update('ehammer1.github.io').digest(), Buffer.from([0x05]), Buffer.from([0, 0, 0, 1])]);
+  const signature = crypto.sign('sha256', Buffer.concat([authenticatorData, crypto.createHash('sha256').update(clientDataJSON).digest()]), privateKey);
+  return { type: 'webauthn', authenticatorData: authenticatorData.toString('base64'), clientDataJSON: clientDataJSON.toString('base64'), signature: signature.toString('base64') };
+}
+
+test('a photo sealed with a passkey in the Testimonia web app (sent from it as evidence) checks, and a forged one doesn’t', async () => {
+  const c = fakeChain();
+  const store = ipfs();
+  const { privateKey, publicKey } = crypto.generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
+  const spki = publicKey.export({ type: 'spki', format: 'der' });
+  const jpeg = crypto.randomBytes(600);
+  const draft = {
+    format: 'attest-file/1',
+    file: { sha256: crypto.createHash('sha256').update(jpeg).digest('hex'), bytes: jpeg.length, name: 'Testimonia 2027-05-20.jpg', mediaType: 'image/jpeg' },
+    kind: 'image', claim: null, notBefore: c.notBefore(150), timeMs: T0 + 301_000,
+    capture: { app: 'testimonia-web', mode: 'web-photo', startedMs: T0 + 300_000, endedMs: T0 + 300_000 },
+    signer: { keyId: capture.keyIdOf(spki), publicKey: spki.toString('base64') },
+  };
+  const message = `attest-file/1|${capture.canonicalJSON({ file: draft.file, kind: draft.kind, claim: draft.claim, notBefore: draft.notBefore, timeMs: draft.timeMs, keyId: draft.signer.keyId, capture: draft.capture })}`;
+  const record = { ...draft, sig: passkeySign(privateKey, message) };
+  assert.equal(register.verifyRegistration(record, { bytes: jpeg }).ok, true, 'Promissa’s copy of the checker reads passkey signatures');
+  const ref = { file: store.put(jpeg), record: store.put(JSON.stringify(record)) };
+  const r = await checkMedia(spec({ proof: 'clock' }), evidence([ref]), { fetchBytes: store.fetchBytes, chain: c.chain });
+  assert.deepEqual(r.failures, []);
+  assert.equal(r.items[0].ok, true, r.items[0].problems.join('; '));
+  const forged = { ...record, capture: { ...record.capture, startedMs: T0 } };
+  const bad = await checkMedia(spec({ proof: 'clock' }), evidence([{ file: ref.file, record: store.put(JSON.stringify(forged)) }]), { fetchBytes: store.fetchBytes, chain: c.chain });
+  assert.equal(bad.failures.length, 1);
+});

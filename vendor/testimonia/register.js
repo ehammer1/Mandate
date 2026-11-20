@@ -32,7 +32,9 @@ function signRegistration({ signer, bytes, name = '', mediaType = '', kind = 'ot
     ...(capture ? { capture } : {}),
     signer: { keyId: keyIdOf(signer.publicKeyDer), publicKey: signer.publicKeyDer.toString('base64') },
   };
-  return { ...r, sig: signer.sign(message(r)) };
+  // A phone or software key signs at once; an HSM (src/keys.js recordSigner) returns a promise.
+  const sig = signer.sign(message(r));
+  return typeof sig?.then === 'function' ? sig.then((v) => ({ ...r, sig: v })) : { ...r, sig };
 }
 
 /** Check a registration, and that `bytes` (if given) is the registered file. */

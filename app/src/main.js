@@ -7,6 +7,7 @@
  * who voted.
  */
 
+import { takeEvidenceLink } from './from-testimonia.js';
 import { startI18n, langSwitchHtml, wireLangSwitch } from './i18n.js';
 import { startCounter } from './analytics.js';
 import { loadConfig as loadCommunityConfig, withOrg, keepOrgInLinks, orgKey, ORG } from './community.js';
@@ -70,6 +71,9 @@ const GROUP_LABEL = ['Basic members', 'Verified residents', 'Residents with full
 
 const $ = (id) => document.getElementById(id);
 const state = { config: null, provider: null, vote: null, registry: null, identity: null, keys: null, wallet: null, external: null, roles: null };
+
+// Evidence from Testimonia (#evidence=…): kept until the mandate it's for is opened.
+if (takeEvidenceLink(location.hash)) state.notice = { kind: 'ok', text: 'Evidence from Testimonia is ready. Open Mandates and the mandate it’s for: the evidence box is filled in for you to check and submit.' };
 
 // ---------------------------------------------------------------- utilities
 
@@ -191,7 +195,10 @@ async function openFromLink(hash) {
     await new Promise((r) => setTimeout(r, 250));
   }
 }
-window.addEventListener('hashchange', () => openFromLink(location.hash).catch(() => {}));
+window.addEventListener('hashchange', () => {
+  if (takeEvidenceLink(location.hash)) return status($('home-notice'), 'Evidence from Testimonia is ready. Open Mandates and the mandate it’s for: the evidence box is filled in for you.', 'ok');
+  openFromLink(location.hash).catch(() => {});
+});
 document.addEventListener('countdown-zero', (e) => {
   todoCache.at = 0; // what is waiting on you may have changed
   if (e.detail === 'polls' && !$('screen-home').hidden) refreshPolls().catch(() => {});
