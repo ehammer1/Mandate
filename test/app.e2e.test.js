@@ -92,6 +92,7 @@ before(async () => {
       charterAddress: await c.charter.getAddress(),
       budgetAddress: await c.budget.getAddress(),
       feedbackAddress: await c.feedback.getAddress(),
+      assembliesAddress: await c.assemblies.getAddress(),
       escrowFactoryAddress: await c.escrows.getAddress(),
       officialsAddress: await c.officials.getAddress(),
       bodiesAddress: await c.bodies.getAddress(),
@@ -1183,6 +1184,12 @@ test('residents speak between votes: comments, a petition that opens its own pol
   await page.waitForSelector('#poll-1 .thread-box >> text=Please publish the spreadsheet in an open format too.', { timeout: 120_000 });
   assert.match(await page.textContent('#poll-1 .thread-box'), /Comments \(1\)/);
   assert.match(await page.textContent('#poll-1 .thread-box .comment'), /ID-checked resident/);
+  // Mark it helpful, saying which way you lean: counted anonymously, by lean.
+  await page.selectOption('#poll-1 .thread-box [data-lean]', '1');
+  await page.click('#poll-1 .thread-box [data-mark="0"][data-helpful="1"]');
+  await page.waitForSelector('#poll-1 .thread-box >> text=1 of 1 found this helpful', { timeout: 120_000 });
+  const [marks] = await c.feedback.marks(require('../client/feedback').topicOf('poll', 1), 0, 1);
+  assert.deepEqual(marks.map(Number), [0, 0, 0, 1, 0, 0]);
 
   // A petition: once it has enough signatures, its poll opens by itself.
   await page.click('#nav-petitions');
@@ -1205,6 +1212,31 @@ test('residents speak between votes: comments, a petition that opens its own pol
   await page.click('#mandate-1 .rating-box button[data-score="4"]');
   await page.waitForSelector('#mandate-1 .rating-box >> text=4.0 of 5 from 1 resident', { timeout: 120_000 });
   await shot('16-feedback');
+});
+
+test("citizens' assembly: a drawn resident sees it on their phone and gets a seat code the organizer can check", async () => {
+  const { drawOrder, checkAcceptCode } = require('../client/assembly');
+  const text = JSON.stringify({ title: 'How should we make Main Street safer to cross?' });
+  await (await c.notices.post(text)).wait();
+  const size = Number(await c.identity.leafCount(0));
+  await (await c.assemblies.announce(0, size, 30, `nb:${ethers.keccak256(ethers.toUtf8Bytes(text))}`)).wait(); // as many seats as members: everyone is drawn
+  const id = await c.assemblies.assemblyCount();
+  await page.click('#nav-assemblies');
+  await page.waitForSelector('#assembly-list >> text=Main Street safer', { timeout: 60_000 });
+  assert.match(await page.textContent('#assembly-list'), /The draw happens in about/);
+  for (let i = 0; i < 31; i++) await provider.send('evm_mine', []);
+  await (await c.assemblies.draw(id)).wait();
+  await page.click('#nav-assemblies');
+  await page.waitForSelector('#assembly-list >> text=You were drawn', { timeout: 120_000 });
+  await page.click('#assembly-list [data-seat]');
+  const code = (await page.textContent('#assembly-list [data-seat-code] .addr')).trim();
+  const order = await drawOrder({ assemblies: c.assemblies, provider, id });
+  const net = await provider.getNetwork();
+  const r = checkAcceptCode(code, { chainId: net.chainId, address: await c.assemblies.getAddress(), order });
+  assert.equal(r.ok, true);
+  await (await c.assemblies.acceptSeat(id, r.position)).wait();
+  await page.click('#nav-assemblies');
+  await page.waitForSelector('#assembly-list >> text=You have a seat on this assembly', { timeout: 60_000 });
 });
 
 test('most requested petitions are ranked, and times count down live', async () => {

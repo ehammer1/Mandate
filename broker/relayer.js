@@ -38,10 +38,11 @@ const PROOF = 'tuple(uint256 merkleTreeDepth, uint256 merkleTreeRoot, uint256 nu
 const FEEDBACK_ABI = [
   `function comment(bytes32 topic, uint8 tier, string ref, ${PROOF} proof)`,
   `function rate(bytes32 topic, uint8 tier, uint8 score, ${PROOF} proof)`,
+  `function mark(bytes32 topic, uint256 index, uint8 lean, bool helpful, uint8 tier, ${PROOF} proof)`,
   `function sign(uint256 id, ${PROOF} proof)`,
   'function createPetition(uint8 tier, uint8 action, bytes actionData, string ref) returns (uint256)',
   'error BadRef()', 'error BadTier()', 'error BadScore()', 'error WrongScope()', 'error WrongMessage()', 'error NullifierUsed()',
-  'error InvalidProof()', 'error UnknownPetition()', 'error AlreadyOpened()', 'error BindingNeedsIdChecked()',
+  'error InvalidProof()', 'error UnknownPetition()', 'error AlreadyOpened()', 'error BindingNeedsIdChecked()', 'error BadMark()',
 ];
 const BUDGET_ABI = [
   'function allocate(uint256 id, tuple(uint256 merkleTreeDepth, uint256 merkleTreeRoot, uint256 nullifier, uint256 scope, uint256[8] points, uint32[] votes) a)',
@@ -250,8 +251,8 @@ function createRelayer({ provider, signer, voteAddress, budgetAddress, feedbackA
   async function handleFeedback(req, res) {
     if (!feedback) return send(res, 404, { error: 'no feedback contract on this relayer' });
     const body = await readJson(req);
-    const method = { comment: 'comment', rate: 'rate', sign: 'sign', petition: 'createPetition' }[body?.method];
-    if (!method || !Array.isArray(body.args) || body.args.length > 4) return send(res, 400, { error: 'expected { method, args[], proof }' });
+    const method = { comment: 'comment', rate: 'rate', mark: 'mark', sign: 'sign', petition: 'createPetition' }[body?.method];
+    if (!method || !Array.isArray(body.args) || body.args.length > 5) return send(res, 400, { error: 'expected { method, args[], proof }' });
     let args;
     try {
       const p = body.proof;

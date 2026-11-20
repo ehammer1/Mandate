@@ -32,7 +32,8 @@ council governance with public waiting periods.
 | Government bodies, roll-call votes, sealed minutes | `Bodies.sol`, `BodyRecords.sol`, `Officials.sol` | 768 |
 | Decision markets (play credits) | `DecisionMarket.sol`, `PlayCredits.sol` | 306 |
 | Public text store | `NoticeBoard.sol` | 24 |
-| **Total Solidity** | 18 contracts, Solidity ^0.8.23 | **about 3,500** |
+| Citizens' assemblies: random draws from the voter list, seat acceptance, recommendations | `Assemblies.sol` | about 110 |
+| **Total Solidity** | 19 contracts, Solidity ^0.8.23 | **about 3,700** |
 
 Off-chain, also in scope:
 
@@ -93,7 +94,7 @@ Off-chain, also in scope:
 
 ```
 npm ci --ignore-scripts --force    # ganache bundles a macOS-only package
-npm test                           # compiles, builds the app, runs 168 JS tests + the Python tests
+npm test                           # compiles, builds the app, runs 174 JS tests + the Python tests
 ```
 
 - Contracts compile with `scripts/compile.js` (solc via npm); tests run on ganache (`test/*.test.js`),

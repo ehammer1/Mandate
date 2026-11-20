@@ -81,6 +81,7 @@ contract Feedback {
 
     event Commented(bytes32 indexed topic, uint8 tier, string ref, uint256 nullifier);
     event Rated(bytes32 indexed topic, uint8 tier, uint8 score);
+    event Marked(bytes32 indexed topic, uint256 indexed index, uint8 lean, bool helpful);
     event PetitionCreated(uint256 indexed id, uint8 action, uint8 tier, uint32 needed, string ref);
     event PetitionSigned(uint256 indexed id, uint32 signatures, uint32 needed);
     event PetitionSucceeded(uint256 indexed id, uint256 indexed pollId);
@@ -89,6 +90,7 @@ contract Feedback {
     error BadRef();
     error BadTier();
     error BadScore();
+    error BadMark();
     error WrongScope();
     error WrongMessage();
     error NullifierUsed();
@@ -124,6 +126,34 @@ contract Feedback {
         uint256 end = start + count > all.length ? all.length : start + count;
         page = new Comment[](end - start);
         for (uint256 i = start; i < end; i++) page[i - start] = all[i];
+    }
+
+    // ------------------------------------------------------------- discussion
+
+    /// Leanings a resident states when marking a comment: 0 undecided, 1 leaning for (Yes),
+    /// 2 leaning against (No). Arguments found helpful by people leaning both ways rise.
+    uint8 public constant LEANS = 3;
+    // topic => comment index => counts by (lean * 2 + helpful)
+    mapping(bytes32 => mapping(uint256 => uint32[6])) private _marks;
+
+    /// @notice Mark a comment helpful or not, saying which way you lean; once per person per
+    ///         comment, anonymous like everything else here.
+    function mark(bytes32 topic, uint256 index, uint8 lean, bool helpful, uint8 tier, ISemaphore.SemaphoreProof calldata proof) external {
+        if (index >= _comments[topic].length || lean >= LEANS) revert BadMark();
+        uint8 m = lean * 2 + (helpful ? 1 : 0);
+        _prove(tier, markScope(topic, index), m, proof);
+        _marks[topic][index][m] += 1;
+        emit Marked(topic, index, lean, helpful);
+    }
+
+    /// @notice Marks for a page of a topic's comments: per comment, counts indexed by
+    ///         lean * 2 + (helpful ? 1 : 0).
+    function marks(bytes32 topic, uint256 start, uint256 count) external view returns (uint32[6][] memory page) {
+        uint256 n = _comments[topic].length;
+        if (start >= n) return new uint32[6][](0);
+        uint256 end = start + count > n ? n : start + count;
+        page = new uint32[6][](end - start);
+        for (uint256 i = start; i < end; i++) page[i - start] = _marks[topic][i];
     }
 
     // ---------------------------------------------------------------- ratings
@@ -195,6 +225,10 @@ contract Feedback {
 
     function rateScope(bytes32 topic) public view returns (uint256) {
         return uint256(keccak256(abi.encode(block.chainid, address(this), "rate", topic))) >> 8;
+    }
+
+    function markScope(bytes32 topic, uint256 index) public view returns (uint256) {
+        return uint256(keccak256(abi.encode(block.chainid, address(this), "mark", topic, index))) >> 8;
     }
 
     function petitionScope(uint256 id) public view returns (uint256) {

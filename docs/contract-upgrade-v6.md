@@ -79,6 +79,29 @@ This is how v5 replaced v4 (council changes #10 to #16 on the main community).
   offers no window, 6 hours or 24 hours, and the poll card explains it. Tests:
   `test/grace.test.js`.
 
+### 4b. Helping everyone take part (built, November 2026)
+
+- **AI briefings:** the published explanation of each poll and mandate adds "what it means for
+  you" and a Spanish version written with it (quotes stay word for word); the app shows the
+  Spanish one to Spanish readers and has "Report a mistake in this summary", which opens the
+  public comments.
+- **Discussion ranked across sides:** `Feedback.mark(topic, index, lean, helpful, tier, proof)`:
+  once per person per comment, anonymous, with the marker's stated lean (undecided, for,
+  against) sealed in the proof. `marks()` returns the counts. The app orders comments by the
+  lower of the two sides' helpful rates (a cautious estimate, `bridgeScore` in
+  `client/feedback.js`) and labels those both sides found helpful. The lean is self-declared:
+  a group could claim the other side's lean, which the counts can't detect.
+- **Citizens' assemblies:** new contract `Assemblies.sol`. An organizer (`ORGANIZER_ROLE`,
+  granted by the council) announces a draw: list, seats, and a seed block at least 30 blocks
+  ahead. Anyone runs `draw()` once that block exists; the seed is its hash. The order is
+  `keccak256(seed, k) mod size`, skipping repeats and members removed before the
+  announcement; `client/assembly.js` redoes it. A drawn resident's app shows "You were drawn"
+  and a seat code signed with their voter key; the organizer's app checks it and calls
+  `acceptSeat`. `report()` publishes the recommendation. Trust: Base's sequencer could in
+  principle bias a block hash; a public randomness beacon could replace it later. Clerks who
+  enrolled someone may recognise their voter code.
+- Tests: `test/participation.test.js`, the explainer and browser tests.
+
 ### 5. Receipt-free ballots (larger, may move to v7)
 
 - **Why:** today a voter can prove their choice to a buyer (they can also change it later where

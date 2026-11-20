@@ -28,6 +28,7 @@ import { wireMandates } from './mandates.js';
 import { loadRules, describeRuleChange, RULE_ERRORS } from './rules.js';
 import { wireBudget } from './budget.js';
 import { wireFeedback } from './feedback.js';
+import { wireAssemblies } from './assemblies.js';
 import { renderExplainer } from './explain.js';
 import { informedHtml } from './informed.js';
 import { wireOfficials } from './officials.js';
@@ -1763,6 +1764,8 @@ function wireAdmin() {
       groups: [[cfg.voterGroupsAddress, 'GROUP_CREATOR_ROLE', 'create smaller voter lists']],
       budget: [[cfg.budgetAddress, 'PROPOSER_ROLE', 'open budget rounds']],
       registrar: [[cfg.officialsAddress, 'REGISTRAR_ROLE', 'register officials'], [cfg.bodiesAddress, 'REGISTRAR_ROLE', 'set up government bodies']],
+      assembly: [[cfg.assembliesAddress, 'ORGANIZER_ROLE', "organize citizens' assemblies"]],
+      carrier: [[cfg.voteAddress, 'CARRIER_ROLE', 'deliver ballots carried offline after a poll closes, within its delivery window']],
     };
     const roleChange = ([at, role, what]) => [new ethers.Contract(at, ROLE_ABI, state.provider), give ? 'grantRole' : 'revokeRole', [ethers.id(role), target], `${give ? 'Allow' : 'Stop'}: ${what}`];
     if (kind === 'all') {
@@ -1876,6 +1879,11 @@ async function boot() {
   state.council = wireCouncil({ state, $, status, esc, activeSigner, activeAddress });
   state.prevCouncil = wireCouncil({ state, $, status, esc, activeSigner, activeAddress }, { addressKey: 'previousCouncilAddress', prefix: 'prevcouncil', box: 'admin-prevcouncil' });
   state.clerk = wireClerk({ state, $, status, esc, show, activeSigner, activeAddress });
+  state.assemblies = wireAssemblies({ state, $, status, esc, show, activeSigner, activeAddress });
+  $('nav-assemblies').onclick = async () => {
+    show('screen-assemblies');
+    await state.assemblies.render();
+  };
   $('nav-polls').onclick = async () => {
     show('screen-home');
     await Promise.all([refreshStatus(), refreshPolls(), refreshAdminNav()]);
@@ -1888,6 +1896,7 @@ async function boot() {
     return;
   }
   state.assistant.refresh();
+  $('nav-assemblies').hidden = !state.config.assembliesAddress;
   renderOutbox().catch(() => {}); // ballots waiting on this phone
   if (navigator.onLine) sendOutbox().catch(() => {});
   if (keys.savedMethod() === 'passkey') $('btn-unlock').classList.add('primary');

@@ -29,6 +29,7 @@
         <button id="nav-mandates">Mandates</button>
         <button id="nav-budget">Budget</button>
         <button id="nav-petitions">Petitions</button>
+        <button id="nav-assemblies" hidden>Assemblies</button>
         <button id="nav-bodies">Government</button>
         <button id="nav-rules">Rules</button>
         <button id="nav-search">Search</button>
@@ -243,6 +244,30 @@
       <div class="row" role="group" aria-label="Order petitions"><span class="muted">Show:</span><button id="petition-sort-top" aria-pressed="true">Most signed</button><button id="petition-sort-new" aria-pressed="false">Newest</button></div>
       <label class="row">Topic <select id="petition-filter" style="width:auto"><option value="all">All topics</option><option value="general">General</option><option value="safety">Public safety</option><option value="roads">Roads and transport</option><option value="housing">Housing</option><option value="budget">Budget and taxes</option><option value="environment">Environment and parks</option><option value="health">Health</option><option value="education">Schools and education</option><option value="services">Water, power and services</option><option value="economy">Jobs and business</option><option value="rights">Rights and justice</option><option value="governance">How decisions are made</option></select></label>
       <div id="petition-list" class="stack"></div>
+    </section>
+
+    <!-- Citizens' assemblies -->
+    <section id="screen-assemblies" data-screen hidden>
+      <h1>Citizens' assemblies</h1>
+      <p>A small group of residents, drawn at random from the voter list like a jury, studies a question with experts and recommends what everyone then votes on. Nobody can be bought or pressured before the draw, because nobody knows who will be chosen. The draw uses a number nobody knew in advance, and anyone can redo it to check it.</p>
+      <details class="card" id="assembly-new" hidden><summary><strong>Announce a draw</strong></summary>
+        <div class="stack">
+          <label for="assembly-title">The question the assembly will study</label>
+          <input type="text" id="assembly-title" placeholder="e.g. How should we make Main Street safer to cross?" />
+          <label for="assembly-body">Details (optional): how often it meets, where, support offered (childcare, pay, interpreters)</label>
+          <textarea id="assembly-body" rows="3"></textarea>
+          <label for="assembly-tier">Draw from</label>
+          <select id="assembly-tier"><option value="2">Residents with full voting rights</option><option value="1">ID-checked residents</option><option value="0">All members</option></select>
+          <label for="assembly-seats">Seats</label>
+          <input type="text" id="assembly-seats" value="25" inputmode="numeric" style="width:100px" />
+          <label for="assembly-wait">Draw in (minutes from now)</label>
+          <input type="text" id="assembly-wait" value="10" inputmode="numeric" style="width:100px" />
+          <p class="note">The voter list is fixed when you announce. The draw then uses the code of a block made after that moment, which nobody can know or choose in advance. Five times as many people as seats are put in line, so declined seats pass to the next person.</p>
+          <button class="primary" id="btn-assembly">Announce the draw</button>
+          <p class="status" id="assembly-status" role="status"></p>
+        </div>
+      </details>
+      <div id="assembly-list" class="stack"></div>
     </section>
 
     <!-- Civic budget -->
@@ -662,6 +687,8 @@
           <option value="groups">Can create smaller voter lists (districts, wards)</option>
           <option value="budget">Can open budget rounds</option>
           <option value="registrar">Can register officials and set up government bodies</option>
+          <option value="assembly">Can organize citizens' assemblies (random draws)</option>
+          <option value="carrier">Can deliver offline ballots after a poll closes (approved carrier)</option>
           <option value="admin">Admin (council member, if there is a council)</option>
           <option value="all">Every role this account has (remove only)</option>
         </select>
