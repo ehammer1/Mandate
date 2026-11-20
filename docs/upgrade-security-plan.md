@@ -31,6 +31,8 @@ One bundled upgrade, so the auditor checks the final version:
 
 ## Phase 3: the independent security audit
 
+Audit package (scope, priorities, trust assumptions) and a quote request: [audit/](audit/README.md).
+
 - A recognized smart-contract and zero-knowledge auditor reviews the contracts, the ballot
   proofs, the sign-up service, the relay and the app's key handling.
 - **On their list:** ballot secrecy (including against future quantum computers), double voting,
