@@ -1,5 +1,35 @@
 [
  {
+  "tx": "0xff6d5d1162cf6167ef69af4835eb13a99871608c4c84e0eaa42aeb4af8e498c9",
+  "block": 61217542,
+  "time": 1795165377,
+  "contract": "council",
+  "event": "Queued",
+  "rule": "council-scheduled",
+  "severity": "high",
+  "title": "Council change #18 approved: it can run from 2026-11-21 09:02 UTC (add 0x0C5F…5777 to the council). Members can still cancel it until then.",
+  "facts": {
+   "proposal": "18",
+   "readyAt": 1795251777
+  },
+  "id": "council-scheduled:0xff6d5d1162cf6167ef69af4835eb13a99871608c4c84e0eaa42aeb4af8e498c9:1795165377"
+ },
+ {
+  "tx": "0x4e1579a918ea7409b696d4d415e3ef64cedd8151c1879421d1c19f5c668a9110",
+  "block": 61217496,
+  "time": 1795165368,
+  "contract": "council",
+  "event": "Queued",
+  "rule": "council-scheduled",
+  "severity": "high",
+  "title": "Council change #19 approved: it can run from 2026-11-21 09:02 UTC (remove 0xC782…f834 from the council). Members can still cancel it until then.",
+  "facts": {
+   "proposal": "19",
+   "readyAt": 1795251768
+  },
+  "id": "council-scheduled:0x4e1579a918ea7409b696d4d415e3ef64cedd8151c1879421d1c19f5c668a9110:1795165368"
+ },
+ {
   "tx": "0xcdd42b9803f52b0f54af8b3e120312ad40332f902c8e78d77aa31ebd0bb4eed0",
   "block": 61213828,
   "time": 1795164634,
