@@ -1078,7 +1078,7 @@ test('voter-roll lookup at the desk: found by name, birth date and address, enro
   assert.equal((await c.identity.members(maria.commitment)).active, true);
   page.once('dialog', (d) => d.accept());
   await page.click('#btn-clerk-submit');
-  await page.waitForFunction(() => /Done: enrolled/.test(document.querySelector('#clerk-result').textContent), null, { timeout: 120_000 });
+  await page.waitForFunction(() => /old voter code is replaced/.test(document.querySelector('#clerk-result').textContent), null, { timeout: 120_000 }); // one step on voter list v6
   assert.equal((await c.identity.members(maria.commitment)).active, false, 'the old code still votes');
   assert.equal((await c.identity.members(again.commitment)).tier, 2n);
   delete appConfig.clerkAnchor;

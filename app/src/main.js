@@ -129,11 +129,15 @@ async function loadConfig() {
   state.registry = new ethers.Contract(cfg.identityAddress, IDENTITY_ABI, state.provider);
   // Voting contracts v6: whether "keep me signed in" is offered is the community's own voted rule.
   // Older charters have no such rule: the config's setting stays. No signal: the config's too.
-  if (cfg.charterAddress) {
-    const charter = new ethers.Contract(cfg.charterAddress, ['function rule(bytes32) view returns (uint256)'], state.provider);
-    const v = await Promise.race([charter.rule(ethers.id('KEEP_SIGNED_IN')).catch(() => null), new Promise((r) => setTimeout(() => r(null), 4000))]);
-    if (v !== null) cfg.keepSignedIn = v === 1n;
-  }
+  // Read in the background; awaited only where "keep me signed in" is decided.
+  state.keepRule = !cfg.charterAddress
+    ? Promise.resolve()
+    : Promise.race([
+        new ethers.Contract(cfg.charterAddress, ['function rule(bytes32) view returns (uint256)'], state.provider).rule(ethers.id('KEEP_SIGNED_IN')).catch(() => null),
+        new Promise((r) => setTimeout(() => r(null), 4000)),
+      ]).then((v) => {
+        if (v !== null && v !== undefined) cfg.keepSignedIn = v === 1n;
+      });
 }
 
 // ------------------------------------------------------------------ sign in
@@ -1935,6 +1939,7 @@ async function boot() {
   } catch {
     /* ignore */
   }
+  await state.keepRule;
   const keepAllowed = state.config.keepSignedIn === true && !SHARED && !justSignedOut;
   if (!keepAllowed) await forget(state.config.communitySlug || '');
   const kept = keepAllowed ? await recall(state.config.communitySlug || '') : null;
