@@ -113,6 +113,9 @@ const KIND_WORDS = {
 };
 
 /** Matches for a query, best first. */
+/** Every record the search knows (for the assistant's tools): [{ kind, id, title, extra, status, hash, hay }]. */
+export const listRecords = (state) => buildIndex(state);
+
 export async function search(state, query) {
   const q = String(query || '').trim();
   if (!q) return { results: [], note: '' };

@@ -116,3 +116,33 @@ services:
         sync: false          # optional: urgent alerts to Slack or Discord
       - key: ANTHROPIC_API_KEY
         sync: false          # optional: plain-language daily reports
+
+  # The assistant (docs/assistant.md): an AI guide to Promissa with its own plan.
+  - type: web
+    name: mandate-assistant
+    runtime: node
+    plan: starter        # a persistent disk keeps plans and used codes
+    buildCommand: npm ci --omit=dev --ignore-scripts --force
+    startCommand: node services/assistant/server.js
+    healthCheckPath: /health
+    disk:
+      name: assistant-data
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - key: ALLOW_ORIGIN
+        value: https://ehammer1.github.io
+      - key: APP_URL
+        value: https://ehammer1.github.io/Mandate/
+      - key: DATA_FILE
+        value: /data/assistant.json
+      - key: TOKEN_SECRET
+        generateValue: true
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_PRICE_ID
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false

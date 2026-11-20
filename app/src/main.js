@@ -34,6 +34,7 @@ import { wireOfficials } from './officials.js';
 import { wireBodies } from './bodies.js';
 import { wireCopy, jumpTo, itemTools } from './copy.js';
 import { wireHelp } from './help.js';
+import { wireAssistant } from './assistant.js';
 import { search, resultsHtml, receiptResult } from './search.js';
 import { pollTallies, wireTallies, checkInCode, finalRule } from './tallies.js';
 import { receiptHtml, receiptCode } from './receipt.js';
@@ -227,6 +228,7 @@ async function signedIn(k, backupCode) {
 
 /** Open the item a shared link points to: #poll-3, #petition-2, #mandate-1, #council-4, #motion-5, #help-quorum... */
 async function openFromLink(hash) {
+  if (/^#assistant(-subscribed)?$/.test(hash || '')) return void state.assistant?.open();
   if (hash === '#dashboard-officials') return void window.open(withOrg('dashboard.html#h-officials'), '_blank');
   const m = /^#(poll|petition|mandate|council|prevcouncil|motion|body|help)-([\w-]+)$/.exec(hash || '');
   if (!m) return;
@@ -1832,6 +1834,8 @@ async function boot() {
   };
   startTicker(state.provider);
   state.help = wireHelp({ state, $, show });
+  state.assistant = wireAssistant({ state, $, esc, show, status, open: (h) => openFromLink(h) });
+  $('nav-assistant').onclick = () => state.assistant.open();
   state.tallies = wireTallies({ state, $, status, esc, activeSigner, activeAddress });
   state.voterGroups = wireVoterGroups({ state, $, status, esc, activeSigner, activeAddress });
   const runSearch = async (q) => {
@@ -1877,6 +1881,7 @@ async function boot() {
     status($('signin-status'), e.message, 'error');
     return;
   }
+  state.assistant.refresh();
   renderOutbox().catch(() => {}); // ballots waiting on this phone
   if (navigator.onLine) sendOutbox().catch(() => {});
   if (keys.savedMethod() === 'passkey') $('btn-unlock').classList.add('primary');

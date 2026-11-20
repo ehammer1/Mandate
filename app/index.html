@@ -33,6 +33,7 @@
         <button id="nav-rules">Rules</button>
         <button id="nav-search">Search</button>
         <button id="nav-help">Help</button>
+        <button id="nav-assistant" hidden>Assistant</button>
         <button id="nav-clerk" hidden>Clerk desk</button>
         <button id="nav-admin" hidden>Admin</button>
         <button id="btn-signout">Sign out</button>
@@ -270,6 +271,30 @@
       <input type="search" id="help-search" placeholder="e.g. quorum, petition, council" autocomplete="off" />
       <div id="help-list"></div>
       <p class="muted" id="help-empty" hidden>Nothing found. Try another word.</p>
+    </section>
+
+    <section id="screen-assistant" data-screen hidden>
+      <h1>Assistant</h1>
+      <div id="assistant-intro" class="card stack">
+        <p>An AI guide to Promissa. Ask how anything works, find and understand polls, petitions and mandates, or get help writing a petition, a comment or mandate evidence. It never tells you how to vote, and it can't vote, sign or send anything: it shows buttons, and you decide.</p>
+        <p><strong>What it sees:</strong> what you type, and when it needs them, the community's public records and this app's settings (whether you have a voter key, your roles, your language). <strong>Never</strong> your voter key, your backup code, or how you voted. Nobody can see votes, the assistant included.</p>
+        <p><strong>What's kept:</strong> nothing. The conversation lives in this page and ends when you close it. It signs in with its own key, not your voter key, so using it, or paying for it, can't be linked to your vote.</p>
+        <p class="note">Answers come from an AI model (Claude, by Anthropic) and can be wrong. Check the full text before you decide anything.</p>
+        <button id="assistant-turn-on">Turn on the assistant</button>
+      </div>
+      <div id="assistant-chat" class="stack" hidden>
+        <div class="row" id="assistant-plan"></div>
+        <div class="row" id="assistant-code-row" hidden><label for="assistant-code" class="sr-only">Prepaid code</label><input id="assistant-code" placeholder="PMA-…" autocomplete="off" style="flex:1" /><button id="assistant-redeem">Add code</button></div>
+        <div id="assistant-log" class="stack" aria-live="polite"></div>
+        <form id="assistant-form" class="row">
+          <label for="assistant-input" class="sr-only">Ask the assistant</label>
+          <textarea id="assistant-input" rows="2" maxlength="4000" placeholder="e.g. What's open to vote on? How do I start a petition?" style="flex:1"></textarea>
+          <button id="assistant-send">Send</button>
+        </form>
+        <p class="status" id="assistant-status" role="status"></p>
+        <div class="row"><button class="link" id="assistant-new">New conversation</button><button class="link" id="assistant-turn-off">Turn off</button></div>
+        <p class="note">AI answers can be wrong; check the full text before you decide. Buttons only open things or show drafts: you do the rest.</p>
+      </div>
     </section>
 
     <section id="screen-bodies" data-screen hidden>

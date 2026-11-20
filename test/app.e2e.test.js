@@ -1731,6 +1731,53 @@ test('explained in plain language: the published AI summary, labelled, and answe
   await shot('17-explained');
 });
 
+test('the assistant: off until turned on, reads public records, shows buttons, never sends keys', async () => {
+  const { createServer } = require('../services/assistant/server');
+  const sent = [];
+  const script = [
+    { content: [{ type: 'tool_use', id: 'a1', name: 'list_items', input: { kind: 'poll', words: '' } }, { type: 'tool_use', id: 'a2', name: 'app_status', input: {} }], stop_reason: 'tool_use' },
+    { content: [{ type: 'text', text: 'Poll 1 is about the **budget**.' }, { type: 'tool_use', id: 'a3', name: 'propose_action', input: { action: 'open', target: 'poll-1', label: 'Open poll 1', text: '' } }, { type: 'tool_use', id: 'a4', name: 'propose_action', input: { action: 'draft', target: '', label: 'A comment', text: 'Please publish the line items monthly.' } }], stop_reason: 'tool_use' },
+    { content: [{ type: 'text', text: 'Tap the button to read it.' }], stop_reason: 'end_turn' },
+  ];
+  const client = { beta: { messages: { create: async (req) => { sent.push(JSON.parse(JSON.stringify(req.messages))); return { model: 'claude-opus-5-5', ...script.shift() }; } } } };
+  const svc = createServer({ client, env: { TOKEN_SECRET: 'p'.repeat(40), ALLOW_ORIGIN: new URL(appUrl).origin, FREE_PER_DAY: '5' } });
+  await new Promise((r) => svc.listen(0, r));
+  try {
+    appConfig.assistantService = `http://127.0.0.1:${svc.address().port}`;
+    await page.reload();
+    await page.click('#btn-device');
+    await page.waitForSelector('#screen-home:not([hidden])');
+    await page.click('#nav-assistant');
+    await page.waitForSelector('#assistant-intro:not([hidden])');
+    assert.match(await page.textContent('#assistant-intro'), /Never.*your voter key, your backup code, or how you voted/s);
+    await page.click('#assistant-turn-on');
+    await page.waitForSelector('#assistant-plan >> text=5 of 5 free questions left today.');
+    await page.fill('#assistant-input', 'What is open to vote on?');
+    await page.click('#assistant-send');
+    await page.waitForSelector('.assistant-msg.ai >> text=Tap the button to read it.');
+    assert.match(await page.innerHTML('.assistant-msg.ai >> nth=0'), /<strong>budget<\/strong>/);
+    assert.match(await page.textContent('.assistant-msg.draft'), /Please publish the line items monthly\./);
+    await page.waitForSelector('#assistant-plan >> text=4 of 5 free questions left today.');
+    // What went to the model: public records and settings, nothing secret.
+    const results = sent[1].at(-1).content;
+    const list = JSON.parse(results.find((r) => r.tool_use_id === 'a1').content);
+    assert.ok(list.some((x) => x.kind === 'poll' && x.id === 1 && x.open === 'poll-1'));
+    const st = JSON.parse(results.find((r) => r.tool_use_id === 'a2').content);
+    assert.equal(st.hasVoterKey, true);
+    assert.ok(Array.isArray(st.rules));
+    const everything = JSON.stringify(sent);
+    const id = await page.evaluate(() => Object.keys(localStorage).map((k) => localStorage.getItem(k)).join(' '));
+    for (const secretish of id.match(/[0-9a-f]{40,}/gi) || []) assert.equal(everything.includes(secretish), false, 'nothing from this device’s storage is sent');
+    // The button opens the poll.
+    await page.click('.assistant-msg.action button >> text=Open poll 1');
+    await page.waitForSelector('#poll-1');
+    await shot('19-assistant');
+  } finally {
+    delete appConfig.assistantService;
+    svc.close();
+  }
+});
+
 test('stay informed: closing-soon reminder, calendar and news feeds, a printable notice', async () => {
   appConfig.calendarUrl = 'https://example.org/calendar.ics';
   appConfig.feedUrl = 'https://example.org/feed.xml';
