@@ -51,6 +51,8 @@ const IDENTITY_ABI = [
   'function commitmentOfDoc(bytes32) view returns (uint256)',
   'function issuers(address) view returns (uint8 maxTier, bool active, string name)',
   'function revoke(uint256 commitment, uint256[][] siblings)',
+  'function replace(uint256 oldCommitment, uint256 newCommitment, uint256[][] siblings)',
+  'function MAX_REPLACEMENTS_PER_DAY() view returns (uint256)',
   'function leaves(uint8 tier, uint256 start, uint256 count) view returns (uint256[] commitments, uint64[] removedAt)',
   'function leafCount(uint8 tier) view returns (uint256)',
   'error AccountAlreadyUsed(uint256 commitment)',
@@ -276,6 +278,12 @@ function createIdentityService(o) {
     try {
       const run = queue.then(async () => {
         const siblings = await siblingsFor(oldCommitment, Number(m.tier));
+        // Voter list v6: one step, recorded as a replacement (the watchdog explains it).
+        if (await registry.MAX_REPLACEMENTS_PER_DAY().then(() => true, () => false)) {
+          const one = await registry.replace(oldCommitment, BigInt(r.commitment), siblings);
+          await one.wait();
+          return one.hash;
+        }
         const out = await registry.revoke(oldCommitment, siblings);
         await out.wait();
         const add = await registry.enroll(BigInt(r.commitment), 0, r.hash, 0);

@@ -2190,4 +2190,8 @@ export default {
   "Can organize citizens' assemblies (random draws)": "Puede organizar asambleas ciudadanas (sorteos)",
   "Can deliver offline ballots after a poll closes (approved carrier)": "Puede entregar papeletas sin conexión tras el cierre (portador aprobado)",
   "You have a seat on this assembly.": "Tiene un puesto en esta asamblea.",
+  "Offer \"Keep me signed in\" on personal devices": "Ofrecer \"Mantener la sesión iniciada\" en dispositivos personales",
+  "Offered (30 days, never on public computers)": "Se ofrece (30 días, nunca en computadoras públicas)",
+  "Not offered: people unlock each time": "No se ofrece: se desbloquea cada vez",
+  "0 = not offered, 1 = offered": "0 = no se ofrece, 1 = se ofrece",
 };

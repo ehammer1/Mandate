@@ -259,3 +259,14 @@ test('watchdog: v6 checker switches are loud, replaced voter codes are explained
   const data = i.encodeFunctionData('setVerifier', ['0x' + '4'.repeat(40), [20n, 1n, 2n, 3n, 4n, Array(8).fill(0n)]]);
   assert.match(describeCall('0x' + '5'.repeat(40), data), /switch the ballot-proof checker/);
 });
+
+test("watchdog: citizens' assemblies are reported at each step", () => {
+  const { rulesForEvent, ROLE_NAMES } = require('../services/watchdog/rules');
+  const ctx = { proposals: new Map(), contractNames: {} };
+  const ev = (name, args) => rulesForEvent({ contract: 'assemblies', name, args, tx: '0x1', block: 1, time: 1 }, ctx);
+  assert.match(ev('Announced', { id: 1n, tier: 2n, seats: 25n, size: 900n, drawBlock: 1234n, ref: 'nb:q' })[0].title, /25 seats drawn from the residents with full voting rights list \(900 people, fixed now\)/);
+  assert.match(ev('Drawn', { id: 1n, seed: '0x' + 'ab'.repeat(32) })[0].title, /anyone can redo the draw/);
+  assert.match(ev('SeatAccepted', { id: 1n, position: 0n })[0].title, /position 1/);
+  assert.equal(ev('Reported', { id: 1n, ref: 'nb:r' })[0].severity, 'medium');
+  assert.equal(ROLE_NAMES[ethers.id('CARRIER_ROLE')], 'CARRIER');
+});

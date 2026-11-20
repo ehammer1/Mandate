@@ -36,6 +36,10 @@ const REGISTRY_ABI = [
   'error TierNotAllowed(uint8 tier, uint8 maxTier)',
   'error IssuerInactive()',
   'error MissingDocHash()',
+  // Voter list v6: a lost code replaced in one step.
+  'function replace(uint256 oldCommitment, uint256 newCommitment, uint256[][] siblings)',
+  'function MAX_REPLACEMENTS_PER_DAY() view returns (uint256)',
+  'error TooManyReplacements()',
 ];
 const FRIENDLY = {
   DocumentAlreadyUsed: 'This ID is already linked to another voter code. If the person lost their phone, the desk that enrolled them (or the council) can replace the old code.',
@@ -44,6 +48,7 @@ const FRIENDLY = {
   ResidencyInFuture: 'The "living in the city since" date is in the future.',
   TierNotAllowed: 'This desk account is not allowed to give full voting rights. Ask an admin.',
   IssuerInactive: 'This desk account is not an approved clerk. Ask an admin.',
+  TooManyReplacements: 'This desk has replaced its daily limit of lost voter codes. The council can replace more, or try again tomorrow.',
 };
 const IDLE_CLEAR_MS = 2 * 60 * 1000;
 const ROLL_FIELDS = ['clerk-roll-first', 'clerk-roll-last', 'clerk-roll-dob', 'clerk-roll-house', 'clerk-roll-zip'];
@@ -291,8 +296,18 @@ export function wireClerk(ctx) {
       status(el, 'Not replaced. Nothing changed.', 'warn');
       return false;
     }
-    status(el, 'Removing the old voter code: confirm if asked…');
     const siblings = await siblingsFor(reg, old, Number(m.tier));
+    // Voter list v6: one step, keeping the person's rights and dates, recorded as a replacement.
+    // Only for a code that isn't on the list yet (one that joined online is removed and upgraded instead).
+    const oneStep = person.member.issuer === ethers.ZeroAddress && (await reg.MAX_REPLACEMENTS_PER_DAY().then(() => true, () => false));
+    if (oneStep) {
+      status(el, 'Replacing the old voter code: confirm if asked…');
+      const tx = await reg.connect(ctx.activeSigner()).replace(old, person.commitment, siblings);
+      status(el, 'Waiting for the network…');
+      await tx.wait();
+      return { tx };
+    }
+    status(el, 'Removing the old voter code: confirm if asked…');
     const tx = await reg.connect(ctx.activeSigner()).revoke(old, siblings);
     status(el, 'Waiting for the network…');
     await tx.wait();
@@ -334,7 +349,8 @@ export function wireClerk(ctx) {
         }
         throw new Error(out.error || `The identity service answered ${res.status}.`);
       }
-      if (out.alreadyUsed && !(await replaceOldCode(out.docHash, el))) {
+      const replaced = out.alreadyUsed ? await replaceOldCode(out.docHash, el) : null;
+      if (out.alreadyUsed && !replaced) {
         btn.disabled = false;
         return;
       }
@@ -343,13 +359,16 @@ export function wireClerk(ctx) {
 
       const reg = registry().connect(ctx.activeSigner());
       const isNew = person.member.issuer === ethers.ZeroAddress;
-      status(el, isNew ? 'Enrolling: confirm if asked…' : 'Upgrading: confirm if asked…');
-      const call = isNew ? reg.enroll.populateTransaction(person.commitment, 1, out.docHash, residentSince) : reg.upgrade.populateTransaction(person.commitment, out.docHash, residentSince);
-      const txReq = await call;
-      const gas = await reg.runner.estimateGas(txReq);
-      const tx = await reg.runner.sendTransaction({ ...txReq, gasLimit: (gas * 13n) / 10n });
-      status(el, 'Waiting for the network…');
-      await tx.wait();
+      let tx = replaced?.tx;
+      if (!tx) {
+        status(el, isNew ? 'Enrolling: confirm if asked…' : 'Upgrading: confirm if asked…');
+        const call = isNew ? reg.enroll.populateTransaction(person.commitment, 1, out.docHash, residentSince) : reg.upgrade.populateTransaction(person.commitment, out.docHash, residentSince);
+        const txReq = await call;
+        const gas = await reg.runner.estimateGas(txReq);
+        tx = await reg.runner.sendTransaction({ ...txReq, gasLimit: (gas * 13n) / 10n });
+        status(el, 'Waiting for the network…');
+        await tx.wait();
+      }
       const full = await registry().seasonedAt(person.commitment);
       const when = Number(full) * 1000 <= Date.now() ? 'They can vote in full-rights polls now.' : `They can vote in full-rights polls from ${new Date(Number(full) * 1000).toLocaleDateString(undefined, { dateStyle: 'medium' })} (new-resident waiting period).`;
       const link = state.config.explorer ? ` <a href="${esc(state.config.explorer)}/tx/${esc(tx.hash)}" target="_blank" rel="noopener">View record</a>` : '';
@@ -357,7 +376,7 @@ export function wireClerk(ctx) {
       $('clerk-person').innerHTML = '';
       $('clerk-code').value = '';
       el.className = 'status';
-      el.innerHTML = `<span class="ok">Done: ${isNew ? 'enrolled' : 'upgraded'} with full voting rights.</span> ${esc(when)}${link}`;
+      el.innerHTML = `<span class="ok">Done: ${replaced?.tx ? 'the old voter code is replaced; this one has the same voting rights' : `${isNew ? 'enrolled' : 'upgraded'} with full voting rights`}.</span> ${esc(when)}${link}`;
       state.clerkCount = (state.clerkCount || 0) + 1;
       $('clerk-count').textContent = `${state.clerkCount} ${state.clerkCount === 1 ? 'person' : 'people'} enrolled at this desk this session`;
       person = null;

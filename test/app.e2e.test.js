@@ -2112,9 +2112,16 @@ test('signed in, links to other pages open in a new tab, so the app stays unlock
   await tab.close();
 });
 
+// "Keep me signed in" is the community's voted rule (KEEP_SIGNED_IN); here the vote's result is set directly.
+async function setKeepRule(v) {
+  const G = await c.charter.GOVERNOR_ROLE();
+  if (!(await c.charter.hasRole(G, admin.address))) await (await c.charter.grantRole(G, admin.address)).wait();
+  await (await c.charter.setRule(ethers.id('KEEP_SIGNED_IN'), v)).wait();
+}
+
 test('own device: Face ID is asked for on opening, and "keep me signed in" skips it for 30 days', async () => {
   appConfig.autoUnlock = true;
-  appConfig.keepSignedIn = true; // off by default: a community turns it on
+  await setKeepRule(1); // off by default: residents vote to offer it
   await page.bringToFront(); // the last test opened another tab
   try {
     await page.click('#btn-signout').catch(() => {});
@@ -2133,11 +2140,11 @@ test('own device: Face ID is asked for on opening, and "keep me signed in" skips
     await page.waitForSelector('#screen-home:not([hidden])', { timeout: 30_000 }); // straight in, no passkey
     assert.match(await page.textContent('#btn-keep'), /Stop keeping me signed in/);
     // The community turns the option off: the kept sign-in ends on the next visit.
-    appConfig.keepSignedIn = false;
+    await setKeepRule(0);
     await page.reload();
     await page.waitForSelector('#screen-signin:not([hidden])');
     assert.equal(await page.isVisible('#screen-home'), false);
-    appConfig.keepSignedIn = true;
+    await setKeepRule(1);
     // And "Sign out" ends it too.
     await page.reload(); // pick up the setting again
     await page.click('#btn-welcome-unlock');
@@ -2151,12 +2158,12 @@ test('own device: Face ID is asked for on opening, and "keep me signed in" skips
     assert.equal(await page.isVisible('#screen-home'), false);
   } finally {
     appConfig.autoUnlock = false;
-    delete appConfig.keepSignedIn;
+    await setKeepRule(0);
   }
 });
 
 test('public computer link (&shared=1): only shared sign-in, nothing kept, no "keep me signed in"', async () => {
-  appConfig.keepSignedIn = true; // even where the community allows it
+  await setKeepRule(1); // even where the community allows it
   await page.click('#btn-signout').catch(() => {});
   await page.goto(`${appUrl}?shared=1`);
   await page.waitForSelector('#shared-note:not([hidden])');
@@ -2167,7 +2174,7 @@ test('public computer link (&shared=1): only shared sign-in, nothing kept, no "k
   await page.click('#btn-public-code');
   await page.waitForSelector('#screen-home:not([hidden])');
   assert.equal(await page.isVisible('#keep-row'), false);
-  delete appConfig.keepSignedIn;
+  await setKeepRule(0);
   await page.click('#btn-signout');
   await page.goto(appUrl);
 });

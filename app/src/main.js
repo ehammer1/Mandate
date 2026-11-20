@@ -127,6 +127,13 @@ async function loadConfig() {
   uploadService(cfg).catch(() => {});
   state.vote = new ethers.Contract(cfg.voteAddress, VOTE_ABI, state.provider);
   state.registry = new ethers.Contract(cfg.identityAddress, IDENTITY_ABI, state.provider);
+  // Voting contracts v6: whether "keep me signed in" is offered is the community's own voted rule.
+  // Older charters have no such rule: the config's setting stays. No signal: the config's too.
+  if (cfg.charterAddress) {
+    const charter = new ethers.Contract(cfg.charterAddress, ['function rule(bytes32) view returns (uint256)'], state.provider);
+    const v = await Promise.race([charter.rule(ethers.id('KEEP_SIGNED_IN')).catch(() => null), new Promise((r) => setTimeout(() => r(null), 4000))]);
+    if (v !== null) cfg.keepSignedIn = v === 1n;
+  }
 }
 
 // ------------------------------------------------------------------ sign in
