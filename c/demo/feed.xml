@@ -4,7 +4,23 @@
   <subtitle>Every poll, mandate, budget round, petition and change of power, from the public blockchain record.</subtitle>
   <id>urn:mandate:feed</id>
   <link href="https://ehammer1.github.io/Mandate/"/>
-  <updated>2026-11-18T13:17:19.000Z</updated>
+  <updated>2026-11-20T08:50:34.000Z</updated>
+  <entry>
+    <id>urn:mandate:council-proposal:0xcdd42b9803f52b0f54af8b3e120312ad40332f902c8e78d77aa31ebd0bb4eed0:1795164634</id>
+    <title>Council change #19 proposed by 0xC782…f834: remove 0xC782…f834 from the council</title>
+    <updated>2026-11-20T08:50:34.000Z</updated>
+    <link href="https://sepolia.basescan.org/tx/0xcdd42b9803f52b0f54af8b3e120312ad40332f902c8e78d77aa31ebd0bb4eed0"/>
+    <category term="high"/>
+    <summary>Urgent: Council change #19 proposed by 0xC782…f834: remove 0xC782…f834 from the council</summary>
+  </entry>
+  <entry>
+    <id>urn:mandate:council-proposal:0x563807bc360264d94086c5e2a292bfb7245847ecfee53f6e2cdcb0508d50da48:1795164629</id>
+    <title>Council change #18 proposed by 0xC782…f834: add 0x0C5F…5777 to the council</title>
+    <updated>2026-11-20T08:50:29.000Z</updated>
+    <link href="https://sepolia.basescan.org/tx/0x563807bc360264d94086c5e2a292bfb7245847ecfee53f6e2cdcb0508d50da48"/>
+    <category term="high"/>
+    <summary>Urgent: Council change #18 proposed by 0xC782…f834: add 0x0C5F…5777 to the council</summary>
+  </entry>
   <entry>
     <id>urn:mandate:council-executed:0x1ca6a85b485bd2e3554419983815c52df00ca50d1f3ff36e89918b730ccb5f28:1795007839</id>
     <title>Council change #17 carried out: grant 0xd603cc2d39ea2ab57038652f29ac8e7fd0e40e6a9b0f81de9bbc4acc6780d962 to 0x4C9a…b71B on paper and in-person results</title>
@@ -788,21 +804,5 @@
     <link href="https://sepolia.basescan.org/tx/0x07dbcf909536a5e1cdb69b035d2b05495308c09076e92a19a24d5254c0e4dce3"/>
     <category term="high"/>
     <summary>Urgent: ADMIN role granted to 0xA018…028c on government bodies</summary>
-  </entry>
-  <entry>
-    <id>urn:mandate:role-change:0xf225efd4d01d7ec0b75b179a0f28881a723e7def3e49394e3fb6f6a576c2d43c:1794561784</id>
-    <title>ADMIN role granted to 0xA018…028c on officials registry</title>
-    <updated>2026-11-13T09:23:04.000Z</updated>
-    <link href="https://sepolia.basescan.org/tx/0xf225efd4d01d7ec0b75b179a0f28881a723e7def3e49394e3fb6f6a576c2d43c"/>
-    <category term="high"/>
-    <summary>Urgent: ADMIN role granted to 0xA018…028c on officials registry</summary>
-  </entry>
-  <entry>
-    <id>urn:mandate:role-change:0x14ee1322a3f26681c897ceda151a866ab32476049de73e2c664898466f05a4e8:1794561784</id>
-    <title>ADMIN role granted to 0xA018…028c on civic budget</title>
-    <updated>2026-11-13T09:23:04.000Z</updated>
-    <link href="https://sepolia.basescan.org/tx/0x14ee1322a3f26681c897ceda151a866ab32476049de73e2c664898466f05a4e8"/>
-    <category term="high"/>
-    <summary>Urgent: ADMIN role granted to 0xA018…028c on civic budget</summary>
   </entry>
 </feed>

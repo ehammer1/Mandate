@@ -1,5 +1,45 @@
 [
  {
+  "tx": "0xb1bef114cc08139c26f802e8e18e7df3bbd7d646e606493c1c3d339f4c216cb0",
+  "block": 61213783,
+  "time": 1795164625,
+  "contract": "council",
+  "event": "Proposed",
+  "rule": "council-proposal",
+  "severity": "high",
+  "title": "Council change #18 proposed by 0xC782…f834: remove 0xC782…f834 from the council",
+  "facts": {
+   "proposal": "18",
+   "proposer": "0xC782e1690D4B6c4C2Aba21283a6271477690f834",
+   "target": "0xcF1e7E83B050e5B1f5f9ed9a976D9666F4619EC6",
+   "value": "0",
+   "data": "0x0b1ca49a000000000000000000000000c782e1690d4b6c4c2aba21283a6271477690f834",
+   "description": "Remove the setup account (0xC782…f834) from the council: its key was held by the setup assistant",
+   "fast": false
+  },
+  "id": "council-proposal:0xb1bef114cc08139c26f802e8e18e7df3bbd7d646e606493c1c3d339f4c216cb0:1795164625"
+ },
+ {
+  "tx": "0xdc561671d9c07e55a032693b1440fa1f43729baa2d42cb0b01cfabbaf064d68f",
+  "block": 61213761,
+  "time": 1795164621,
+  "contract": "council",
+  "event": "Proposed",
+  "rule": "council-proposal",
+  "severity": "high",
+  "title": "Council change #17 proposed by 0xC782…f834: add 0x0C5F…5777 to the council",
+  "facts": {
+   "proposal": "17",
+   "proposer": "0xC782e1690D4B6c4C2Aba21283a6271477690f834",
+   "target": "0xcF1e7E83B050e5B1f5f9ed9a976D9666F4619EC6",
+   "value": "0",
+   "data": "0xca6d56dc0000000000000000000000000c5fa8ed834e1bde2884069178ff21da12565777",
+   "description": "Seat a trusted second person (0x0C5F…5777) on the council, in place of the setup account",
+   "fast": false
+  },
+  "id": "council-proposal:0xdc561671d9c07e55a032693b1440fa1f43729baa2d42cb0b01cfabbaf064d68f:1795164621"
+ },
+ {
   "tx": "0xcb7fa86ca7cfd36f09b62a5ab2477f3ee1edcc1760b6821553145775e8b81045",
   "block": 58167629,
   "time": 1794555394,
