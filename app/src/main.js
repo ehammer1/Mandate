@@ -17,7 +17,7 @@ import { keep, recall, forget, KEEP_DAYS } from './remember.js';
 import * as offline from './offline.js';
 import { poseidon2 } from 'poseidon-lite/poseidon2';
 import { buildBallot } from '../../client/ballot.js';
-import { readSettings, settingsNote, changesOpen, rankedPickerHtml, wireRankers, rankedResultsHtml, groupInfo, groupOptionsHtml, hasSettings, wireVoterGroups, V5_ABI, ERRORS as V5_ERRORS } from './pollsettings.js';
+import { readSettings, settingsNote, changesOpen, rankedPickerHtml, wireRankers, rankedResultsHtml, groupInfo, groupOptionsHtml, hasSettings, hasGrace, carrierDelivery, wireVoterGroups, V5_ABI, V6_ABI, ERRORS as V5_ERRORS } from './pollsettings.js';
 import { enrolStartUrl, ownershipProof } from '../../client/enrol.js';
 import { voterCodeQr } from '../../client/clerk.js';
 import QRCode from 'qrcode';
@@ -1120,7 +1120,8 @@ async function renderOutbox() {
 
 async function sendOutbox() {
   if (!state.config) return null;
-  const r = await offline.sendWaiting(state.config).catch(() => null);
+  const late = await carrierDelivery(state, state.identity ? activeSigner() : null).catch(() => undefined);
+  const r = await offline.sendWaiting(state.config, { late }).catch(() => null);
   await renderOutbox();
   if (r?.sent && state.identity) setTimeout(refreshPolls, 1500);
   return r;
@@ -1535,6 +1536,7 @@ async function refreshAdmin() {
     groupOptionsHtml(state, esc).then((h) => h && $('poll-group').insertAdjacentHTML('beforeend', h)).catch(() => {});
   }
   if (!(await hasSettings(state).catch(() => false))) $('poll-settings').hidden = true; // an older voting contract
+  $('poll-grace-row').hidden = !(await hasGrace(state).catch(() => false)); // delivery windows: v6
   $('admin-budget').hidden = !r.budgetProposer;
   $('admin-roles').hidden = !(r.admin || r.councilMember);
   // With a council, role changes are proposals (unless this account is still a direct admin).
@@ -1632,8 +1634,9 @@ function wireAdmin() {
     const ranked = $('poll-ballot').value === 'ranked';
     const choices = ranked ? $('poll-choices').value.split('\n').map((x) => x.trim()).filter(Boolean) : ['Yes', 'No'];
     const changes = $('poll-changes').value;
-    const settings = { changeCutoff: changes === 'none' ? 2 ** 32 - 1 : Number(changes), channels: Number($('poll-channels').value), ranked };
-    const special = custom !== null || ranked || settings.changeCutoff || settings.channels;
+    const v6 = await hasGrace(state).catch(() => false);
+    const settings = { changeCutoff: changes === 'none' ? 2 ** 32 - 1 : Number(changes), channels: Number($('poll-channels').value), ranked, ...(v6 ? { grace: Number($('poll-grace').value) } : {}) };
+    const special = custom !== null || ranked || settings.changeCutoff || settings.channels || settings.grace;
     if (ranked && (choices.length < 3 || choices.length > 8 || new Set(choices).size !== choices.length)) return status(el, 'List 3 to 8 different choices, one per line.', 'error');
     if ((ranked || custom !== null) && action !== 0) return status(el, ranked ? 'Ranked-choice polls are advisory: choose "Advisory" for what a Yes does.' : 'Polls for a smaller voter list are advisory: choose "Advisory" for what a Yes does.', 'error');
     if (special && !(await hasSettings(state))) return status(el, 'These poll settings need the upgraded voting contract, which this deployment does not have yet.', 'error');
@@ -1683,7 +1686,7 @@ function wireAdmin() {
     if (checkTier >= 0 && special) return status(el, 'A cross-checked poll uses the standard settings (Yes or No, online and paper, changes until the close). Turn off the cross-check or the other settings.', 'error');
     const checkMin = Number($('poll-check-min').value);
     if (checkTier >= 0 && (checkTier <= tier || !(checkMin >= 1))) return status(el, 'The cross-check must use a stricter group than who can vote, and need at least 1 checked vote.', 'error');
-    const vote = new ethers.Contract(state.config.voteAddress, ['function createPoll(uint256,uint64,uint32,uint8,uint8,bytes,string,uint256)', 'function createCheckedPoll(uint256,uint256,uint32,uint64,uint32,uint8,bytes,string,uint256)', ...V5_ABI], state.provider);
+    const vote = new ethers.Contract(state.config.voteAddress, ['function createPoll(uint256,uint64,uint32,uint8,uint8,bytes,string,uint256)', 'function createCheckedPoll(uint256,uint256,uint32,uint64,uint32,uint8,bytes,string,uint256)', ...(v6 ? [...V5_ABI.filter((x) => !/createPollWith|settingsOf/.test(x)), ...V6_ABI] : V5_ABI)], state.provider);
     const dataFor = (r) =>
       mandate
         ? ethers.AbiCoder.defaultAbiCoder().encode(

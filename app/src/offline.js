@@ -112,7 +112,7 @@ export async function outbox(cfg) {
  * Send what is waiting. Returns { sent, rejected, waiting } counts.
  * A ballot already on the blockchain (sent by its voter or another carrier) counts as sent.
  */
-export async function sendWaiting(cfg) {
+export async function sendWaiting(cfg, { late } = {}) {
   const out = { sent: 0, rejected: 0, waiting: 0 };
   const relayers = cfg.relayers || [];
   for (const item of await outbox(cfg)) {
@@ -128,6 +128,7 @@ export async function sendWaiting(cfg) {
           done = true;
           break;
         }
+        if (res.status === 422 && body.error === 'NotOpen' && late && !item.mine) break; // closed: try the carrier's own delivery below
         if (res.status === 422) {
           Object.assign(item, { status: 'rejected', reason: body.error || 'rejected' });
           out.rejected++;
@@ -136,6 +137,15 @@ export async function sendWaiting(cfg) {
         }
       } catch {
         /* no connection to this relayer: try the next */
+      }
+    }
+    if (!done && late && !item.mine) {
+      // An approved carrier delivers it itself, within the poll's delivery window.
+      const r = await late(item).catch(() => null);
+      if (r) {
+        Object.assign(item, r === 'sent' ? { status: 'sent', sentAt: Date.now() } : { status: 'rejected', reason: 'closed' });
+        out[r === 'sent' ? 'sent' : 'rejected']++;
+        done = true;
       }
     }
     if (!done) out.waiting++;

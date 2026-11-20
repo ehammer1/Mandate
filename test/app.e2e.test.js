@@ -1595,7 +1595,7 @@ test('poll settings: ranked choice, paper only, and a first vote that is final',
     return `nb:${ethers.keccak256(ethers.toUtf8Bytes(text))}`;
   };
   const make = async (doc, settings, options = 2) => {
-    await (await c.vote.createPollWith({ groupId: await c.identity.groupId(1), duration: 86_400, quorum: 1, options, action: 0, actionData: '0x', questionCID: await post(doc), bond: 0, settings: { changeCutoff: 0, channels: 0, ranked: false, ...settings } })).wait();
+    await (await c.vote.createPollWith({ groupId: await c.identity.groupId(1), duration: 86_400, quorum: 1, options, action: 0, actionData: '0x', questionCID: await post(doc), bond: 0, settings: { changeCutoff: 0, channels: 0, grace: 0, ranked: false, ...settings } })).wait();
     return c.vote.pollCount();
   };
   const ranked = await make({ title: 'Which park project first?', options: ['Skate park', 'Community garden', 'Splash pad'] }, { ranked: true }, 3);
@@ -1632,11 +1632,11 @@ test('poll settings: ranked choice, paper only, and a first vote that is final',
 test('no signal: vote from a saved poll, show the sealed ballot as a QR code, another device carries it', async () => {
   const doc = JSON.stringify({ title: 'Open the pool on weekday evenings?', options: ['Yes', 'No'] });
   await (await c.notices.post(doc)).wait();
-  await (await c.vote.createPollWith({ groupId: await c.identity.groupId(1), duration: 86_400, quorum: 1, options: 2, action: 0, actionData: '0x', questionCID: `nb:${ethers.keccak256(ethers.toUtf8Bytes(doc))}`, bond: 0, settings: { changeCutoff: 0, channels: 0, ranked: false } })).wait();
+  await (await c.vote.createPollWith({ groupId: await c.identity.groupId(1), duration: 86_400, quorum: 1, options: 2, action: 0, actionData: '0x', questionCID: `nb:${ethers.keccak256(ethers.toUtf8Bytes(doc))}`, bond: 0, settings: { changeCutoff: 0, channels: 0, grace: 0, ranked: false } })).wait();
   const id = String(await c.vote.pollCount());
   const rdoc = JSON.stringify({ title: 'Which pool hours matter most?', options: ['Mornings', 'Evenings', 'Weekends'] });
   await (await c.notices.post(rdoc)).wait();
-  await (await c.vote.createPollWith({ groupId: await c.identity.groupId(1), duration: 86_400, quorum: 1, options: 3, action: 0, actionData: '0x', questionCID: `nb:${ethers.keccak256(ethers.toUtf8Bytes(rdoc))}`, bond: 0, settings: { changeCutoff: 0, channels: 0, ranked: true } })).wait();
+  await (await c.vote.createPollWith({ groupId: await c.identity.groupId(1), duration: 86_400, quorum: 1, options: 3, action: 0, actionData: '0x', questionCID: `nb:${ethers.keccak256(ethers.toUtf8Bytes(rdoc))}`, bond: 0, settings: { changeCutoff: 0, channels: 0, grace: 0, ranked: true } })).wait();
   const rid = String(await c.vote.pollCount());
   // Online: the app keeps itself and the open polls on this phone for later.
   await page.click('[data-go="screen-code"]');

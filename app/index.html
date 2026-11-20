@@ -473,6 +473,9 @@
           <select id="poll-channels"><option value="0">Online and on paper</option><option value="1">Online only</option><option value="2">On paper only (at polling places)</option></select>
           <label for="poll-changes">Changing a vote</label>
           <select id="poll-changes"><option value="0">Allowed until the poll closes</option><option value="86400">Allowed until 1 day before it closes</option><option value="3600">Allowed until 1 hour before it closes</option><option value="none">Not allowed: the first vote is final</option></select>
+          <div id="poll-grace-row" hidden><label for="poll-grace">Ballots carried offline</label>
+          <select id="poll-grace"><option value="0">Must arrive before the close</option><option value="21600">Approved carriers may deliver up to 6 hours after the close</option><option value="86400">Approved carriers may deliver up to 24 hours after the close</option></select>
+          <p class="note">For places with poor signal: ballots sealed on phones before the close and handed to an approved carrier (a clerk's tablet) still count if delivered in time. The result comes after the delivery window.</p></div>
           <p class="muted">Letting people change their vote protects anyone pressured or paid to vote a certain way: they can quietly change it later. A cutoff gives a settled count before the close.</p>
         </div>
         <div class="row">

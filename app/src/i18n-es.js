@@ -2142,4 +2142,11 @@ export default {
   "its shape is different (cropped or stretched)": "su forma es distinta (recortada o estirada)",
   "the photo is too plain to recognise by its look": "la foto es demasiado lisa para reconocerla por su aspecto",
   "no fingerprint to compare": "no hay huella para comparar",
+  "Ballots carried offline": "Papeletas llevadas sin conexión",
+  "Must arrive before the close": "Deben llegar antes del cierre",
+  "Approved carriers may deliver up to {0} hours after the close": "Los portadores aprobados pueden entregarlas hasta {0} horas después del cierre",
+  "For places with poor signal: ballots sealed on phones before the close and handed to an approved carrier (a clerk's tablet) still count if delivered in time. The result comes after the delivery window.": "Para lugares con poca señal: las papeletas selladas en el teléfono antes del cierre y entregadas a un portador aprobado (la tableta de un secretario) cuentan si llegan a tiempo. El resultado se publica después del plazo de entrega.",
+  "Ballots sealed offline before the close can be delivered by approved carriers up to {0} hours after it; the result follows then": "Las papeletas selladas sin conexión antes del cierre pueden ser entregadas por portadores aprobados hasta {0} horas después; el resultado se publica entonces",
+  "Ballots sealed offline before the close can be delivered by approved carriers up to {0} hour after it; the result follows then": "Las papeletas selladas sin conexión antes del cierre pueden ser entregadas por portadores aprobados hasta {0} hora después; el resultado se publica entonces",
+  "Ballots sealed offline before the close can be delivered by approved carriers up to {0} minutes after it; the result follows then": "Las papeletas selladas sin conexión antes del cierre pueden ser entregadas por portadores aprobados hasta {0} minutos después; el resultado se publica entonces",
 };

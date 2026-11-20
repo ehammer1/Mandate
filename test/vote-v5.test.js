@@ -35,7 +35,7 @@ const errName = async (p) => {
   return 'no revert';
 };
 const ballot = (pollId, who, option) => buildBallot({ provider, vote: c.vote, pollId, identity: who, option });
-const settings = (o = {}) => ({ changeCutoff: 0, channels: 0, ranked: false, ...o });
+const settings = (o = {}) => ({ changeCutoff: 0, channels: 0, ranked: false, grace: 0, ...o });
 const open = async (o = {}, poll = {}) => {
   await send(c.vote.createPollWith({ groupId: await c.identity.groupId(2), duration: 86_400, quorum: 1, options: 2, action: 0, actionData: '0x', questionCID: 'A question', bond: 0, ...poll, settings: settings(o) }));
   return c.vote.pollCount();

@@ -69,6 +69,15 @@ This is how v5 replaced v4 (council changes #10 to #16 on the main community).
   fixed at opening) during which ballots still count if their proof was made against the poll's
   frozen voter list. The result is recorded only after the grace period.
 - **App:** offline cards say "send by" with the grace period included.
+- **Built (November 2026):** `Settings.grace` (seconds, at most `MAX_GRACE` = 24 hours, fixed
+  when the poll opens). After the close, only accounts with the new `CARRIER_ROLE` (granted by
+  the council to clerk tablets or polling-place boxes, never the public relay) may deliver, and
+  only within the window. A ballot delivered then can't change an earlier vote. `finalize` waits
+  for the window. A ballot proof carries no time, so the contract can't tell when it was sealed:
+  carriers are trusted, like clerks, to take in ballots only before the close. The app enforces
+  this: a carrier's device delivers late only ballots it scanned before the close. "Open a poll"
+  offers no window, 6 hours or 24 hours, and the poll card explains it. Tests:
+  `test/grace.test.js`.
 
 ### 5. Receipt-free ballots (larger, may move to v7)
 
@@ -92,6 +101,6 @@ This is how v5 replaced v4 (council changes #10 to #16 on the main community).
    (November 2026, `test/identity-replace.test.js`); the daily limit is a fixed 50 per desk per
    day for now.** The app switches over when v6 is deployed.
 2. Verifier switch (3). **Done for polls and budget rounds (November 2026).**
-3. Grace period (4).
+3. Grace period (4). **Done (November 2026).**
 4. Migration script and demo rehearsal.
 5. Receipt-free ballots (5), or defer to v7 if the audit timeline needs it.

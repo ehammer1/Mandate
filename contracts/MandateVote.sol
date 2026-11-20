@@ -87,6 +87,10 @@ contract MandateVote is AccessControl, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     bytes32 public constant PROPOSER_ROLE = keccak256("PROPOSER_ROLE");
+    /// @notice Approved carriers (clerk tablets, polling-place boxes) that deliver ballots sealed
+    ///         offline. Only they may deliver during a poll's grace period. Never the public relay.
+    bytes32 public constant CARRIER_ROLE = keccak256("CARRIER_ROLE");
+    uint32 public constant MAX_GRACE = 1 days;
 
     uint8 public constant YES = 0;
     uint8 public constant NO = 1;
@@ -139,6 +143,7 @@ contract MandateVote is AccessControl, ReentrancyGuard {
         uint32 changeCutoff; // seconds before the close after which a cast ballot can't be changed; NO_CHANGES = never
         uint8 channels; // ONLINE_AND_PAPER, ONLINE_ONLY or PAPER_ONLY (online ballots refused)
         bool ranked; // voters rank the choices (advisory polls with 3 or more choices)
+        uint32 grace; // after the close, seconds during which approved carriers may still deliver ballots (at most MAX_GRACE)
     }
 
     /// @notice Everything needed to open a poll with settings (one argument, so it stays readable).
@@ -348,7 +353,7 @@ contract MandateVote is AccessControl, ReentrancyGuard {
      */
     function createPollWith(NewPoll calldata n) external nonReentrant returns (uint256 id) {
         Settings calldata st = n.settings;
-        if (st.channels > PAPER_ONLY || (st.ranked && (n.action != Action.Advisory || n.options < 3))) revert InvalidParams();
+        if (st.channels > PAPER_ONLY || st.grace > MAX_GRACE || (st.ranked && (n.action != Action.Advisory || n.options < 3))) revert InvalidParams();
         _applyRules(n.groupId, false, 0, n.duration, n.quorum, n.action, n.actionData);
         id = _create(n.groupId, n.duration, n.quorum, n.options, n.action, n.actionData, n.questionCID, n.bond);
         _afterCreate(id, n.action);
@@ -449,8 +454,12 @@ contract MandateVote is AccessControl, ReentrancyGuard {
     ///         change it later. Anyone may submit it; the proof is the authorisation.
     function castBallot(uint256 id, Ballot calldata b) external {
         Poll storage p = _get(id);
-        if (block.timestamp >= p.end || p.finalized) revert NotOpen();
         Settings storage st = settingsOf[id];
+        // After the close, only an approved carrier may deliver, and only within the grace period;
+        // a ballot delivered then can't change an earlier vote (changes close with the poll).
+        uint256 until = p.end;
+        if (block.timestamp >= until && hasRole(CARRIER_ROLE, msg.sender)) until += st.grace;
+        if (block.timestamp >= until || p.finalized) revert NotOpen();
         if (st.channels == PAPER_ONLY) revert OnlineClosed();
         uint256 checkRoot = _checks[id].root;
         bool checked = checkRoot != 0 && b.merkleTreeRoot == checkRoot;
@@ -529,7 +538,7 @@ contract MandateVote is AccessControl, ReentrancyGuard {
     function finalize(uint256 id) external nonReentrant {
         Poll storage p = _get(id);
         if (p.finalized) revert AlreadyFinalized();
-        if (block.timestamp < p.end) revert StillOpen();
+        if (block.timestamp < p.end + settingsOf[id].grace) revert StillOpen();
         p.finalized = true;
 
         // Delegated ballots join the count as their delegate stated; unstated ones are not counted.
