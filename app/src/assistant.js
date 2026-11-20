@@ -115,6 +115,8 @@ export function wireAssistant({ state, $, esc, show, status, open }) {
   function addBubble(who, html) {
     const d = document.createElement('div');
     d.className = `assistant-msg ${who}`;
+    // What the person and the AI wrote stays as written (the AI answers in their language).
+    if (who !== 'action') d.setAttribute('translate', 'no');
     d.innerHTML = html;
     log().append(d);
     d.scrollIntoView({ block: 'end' });

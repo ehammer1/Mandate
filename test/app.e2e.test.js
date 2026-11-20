@@ -1768,6 +1768,14 @@ test('the assistant: off until turned on, reads public records, shows buttons, n
     const everything = JSON.stringify(sent);
     const id = await page.evaluate(() => Object.keys(localStorage).map((k) => localStorage.getItem(k)).join(' '));
     for (const secretish of id.match(/[0-9a-f]{40,}/gi) || []) assert.equal(everything.includes(secretish), false, 'nothing from this device’s storage is sent');
+    // In Spanish: the screen is translated; what was written stays as written.
+    await page.click('#lang-switch [data-lang="es"]');
+    await page.waitForSelector('#nav-assistant >> text=Asistente');
+    await page.waitForSelector('#assistant-plan >> text=Le quedan 4 de 5 preguntas gratis hoy.');
+    assert.equal((await page.textContent('#assistant-new')).trim(), 'Nueva conversación');
+    assert.match(await page.textContent('.assistant-msg.ai >> nth=-1'), /Tap the button to read it\./);
+    await page.click('#lang-switch [data-lang="en"]');
+    await page.waitForSelector('#nav-assistant >> text=Assistant');
     // The button opens the poll.
     await page.click('.assistant-msg.action button >> text=Open poll 1');
     await page.waitForSelector('#poll-1');
