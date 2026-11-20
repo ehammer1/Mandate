@@ -241,7 +241,8 @@ async function openFromLink(hash) {
     return goToTarget(target);
   }
   if (kind === 'motion' || kind === 'body') return goToTarget(target);
-  const nav = { petition: 'nav-petitions', mandate: 'nav-mandates' }[kind];
+  // Polls are on the home screen: open it if another screen (the assistant, say) is showing.
+  const nav = { petition: 'nav-petitions', mandate: 'nav-mandates', poll: $('screen-home').hidden ? 'nav-polls' : null }[kind];
   if (nav) $(nav).click();
   for (let i = 0; i < 60; i++) {
     if ($(target) && !$(target).closest('[hidden]')) return jumpTo($(target));
