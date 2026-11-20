@@ -39,6 +39,7 @@ const CALLS = new ethers.Interface([
   'function setMinBond(uint256 amount)',
   'function setElectorate(address electorate)',
   'function setDelegates(address registry)',
+  'function setVerifier(address next, (uint256,uint256,uint256,uint256,uint256,uint256[8]) test)',
 ]);
 const utc = (secs) => new Date(Number(secs) * 1000).toISOString().slice(0, 16).replace('T', ' ') + ' UTC';
 
@@ -76,6 +77,8 @@ function describeCall(target, data, names = {}) {
       return `make the council answer to ${names[String(a.electorate).toLowerCase()] || short(a.electorate)} (residents elect, recall and remove power through it)`;
     case 'setDelegates':
       return `connect public delegates (${names[String(a.registry).toLowerCase()] || short(a.registry)}) to ${where}`;
+    case 'setVerifier':
+      return `switch the ballot-proof checker on ${where} to ${short(a.next)} (for polls opened afterwards)`;
     default:
       return `${f.name} on ${where}`;
   }
@@ -136,6 +139,10 @@ function rulesForEvent(ev, ctx) {
     }
     case 'Revoked':
       return [{ ...base, rule: 'revocation', severity: 'medium', title: `A member was removed from the voter list by ${short(a.by)}`, facts: { by: a.by } }];
+    case 'Replaced':
+      return [{ ...base, rule: 'revocation', severity: 'info', title: `A lost voter code was replaced by ${short(a.by)}: the person keeps their place, the old code no longer works`, facts: { by: a.by } }];
+    case 'VerifierSet':
+      return [{ ...base, rule: 'role-change', severity: 'high', title: `The ballot-proof checker was switched from ${short(a.previous)} to ${short(a.next)} for polls opened from now on. Check this was publicly agreed.`, facts: { previous: a.previous, next: a.next } }];
     case 'PollCreated': {
       const action = ACTIONS[Number(a.action)] || `action ${a.action}`;
       const binding = Number(a.action) !== 0;

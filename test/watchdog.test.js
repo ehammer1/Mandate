@@ -246,3 +246,16 @@ test('council changes the watchdog does not know are reported, never crash the s
   assert.match(describeCall('0x' + '1'.repeat(40), i.encodeFunctionData('somethingNew', [7])), /unrecognised call/);
   assert.match(describeCall('0x' + '1'.repeat(40), '0x'), /unrecognised call/);
 });
+
+test('watchdog: v6 checker switches are loud, replaced voter codes are explained', () => {
+  const { rulesForEvent, describeCall } = require('../services/watchdog/rules');
+  const ctx = { proposals: new Map(), contractNames: {} };
+  const ev = (name, args) => rulesForEvent({ contract: 'x', name, args, tx: '0x1', block: 1, time: 1 }, ctx);
+  const [sw] = ev('VerifierSet', { previous: '0x' + '1'.repeat(40), next: '0x' + '2'.repeat(40) });
+  assert.equal(sw.severity, 'high');
+  assert.match(sw.title, /ballot-proof checker was switched/);
+  assert.match(ev('Replaced', { oldCommitment: 1n, newCommitment: 2n, by: '0x' + '3'.repeat(40) })[0].title, /lost voter code was replaced/);
+  const i = new ethers.Interface(['function setVerifier(address next, (uint256,uint256,uint256,uint256,uint256,uint256[8]) test)']);
+  const data = i.encodeFunctionData('setVerifier', ['0x' + '4'.repeat(40), [20n, 1n, 2n, 3n, 4n, Array(8).fill(0n)]]);
+  assert.match(describeCall('0x' + '5'.repeat(40), data), /switch the ballot-proof checker/);
+});

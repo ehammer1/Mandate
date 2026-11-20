@@ -50,6 +50,16 @@ This is how v5 replaced v4 (council changes #10 to #16 on the main community).
   change, with the public wait, and only to a verifier that passes a published test vector.
   Votes record which verifier accepted them.
 - **App:** nothing changes for voters.
+- **Built (November 2026):** `MandateVote.setVerifier(next, testProof)` and the same on
+  `CivicBudget`, admin (council) only. The new checker must accept the test proof (any real
+  ballot) and reject the same proof with the one-time code changed, so a checker that says yes to
+  everything is refused. Each poll and budget round records its checker when it opens
+  (`verifierOf`); a switch never changes an open one. The watchdog raises a high alert on
+  `VerifierSet` and describes a pending `setVerifier` council change. Tests:
+  `test/verifier-switch.test.js`.
+- **Not covered:** petitions, comments and paper-tally proofs are checked by the Semaphore
+  contract's own fixed checker. Switching those means deploying a new Semaphore and voter list
+  (a full migration), or routing them through a switchable checker in a later version.
 
 ### 4. Offline ballots: a delivery window (optional)
 
@@ -81,7 +91,7 @@ This is how v5 replaced v4 (council changes #10 to #16 on the main community).
 1. Settings rules (1) and atomic replace (2): small, self-contained. **Contracts and tests done
    (November 2026, `test/identity-replace.test.js`); the daily limit is a fixed 50 per desk per
    day for now.** The app switches over when v6 is deployed.
-2. Verifier switch (3).
+2. Verifier switch (3). **Done for polls and budget rounds (November 2026).**
 3. Grace period (4).
 4. Migration script and demo rehearsal.
 5. Receipt-free ballots (5), or defer to v7 if the audit timeline needs it.
