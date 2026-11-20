@@ -2125,4 +2125,12 @@ export default {
   "Too many requests from here. Try again in a minute.": "Demasiadas solicitudes desde aquí. Inténtelo de nuevo en un minuto.",
   "The assistant couldn’t answer just now. Try again.": "El asistente no pudo responder ahora. Inténtelo de nuevo.",
   "That conversation is too long. Start a new one.": "Esa conversación es demasiado larga. Empiece una nueva.",
+  "Compare a copy you saw elsewhere": "Comparar una copia que vio en otro lugar",
+  "Comparing…": "Comparando…",
+  "✓ Looks the same as this photo: probably a copy of it (re-compressed or resized). This is a visual match, not proof; small edits may not show. The original above is the one on the record.": "✓ Se ve igual que esta foto: probablemente una copia de ella (recomprimida o redimensionada). Es una coincidencia visual, no una prueba; puede que no se noten cambios pequeños. El original de arriba es el que consta en el registro.",
+  "▲ Doesn't look like this photo: {0}.": "▲ No se parece a esta foto: {0}.",
+  "it looks different": "se ve distinta",
+  "its shape is different (cropped or stretched)": "su forma es distinta (recortada o estirada)",
+  "the photo is too plain to recognise by its look": "la foto es demasiado lisa para reconocerla por su aspecto",
+  "no fingerprint to compare": "no hay huella para comparar",
 };

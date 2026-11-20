@@ -61,3 +61,18 @@ curl -X POST https://<identity service>/upload/remove \
 It is unpinned and the app shows "A file here was taken down". To keep it hidden after the
 service restarts, also add the ID to `UPLOAD_BLOCKLIST` (comma-separated). Copies other
 people made elsewhere on IPFS cannot be recalled.
+
+
+## Copies seen elsewhere
+
+Photos posted on other sites or sent through chat apps are re-compressed and resized, so
+their bytes no longer match the SHA-256 on the record. Each uploaded photo's record also
+carries a short fingerprint of how it looks (`look`, app/src/look.js): a 16 x 16 grid of grey
+levels, with one bit per pair of neighbouring cells and a mask of the clear differences.
+Under each evidence photo, **Compare a copy you saw elsewhere** takes a copy and says whether
+it looks the same (a visual match: probably that photo, re-compressed or resized) or not
+(another photo, a crop, or something changed). It's a visual match, not proof: small edits
+can slip under it, and the original on the record is the one to rely on.
+
+The fingerprint is in the published document, which the notice board fixes by its hash, so it
+can't be changed after the fact.

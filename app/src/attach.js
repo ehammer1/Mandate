@@ -15,6 +15,7 @@
  */
 
 import { uploadProof, sha256Hex } from '../../client/uploads.js';
+import { lookOfFile, sameLook } from './look.js';
 
 const MAX_SIDE = 2000;
 const gateway = (cfg) => String(cfg.ipfsGateway || 'https://gateway.pinata.cloud').replace(/\/+$/, '');
@@ -74,7 +75,9 @@ async function prepareImage(file, { scan = false } = {}) {
     g.putImageData(d, 0, 0);
   }
   const blob = await new Promise((r) => c.toBlob(r, 'image/jpeg', scan ? 0.8 : 0.85));
-  return { bytes: new Uint8Array(await blob.arrayBuffer()), type: 'image/jpeg', width: c.width, height: c.height };
+  // How it looks, for matching copies seen elsewhere (look.js), from the picture as uploaded.
+  const look = scan ? null : await lookOfFile(blob);
+  return { bytes: new Uint8Array(await blob.arrayBuffer()), type: 'image/jpeg', width: c.width, height: c.height, look };
 }
 
 /** Scanned pages (JPEG) joined into one PDF. */
@@ -165,7 +168,7 @@ export function attachPicker(box, ctx) {
   };
   const readOn = () => !!box.querySelector('[data-ai]')?.checked;
 
-  async function add(bytes, type, name, preview) {
+  async function add(bytes, type, name, preview, look = null) {
     setStatus(`Adding ${name}: proving you are on the voter list, privately…`);
     inflight++;
     let out;
@@ -174,7 +177,7 @@ export function attachPicker(box, ctx) {
     } finally {
       inflight--;
     }
-    files.push({ ...out, name, preview, alt: out.ai?.alt || '' });
+    files.push({ ...out, name, preview, alt: out.ai?.alt || '', ...(look ? { look } : {}) });
     draw(out.ai ? `Added ${name}. AI read it: check its description below.` : `Added ${name}.`);
   }
 
@@ -193,7 +196,7 @@ export function attachPicker(box, ctx) {
         } else {
           setStatus('Shrinking the photo and removing hidden data…');
           const img = await prepareImage(file);
-          await add(img.bytes, img.type, (file.name || 'photo').replace(/\.[^.]+$/, '') + '.jpg', URL.createObjectURL(new Blob([img.bytes], { type: img.type })));
+          await add(img.bytes, img.type, (file.name || 'photo').replace(/\.[^.]+$/, '') + '.jpg', URL.createObjectURL(new Blob([img.bytes], { type: img.type })), img.look);
         }
       }
     } catch (e) {
@@ -219,7 +222,7 @@ export function attachPicker(box, ctx) {
     list: () => {
       if (inflight || pages.length) throw new Error(pages.length ? 'Finish the scan first: tap "Done: make the PDF".' : 'Files are still being added: wait a moment, then try again.');
       return files.map((f) => ({
-        cid: f.cid, sha256: f.sha256, type: f.type, size: f.size, name: f.name, alt: String(f.alt || '').slice(0, 300),
+        cid: f.cid, sha256: f.sha256, type: f.type, size: f.size, name: f.name, alt: String(f.alt || '').slice(0, 300), ...(f.look ? { look: f.look } : {}),
         ...(f.ai ? { ai: { summary: f.ai.summary, text: String(f.ai.text || '').slice(0, 8000), kind: f.ai.kind, model: f.ai.model, label: f.ai.label } } : {}),
       }));
     },
@@ -248,6 +251,7 @@ export function attachmentsHtml(cfg, doc, esc) {
         <figcaption>${a.alt ? esc(a.alt) : ''}
           ${a.ai?.summary || a.ai?.text ? `<details><summary>What AI read in it (check the original)</summary>${a.ai.summary ? `<p>${esc(a.ai.summary)}</p>` : ''}${a.ai.text ? `<pre class="ai-text">${esc(a.ai.text)}</pre>` : ''}</details>` : ''}
           <button type="button" class="link" data-check="${esc(a.cid)}" data-sha="${esc(a.sha256 || '')}">Check it is unchanged</button> <span class="check-result" role="status"></span>
+          ${img && a.look ? `<label class="link">Compare a copy you saw elsewhere<input type="file" accept="image/*" data-compare="${esc(JSON.stringify(a.look))}" hidden /></label> <span class="check-result" role="status"></span>` : ''}
         </figcaption></figure>`;
     })
     .join('')}</div>`;
@@ -255,6 +259,22 @@ export function attachmentsHtml(cfg, doc, esc) {
 
 /** Fingerprint checks: download the file and compare it with the fingerprint on the record. */
 export function wireAttachments(root, cfg) {
+  // A copy seen elsewhere (a site, a chat): compared by its look with the photo on the record.
+  for (const input of root.querySelectorAll('[data-compare]')) {
+    input.onchange = async () => {
+      const out = input.parentElement.nextElementSibling;
+      const f = input.files[0];
+      if (!f) return;
+      out.textContent = 'Comparing…';
+      let sealed = null;
+      try {
+        sealed = JSON.parse(input.dataset.compare);
+      } catch {}
+      const m = sameLook(sealed, await lookOfFile(f));
+      out.textContent = m.match ? '✓ Looks the same as this photo: probably a copy of it (re-compressed or resized). This is a visual match, not proof; small edits may not show. The original above is the one on the record.' : `▲ Doesn't look like this photo: ${m.reason}.`;
+      out.className = `check-result ${m.match ? 'ok' : 'error'}`;
+    };
+  }
   for (const b of root.querySelectorAll('[data-check]')) {
     b.onclick = async () => {
       const out = b.nextElementSibling;
