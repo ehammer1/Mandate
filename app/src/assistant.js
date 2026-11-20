@@ -9,6 +9,7 @@
  */
 
 import { listRecords } from './search.js';
+import { HELP } from './help-content.js';
 import { loadRules } from './rules.js';
 import { getLang } from './i18n.js';
 import { copyBtn, wireCopy } from './copy.js';
@@ -130,18 +131,20 @@ export function wireAssistant({ state, $, esc, show, status, open }) {
       wireCopy(d);
       return 'Shown as a draft with a copy button.';
     }
+    // Only known places: a record by number, a screen from the list, a Help topic. The model's
+    // words can come from public texts written by anyone, so nothing else becomes a link (no
+    // other hash, which could fake a notice), and the voter-code screen is never offered.
+    let go = null;
+    if (action === 'open' && /^(poll|petition|mandate)-\d{1,9}$/.test(target)) go = () => navigate(`#${target}`);
+    else if (action === 'help' && HELP.some((h) => h.id === target)) go = () => navigate(`#help-${target}`);
+    else if (action === 'screen' && Object.hasOwn(SCREENS, target)) go = () => $(SCREENS[target])?.click();
+    if (!go) return 'Not shown: that isn’t a place the app can open from here. Use "open" with poll-N, petition-N or mandate-N, "screen" with one of the listed screens, or "help" with a Help topic id.';
     const d = addBubble('action', `<button>${esc(label || 'Open')}</button>`);
-    d.querySelector('button').onclick = () => {
-      if (action === 'screen') {
-        if (target === 'code') return show('screen-code');
-        return $(SCREENS[target] || 'nav-help')?.click();
-      }
-      const hash = action === 'help' ? `#help-${target}` : `#${target.replace(/^#/, '')}`;
-      if (location.hash === hash) open(hash);
-      else location.hash = hash;
-    };
+    d.querySelector('button').onclick = go;
     return 'Shown as a button; nothing happens until the person taps it.';
   }
+
+  const navigate = (hash) => (location.hash === hash ? open(hash) : (location.hash = hash));
 
   async function runTool(b) {
     const i = b.input || {};

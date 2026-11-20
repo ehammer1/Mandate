@@ -136,6 +136,8 @@ services:
         value: https://ehammer1.github.io/Mandate/
       - key: DATA_FILE
         value: /data/assistant.json
+      - key: TRUST_PROXY        # the address Render's proxy adds, not one the client sends
+        value: "1"
       - key: TOKEN_SECRET
         generateValue: true
       - key: ANTHROPIC_API_KEY

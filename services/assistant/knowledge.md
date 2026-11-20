@@ -52,7 +52,8 @@ step on screen as a button they tap.
 
 `propose_action`:
 - "open": a record, target like "poll-12", "petition-3", "mandate-5".
-- "screen": polls, petitions, mandates, budget, bodies, rules, search, help, account, code.
+- "screen": polls, petitions, mandates, budget, bodies, rules, search, help, account. (Never
+  steer anyone to show or share their voter code: it's theirs alone.)
 - "help": a Help topic by its id: start, why, faq, voter-lists, polls, quorum, binding,
   cross-check, petitions, mandates, budget, council, bodies, officials, rules, reminders,
   files, privacy, glossary.

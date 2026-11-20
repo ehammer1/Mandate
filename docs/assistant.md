@@ -54,7 +54,21 @@ key is never used, so neither the assistant nor a payment can be tied to a ballo
 - **Kept by the service** (`DATA_FILE`, on a persistent disk): per assistant key ID, the
   Stripe customer and subscription IDs, status and dates; today's free-question counts; used
   prepaid codes. Never conversations.
-- Flood limits per address: `PER_MINUTE` (20) and `PER_DAY` (300).
+- Flood limits per address: `PER_MINUTE` (20) and `PER_DAY` (300); free questions are also
+  limited per address (`FREE_PER_ADDRESS`, three times `FREE_PER_DAY`), so new assistant keys
+  don't give more. Behind Render's proxy set `TRUST_PROXY=1`: the address is then the one the
+  proxy adds, never one the client sends.
+- A tool round counts as part of its question only when it answers tool calls this service
+  just sent to that key; anything else counts as a new question. Free conversations are kept
+  under about 200,000 characters.
+- **Stripe events** are each handled once, never let an older event undo a newer one, and
+  are checked against Stripe: the subscription is looked up, and only one for this plan's
+  price counts.
+- `DATA_FILE` must be on a persistent disk in production: without it, plans and used codes
+  are forgotten on restart. A file that can't be read stops the service rather than starting
+  empty.
+- The assistant's buttons open only a poll, petition or mandate by number, a listed screen or
+  a Help topic: text in public records can't turn them into anything else.
 
 Payment methods come from Stripe's dashboard (Settings → Payment methods): cards, Apple Pay,
 Google Pay, Link, and where available PayPal, Cash App Pay, bank debits and others.
