@@ -78,7 +78,9 @@ This is how v5 replaced v4 (council changes #10 to #16 on the main community).
 
 ## Order of work
 
-1. Settings rules (1) and atomic replace (2): small, self-contained.
+1. Settings rules (1) and atomic replace (2): small, self-contained. **Contracts and tests done
+   (November 2026, `test/identity-replace.test.js`); the daily limit is a fixed 50 per desk per
+   day for now.** The app switches over when v6 is deployed.
 2. Verifier switch (3).
 3. Grace period (4).
 4. Migration script and demo rehearsal.

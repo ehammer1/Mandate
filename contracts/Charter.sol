@@ -29,6 +29,8 @@ contract Charter is AccessControl {
     bytes32 public constant RULE_CHANGE_MIN_MINUTES = keccak256("RULE_CHANGE_MIN_MINUTES");
     bytes32 public constant RULE_CHANGE_SUPERMAJORITY_PCT = keccak256("RULE_CHANGE_SUPERMAJORITY_PCT");
     bytes32 public constant RULE_CHANGE_VOTER_TIER = keccak256("RULE_CHANGE_VOTER_TIER");
+    /// @notice App setting the community decides by vote: offer "Keep me signed in on this device" (1) or not (0).
+    bytes32 public constant KEEP_SIGNED_IN = keccak256("KEEP_SIGNED_IN");
 
     struct Rule {
         string name;
@@ -60,6 +62,7 @@ contract Charter is AccessControl {
         _define(RULE_CHANGE_MIN_MINUTES, "RULE_CHANGE_MIN_MINUTES", 14 days / 60, 1 days / 60, 90 days / 60);
         _define(RULE_CHANGE_SUPERMAJORITY_PCT, "RULE_CHANGE_SUPERMAJORITY_PCT", 60, 51, 90);
         _define(RULE_CHANGE_VOTER_TIER, "RULE_CHANGE_VOTER_TIER", 2, 1, 2);
+        _define(KEEP_SIGNED_IN, "KEEP_SIGNED_IN", 0, 0, 1);
         if (keys.length != values.length) revert LengthMismatch();
         for (uint256 i = 0; i < keys.length; i++) {
             check(keys[i], values[i]);
