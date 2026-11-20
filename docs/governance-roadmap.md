@@ -47,15 +47,19 @@ fingerprint, so a copy can be checked against what was submitted (docs/uploads.m
   latest counts), and where paper is final, a paper ballot replaces any online vote. So a buyer
   can't be sure a vote they saw stays cast. The help text tells people this, and that buying or
   forcing votes is a crime to report.
-- **Not yet:** "Check my vote" and "Copy receipt" let a voter prove their own choice, and
-  "first vote is final" polls can't be changed. The audit package lists this as a known
-  limitation. Receipt-free ballots (MACI-style: encrypted on the phone, counted by a
-  coordinator with a proof of the count) are planned for v6 or v7.
+- **Not yet:** every method is provable by the voter today. "Check my vote" and "Copy
+  receipt" show a yes/no choice or a whole ranking; a budget allocation has no receipt screen,
+  but it's public on chain with its one-time code, which the voter can recompute from their
+  key; a vote handed to a delegate is a ballot like any other. "First vote is final" polls
+  can't be changed, so there change-your-vote doesn't help. The audit package lists this as a
+  known limitation. Receipt-free ballots (MACI-style: encrypted on the phone, counted by a
+  coordinator with a proof of the count) are planned for v6 or v7, for direct ballots.
 - **The rule this roadmap holds to:** binding votes on contested public questions wait for
   receipt-free ballots. Until then, binding effect stays where vote buying is unlikely to pay
   (rule changes with long polls and supermajorities, paper-final polls) and everything else is
-  advisory. When receipt-free ballots arrive, they must cover every path a choice can take:
-  direct ballots, ranked ballots, budget allocations and handing a vote to a delegate.
+  advisory. **Proposed (not yet in the v6/v7 plan):** receipt-free ballots should cover every
+  path a choice can take: direct ballots, ranked ballots, budget allocations and handing a vote
+  to a delegate.
 - One person, one vote, never weighted by money or tokens. Quadratic budgeting spends equal
   credits per person, never bought ones.
 
@@ -186,8 +190,8 @@ roadmap's items fit around it:
 2. **Officials' records page**: extend the dashboard's positions-against-results with
    donations, disclosures, lobbying meetings and delegates' records.
 3. **Randomness beacon for assembly draws**, before assemblies advise on binding questions.
-4. **Receipt-free ballots** covering direct, ranked, budget and delegated votes, with the audit,
-   before any binding vote on a contested question.
+4. **Receipt-free ballots** (planned for direct ballots; proposed here for ranked, budget and
+   delegated votes too), with the audit, before any binding vote on a contested question.
 5. **Multi-chain anchoring** to Ethereum, and risk-limiting audits for paper.
 6. **State constitutional initiative toolkit**: drafting, an assembly, support measurement and
    signature tracking.
