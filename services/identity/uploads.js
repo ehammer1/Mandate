@@ -11,8 +11,11 @@
  *   GET  /upload/blocked  files taken down (the app hides them)
  *   POST /upload/remove   takedown, with the admin token: unpins the file and blocks it
  *
- * Files are pinned with Pinata (PINATA_JWT). Only JPEG, PNG, WebP and PDF are accepted, up
- * to 10 MB; the app shrinks photos and removes their hidden location data before upload.
+ * Files are pinned with Pinata (PINATA_JWT). JPEG, PNG, WebP and PDF are accepted, up to
+ * 10 MB; the app shrinks photos and removes their hidden location data before upload.
+ * Evidence sealed by Testimonia is kept exactly as it is (re-saving would break the seal):
+ * MP4 and MOV videos up to 100 MB, and Testimonia's record files (JSON, up to 256 KB), which
+ * the verifier nodes check the media against (broker/media-evidence.js).
  */
 'use strict';
 
@@ -20,7 +23,24 @@ const crypto = require('crypto');
 const { ethers } = require('ethers');
 
 const MAX_BYTES = 10 * 1024 * 1024;
+const VIDEO_MAX_BYTES = 100 * 1024 * 1024;
+const RECORD_MAX_BYTES = 256 * 1024;
+/** A Testimonia record: a file registration, a redaction or smaller copy, or a recording's seal. */
+const isTestimoniaRecord = (b) => {
+  if (b.length > RECORD_MAX_BYTES) return false;
+  try {
+    const r = JSON.parse(b.toString('utf8'));
+    return r?.format === 'attest-file/1' || r?.format === 'attest-derive/1' || (!!r?.seal && Array.isArray(r.fragments) && !!r.meta);
+  } catch {
+    return false;
+  }
+};
+const isIsoMedia = (b) => b.length > 12 && b.subarray(4, 8).toString() === 'ftyp';
+const maxBytesFor = (type) => (type === 'video/mp4' || type === 'video/quicktime' ? VIDEO_MAX_BYTES : type === 'application/json' ? RECORD_MAX_BYTES : MAX_BYTES);
 const TYPES = {
+  'video/mp4': isIsoMedia,
+  'video/quicktime': isIsoMedia,
+  'application/json': isTestimoniaRecord,
   'image/jpeg': (b) => b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff,
   'image/png': (b) => b.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])),
   'image/webp': (b) => b.subarray(0, 4).toString() === 'RIFF' && b.subarray(8, 12).toString() === 'WEBP',
@@ -101,9 +121,9 @@ function createUploads(o) {
 
   /** POST /upload: [status, body]. */
   async function upload(bytes, headers, query) {
-    if (!bytes.length || bytes.length > MAX_BYTES) return [413, { error: 'Files can be up to 10 MB.' }];
     const type = String(headers['content-type'] || '').split(';')[0].trim();
-    if (!TYPES[type] || !TYPES[type](bytes)) return [415, { error: 'Only photos (JPEG, PNG, WebP) and PDF documents can be added.' }];
+    if (!bytes.length || bytes.length > maxBytesFor(type)) return [413, { error: type.startsWith('video/') ? 'Videos can be up to 100 MB.' : 'Files can be up to 10 MB.' }];
+    if (!TYPES[type] || !TYPES[type](bytes)) return [415, { error: 'Only photos (JPEG, PNG, WebP), PDF documents, and videos and records sealed by Testimonia can be added.' }];
     const sha = crypto.createHash('sha256').update(bytes).digest('hex');
     const problem = await verify(headers['x-upload-proof'], sha);
     if (problem) return [403, { error: problem }];
@@ -117,7 +137,7 @@ function createUploads(o) {
     }
     log(`file stored: ${cid} (${type}, ${bytes.length} bytes)`);
     const out = { cid, sha256: sha, type, size: bytes.length, name };
-    if (query.get('read') === '1' && o.read) {
+    if (query.get('read') === '1' && o.read && (type.startsWith('image/') || type === 'application/pdf')) { // AI reads photos and documents, not videos or records
       try {
         out.ai = { ...(await o.read(bytes, type)), label: 'Read by AI: check the original' };
       } catch (e) {
@@ -145,4 +165,4 @@ function createUploads(o) {
   return { upload, remove, blocked: () => [...blocked], enabled: true };
 }
 
-module.exports = { createUploads, pinata, uploadScope, fileMessage, today, MAX_BYTES };
+module.exports = { createUploads, pinata, uploadScope, fileMessage, today, MAX_BYTES, VIDEO_MAX_BYTES, maxBytesFor };

@@ -861,9 +861,9 @@ function createIdentityService(o) {
         uploadHits.get(ip).push(Date.now());
         let bytes;
         try {
-          bytes = await readRaw(req, require('./uploads').MAX_BYTES);
+          bytes = await readRaw(req, require('./uploads').maxBytesFor(String(req.headers['content-type'] || '').split(';')[0].trim()));
         } catch {
-          return json(413, { error: 'Files can be up to 10 MB.' });
+          return json(413, { error: 'That file is too large.' });
         }
         const [status, out] = await o.uploads.upload(bytes, req.headers, url.searchParams);
         return json(status, out);

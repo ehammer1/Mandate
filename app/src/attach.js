@@ -15,6 +15,8 @@
  */
 
 import { uploadProof, sha256Hex } from '../../client/uploads.js';
+import { hasLocation, pairEvidence, withEvidenceBlock } from './sealed-evidence.js';
+import { clearHandedFiles, handedFiles } from './from-testimonia.js';
 
 const MAX_SIDE = 2000;
 const gateway = (cfg) => String(cfg.ipfsGateway || 'https://gateway.pinata.cloud').replace(/\/+$/, '');
@@ -141,11 +143,13 @@ export function attachPicker(box, ctx) {
         <label class="button">📷 Take a photo<input type="file" accept="image/*" capture="environment" data-pick="camera" hidden /></label>
         <label class="button">🖼 Photo or file<input type="file" accept="image/*,application/pdf" multiple data-pick="library" hidden /></label>
         <label class="button">📄 Scan a document<input type="file" accept="image/*" capture="environment" data-pick="scan" hidden /></label>
+        ${box.dataset.attach?.startsWith('evidence-') && handedFiles().length ? `<button type="button" class="primary" data-handed>🔏 Add the sealed files from Testimonia (${handedFiles().length})</button>` : ''}
+        ${box.dataset.attach?.startsWith('evidence-') ? '<label class="button">🔏 Sealed by Testimonia, kept as is<input type="file" accept="image/jpeg,image/png,video/mp4,video/quicktime,.mp4,.mov,.json,application/json" multiple data-pick="sealed" hidden /></label>' : ''}
       </div>
       ${pages.length ? `<p class="note">${pages.length} page${pages.length === 1 ? '' : 's'} scanned. <label class="button">Add a page<input type="file" accept="image/*" capture="environment" data-pick="scan" hidden /></label> <button type="button" data-done>Done: make the PDF</button></p>` : ''}
       ${service.ai ? '<label class="row"><input type="checkbox" data-ai checked /> AI reads it: the text, a short summary, a description for screen readers, and a check for private details</label>' : ''}
       <p class="note">Files are public and permanent. Photos are shrunk and their hidden location data removed. Don't include anyone's private details.</p>
-      <p class="note">Sealed it in Testimonia? Use “Send to Promissa” there instead: shrinking it here would break its seal, so the verifier nodes couldn’t check when and how it was taken.</p>
+      ${box.dataset.attach?.startsWith('evidence-') ? '<p class="note">Sealed in Testimonia? Use “🔏 Sealed by Testimonia, kept as is” and pick the photo or video with its record file (or use “Send to Promissa” in Testimonia): it’s uploaded unchanged, so the verifier nodes can check its seal. “Photo or file” shrinks photos, which would break the seal.</p>' : ''}
       <ul class="list attach-list">${files.map((f, i) => `<li>${f.type.startsWith('image/') ? `<img src="${esc(f.preview)}" alt="" class="attach-thumb" />` : '📄'} <strong>${esc(f.name)}</strong> · ${Math.round(f.size / 1024)} KB${f.ai?.personal_info ? `<p class="warn">▲ AI noticed private details: ${esc(f.ai.personal_info_note || 'please check')}. Remove the file if they should not be public.</p>` : ''}
           <label>Description for screen readers <input type="text" data-alt="${i}" value="${esc(f.alt || '')}" maxlength="300" /></label>
           ${f.ai?.summary ? `<p class="note">AI summary: ${esc(f.ai.summary)}</p>` : ''}
@@ -154,6 +158,8 @@ export function attachPicker(box, ctx) {
     for (const input of box.querySelectorAll('[data-pick]')) input.onchange = () => pick(input.dataset.pick, [...input.files]);
     for (const b of box.querySelectorAll('[data-remove]')) b.onclick = () => (files.splice(Number(b.dataset.remove), 1), draw());
     for (const a of box.querySelectorAll('[data-alt]')) a.oninput = () => (files[Number(a.dataset.alt)].alt = a.value);
+    const handedBtn = box.querySelector('[data-handed]');
+    if (handedBtn) handedBtn.onclick = () => pick('sealed', handedFiles()).then(() => (box.querySelector('.status.error') ? null : (clearHandedFiles(), draw())));
     const done = box.querySelector('[data-done]');
     if (done) done.onclick = () => finishScan();
   };
@@ -179,8 +185,47 @@ export function attachPicker(box, ctx) {
     draw(out.ai ? `Added ${name}. AI read it: check its description below.` : `Added ${name}.`);
   }
 
+  // Sealed by Testimonia: each file and its record uploaded byte for byte, then the evidence
+  // block written into the evidence box (sealed-evidence.js).
+  async function addSealed(list) {
+    const media = [];
+    const records = [];
+    for (const file of list) {
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      const type = /\.json$/i.test(file.name) ? 'application/json' : file.type || (/\.mov$/i.test(file.name) ? 'video/quicktime' : /\.mp4$/i.test(file.name) ? 'video/mp4' : '');
+      if (type === 'application/json') {
+        let json;
+        try {
+          json = JSON.parse(new TextDecoder().decode(bytes));
+        } catch {
+          throw new Error(`${file.name} isn’t a Testimonia record.`);
+        }
+        records.push({ file, bytes, json });
+      } else {
+        if (!['image/jpeg', 'image/png', 'video/mp4', 'video/quicktime'].includes(type)) throw new Error(`${file.name}: sealed files can be JPEG, PNG, MP4 or MOV.`);
+        if (hasLocation(bytes, type) && !confirm(`“${file.name}” includes where it was taken. Kept as is, its location becomes public with the evidence. Add it anyway?`)) return setStatus('Nothing was added.');
+        media.push({ file, bytes, type });
+      }
+    }
+    const up = [];
+    for (const m of media) {
+      await add(m.bytes, m.type, m.file.name, m.type.startsWith('image/') ? URL.createObjectURL(m.file) : '');
+      up.push({ name: m.file.name, sha256: files.at(-1).sha256, cid: files.at(-1).cid });
+    }
+    const recs = [];
+    for (const r of records) {
+      await add(r.bytes, 'application/json', r.file.name, '');
+      recs.push({ name: r.file.name, json: r.json, cid: files.at(-1).cid });
+    }
+    const { refs, problems } = pairEvidence(up, recs);
+    const target = document.getElementById(box.dataset.attach);
+    if (target && refs.length) target.value = withEvidenceBlock(target.value, refs);
+    draw(problems.length ? `Added, unchanged. ${problems.join(' ')}` : `Added ${up.length} sealed file${up.length === 1 ? '' : 's'} unchanged, with ${recs.length} record${recs.length === 1 ? '' : 's'}: the verifier nodes will check ${up.length === 1 ? 'its' : 'their'} seal.`);
+  }
+
   async function pick(kind, list) {
     try {
+      if (kind === 'sealed') return await addSealed(list);
       for (const file of list) {
         if (kind === 'scan') {
           setStatus('Cleaning up the page…');

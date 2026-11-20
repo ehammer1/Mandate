@@ -7,7 +7,7 @@
  * who voted.
  */
 
-import { takeEvidenceLink } from './from-testimonia.js';
+import { listenForHandOff, takeEvidenceLink } from './from-testimonia.js';
 import { startI18n, langSwitchHtml, wireLangSwitch } from './i18n.js';
 import { startCounter } from './analytics.js';
 import { loadConfig as loadCommunityConfig, withOrg, keepOrgInLinks, orgKey, ORG } from './community.js';
@@ -101,6 +101,12 @@ const state = { config: null, provider: null, vote: null, registry: null, identi
 
 // Evidence from Testimonia (#evidence=…): kept until the mandate it's for is opened.
 if (takeEvidenceLink(location.hash)) state.notice = { kind: 'ok', text: 'Evidence from Testimonia is ready. Open Mandates and the mandate it’s for: the evidence box is filled in for you to check and submit.' };
+// Sealed files handed over by Testimonia (kept in this tab until added to a mandate's evidence).
+listenForHandOff((n) => {
+  const text = `${n} sealed file${n === 1 ? '' : 's'} from Testimonia ${n === 1 ? 'is' : 'are'} ready. Open Mandates and the mandate ${n === 1 ? 'it’s' : 'they’re'} for, and tap “Add the sealed files from Testimonia”: ${n === 1 ? 'it’s' : 'they’re'} uploaded unchanged, so the seal still checks.`;
+  if ($('home-notice')) status($('home-notice'), text, 'ok');
+  state.notice = { kind: 'ok', text };
+});
 
 // ---------------------------------------------------------------- utilities
 

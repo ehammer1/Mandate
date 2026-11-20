@@ -66,6 +66,22 @@ test('a member adds files anonymously, within the daily limit; the proof fits on
   assert.equal(stored.has(out.cid), false);
 });
 
+test('evidence sealed by Testimonia is kept unchanged: videos up to 100 MB and its record files; other JSON is refused', async () => {
+  const up = createUploads({ store, appConfig: () => cfg, provider, perDay: 10 });
+  const send = async (bytes, type, slot) => up.upload(bytes, { 'content-type': type, 'x-upload-proof': await uploadProof({ provider, identityAddress: cfg.identityAddress, identity: new Identity('sealed-evidence'), bytes, slot }), 'x-file-name': 'f' }, new URLSearchParams('read=1'));
+  await (await c.identity.enroll(new Identity('sealed-evidence').commitment, 1, ethers.id('sealed-doc'), 0)).wait();
+  const video = Buffer.concat([Buffer.from([0, 0, 0, 0x18]), Buffer.from('ftypisom'), Buffer.alloc(12 * 1024 * 1024, 1)]); // 12 MB: over the photo limit
+  const [sv, ov] = await send(video, 'video/mp4', 0);
+  assert.equal(sv, 200, JSON.stringify(ov));
+  assert.deepEqual(stored.get(ov.cid), video, 'stored byte for byte');
+  assert.equal(ov.ai, undefined, 'videos aren’t sent to the AI reader');
+  const record = Buffer.from(JSON.stringify({ format: 'attest-file/1', file: { sha256: 'ab'.repeat(32) } }));
+  assert.equal((await send(record, 'application/json', 1))[0], 200);
+  assert.equal((await send(Buffer.from('{"hello":"world"}'), 'application/json', 2))[0], 415, 'only Testimonia records');
+  assert.equal((await send(Buffer.from('ftyp-less video'), 'video/mp4', 3))[0], 415);
+  assert.equal((await up.upload(Buffer.alloc(101 * 1024 * 1024), { 'content-type': 'video/mp4' }, new URLSearchParams()))[0], 413);
+});
+
 test('AI reading sends the file to Claude and returns text, summary, description and a privacy flag', async () => {
   let req;
   const client = { beta: { messages: { create: async (r) => {

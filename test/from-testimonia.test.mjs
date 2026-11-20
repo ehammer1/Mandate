@@ -8,7 +8,7 @@ globalThis.localStorage = { getItem: (k) => store.get(k) ?? null, setItem: (k, v
 let cleared = false;
 globalThis.history = { replaceState: () => (cleared = true) };
 globalThis.location = { pathname: '/Mandate/', search: '' };
-const { takeEvidenceLink, pendingEvidence, clearPendingEvidence, fillEvidence } = await import('../app/src/from-testimonia.js');
+const { takeEvidenceLink, pendingEvidence, clearPendingEvidence, fillEvidence, acceptHandOff, handedFiles } = await import('../app/src/from-testimonia.js');
 const b64url = (s) => Buffer.from(s).toString('base64url');
 
 test('a Testimonia evidence link is kept, cleared from the address, and fills only an empty box', () => {
@@ -31,4 +31,13 @@ test('links without a Testimonia block, or damaged, are ignored', () => {
   assert.equal(takeEvidenceLink('#evidence=%%%'), false);
   assert.equal(takeEvidenceLink('#poll-3'), false);
   assert.equal(pendingEvidence(), null);
+});
+
+test('sealed files handed over: only from Testimonia, only photos, videos and its records', () => {
+  const bytes = new Uint8Array([0xff, 0xd8, 0xff]).buffer;
+  const msg = (origin, files) => ({ origin, data: { type: 'testimonia-evidence/1', files } });
+  assert.equal(acceptHandOff(msg('https://evil.example', [{ name: 'a.jpg', type: 'image/jpeg', bytes }])), 0, 'another site');
+  assert.equal(acceptHandOff(msg('https://ehammer1.github.io', [{ name: 'a.exe', type: 'application/x-msdownload', bytes }])), 0, 'not a photo, video or record');
+  assert.equal(acceptHandOff(msg('https://ehammer1.github.io', [{ name: 'IMG_1.jpg', type: 'image/jpeg', bytes }, { name: 'IMG_1.jpg.registration.json', type: 'application/json', bytes: new TextEncoder().encode('{}').buffer }])), 2);
+  assert.deepEqual(handedFiles().map((f) => [f.name, f.type, f.size]), [['IMG_1.jpg', 'image/jpeg', 3], ['IMG_1.jpg.registration.json', 'application/json', 2]]);
 });
