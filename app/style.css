@@ -95,7 +95,7 @@ table.data th, table.data td { text-align: left; padding: 6px 4px; border-top: 1
 #toasts { position: fixed; left: 12px; right: 12px; bottom: 12px; display: flex; flex-direction: column; gap: 8px; z-index: 50; pointer-events: none; }
 .toast { pointer-events: auto; background: var(--panel); border: 2px solid var(--warn); border-radius: var(--radius); padding: 12px 14px; display: flex; gap: 12px; align-items: center; justify-content: space-between; box-shadow: 0 6px 24px rgb(0 0 0 / 20%); font-weight: 600; }
 .toast button { min-height: 40px; }
-.countdown { display: inline-block; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.countdown { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .countdown.soon { color: var(--warn); font-weight: 600; }
 .countdown.urgent { color: var(--error); font-weight: 700; }
 .attn-tools { gap: 12px; margin: 6px 0 0; font-size: 14px; }

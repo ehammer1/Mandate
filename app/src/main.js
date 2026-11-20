@@ -955,7 +955,7 @@ async function refreshPolls() {
         if (gi) [who, eligibleTier] = [gi.name, gi.member];
       }
       const onlineOk = st.channels !== 2;
-      if (open && eligibleTier && onlineOk && !paperLocks && !st.ranked) toSave.push({ id: String(id), title: q?.title || `Poll ${id}`, labels, ranked: false, end: p.end });
+      if (open && eligibleTier && onlineOk && !paperLocks) toSave.push({ id: String(id), title: q?.title || `Poll ${id}`, labels, ranked: !!st.ranked, end: p.end });
       const canChange = changesOpen(st, p, now);
       if (open && !voted && eligibleTier && Number(p.end) - Number(now) < 48 * 3600) soon.push({ id, end: p.end });
       const total = tally.reduce((a, b) => a + b, 0n);
@@ -1057,10 +1057,12 @@ async function showOfflinePolls(list) {
   list.innerHTML = note + saved.map((p) => `<article class="card stack" id="poll-${esc(p.id)}">
       <p class="eyebrow">Poll ${esc(p.id)} · saved for offline voting</p>
       <h3>${esc(p.title)}</h3>
-      <div class="choices">${p.labels.map((l, i) => `<button class="choice" data-offline-poll="${esc(p.id)}" data-option="${i}">${esc(l)}</button>`).join('')}</div>
+      ${p.ranked ? rankedPickerHtml(esc(p.id), p.labels, esc) : `<div class="choices">${p.labels.map((l, i) => `<button class="choice" data-offline-poll="${esc(p.id)}" data-option="${i}">${esc(l)}</button>`).join('')}</div>`}
       <p class="status" id="poll-status-${esc(p.id)}" role="status"></p>
     </article>`).join('');
   for (const b of list.querySelectorAll('button[data-offline-poll]')) b.onclick = () => castOffline(BigInt(b.dataset.offlinePoll), Number(b.dataset.option), b);
+  const labelsOf = Object.fromEntries(saved.map((p) => [p.id, p.labels]));
+  wireRankers(list, (pid) => labelsOf[pid] || [], castOffline, esc); // ranked polls too: the ranking is sealed the same way
   return true;
 }
 

@@ -49,7 +49,7 @@ Yes. Your phone sends a mathematical proof that you are on the voter list and ha
 Each voter key can vote once per poll, enforced by the blockchain. Each ID or account can join the list once. Online sign-ups are easier to fake, which is why binding polls use ID-checked residents or a [cross-check](#cross-check).
 
 **What if I lose my phone?**
-On the new device, open the app, tap "Other ways to sign in", enter your backup code under "Restore from a backup code" and tap Restore. If you lost the code too, a clerk can remove your old voter code and enroll you again.
+If you used a passkey, it is usually already on your new phone through your Apple, Google or Microsoft account: tap "I already have a voter key: unlock it". If you kept a backup code, tap "Other ways to sign in", then "Restore from a backup code". Lost both? If you joined online, sign in again with the same Google, Microsoft or email account and tap "Replace my lost voter key". If you were ID-checked at a clerk desk, go back to a clerk with your ID: they replace your old voter code with your new one.
 
 **Do I need cryptocurrency or money?**
 No. Voting, signing petitions and commenting are free; the service pays the network fees. Money is only for backing a mandate with funds, which is optional.

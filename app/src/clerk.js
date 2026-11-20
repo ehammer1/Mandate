@@ -18,6 +18,7 @@
 
 import { ethers } from 'ethers';
 import { parseVoterCode, DOC_KINDS, kindsFor, RESIDENCE_PROOFS, clerkSessionMessage } from '../../client/clerk.js';
+import { siblingsFor, VOTERLIST_ABI } from '../../client/voterlist.js';
 
 const TIERS = ['Basic member', 'Verified resident', 'Full voting rights'];
 const REGISTRY_ABI = [
@@ -26,7 +27,9 @@ const REGISTRY_ABI = [
   'function members(uint256) view returns (address issuer, uint8 tier, bool active, uint64 verifiedAt, uint64 residentSince, bytes32 docHash, bytes32 accountHash)',
   'function issuers(address) view returns (uint8 maxTier, bool active, string name)',
   'function seasonedAt(uint256) view returns (uint64)',
+  ...VOTERLIST_ABI,
   'error AlreadyEnrolled()',
+  'error NotAuthorized()',
   'error NotEnrolled()',
   'error DocumentAlreadyUsed(uint256 commitment)',
   'error ResidencyInFuture()',
@@ -35,7 +38,7 @@ const REGISTRY_ABI = [
   'error MissingDocHash()',
 ];
 const FRIENDLY = {
-  DocumentAlreadyUsed: 'This ID is already linked to another voter code. If the person lost their phone, an admin must remove the old code first.',
+  DocumentAlreadyUsed: 'This ID is already linked to another voter code. If the person lost their phone, the desk that enrolled them (or the council) can replace the old code.',
   AlreadyEnrolled: 'This voter code already has full voting rights. Nothing to do.',
   NotEnrolled: 'This voter code was removed from the voter list. The person needs a new voter code.',
   ResidencyInFuture: 'The "living in the city since" date is in the future.',
@@ -258,12 +261,43 @@ export function wireClerk(ctx) {
     if (!res.ok) return status(el, out.error || `The identity service answered ${res.status}.`, 'error');
     if (out.ambiguous) return status(el, 'More than one registration fits these details (for example relatives at one address). Check the roll by hand and type the registration number below.', 'warn');
     if (!out.matched) return status(el, 'Not found in the voter roll. Check the spelling and ZIP, or ask whether they registered at another address. They can still join as a basic member online.', 'error');
-    if (out.alreadyUsed) return status(el, FRIENDLY.DocumentAlreadyUsed, 'error');
+    if (out.alreadyUsed && !out.docHash) return status(el, FRIENDLY.DocumentAlreadyUsed, 'error');
     person.roll = out;
+    if (out.alreadyUsed) {
+      for (const id of ROLL_FIELDS) $(id).value = '';
+      if (!$('clerk-residence').value) $('clerk-residence').value = 'roll';
+      return status(el, 'This registration is already linked to another voter code. If they lost their phone, finish below: you will be asked to replace the old code with this one.', 'warn');
+    }
     for (const id of ROLL_FIELDS) $(id).value = ''; // matched: the details have done their job
     if ((state.config.clerkAnchor || 'id') === 'roll') $('clerk-manual').hidden = true;
     if (!$('clerk-residence').value) $('clerk-residence').value = 'roll';
     status(el, `Found in the voter roll: registration ending ${out.registrationEnds}, matched on ${out.matchedOn}.`, 'ok');
+  }
+
+  /**
+   * The ID is already linked to another voter code (a lost or replaced phone). The desk that
+   * enrolled it may remove the old code, after checking the ID in person; otherwise it says who can.
+   */
+  async function replaceOldCode(docHash, el) {
+    const reg = registry();
+    const old = await reg.commitmentOfDoc(docHash);
+    const m = await reg.members(old);
+    if (m.issuer.toLowerCase() !== String(ctx.activeAddress()).toLowerCase()) {
+      const who = (await reg.issuers(m.issuer).catch(() => null))?.name || 'another desk';
+      throw new Error(`This ID is already linked to another voter code, enrolled by "${who}". If the person lost their phone, that desk or the council can replace it.`);
+    }
+    const ends = String(old).slice(-6);
+    if (!window.confirm(`This ID is already linked to an older voter code (ending ${ends}). Replace it with this person's new code? Only do this after checking their ID in person: the old code stops working, and the new one gets the rights instead.`)) {
+      status(el, 'Not replaced. Nothing changed.', 'warn');
+      return false;
+    }
+    status(el, 'Removing the old voter code: confirm if asked…');
+    const siblings = await siblingsFor(reg, old, Number(m.tier));
+    const tx = await reg.connect(ctx.activeSigner()).revoke(old, siblings);
+    status(el, 'Waiting for the network…');
+    await tx.wait();
+    person.member = await reg.members(person.commitment); // still new (or a basic member) here
+    return true;
   }
 
   async function submit() {
@@ -283,7 +317,7 @@ export function wireClerk(ctx) {
     try {
       status(el, 'Checking the ID…');
       // A voter-roll match already carries the one-person fingerprint; otherwise ask for the typed record.
-      const fromRoll = person.roll?.docHash ? { ok: true, json: async () => ({ docHash: person.roll.docHash }) } : null;
+      const fromRoll = person.roll?.docHash ? { ok: true, json: async () => ({ docHash: person.roll.docHash, alreadyUsed: !!person.roll.alreadyUsed }) } : null;
       const res =
         fromRoll ||
         (await fetch(new URL('clerk/doc-hash', state.config.identityService.replace(/\/?$/, '/')), {
@@ -300,7 +334,10 @@ export function wireClerk(ctx) {
         }
         throw new Error(out.error || `The identity service answered ${res.status}.`);
       }
-      if (out.alreadyUsed) throw new Error(FRIENDLY.DocumentAlreadyUsed);
+      if (out.alreadyUsed && !(await replaceOldCode(out.docHash, el))) {
+        btn.disabled = false;
+        return;
+      }
       // The number has done its job: take it off the screen before anything else.
       $('clerk-doc-number').value = '';
 

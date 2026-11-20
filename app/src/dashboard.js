@@ -130,6 +130,8 @@ async function renderPolls(vote, groupIds, now) {
   }
   let open = 0;
   const cards = [];
+  const turnout = []; // { id, title, ballots, electorate }
+  state.pollSheets = {};
   for (let id = count; id >= Math.max(1, count - 19); id--) {
     const [p, t] = await Promise.all([vote.getPoll(id), vote.tally(id)]);
     const [ck, ckCounts] = await vote.getCheck(id).catch(() => [{ root: 0n }, [0n, 0n]]);
@@ -155,10 +157,50 @@ async function renderPolls(vote, groupIds, now) {
       <div class="tally">${rows}</div>
       ${ck.root ? `<p class="meta">Cross-check, ${esc(GROUP_NAMES[groupIds.indexOf(String(ck.groupId))] || 'ID-checked residents')} only: Yes ${num(ckCounts[0])}, No ${num(ckCounts[1])}${ck.disputed ? ' · <strong>▲ they chose the other side, so the result was held</strong>' : ''}</p>` : ''}
       <p class="meta">${num(ballots)} of ${num(p.electorate)} eligible voted (${pct(ballots, p.electorate)}% turnout) · needs ${num(p.quorum)} to count</p>
+      <p><button type="button" data-print-poll="${id}">🖨 Print results</button></p>
     </div>`);
+    if (Number(p.electorate) > 0 && turnout.length < 10) turnout.push({ id, title: q.title, ballots, electorate: Number(p.electorate) });
+    state.pollSheets[id] = { id, title: q.title, status, who, action: ACTIONS[Number(p.action)] || 'Advisory', labels, votes: labels.map((_, i) => Number(t[i] || 0)), ballots, electorate: Number(p.electorate), quorum: Number(p.quorum), check: ck.root ? { who: GROUP_NAMES[groupIds.indexOf(String(ck.groupId))] || 'ID-checked residents', yes: Number(ckCounts[0]), no: Number(ckCounts[1]), disputed: ck.disputed } : null };
   }
   box.innerHTML = cards.join('');
+  for (const b of box.querySelectorAll('[data-print-poll]')) b.onclick = () => printResults(state.pollSheets[b.dataset.printPoll]);
+  // Turnout across the latest polls, newest first: how many of those who could vote did.
+  const tb = $('turnout');
+  tb.hidden = !turnout.length;
+  tb.innerHTML = `<p class="eyebrow" style="margin-top:0">Turnout by poll (latest ${turnout.length})</p>
+    <div class="tally">${turnout
+      .map((x) => {
+        const share = pct(x.ballots, x.electorate);
+        return `<span><a href="#dash-poll-${x.id}">Poll ${x.id}</a></span><span class="track" role="img" aria-label="Poll ${x.id}: ${share}% turnout" title="${esc(x.title)}: ${num(x.ballots)} of ${num(x.electorate)} (${share}%)"><span class="fill" style="display:block;width:${share}%"></span></span><span class="v">${share}% · ${num(x.ballots)} of ${num(x.electorate)}</span>`;
+      })
+      .join('')}</div>`;
   return { open, total: count };
+}
+
+/** A one-page results sheet to print or save as PDF, e.g. for a meeting or the records. */
+function printResults(s) {
+  if (!s) return;
+  const w = window.open('', '_blank');
+  if (!w) return;
+  const base = new URL('./', location.href);
+  const link = new URL(`dashboard.html${location.search}#dash-poll-${s.id}`, base).href;
+  const rows = s.labels.map((l, i) => `<tr><td>${esc(l)}</td><td class="n">${num(s.votes[i])}</td><td class="n">${pct(s.votes[i], s.ballots)}%</td></tr>`).join('');
+  w.document.write(`<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Results: ${esc(s.title)}</title>
+<style>body{font:15px/1.5 system-ui,sans-serif;color:#111;max-width:720px;margin:24px auto;padding:0 16px}img{width:200px}h1{font-size:22px;margin:16px 0 4px}
+table{width:100%;border-collapse:collapse;margin:12px 0}td,th{text-align:left;padding:6px 8px;border-bottom:1px solid #ccc}.n{text-align:right}.muted{color:#555;font-size:13px}
+@media print{button{display:none}}</style></head><body>
+<p><button onclick="window.print()">Print or save as PDF</button></p>
+<img src="${esc(new URL('icons/lockup.svg', base).href)}" alt="Promissa Protocol" />
+<p class="muted">${esc(state.cfg.communityName || 'Promissa Protocol')} · results as of ${esc(new Date().toLocaleString(undefined, { dateStyle: 'long', timeStyle: 'short' }))}</p>
+<h1>${esc(s.title)}</h1>
+<p>Poll ${s.id} · ${esc(s.status)} · ${esc(s.action)} · who could vote: ${esc(s.who)}</p>
+<table><thead><tr><th>Choice</th><th class="n">Votes</th><th class="n">Share</th></tr></thead><tbody>${rows}</tbody></table>
+<p><strong>${num(s.ballots)} of ${num(s.electorate)} eligible voted (${pct(s.ballots, s.electorate)}% turnout).</strong> It needed ${num(s.quorum)} to count.</p>
+${s.check ? `<p>Cross-check, ${esc(s.check.who)} only: Yes ${num(s.check.yes)}, No ${num(s.check.no)}${s.check.disputed ? ': they chose the other side, so the result was held.' : '.'}</p>` : ''}
+<p class="muted">Online votes only, counted on the Base blockchain; paper and official results are listed separately on the live dashboard. Anyone can check these numbers: ${esc(link)} · voting contract ${esc(state.cfg.voteAddress)}.</p>
+<p class="muted">Promissa Protocol™ · Decentralized, open-source voting protocol on the Base blockchain.</p>
+</body></html>`);
+  w.document.close();
 }
 
 async function renderCouncil() {

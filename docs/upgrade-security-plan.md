@@ -15,6 +15,8 @@ technical notes in brackets.
 
 ## Phase 2: the contract upgrade (before the audit)
 
+Full specification: [contract-upgrade-v6.md](contract-upgrade-v6.md).
+
 One bundled upgrade, so the auditor checks the final version:
 
 - **New community rules residents can vote on**, e.g. whether "keep me signed in" is offered.
