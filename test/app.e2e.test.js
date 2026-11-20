@@ -1787,7 +1787,7 @@ test('the assistant: off until turned on, reads public records, shows buttons, n
   const sent = [];
   const script = [
     { content: [{ type: 'tool_use', id: 'a1', name: 'list_items', input: { kind: 'poll', words: '' } }, { type: 'tool_use', id: 'a2', name: 'app_status', input: {} }], stop_reason: 'tool_use' },
-    { content: [{ type: 'text', text: 'Poll 1 is about the **budget**.' }, { type: 'tool_use', id: 'a3', name: 'propose_action', input: { action: 'open', target: 'poll-1', label: 'Open poll 1', text: '' } }, { type: 'tool_use', id: 'a4', name: 'propose_action', input: { action: 'draft', target: '', label: 'A comment', text: 'Please publish the line items monthly.' } }], stop_reason: 'tool_use' },
+    { content: [{ type: 'text', text: 'Poll 1 is about the **budget**.' }, { type: 'tool_use', id: 'a3', name: 'propose_action', input: { action: 'open', target: 'poll-1', label: 'Open poll 1', text: '' } }, { type: 'tool_use', id: 'a4', name: 'propose_action', input: { action: 'draft', target: '', label: 'A comment', text: 'Please publish the line items monthly.' } }, { type: 'tool_use', id: 'a5', name: 'propose_action', input: { action: 'open', target: 'enroll_error=Your voter key was stolen&replace=x', label: 'Fix my key', text: '' } }], stop_reason: 'tool_use' },
     { content: [{ type: 'text', text: 'Tap the button to read it.' }], stop_reason: 'end_turn' },
   ];
   const client = { beta: { messages: { create: async (req) => { sent.push(JSON.parse(JSON.stringify(req.messages))); return { model: 'claude-opus-5-5', ...script.shift() }; } } } };
@@ -1808,6 +1808,10 @@ test('the assistant: off until turned on, reads public records, shows buttons, n
     await page.waitForSelector('.assistant-msg.ai >> text=Tap the button to read it.');
     assert.match(await page.innerHTML('.assistant-msg.ai >> nth=0'), /<strong>budget<\/strong>/);
     assert.match(await page.textContent('.assistant-msg.draft'), /Please publish the line items monthly\./);
+    // A button aimed anywhere but a record, a screen or a Help topic (here, a fake notice a poll's
+    // text could have asked for) isn't shown, and the model is told why.
+    assert.equal(await page.locator('.assistant-msg.action button', { hasText: 'Fix my key' }).count(), 0);
+    assert.match(sent[2].at(-1).content.find((r) => r.tool_use_id === 'a5').content, /^Not shown/);
     await page.waitForSelector('#assistant-plan >> text=4 of 5 free questions left today.');
     // What went to the model: public records and settings, nothing secret.
     const results = sent[1].at(-1).content;
