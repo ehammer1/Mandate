@@ -122,6 +122,25 @@ This is how v5 replaced v4 (council changes #10 to #16 on the main community).
   responsible party can resubmit after a rejection, not after silence (a timeout may follow).
 - Tests: `test/random-checks.test.js`, `test/participation.test.js`, the browser tests.
 
+### 4d. The People's Agenda (built, November 2026)
+
+- **Why:** residents, not politicians, set what the community works on.
+- **On-chain:** new contract `Agenda.sol`. An organizer (`ORGANIZER_ROLE`, granted by the
+  council) opens a season on one voter list (frozen at opening) with a time to add issues, a
+  time to rank, and an allowance of priority credits. While adding is open, each resident may
+  add one issue (anonymous proof, one per person); organizers may add common ones. Then each
+  resident spreads their credits quadratically across up to 20 issues (n credits on one issue
+  cost n²); a later ranking by the same person replaces the earlier one until the season
+  closes. `issues()` returns every issue and its credits; nobody can see who ranked what.
+  Proofs go through the relay (`POST /agenda`), so no wallet or fee is needed. The proof
+  checker is switchable like the voting contract's.
+- **App:** an "Agenda" screen: add an issue (with a topic), rank with + and − buttons showing
+  the credits used, and the community's ranking with shares by topic. Organizers open seasons;
+  the council grants the role from the role menu.
+- **Limits:** no moderation of issue text yet (it is public and permanent, like comments);
+  issues are not grouped by district yet.
+- Tests: `test/agenda.test.js` and the browser tests.
+
 ### 5. Receipt-free ballots (larger, may move to v7)
 
 - **Why:** today a voter can prove their choice to a buyer (they can also change it later where

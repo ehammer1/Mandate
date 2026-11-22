@@ -29,6 +29,7 @@
         <button id="nav-mandates">Mandates</button>
         <button id="nav-budget">Budget</button>
         <button id="nav-petitions">Petitions</button>
+        <button id="nav-agenda" hidden>Agenda</button>
         <button id="nav-assemblies" hidden>Assemblies</button>
         <button id="nav-bodies">Government</button>
         <button id="nav-rules">Rules</button>
@@ -244,6 +245,31 @@
       <div class="row" role="group" aria-label="Order petitions"><span class="muted">Show:</span><button id="petition-sort-top" aria-pressed="true">Most signed</button><button id="petition-sort-new" aria-pressed="false">Newest</button></div>
       <label class="row">Topic <select id="petition-filter" style="width:auto"><option value="all">All topics</option><option value="general">General</option><option value="safety">Public safety</option><option value="roads">Roads and transport</option><option value="housing">Housing</option><option value="budget">Budget and taxes</option><option value="environment">Environment and parks</option><option value="health">Health</option><option value="education">Schools and education</option><option value="services">Water, power and services</option><option value="economy">Jobs and business</option><option value="rights">Rights and justice</option><option value="governance">How decisions are made</option></select></label>
       <div id="petition-list" class="stack"></div>
+    </section>
+
+    <!-- The People's Agenda -->
+    <section id="screen-agenda" data-screen hidden>
+      <h1>The People's Agenda</h1>
+      <p>What should our community work on? Residents decide the priorities, not politicians. Each season, everyone can add one issue, then rank what matters most with priority credits. Anonymous: nobody can see who added or ranked what. The result is a public list of what residents want, by topic, for candidates and officials to answer to.</p>
+      <details class="card" id="agenda-new" hidden><summary><strong>Open a season</strong></summary>
+        <div class="stack">
+          <label for="agenda-title">Name</label>
+          <input type="text" id="agenda-title" placeholder="e.g. Spring 2027: what should the city work on?" />
+          <label for="agenda-body">Details (optional)</label>
+          <textarea id="agenda-body" rows="2"></textarea>
+          <label for="agenda-tier">Who takes part</label>
+          <select id="agenda-tier"><option value="0">All members</option><option value="1">ID-checked residents</option><option value="2">Residents with full voting rights</option></select>
+          <label for="agenda-propose-days">Days to add issues</label>
+          <input type="text" id="agenda-propose-days" value="7" inputmode="decimal" style="width:100px" />
+          <label for="agenda-rank-days">Days to rank them</label>
+          <input type="text" id="agenda-rank-days" value="14" inputmode="decimal" style="width:100px" />
+          <label for="agenda-credits">Priority credits each</label>
+          <input type="text" id="agenda-credits" value="16" inputmode="numeric" style="width:100px" />
+          <button class="primary" id="btn-agenda-open">Open the season</button>
+          <p class="status" id="agenda-status" role="status"></p>
+        </div>
+      </details>
+      <div id="agenda-list" class="stack"></div>
     </section>
 
     <!-- Citizens' assemblies -->
@@ -699,6 +725,7 @@
           <option value="budget">Can open budget rounds</option>
           <option value="registrar">Can register officials and set up government bodies</option>
           <option value="assembly">Can organize citizens' assemblies (random draws)</option>
+          <option value="agenda">Can open People's Agenda seasons</option>
           <option value="carrier">Can deliver offline ballots after a poll closes (approved carrier)</option>
           <option value="admin">Admin (council member, if there is a council)</option>
           <option value="all">Every role this account has (remove only)</option>

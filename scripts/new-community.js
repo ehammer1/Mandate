@@ -110,6 +110,7 @@ async function createCommunity(signer, spec, o = {}) {
   if (s.randomCheckers && (await c.registry.panelSize().catch(() => null)) !== null && Number(await c.registry.panelSize()) !== s.randomCheckers) await send(`mandate checkers drawn at random, ${s.randomCheckers} per check`, c.registry.setPanelSize(s.randomCheckers));
   if (c.vote.CARRIER_ROLE) for (const a of s.carriers) await grant(c.vote, await c.vote.CARRIER_ROLE(), a, `${a} carries offline ballots`);
   if (c.assemblies) for (const a of s.registrars) await grant(c.assemblies, await c.assemblies.ORGANIZER_ROLE(), a, `${a} organizes citizens' assemblies`);
+  if (c.agenda) for (const a of s.registrars) await grant(c.agenda, await c.agenda.ORGANIZER_ROLE(), a, `${a} opens People's Agenda seasons`);
 
   // 2. The community's council, which takes every admin power.
   const termEnd = s.council.termDays ? (await signer.provider.getBlock('latest')).timestamp + Math.round(s.council.termDays * 86_400) : 0;
@@ -143,6 +144,7 @@ async function finishHandover(runner, c, s, { log = () => {} } = {}) {
   await drop(c.voterGroups, await c.voterGroups.GROUP_CREATOR_ROLE(), 'deployer gave up creating voter lists');
   await drop(c.tallies, await c.tallies.CLERK_ROLE(), 'deployer gave up recording counts');
   if (c.assemblies) await drop(c.assemblies, await c.assemblies.ORGANIZER_ROLE(), 'deployer gave up organizing assemblies');
+  if (c.agenda) await drop(c.agenda, await c.agenda.ORGANIZER_ROLE(), "deployer gave up opening People's Agenda seasons");
   log(`council ${council} (${s.council.threshold} of ${s.council.members.length}) now holds every admin power`);
 }
 
@@ -161,7 +163,7 @@ class PatientProvider extends ethers.JsonRpcProvider {
 /** Contracts at known addresses (for --resume). */
 function attach(runner, addresses) {
   const abi = (n) => JSON.parse(fs.readFileSync(path.join(ROOT, 'build', `${n}.json`), 'utf8')).abi;
-  const names = { identity: 'IdentityRegistry', registry: 'MandateRegistry', vote: 'MandateVote', market: 'DecisionMarket', charter: 'Charter', budget: 'CivicBudget', officials: 'Officials', bodies: 'Bodies', tallies: 'Tallies', voterGroups: 'VoterGroups', credits: 'PlayCredits', council: 'Council', assemblies: 'Assemblies' };
+  const names = { identity: 'IdentityRegistry', registry: 'MandateRegistry', vote: 'MandateVote', market: 'DecisionMarket', charter: 'Charter', budget: 'CivicBudget', officials: 'Officials', bodies: 'Bodies', tallies: 'Tallies', voterGroups: 'VoterGroups', credits: 'PlayCredits', council: 'Council', assemblies: 'Assemblies', agenda: 'Agenda' };
   const c = {};
   for (const [k, n] of Object.entries(names)) if (addresses[k]) c[k] = new ethers.Contract(addresses[k], abi(n), runner);
   return c;
@@ -197,6 +199,7 @@ function communityConfig(spec, addresses, startBlock, base = {}, services = {}) 
     progressAddress: addresses.progress,
     voterGroupsAddress: addresses.voterGroups,
     ...(addresses.assemblies ? { assembliesAddress: addresses.assemblies } : {}),
+    ...(addresses.agenda ? { agendaAddress: addresses.agenda } : {}),
     escrowFactoryAddress: addresses.escrows,
     relayers: (services.relayers || []).map((u) => `${trim(u)}/c/${spec.slug}`),
     identityService: services.identity ? `${trim(services.identity)}/c/${spec.slug}` : '',

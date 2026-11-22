@@ -29,6 +29,7 @@ import { loadRules, describeRuleChange, RULE_ERRORS } from './rules.js';
 import { wireBudget } from './budget.js';
 import { wireFeedback } from './feedback.js';
 import { wireAssemblies } from './assemblies.js';
+import { wireAgenda } from './agenda.js';
 import { renderExplainer } from './explain.js';
 import { informedHtml } from './informed.js';
 import { wireOfficials } from './officials.js';
@@ -1785,6 +1786,7 @@ function wireAdmin() {
       budget: [[cfg.budgetAddress, 'PROPOSER_ROLE', 'open budget rounds']],
       registrar: [[cfg.officialsAddress, 'REGISTRAR_ROLE', 'register officials'], [cfg.bodiesAddress, 'REGISTRAR_ROLE', 'set up government bodies']],
       assembly: [[cfg.assembliesAddress, 'ORGANIZER_ROLE', "organize citizens' assemblies"]],
+      agenda: [[cfg.agendaAddress, 'ORGANIZER_ROLE', "open People's Agenda seasons"]],
       carrier: [[cfg.voteAddress, 'CARRIER_ROLE', 'deliver ballots carried offline after a poll closes, within its delivery window']],
     };
     const roleChange = ([at, role, what]) => [new ethers.Contract(at, ROLE_ABI, state.provider), give ? 'grantRole' : 'revokeRole', [ethers.id(role), target], `${give ? 'Allow' : 'Stop'}: ${what}`];
@@ -1909,6 +1911,11 @@ async function boot() {
   state.prevCouncil = wireCouncil({ state, $, status, esc, activeSigner, activeAddress }, { addressKey: 'previousCouncilAddress', prefix: 'prevcouncil', box: 'admin-prevcouncil' });
   state.clerk = wireClerk({ state, $, status, esc, show, activeSigner, activeAddress });
   state.assemblies = wireAssemblies({ state, $, status, esc, show, activeSigner, activeAddress });
+  state.agenda = wireAgenda({ state, $, status, esc, activeSigner, activeAddress, nullifierFor, myTier: async () => (state.identity ? ((m) => (m.active ? Number(m.tier) : -1))(await state.registry.members(state.identity.commitment)) : -1) });
+  $('nav-agenda').onclick = async () => {
+    show('screen-agenda');
+    await state.agenda.render();
+  };
   $('nav-assemblies').onclick = async () => {
     show('screen-assemblies');
     await state.assemblies.render();
@@ -1926,6 +1933,7 @@ async function boot() {
   }
   state.assistant.refresh();
   $('nav-assemblies').hidden = !state.config.assembliesAddress;
+  $('nav-agenda').hidden = !state.config.agendaAddress;
   renderOutbox().catch(() => {}); // ballots waiting on this phone
   if (navigator.onLine) sendOutbox().catch(() => {});
   if (keys.savedMethod() === 'passkey') $('btn-unlock').classList.add('primary');

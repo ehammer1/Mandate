@@ -163,6 +163,10 @@ function rulesForEvent(ev, ctx) {
       return [{ ...base, rule: 'role-change', severity: 'high', title: Number(a.size) ? `Mandate checkers will now be drawn at random: ${a.size} per check, from the verifiers` : 'Mandate checkers are no longer drawn at random: every verifier may check. Check this was publicly agreed.', facts: { size: Number(a.size) } }];
     case 'PanelDrawn':
       return [{ ...base, rule: 'mandate', severity: 'info', title: `Mandate ${a.id}, check ${a.round}: checkers drawn at random (${a.members.map(short).join(', ')})`, facts: { mandate: String(a.id), round: Number(a.round), members: [...a.members] } }];
+    case 'SeasonOpened':
+      return [{ ...base, rule: 'agenda', severity: 'info', title: `People's Agenda season ${a.id} opened: residents add issues until ${utc(a.proposeEnd)}, then rank them until ${utc(a.end)} (${a.credits} credits each)`, facts: { season: String(a.id), ref: a.ref } }];
+    case 'IssueAdded':
+      return a.byOrganizer ? [{ ...base, rule: 'agenda', severity: 'info', title: `People's Agenda season ${a.id}: an organizer added an issue (number ${Number(a.index) + 1})`, facts: { season: String(a.id), ref: a.ref } }] : [];
     case 'Announced':
       return [{ ...base, rule: 'assembly', severity: 'medium', title: `Citizens' assembly ${a.id} announced: ${a.seats} seats drawn from the ${['basic members', 'verified residents', 'residents with full voting rights'][Number(a.tier)] || 'voter'} list (${a.size} people, fixed now), seeded by block ${a.drawBlock}`, facts: { assembly: String(a.id), seats: Number(a.seats), size: String(a.size), drawBlock: String(a.drawBlock), ref: a.ref } }];
     case 'Rescheduled':

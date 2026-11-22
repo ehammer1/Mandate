@@ -131,6 +131,9 @@ async function deployAll(signer, opts = {}) {
   // Citizens' assemblies: residents drawn at random from a voter list, like a jury.
   contracts.assemblies = await deploy(signer, 'Assemblies', {}, me, await identity.getAddress());
   await send(contracts.assemblies.grantRole(await contracts.assemblies.ORGANIZER_ROLE(), opts.registrar || me));
+  // The People's Agenda: residents add issues and rank their priorities.
+  contracts.agenda = await deploy(signer, 'Agenda', {}, me, await identity.getAddress(), await verifier.getAddress());
+  await send(contracts.agenda.grantRole(await contracts.agenda.ORGANIZER_ROLE(), opts.registrar || me));
   if (opts.council) {
     const { members, threshold = Math.floor(opts.council.members.length / 2) + 1, delaySeconds = 48 * 3600, termDays = 0 } = opts.council;
     const termEnd = termDays ? (await signer.provider.getBlock('latest')).timestamp + Math.round(termDays * 86_400) : 0;
@@ -224,6 +227,7 @@ if (require.main === module) {
       progressAddress: addresses.progress,
       voterGroupsAddress: addresses.voterGroups,
       assembliesAddress: addresses.assemblies,
+      agendaAddress: addresses.agenda,
       escrowFactoryAddress: addresses.escrows,
       relayers: (process.env.RELAYERS || '').split(',').map((s) => s.trim()).filter(Boolean),
       ipfsGateway: process.env.IPFS_GATEWAY || 'https://gateway.pinata.cloud',

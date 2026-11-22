@@ -76,7 +76,7 @@ before(async () => {
   ({ contracts: c } = await deployAll(admin, { seasoningDays: 30, rules: { MIN_POLL_MINUTES: 10, BINDING_QUORUM_PCT: 0, BINDING_CHECK_REQUIRED: 0, CHECK_MIN_VOTES: 1, RULE_CHANGE_MIN_MINUTES: 1440 } }));
   await (await c.identity.setIssuer(clerk.address, 1, true, 'Example City Clerk')).wait();
 
-  relay = createRelayer({ provider, signer: relayerSigner, voteAddress: await c.vote.getAddress(), budgetAddress: await c.budget.getAddress(), feedbackAddress: await c.feedback.getAddress(), noticeBoardAddress: await c.notices.getAddress(), talliesAddress: await c.tallies.getAddress(), log: () => {} });
+  relay = createRelayer({ provider, signer: relayerSigner, voteAddress: await c.vote.getAddress(), budgetAddress: await c.budget.getAddress(), feedbackAddress: await c.feedback.getAddress(), noticeBoardAddress: await c.notices.getAddress(), talliesAddress: await c.tallies.getAddress(), agendaAddress: await c.agenda.getAddress(), log: () => {} });
   const relayPort = await listen(relay);
 
   const ipfs = { [QUESTION_CID]: JSON.stringify({ title: 'Publish the FY2027 line-item budget?', body: 'Every line item above $10,000, as CSV, within 30 days.', options: ['Yes', 'No'] }) };
@@ -93,6 +93,7 @@ before(async () => {
       budgetAddress: await c.budget.getAddress(),
       feedbackAddress: await c.feedback.getAddress(),
       assembliesAddress: await c.assemblies.getAddress(),
+      agendaAddress: await c.agenda.getAddress(),
       escrowFactoryAddress: await c.escrows.getAddress(),
       officialsAddress: await c.officials.getAddress(),
       bodiesAddress: await c.bodies.getAddress(),
@@ -1258,6 +1259,42 @@ test("citizens' assembly: a drawn resident sees it on their phone and gets a sea
   await page.click('#nav-polls');
   await page.waitForSelector('#poll-1 .review-box >> text=Endorsed by', { timeout: 60_000 });
   assert.match(await page.textContent('#poll-1 .review-box'), /Citizens' review panel[\s\S]*signalled crossing[\s\S]*Three crashes[\s\S]*\$180,000[\s\S]*Endorsed by 1 of 1/);
+});
+
+test("People's Agenda: a resident adds an issue on their phone, then ranks with priority credits", async () => {
+  const seed = JSON.stringify({ title: 'Winter 2027: what should Demo Town work on?' });
+  await (await c.notices.post(seed)).wait();
+  await (await c.agenda.openSeason(0, 600, 86_400, 16, `nb:${ethers.keccak256(ethers.toUtf8Bytes(seed))}`)).wait();
+  const id = await c.agenda.seasonCount();
+  const common = JSON.stringify({ title: 'Housing costs', category: 'housing' });
+  await (await c.notices.post(common)).wait();
+  await (await c.agenda.addIssue(id, `nb:${ethers.keccak256(ethers.toUtf8Bytes(common))}`)).wait();
+
+  await page.click('#nav-agenda');
+  await page.waitForSelector(`#agenda-${id} [data-add] summary`, { timeout: 60_000 });
+  await page.click(`#agenda-${id} [data-add] summary`);
+  await page.fill(`#agenda-${id} [data-issue-title]`, 'Safer crossings near schools');
+  await page.selectOption(`#agenda-${id} [data-issue-topic]`, 'roads');
+  await page.click(`#agenda-${id} [data-issue-send]`);
+  await page.waitForSelector(`#agenda-${id} >> text=You have added your issue this season`, { timeout: 120_000 });
+  assert.match(await page.textContent(`#agenda-${id}`), /Safer crossings near schools[\s\S]*Roads and transport/);
+
+  // Adding closes; ranking opens. 3 credits on crossings (9) and 2 on housing (4): 13 of 16.
+  await provider.send('evm_increaseTime', [601]);
+  await provider.send('evm_mine', []);
+  await page.click('#nav-agenda');
+  await page.waitForSelector(`#agenda-${id} [data-rank-send]`, { timeout: 60_000 });
+  for (let i = 0; i < 3; i++) await page.click(`#agenda-${id} [data-plus="1"]`);
+  for (let i = 0; i < 2; i++) await page.click(`#agenda-${id} [data-plus="0"]`);
+  assert.match(await page.textContent(`#agenda-${id} [data-used]`), /Used 13 of 16/);
+  await page.click(`#agenda-${id} [data-plus="0"]`); // 3 + 3 would cost 18: not allowed
+  assert.equal(await page.isDisabled(`#agenda-${id} [data-rank-send]`), true);
+  await page.click(`#agenda-${id} [data-minus="0"]`);
+  await page.click(`#agenda-${id} [data-rank-send]`);
+  await page.waitForSelector(`#agenda-${id} >> text=1 of`, { timeout: 120_000 });
+  const [, credits] = await c.agenda.issues(id);
+  assert.deepEqual(credits.map(Number), [2, 3]);
+  assert.match(await page.textContent(`#agenda-${id} ol.list li:first-child`), /Safer crossings near schools[\s\S]*3 credits · 60%/);
 });
 
 test('most requested petitions are ranked, and times count down live', async () => {
