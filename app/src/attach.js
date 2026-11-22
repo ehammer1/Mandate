@@ -159,6 +159,8 @@ export function audioType(t) {
   return 'audio/webm';
 }
 
+import { ownStorage, putOwn } from './ownstorage.js';
+
 // ------------------------------------------------------------------ picker UI
 
 /**
@@ -182,7 +184,7 @@ export function attachPicker(box, ctx) {
       </div>
       ${pages.length ? `<p class="note">${pages.length} page${pages.length === 1 ? '' : 's'} scanned. <label class="button">Add a page<input type="file" accept="image/*" capture="environment" data-pick="scan" hidden /></label> <button type="button" data-done>Done: make the PDF</button></p>` : ''}
       ${service.ai ? '<label class="row"><input type="checkbox" data-ai checked /> AI reads it: the text, a short summary, a description for screen readers, and a check for private details</label>' : ''}
-      <p class="note">Files are public and permanent. Photos are shrunk and their hidden location data removed. Don't include anyone's private details.</p>
+      <p class="note">Files are public and permanent. Photos are shrunk and their hidden location data removed. Don't include anyone's private details.${ownStorage() ? ' Stored in your own storage account (Account screen).' : ''}</p>
       <ul class="list attach-list">${files.map((f, i) => `<li>${f.type.startsWith('image/') ? `<img src="${esc(f.preview)}" alt="" class="attach-thumb" />` : f.type.startsWith('audio/') ? '🎙' : '📄'} <strong>${esc(f.name)}</strong> · ${Math.round(f.size / 1024)} KB${f.ai?.personal_info ? `<p class="warn">▲ AI noticed private details: ${esc(f.ai.personal_info_note || 'please check')}. Remove the file if they should not be public.</p>` : ''}
           ${f.type.startsWith('audio/') ? `<label>What it says: a short summary or a transcript (for people who can't listen) <textarea data-transcript="${i}" rows="2" maxlength="8000">${esc(f.transcript || '')}</textarea></label>` : `<label>Description for screen readers <input type="text" data-alt="${i}" value="${esc(f.alt || '')}" maxlength="300" /></label>`}
           <details><summary>Testimonia seal (optional)</summary><label>Seal code <input type="text" data-seal="${i}" value="${esc(f.seal || '')}" spellcheck="false" /></label></details>
@@ -240,11 +242,14 @@ export function attachPicker(box, ctx) {
   }
 
   async function add(bytes, type, name, preview, look = null) {
-    setStatus(`Adding ${name}: proving you are on the voter list, privately…`);
+    const own = ownStorage();
+    setStatus(own ? `Adding ${name} to your own storage…` : `Adding ${name}: proving you are on the voter list, privately…`);
     inflight++;
     let out;
     try {
-      out = await send(ctx, bytes, type, name, readOn());
+      // Your own storage: straight from this browser to your account; Promissa records the fingerprint.
+      out = own ? { ...(await putOwn(bytes, name, type)), type, size: bytes.length, name, own: true } : await send(ctx, bytes, type, name, readOn());
+      if (own) out.cid = out.locations.find((l) => l.kind === 'ipfs')?.cid;
     } finally {
       inflight--;
     }

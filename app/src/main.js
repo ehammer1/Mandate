@@ -31,6 +31,7 @@ import { wireFeedback } from './feedback.js';
 import { wireAssemblies } from './assemblies.js';
 import { wireAgenda } from './agenda.js';
 import * as social from './social.js';
+import { ownStorage, setOwnStorage } from './ownstorage.js';
 import { shareText } from './copy.js';
 import { wireVideos, videosHtml, videoFields, wireVideoFields, readVideos } from './videos.js';
 import { wireAids, listenTranslateHtml } from './aihelp.js';
@@ -1871,6 +1872,42 @@ async function renderModeration(allowed) {
   card.hidden = false;
 }
 
+// --------------------------------------------------------------------- own storage
+
+function wireOwnStorage() {
+  const draw = () => {
+    const o = ownStorage();
+    $('own-storage-card').hidden = SHARED;
+    $('own-storage-now').innerHTML = o ? `Your files go to <strong>${esc(o.kind === 'pinata' ? 'your Pinata account' : `your ${o.provider} bucket "${o.bucket}"`)}</strong>. <button type="button" id="btn-own-forget">Use the community's storage again</button>` : 'Your files go to the community\'s storage.';
+    $('btn-own-forget')?.addEventListener('click', () => (setOwnStorage(null), draw()));
+  };
+  const pick = () => {
+    const pin = $('own-provider').value === 'pinata';
+    $('own-pinata').hidden = !pin;
+    $('own-s3').hidden = pin;
+  };
+  $('own-provider').onchange = pick;
+  $('btn-own-save').onclick = () => {
+    const p = $('own-provider').value;
+    const v = (id) => $(id).value.trim();
+    if (p === 'pinata') {
+      if (!v('own-jwt')) return status($('own-storage-msg'), 'Paste your Pinata JWT.', 'error');
+      setOwnStorage({ kind: 'pinata', jwt: v('own-jwt') });
+    } else {
+      if (!v('own-bucket') || !v('own-key') || !v('own-secret')) return status($('own-storage-msg'), 'Fill in the bucket and both keys.', 'error');
+      if (['r2', 'b2', 'aws', 'other'].includes(p) && !v('own-endpoint') && p !== 'aws') return status($('own-storage-msg'), 'Add your provider\'s endpoint address.', 'error');
+      if (p !== 'filebase' && !v('own-public')) return status($('own-storage-msg'), 'Add the bucket\'s public address, so others can open your files.', 'error');
+      setOwnStorage({ kind: 's3', provider: p, endpoint: v('own-endpoint') || (p === 'aws' ? `https://s3.${v('own-region') || 'us-east-1'}.amazonaws.com` : ''), region: v('own-region'), bucket: v('own-bucket'), accessKeyId: v('own-key'), secretAccessKey: v('own-secret'), publicUrl: v('own-public') });
+    }
+    for (const id of ['own-jwt', 'own-secret']) $(id).value = '';
+    status($('own-storage-msg'), 'Saved in this browser.', 'ok');
+    $('own-storage-form').open = false;
+    draw();
+  };
+  pick();
+  draw();
+}
+
 // --------------------------------------------------------------------- social accounts
 
 /** Connect Bluesky or Mastodon (Account screen); post directly from any item's Share menu. */
@@ -1933,6 +1970,7 @@ async function boot() {
   wireShare(document);
   wireVideos(document);
   wireSocial();
+  wireOwnStorage();
   wireAids(() => state.config);
   wireCarry();
   window.addEventListener('online', () => sendOutbox().catch(() => {}));

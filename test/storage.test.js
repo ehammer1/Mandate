@@ -21,7 +21,7 @@ test('S3-compatible storage: stored under its fingerprint, signed (SigV4), delet
     fetch: async (url, init) => (calls.push({ url, init }), { ok: true, status: 200 }),
   });
   const bytes = Buffer.from('%PDF-1.7 a poster');
-  const loc = await store.put(bytes, 'poster.pdf', 'application/pdf');
+  const [loc] = await store.put(bytes, 'poster.pdf', 'application/pdf');
   assert.deepEqual(loc, { kind: 's3', url: `https://files.example.org/${sha(bytes)}` });
   const { url, init } = calls[0];
   assert.equal(url, `https://acct.r2.cloudflarestorage.com/promissa/${sha(bytes)}`);
@@ -68,4 +68,20 @@ test('Promissa Plus: checked with the assistant service, cached; anything unclea
   assert.equal(await check('free'), false);
   assert.equal(await check(''), false);
   assert.equal(await createPlanCheck({ url: 'https://x', fetch: async () => { throw new Error('down'); } })('paid'), false);
+});
+
+test('decentralized S3-compatible storage: Filebase also gives the IPFS address; Storj and others by preset', async () => {
+  const { PRESETS } = require('../services/identity/storage');
+  const calls = [];
+  const cid = 'bafybeig' + 'a'.repeat(50);
+  const store = s3({ ...PRESETS.filebase, bucket: 'promissa', accessKeyId: 'k', secretAccessKey: 's', fetch: async (url, init) => (calls.push({ url, init }), { ok: true, status: 200, headers: { get: (h) => (h === 'x-amz-meta-cid' ? cid : null) } }) });
+  const bytes = Buffer.from('ID3 a radio ad');
+  const locs = await store.put(bytes, 'ad.mp3', 'audio/mpeg');
+  assert.deepEqual(locs, [{ kind: 'ipfs', cid, key: sha(bytes) }]); // no public bucket address needed: fetched through IPFS
+  assert.match(calls[0].url, /^https:\/\/s3\.filebase\.com\/promissa\//);
+  await store.remove(locs[0]); // deleting the object also unpins it on Filebase
+  assert.equal(calls[1].init.method, 'DELETE');
+  assert.equal(fromEnv({ STORAGE: 's3', STORAGE_PROVIDER: 'filebase', S3_BUCKET: 'b', S3_ACCESS_KEY_ID: 'k', S3_SECRET_ACCESS_KEY: 's' }).kind, 's3+ipfs');
+  assert.equal(fromEnv({ STORAGE: 's3', STORAGE_PROVIDER: 'storj', S3_BUCKET: 'b', S3_ACCESS_KEY_ID: 'k', S3_SECRET_ACCESS_KEY: 's' }), null); // Storj needs its public share address
+  assert.equal(fromEnv({ STORAGE: 's3', STORAGE_PROVIDER: 'storj', S3_BUCKET: 'b', S3_ACCESS_KEY_ID: 'k', S3_SECRET_ACCESS_KEY: 's', S3_PUBLIC_URL: 'https://link.storjshare.io/raw/x/b' }).kind, 's3');
 });

@@ -38,7 +38,22 @@ function ipfsPinata(jwt) {
 }
 
 /**
- * Centralized: an S3-compatible bucket. Objects are stored under their SHA-256 (so the same file
+ * Ready-made settings for common S3-compatible services (STORAGE_PROVIDER):
+ *   filebase  decentralized: stores on IPFS and returns each file's IPFS content ID
+ *   storj     decentralized: encrypts, splits and spreads files across independent computers
+ *   r2, b2, wasabi, aws  centralized cloud storage
+ */
+const PRESETS = {
+  filebase: { endpoint: 'https://s3.filebase.com', region: 'us-east-1', ipfsCid: true, decentralized: true },
+  storj: { endpoint: 'https://gateway.storjshare.io', region: 'us1', decentralized: true },
+  r2: { region: 'auto' },
+  b2: { region: 'us-west-004' },
+  wasabi: { endpoint: 'https://s3.wasabisys.com', region: 'us-east-1' },
+  aws: { region: 'us-east-1' },
+};
+
+/**
+ * S3-compatible storage (centralized clouds, or decentralized ones like Filebase and Storj). Objects are stored under their SHA-256 (so the same file
  * is stored once) and served from `publicUrl` (the bucket's public address or a CDN in front).
  * @param {{ endpoint: string, bucket: string, region?: string, accessKeyId: string, secretAccessKey: string, publicUrl: string, fetch?: Function, now?: () => Date }} o
  */
@@ -46,7 +61,7 @@ function s3(o) {
   const region = o.region || 'auto';
   const doFetch = o.fetch || fetch;
   const base = o.endpoint.replace(/\/+$/, '');
-  const pub = o.publicUrl.replace(/\/+$/, '');
+  const pub = String(o.publicUrl || '').replace(/\/+$/, '');
   /** Sign and send one request (path-style: <endpoint>/<bucket>/<key>). */
   async function send(method, key, body, type) {
     const url = new URL(`${base}/${o.bucket}/${key}`);
@@ -66,16 +81,24 @@ function s3(o) {
     return doFetch(url.toString(), { method, headers: h, body });
   }
   return {
-    kind: 's3',
+    kind: o.ipfsCid ? 's3+ipfs' : 's3',
+    /** Returns the file's locations: its public address, and its IPFS content ID where the service gives one (Filebase). */
     async put(bytes, _name, type, sha) {
       const key = sha || sha256hex(bytes);
       const res = await send('PUT', key, Buffer.from(bytes), type);
       if (!res.ok) throw new Error(`storage upload failed (${res.status})`);
-      return { kind: 's3', url: `${pub}/${key}` };
+      const locs = [];
+      if (pub) locs.push({ kind: 's3', url: `${pub}/${key}` });
+      const cid = o.ipfsCid ? String(res.headers?.get?.('x-amz-meta-cid') || '') : '';
+      if (/^[a-zA-Z0-9]{20,100}$/.test(cid)) locs.push({ kind: 'ipfs', cid, key });
+      if (!locs.length) throw new Error('stored, but no public address: set S3_PUBLIC_URL');
+      return locs;
     },
     async remove(loc) {
-      if (loc.kind !== 's3' || !loc.url.startsWith(`${pub}/`)) return;
-      const res = await send('DELETE', loc.url.slice(pub.length + 1));
+      // Deleting the object also unpins it from IPFS on Filebase.
+      const key = loc.kind === 's3' && pub && loc.url.startsWith(`${pub}/`) ? loc.url.slice(pub.length + 1) : loc.kind === 'ipfs' && o.ipfsCid && /^[0-9a-f]{64}$/.test(String(loc.key)) ? loc.key : null;
+      if (!key) return;
+      const res = await send('DELETE', key);
       if (!res.ok && res.status !== 404) throw new Error(`storage delete failed (${res.status})`);
     },
   };
@@ -91,7 +114,7 @@ function mirror(stores, log = () => {}) {
     kind: stores.map((s) => s.kind).join('+'),
     async put(bytes, name, type, sha) {
       const results = await Promise.allSettled(stores.map((s) => s.put(bytes, name, type, sha)));
-      const ok = results.filter((r) => r.status === 'fulfilled').map((r) => r.value);
+      const ok = results.filter((r) => r.status === 'fulfilled').flatMap((r) => [].concat(r.value));
       results.forEach((r, i) => r.status === 'rejected' && log(`copy to ${stores[i].kind} failed: ${r.reason?.message}`));
       if (!ok.length) throw new Error('the file could not be stored anywhere');
       return ok;
@@ -104,15 +127,17 @@ function mirror(stores, log = () => {}) {
 
 /**
  * The storage set up by environment variables:
- *   STORAGE=ipfs (default when PINATA_JWT is set) | s3 | both
+ *   STORAGE=ipfs (default when PINATA_JWT is set) | s3 | both; STORAGE_PROVIDER=filebase | storj | r2 | b2 | wasabi | aws fills in the endpoint and region
  *   PINATA_JWT; S3_ENDPOINT, S3_BUCKET, S3_REGION, S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY, S3_PUBLIC_URL
  * Returns null when nothing is configured (uploads off).
  */
 function fromEnv(env = process.env, log = () => {}) {
   const v = (k) => String(env[k] || '').trim();
   const ipfs = v('PINATA_JWT') ? ipfsPinata(v('PINATA_JWT')) : null;
-  const bucket = v('S3_ENDPOINT') && v('S3_BUCKET') && v('S3_ACCESS_KEY_ID') && v('S3_SECRET_ACCESS_KEY') && v('S3_PUBLIC_URL')
-    ? s3({ endpoint: v('S3_ENDPOINT'), bucket: v('S3_BUCKET'), region: v('S3_REGION') || 'auto', accessKeyId: v('S3_ACCESS_KEY_ID'), secretAccessKey: v('S3_SECRET_ACCESS_KEY'), publicUrl: v('S3_PUBLIC_URL') })
+  const preset = PRESETS[v('STORAGE_PROVIDER').toLowerCase()] || {};
+  const endpoint = v('S3_ENDPOINT') || preset.endpoint || '';
+  const bucket = endpoint && v('S3_BUCKET') && v('S3_ACCESS_KEY_ID') && v('S3_SECRET_ACCESS_KEY') && (v('S3_PUBLIC_URL') || preset.ipfsCid)
+    ? s3({ endpoint, bucket: v('S3_BUCKET'), region: v('S3_REGION') || preset.region || 'auto', accessKeyId: v('S3_ACCESS_KEY_ID'), secretAccessKey: v('S3_SECRET_ACCESS_KEY'), publicUrl: v('S3_PUBLIC_URL'), ipfsCid: !!preset.ipfsCid })
     : null;
   const want = (v('STORAGE') || (ipfs ? 'ipfs' : bucket ? 's3' : '')).toLowerCase();
   if (want === 'both') return ipfs && bucket ? mirror([ipfs, bucket], log) : ipfs || bucket;
@@ -121,4 +146,4 @@ function fromEnv(env = process.env, log = () => {}) {
   return null;
 }
 
-module.exports = { ipfsPinata, s3, mirror, fromEnv };
+module.exports = { ipfsPinata, s3, mirror, fromEnv, PRESETS };
