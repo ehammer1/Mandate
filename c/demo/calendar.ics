@@ -3,29 +3,4 @@ VERSION:2.0
 PRODID:-//Mandate//Public deadlines//EN
 CALSCALE:GREGORIAN
 X-WR-CALNAME:Mandate: votes and deadlines
-BEGIN:VEVENT
-UID:poll-0xbAcc4af511f00165453399f885C73a79224a18ac-1@mandate
-DTSTAMP:20261122T113102Z
-DTSTART:20261125T093758Z
-DTEND:20261125T100758Z
-SUMMARY:Poll 1 closes: Add more public benches downtown.
-DESCRIPTION:Last chance to vote. Open the Mandate app. https://ehammer1.g
- ithub.io/Mandate/
-URL:https://ehammer1.github.io/Mandate/
-BEGIN:VALARM
-TRIGGER;RELATED=END:-P1D
-ACTION:DISPLAY
-DESCRIPTION:1 day left: Poll 1 closes: Add more public benches downtown.
-END:VALARM
-BEGIN:VALARM
-TRIGGER;RELATED=END:-PT8H
-ACTION:DISPLAY
-DESCRIPTION:8 hours left: Poll 1 closes: Add more public benches downtown.
-END:VALARM
-BEGIN:VALARM
-TRIGGER;RELATED=END:-PT1H
-ACTION:DISPLAY
-DESCRIPTION:1 hour left: Poll 1 closes: Add more public benches downtown.
-END:VALARM
-END:VEVENT
 END:VCALENDAR
