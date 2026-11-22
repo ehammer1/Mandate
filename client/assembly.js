@@ -94,4 +94,47 @@ function checkAcceptCode(code, { chainId, address, order }) {
   }
 }
 
-module.exports = { ASSEMBLIES_ABI, candidateAt, drawOrder, acceptMessage, acceptCode, checkAcceptCode };
+/**
+ * A seated member's endorsement of the assembly's statement (a review panel's for-and-against,
+ * a recommendation): signed with their voter key over the draft's notice-board reference, which
+ * is a fingerprint of its exact text. Endorsements are collected by the organizer and published
+ * with the final statement, so anyone can check how many seated members agreed to it.
+ */
+const endorseMessage = ({ chainId, address, id, position, ref }) =>
+  BigInt(ethers.keccak256(coder.encode(['string', 'uint256', 'address', 'uint256', 'uint256', 'string'], ['promissa-assembly-endorse', chainId, address, id, position, ref]))) >> 8n;
+
+function endorseCode(identity, { chainId, address, id, position, ref }) {
+  const sig = identity.signMessage(endorseMessage({ chainId, address, id, position, ref }));
+  const s = (x) => x.toString();
+  const body = { v: 1, id: s(id), position: Number(position), ref, pk: identity.publicKey.map(s), sig: { R8: sig.R8.map(s), S: s(sig.S) } };
+  return `PE1.${ethers.encodeBase64(ethers.toUtf8Bytes(JSON.stringify(body)))}`;
+}
+
+/**
+ * Check endorsements of draft `ref`: each must be signed by the voter drawn at a seated
+ * position. Returns the distinct seated positions that endorsed it, and the reasons others failed.
+ */
+function checkEndorsements(codes, { chainId, address, id, ref, order, seated }) {
+  const ok = new Set();
+  const bad = [];
+  for (const code of codes || []) {
+    try {
+      const m = String(code).replace(/\s+/g, '').match(/^PE1\.([A-Za-z0-9+/=]+)$/);
+      if (!m) throw new Error('not an endorsement code');
+      const b = JSON.parse(ethers.toUtf8String(ethers.decodeBase64(m[1])));
+      if (BigInt(b.id) !== BigInt(id) || b.ref !== ref) throw new Error('for a different assembly or text');
+      const at = order.find((o) => o.position === Number(b.position));
+      if (!at || !seated.has(at.position)) throw new Error('not from a seated member');
+      const pk = b.pk.map(BigInt);
+      if (Identity.generateCommitment(pk) !== at.commitment) throw new Error('not from the member at that seat');
+      const sig = { R8: b.sig.R8.map(BigInt), S: BigInt(b.sig.S) };
+      if (!Identity.verifySignature(endorseMessage({ chainId, address, id: BigInt(id), position: at.position, ref }), sig, pk)) throw new Error('signature does not match');
+      ok.add(at.position);
+    } catch (e) {
+      bad.push(e.message);
+    }
+  }
+  return { positions: [...ok].sort((a, b) => a - b), bad };
+}
+
+module.exports = { ASSEMBLIES_ABI, candidateAt, drawOrder, acceptMessage, acceptCode, checkAcceptCode, endorseMessage, endorseCode, checkEndorsements };

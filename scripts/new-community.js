@@ -60,7 +60,9 @@ function normalizeSpec(spec) {
   s.pollOpeners = addrs(s.pollOpeners, 'pollOpeners');
   s.registrars = addrs(s.registrars, 'registrars');
   s.groupCreators = addrs(s.groupCreators, 'groupCreators');
-  s.carriers = addrs(s.carriers, 'carriers'); // deliver offline ballots in a poll's delivery window
+  s.carriers = addrs(s.carriers, 'carriers');
+  s.randomCheckers = Number(s.randomCheckers || 0); // mandate checkers drawn at random: panel size, 0 = off
+  if (!(Number.isInteger(s.randomCheckers) && s.randomCheckers >= 0 && s.randomCheckers <= 25)) throw new Error('randomCheckers: how many verifiers check each mandate, drawn at random (0 to 25; 0 = all verifiers)'); // deliver offline ballots in a poll's delivery window
   // "Keep me signed in" is a rule residents can change by vote; the spec sets its starting value.
   s.rules = { ...(s.rules || {}) };
   if (s.keepSignedIn === true && s.rules.KEEP_SIGNED_IN === undefined) s.rules.KEEP_SIGNED_IN = 1;
@@ -105,6 +107,7 @@ async function createCommunity(signer, spec, o = {}) {
   }
   for (const a of s.tallyClerks) await grant(c.tallies, await c.tallies.CLERK_ROLE(), a, `${a} records paper counts`);
   for (const a of s.groupCreators) await grant(c.voterGroups, await c.voterGroups.GROUP_CREATOR_ROLE(), a, `${a} creates smaller voter lists`);
+  if (s.randomCheckers && (await c.registry.panelSize().catch(() => null)) !== null && Number(await c.registry.panelSize()) !== s.randomCheckers) await send(`mandate checkers drawn at random, ${s.randomCheckers} per check`, c.registry.setPanelSize(s.randomCheckers));
   if (c.vote.CARRIER_ROLE) for (const a of s.carriers) await grant(c.vote, await c.vote.CARRIER_ROLE(), a, `${a} carries offline ballots`);
   if (c.assemblies) for (const a of s.registrars) await grant(c.assemblies, await c.assemblies.ORGANIZER_ROLE(), a, `${a} organizes citizens' assemblies`);
 

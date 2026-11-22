@@ -102,6 +102,26 @@ This is how v5 replaced v4 (council changes #10 to #16 on the main community).
   enrolled someone may recognise their voter code.
 - Tests: `test/participation.test.js`, the explainer and browser tests.
 
+### 4c. Random review panels and random checkers (built, November 2026)
+
+- **Review panels for ballot questions** (like Oregon's Citizens' Initiative Review): a
+  citizens' assembly announced with `reviewOf: { poll }` in its question document. The
+  organizer publishes a draft statement (finding, strongest reasons for, strongest reasons
+  against) with `report()`. Each seated member can endorse that exact draft with a code signed
+  by their voter key over its notice-board reference. The organizer publishes the final
+  statement with the endorsements; every app checks them (`checkEndorsements` in
+  `client/assembly.js`) and shows "Endorsed by k of n seated members" on the poll card. No
+  contract change.
+- **Random mandate checkers:** `MandateRegistry.setPanelSize(n)` (council only, 0 to 25; 0 =
+  every verifier may check, as before). When evidence is submitted, a seed block 5 blocks ahead
+  is fixed. Anyone calls `drawPanel(id)` after it, and `max(n, threshold)` verifiers are drawn
+  at random, never the responsible party. Only they may attest that round; a missed 256-block
+  window sets a new seed block. The app shows the drawn checkers and a "Draw the checkers"
+  button; Admin has "Who checks mandates". The watchdog alerts on `PanelSizeSet` and records
+  each `PanelDrawn`. Limit: a drawn checker who never answers stalls that round; the
+  responsible party can resubmit after a rejection, not after silence (a timeout may follow).
+- Tests: `test/random-checks.test.js`, `test/participation.test.js`, the browser tests.
+
 ### 5. Receipt-free ballots (larger, may move to v7)
 
 - **Why:** today a voter can prove their choice to a buyer (they can also change it later where

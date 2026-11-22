@@ -70,6 +70,8 @@ const ABIS = {
     'event MandateCancelled(uint256 indexed id, string reasonCID)',
     'event MandatePaused(uint256 indexed id, string reasonCID)',
     'event MandateRevised(uint256 indexed id, address indexed responsible, uint64 deadline, uint16 threshold, string specCID, string reasonCID)',
+    'event PanelSizeSet(uint16 size)',
+    'event PanelDrawn(uint256 indexed id, uint32 indexed round, address[] members)',
     'function mandateCount() view returns (uint256)',
     'function isOverdue(uint256) view returns (bool)',
   ],

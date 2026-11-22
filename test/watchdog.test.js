@@ -270,3 +270,14 @@ test("watchdog: citizens' assemblies are reported at each step", () => {
   assert.equal(ev('Reported', { id: 1n, ref: 'nb:r' })[0].severity, 'medium');
   assert.equal(ROLE_NAMES[ethers.id('CARRIER_ROLE')], 'CARRIER');
 });
+
+test('watchdog: random mandate checkers switched on or off loudly, each draw recorded', () => {
+  const { rulesForEvent, describeCall } = require('../services/watchdog/rules');
+  const ctx = { proposals: new Map(), contractNames: {} };
+  const ev = (name, args) => rulesForEvent({ contract: 'registry', name, args, tx: '0x1', block: 1, time: 1 }, ctx);
+  assert.equal(ev('PanelSizeSet', { size: 5n })[0].severity, 'high');
+  assert.match(ev('PanelSizeSet', { size: 0n })[0].title, /no longer drawn at random/);
+  assert.match(ev('PanelDrawn', { id: 3n, round: 1n, members: ['0x' + '1'.repeat(40), '0x' + '2'.repeat(40)] })[0].title, /Mandate 3, check 1: checkers drawn at random/);
+  const i = new ethers.Interface(['function setPanelSize(uint16)']);
+  assert.match(describeCall('0x' + '5'.repeat(40), i.encodeFunctionData('setPanelSize', [5])), /draw mandate checkers at random, 5 per check/);
+});

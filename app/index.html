@@ -256,6 +256,8 @@
           <input type="text" id="assembly-title" placeholder="e.g. How should we make Main Street safer to cross?" />
           <label for="assembly-body">Details (optional): how often it meets, where, support offered (childcare, pay, interpreters)</label>
           <textarea id="assembly-body" rows="3"></textarea>
+          <label for="assembly-review">Review panel for poll number (optional): the panel hears both sides and writes the for-and-against statement shown with that poll</label>
+          <input type="text" id="assembly-review" inputmode="numeric" style="width:100px" />
           <label for="assembly-tier">Draw from</label>
           <select id="assembly-tier"><option value="2">Residents with full voting rights</option><option value="1">ID-checked residents</option><option value="0">All members</option></select>
           <label for="assembly-seats">Seats</label>
@@ -669,6 +671,15 @@
         <p class="status" id="credits-status" role="status"></p>
       </div>
 
+      <div class="card stack" id="admin-checkers" hidden>
+        <h3>Who checks mandates</h3>
+        <p class="note">Drawing checkers at random for each piece of evidence means nobody knows in advance who will check, so nobody can lean on them. Changes go through the council, in public.</p>
+        <p id="checkers-now" class="muted"></p>
+        <label for="checkers-size">Checkers for each piece of evidence</label>
+        <select id="checkers-size"><option value="0">All verifiers may check</option><option value="3">3 drawn at random</option><option value="5">5 drawn at random</option><option value="7">7 drawn at random</option></select>
+        <button id="btn-checkers">Submit</button>
+        <p class="status" id="checkers-status" role="status"></p>
+      </div>
       <div class="card stack" id="admin-roles" hidden>
         <h3 id="roles-title">Give or remove a role</h3>
         <p class="note" id="roles-note" hidden>Changes go to the council as a proposal: other members approve, then there is a public waiting period before they take effect. Removing a role needs approvals but no wait.</p>

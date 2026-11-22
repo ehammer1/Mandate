@@ -1004,7 +1004,7 @@ async function refreshPolls() {
         <div class="tallies-box" data-id="${id}" data-online="${esc(JSON.stringify(tally.map(String)))}" data-labels="${esc(JSON.stringify(labels))}" data-canvote="${eligibleTier && open && !p.finalized && !paperPlace && st.channels !== 1 ? 1 : 0}" data-final="${latestWins ? 'latest' : 'paper'}"></div>
         ${st.ranked ? `<div class="card stack ranked-results" data-id="${id}"><p class="muted">Counting the rankings…</p></div>` : ''}
         <div class="officials-box" data-id="${id}" data-canvote="${open && !voted && eligibleTier && Number(p.options) === 2 ? 1 : 0}"></div>
-        <div class="explain-box" data-id="${id}"></div>
+        <div class="review-box" data-id="${id}"></div>        <div class="explain-box" data-id="${id}"></div>
         <div class="thread-box" data-kind="poll" data-id="${id}"></div>
       </article>`);
     }
@@ -1043,6 +1043,7 @@ async function refreshPolls() {
       state.officials.pollSection(box, Number(box.dataset.id), box.dataset.canvote === '1', (option, btn) => castVote(BigInt(box.dataset.id), option, btn)).catch(() => {});
     }
     for (const box of list.querySelectorAll('.explain-box')) renderExplainer({ state, esc, status }, box, 'poll', Number(box.dataset.id)).catch(() => {});
+    for (const box of list.querySelectorAll('.review-box')) state.assemblies?.renderReview(box, Number(box.dataset.id));
     (async () => {
       for (const poll of toSave) await offline.savePoll(state, poll); // one at a time, in the background
     })();
@@ -1551,6 +1552,14 @@ async function refreshAdmin() {
   $('poll-grace-row').hidden = !(await hasGrace(state).catch(() => false)); // delivery windows: v6
   $('admin-budget').hidden = !r.budgetProposer;
   $('admin-roles').hidden = !(r.admin || r.councilMember);
+  // Random mandate checkers (newer registries only).
+  const reg6 = state.config.registryAddress ? new ethers.Contract(state.config.registryAddress, ['function panelSize() view returns (uint16)'], state.provider) : null;
+  const size = reg6 ? await reg6.panelSize().catch(() => null) : null;
+  $('admin-checkers').hidden = size === null || !(r.admin || r.councilMember);
+  if (size !== null) {
+    $('checkers-now').textContent = Number(size) ? `Now: ${size} checkers drawn at random for each piece of evidence.` : 'Now: all verifiers may check.';
+    $('btn-checkers').textContent = !r.admin && r.councilMember ? 'Propose to the council' : 'Submit';
+  }
   // With a council, role changes are proposals (unless this account is still a direct admin).
   const viaCouncil = !r.admin && r.councilMember;
   $('roles-note').hidden = !viaCouncil;
@@ -1820,6 +1829,15 @@ function wireAdmin() {
     $('grant-reason').value = '';
   };
 
+  $('btn-checkers').onclick = async () => {
+    const el = $('checkers-status');
+    const n = Number($('checkers-size').value);
+    const k = new ethers.Contract(state.config.registryAddress, ['function setPanelSize(uint16)'], state.provider);
+    const label = n ? `Draw ${n} mandate checkers at random for each piece of evidence` : 'Let all verifiers check mandates';
+    const viaCouncil = !state.roles?.admin && state.roles?.councilMember;
+    const ok = viaCouncil ? await state.council.propose(el, await k.getAddress(), k.interface.encodeFunctionData('setPanelSize', [n]), label) : await sendAdminTx(el, label, (s) => k.connect(s).setPanelSize(n));
+    if (ok && !viaCouncil) refreshAdmin().catch(() => {});
+  };
   $('btn-credits-handover').onclick = async () => {
     const credits = new ethers.Contract(state.config.creditsAddress, ['function transferOwnership(address)'], state.provider);
     if (await sendAdminTx($('credits-status'), 'Hand play credits to the council', (s) => credits.connect(s).transferOwnership(state.config.councilAddress))) $('admin-credits').hidden = true;

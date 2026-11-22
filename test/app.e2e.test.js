@@ -1215,8 +1215,8 @@ test('residents speak between votes: comments, a petition that opens its own pol
 });
 
 test("citizens' assembly: a drawn resident sees it on their phone and gets a seat code the organizer can check", async () => {
-  const { drawOrder, checkAcceptCode } = require('../client/assembly');
-  const text = JSON.stringify({ title: 'How should we make Main Street safer to cross?' });
+  const { drawOrder, checkAcceptCode, checkEndorsements } = require('../client/assembly');
+  const text = JSON.stringify({ title: 'How should we make Main Street safer to cross?', reviewOf: { poll: 1 } }); // a review panel for poll 1
   await (await c.notices.post(text)).wait();
   const size = Number(await c.identity.leafCount(0));
   await (await c.assemblies.announce(0, size, 30, `nb:${ethers.keccak256(ethers.toUtf8Bytes(text))}`)).wait(); // as many seats as members: everyone is drawn
@@ -1237,6 +1237,27 @@ test("citizens' assembly: a drawn resident sees it on their phone and gets a sea
   await (await c.assemblies.acceptSeat(id, r.position)).wait();
   await page.click('#nav-assemblies');
   await page.waitForSelector('#assembly-list >> text=You have a seat on this assembly', { timeout: 60_000 });
+
+  // The panel's draft statement: the seated resident endorses it on their phone.
+  const post = async (doc) => {
+    const t = JSON.stringify(doc);
+    await (await c.notices.post(t)).wait();
+    return `nb:${ethers.keccak256(ethers.toUtf8Bytes(t))}`;
+  };
+  const draft = { title: 'Most of the panel found a signalled crossing worth its cost.', for: ['Three crashes at Oak and Main last year'], against: ['$180,000 from the roads budget'], stage: 'draft' };
+  const draftRef = await post(draft);
+  await (await c.assemblies.report(id, draftRef)).wait();
+  await page.click('#nav-assemblies');
+  await page.waitForSelector('#assembly-list >> text=Draft: waiting for the panel members to endorse it', { timeout: 60_000 });
+  await page.click('#assembly-list [data-endorse]');
+  const endorsement = (await page.textContent('#assembly-list [data-endorse-code] .addr')).trim();
+  const seated = new Set([r.position]);
+  assert.deepEqual(checkEndorsements([endorsement], { chainId: net.chainId, address: await c.assemblies.getAddress(), id, ref: draftRef, order, seated }).positions, [r.position]);
+  await (await c.assemblies.report(id, await post({ ...draft, stage: 'final', draft: draftRef, endorsements: [endorsement] }))).wait();
+  // Shown with the poll it reviews, each endorsement checked on the phone.
+  await page.click('#nav-polls');
+  await page.waitForSelector('#poll-1 .review-box >> text=Endorsed by', { timeout: 60_000 });
+  assert.match(await page.textContent('#poll-1 .review-box'), /Citizens' review panel[\s\S]*signalled crossing[\s\S]*Three crashes[\s\S]*\$180,000[\s\S]*Endorsed by 1 of 1/);
 });
 
 test('most requested petitions are ranked, and times count down live', async () => {

@@ -39,6 +39,7 @@ const CALLS = new ethers.Interface([
   'function setMinBond(uint256 amount)',
   'function setElectorate(address electorate)',
   'function setDelegates(address registry)',
+  'function setPanelSize(uint16 size)',
   'function setVerifier(address next, (uint256,uint256,uint256,uint256,uint256,uint256[8]) test)',
 ]);
 const utc = (secs) => new Date(Number(secs) * 1000).toISOString().slice(0, 16).replace('T', ' ') + ' UTC';
@@ -77,6 +78,8 @@ function describeCall(target, data, names = {}) {
       return `make the council answer to ${names[String(a.electorate).toLowerCase()] || short(a.electorate)} (residents elect, recall and remove power through it)`;
     case 'setDelegates':
       return `connect public delegates (${names[String(a.registry).toLowerCase()] || short(a.registry)}) to ${where}`;
+    case 'setPanelSize':
+      return Number(a.size) ? `draw mandate checkers at random, ${a.size} per check` : 'stop drawing mandate checkers at random (every verifier may check)';
     case 'setVerifier':
       return `switch the ballot-proof checker on ${where} to ${short(a.next)} (for polls opened afterwards)`;
     default:
@@ -156,6 +159,10 @@ function rulesForEvent(ev, ctx) {
     }
     case 'VoterGroupsSet':
       return [{ ...base, rule: 'role-change', severity: 'high', title: `Voting contract connected to smaller voter lists at ${short(a.groups)}: polls can now be limited to its groups`, facts: { groups: a.groups } }];
+    case 'PanelSizeSet':
+      return [{ ...base, rule: 'role-change', severity: 'high', title: Number(a.size) ? `Mandate checkers will now be drawn at random: ${a.size} per check, from the verifiers` : 'Mandate checkers are no longer drawn at random: every verifier may check. Check this was publicly agreed.', facts: { size: Number(a.size) } }];
+    case 'PanelDrawn':
+      return [{ ...base, rule: 'mandate', severity: 'info', title: `Mandate ${a.id}, check ${a.round}: checkers drawn at random (${a.members.map(short).join(', ')})`, facts: { mandate: String(a.id), round: Number(a.round), members: [...a.members] } }];
     case 'Announced':
       return [{ ...base, rule: 'assembly', severity: 'medium', title: `Citizens' assembly ${a.id} announced: ${a.seats} seats drawn from the ${['basic members', 'verified residents', 'residents with full voting rights'][Number(a.tier)] || 'voter'} list (${a.size} people, fixed now), seeded by block ${a.drawBlock}`, facts: { assembly: String(a.id), seats: Number(a.seats), size: String(a.size), drawBlock: String(a.drawBlock), ref: a.ref } }];
     case 'Rescheduled':

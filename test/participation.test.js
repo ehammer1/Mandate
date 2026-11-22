@@ -11,7 +11,7 @@ const { Identity } = require('@semaphore-protocol/identity');
 const { Group } = require('@semaphore-protocol/group');
 const { deployAll } = require('../scripts/deploy');
 const { commentProof, markProof, topicOf, bridgeScore } = require('../client/feedback');
-const { candidateAt, drawOrder, acceptCode, checkAcceptCode } = require('../client/assembly');
+const { candidateAt, drawOrder, acceptCode, checkAcceptCode, endorseCode, checkEndorsements } = require('../client/assembly');
 
 process.env.SEMAPHORE_ARTIFACTS_DIR = path.dirname(require.resolve('@zk-kit/semaphore-artifacts/package.json'));
 let provider, admin, clerk, stranger, c;
@@ -123,6 +123,24 @@ test("citizens' assembly: announced first, drawn from a block nobody knew, redon
   await send(k.report(id, 'nb:recommendation'));
   const done = await k.getAssembly(id);
   assert.deepEqual([Number(done.filled), done.reportRef], [3, 'nb:recommendation']);
+});
+
+test("review panel statement: seated members endorse the exact draft, and anyone can count them", async () => {
+  const k = c.assemblies;
+  const id = 1n; // the assembly above: seats 0, 1 and 4 accepted
+  const order = await drawOrder({ assemblies: k, provider, id });
+  const net = await provider.getNetwork();
+  const where = { chainId: net.chainId, address: await k.getAddress(), id };
+  const draft = 'nb:0x' + 'd'.repeat(64);
+  const who = (pos) => residents.find((r) => r.commitment === order[pos].commitment);
+  const seated = new Set([0, 1, 4].filter((p) => p < order.length));
+  const codes = [0, 1, 2].map((pos) => endorseCode(who(pos), { ...where, position: pos, ref: draft }));
+  codes.push(endorseCode(who(0), { ...where, position: 0, ref: draft })); // the same member twice counts once
+  codes.push(endorseCode(who(1), { ...where, position: 1, ref: 'nb:0x' + 'e'.repeat(64) })); // a different text
+  codes.push(endorseCode(who(4), { ...where, position: 0, ref: draft })); // someone else's seat
+  const r = checkEndorsements(codes, { ...where, ref: draft, order, seated });
+  assert.deepEqual(r.positions, [0, 1]); // position 2 was drawn but never seated
+  assert.equal(r.bad.length, 3);
 });
 
 test('a draw nobody ran in time is rescheduled to a new future block', async () => {

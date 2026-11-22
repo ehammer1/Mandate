@@ -27,6 +27,9 @@ const REGISTRY_ABI = [
   'function hasAttested(uint256, uint32, address) view returns (bool)',
   'function submitEvidence(uint256, string)',
   'function attest(uint256, bool, string)',
+  // Random checkers (newer registries).
+  'function panelOf(uint256, uint32) view returns (uint16 size, uint64 seedBlock, address[] members)',
+  'function drawPanel(uint256)',
 ];
 const FACTORY_ABI = ['function escrowOf(uint256) view returns (address)', 'function escrowFor(uint256) returns (address)', 'function decayBps() view returns (uint16)', 'function decayInterval() view returns (uint32)'];
 const ESCROW_ABI = [
@@ -82,6 +85,12 @@ export function wireMandates(ctx) {
       let evidence = null;
       if (st === 2 && m.evidenceCID) evidence = await readDoc(state.config, state.provider, m.evidenceCID);
       const attested = st === 2 && isVerifier ? await r.hasAttested(id, m.round, me) : false;
+      // Random checkers: this round is checked only by verifiers drawn at random once the evidence was in.
+      const panel = st === 2 ? await r.panelOf(id, m.round).catch(() => null) : null;
+      const random = panel && Number(panel.size) > 0;
+      const drawn = random && panel.members.length > 0;
+      const onPanel = drawn && panel.members.some((a) => a.toLowerCase() === me.toLowerCase());
+      const canCheck = isVerifier && (!random || onPanel);
       const label = overdue ? 'Overdue' : STATUS[st];
       const daysLeft = Math.ceil((Number(m.deadline) - block.timestamp) / 86_400);
 
@@ -92,12 +101,20 @@ export function wireMandates(ctx) {
         <p class="muted">Responsible: <span class="code">${esc(short(m.responsible))}</span>${mine ? ' (you)' : ''} · ${m.threshold} independent check${Number(m.threshold) === 1 ? '' : 's'} needed</p>
         <p><strong>Budget:</strong> ${e ? `${esc(eth(locked))} held${contributed > locked && st !== 3 ? ` (of ${esc(eth(contributed))} backed${clawed ? `, ${esc(eth(clawed))} forfeited for lateness` : ''})` : ''}` : 'nobody has backed it yet'}${terms ? `. Paid to the responsible party once verified; refunded if repealed; ${Number(terms[0]) / 100}% forfeited to the public treasury every ${Math.round(Number(terms[1]) / 86_400)} day${Number(terms[1]) === 86_400 ? '' : 's'} while overdue.` : ''}</p>`);
       parts.push(`<div class="progress-box" data-id="${id}" data-mine="${mine ? 1 : 0}" data-active="${[1, 2, 5].includes(st) ? 1 : 0}"></div>`);
-      if (evidence) parts.push(`<div class="card"><p class="eyebrow">Evidence submitted (check ${m.round})</p><p>${esc(evidence.body || evidence.title)}</p>${attachmentsHtml(state.config, evidence, esc)}<p class="muted">${m.approvals} approval${Number(m.approvals) === 1 ? '' : 's'}, ${m.rejections} rejection${Number(m.rejections) === 1 ? '' : 's'} of ${m.threshold} needed</p></div>`);
+      const panelLine = !random
+        ? ''
+        : drawn
+          ? `<p class="muted"><strong>Checkers drawn at random:</strong> ${panel.members.map((a) => `<span class="code">${esc(short(a))}</span>${a.toLowerCase() === me.toLowerCase() ? ' (you)' : ''}`).join(', ')}. Only they can decide this round.</p>`
+          : Number(block.number) > Number(panel.seedBlock)
+            ? `<p class="muted"><strong>Checkers are drawn at random</strong> from the verifiers, so nobody knows in advance who will check. Ready to draw.</p><button data-act="draw" data-id="${id}">Draw the checkers</button>`
+            : `<p class="muted"><strong>Checkers are drawn at random</strong> from the verifiers in a few seconds, from a block nobody knows yet.</p>`;
+      if (evidence) parts.push(`<div class="card"><p class="eyebrow">Evidence submitted (check ${m.round})</p><p>${esc(evidence.body || evidence.title)}</p>${attachmentsHtml(state.config, evidence, esc)}<p class="muted">${m.approvals} approval${Number(m.approvals) === 1 ? '' : 's'}, ${m.rejections} rejection${Number(m.rejections) === 1 ? '' : 's'} of ${m.threshold} needed</p>${panelLine}</div>`);
 
       // Actions for this person.
       const acts = [];
       if (mine && st === 1) acts.push(`<label for="evidence-${id}">What was done (with links to photos, documents or data)</label><textarea id="evidence-${id}" rows="3"></textarea><p class="note">Add photos or documents as proof: before and after photos, invoices, reports.</p><div data-attach="evidence-${id}"></div><button class="primary" data-act="evidence" data-id="${id}">Submit for checking</button>`);
-      if (isVerifier && st === 2 && !mine && !attested) acts.push(`<label for="reason-${id}">Your reasons (published with your decision)</label><textarea id="reason-${id}" rows="3"></textarea><div class="row"><button class="primary" data-act="approve" data-id="${id}">Approve: it's done</button><button data-act="reject" data-id="${id}">Reject: not done</button></div>`);
+      if (isVerifier && random && drawn && !onPanel && st === 2) acts.push('<p class="muted">You were not drawn to check this round.</p>');
+      if (canCheck && st === 2 && !mine && !attested && (!random || drawn)) acts.push(`<label for="reason-${id}">Your reasons (published with your decision)</label><textarea id="reason-${id}" rows="3"></textarea><div class="row"><button class="primary" data-act="approve" data-id="${id}">Approve: it's done</button><button data-act="reject" data-id="${id}">Reject: not done</button></div>`);
       if (isVerifier && attested) acts.push('<p class="muted">You have checked this round.</p>');
       if (open && f) acts.push(`<div class="row"><label>Back it with <input type="text" id="back-${id}" inputmode="decimal" placeholder="0.001" style="width:120px" /> ETH</label><button data-act="back" data-id="${id}">Back this mandate</button></div>`);
       if (e && st === 3 && Number(settlement) === 0 && locked > 0n) acts.push(`<button class="primary" data-act="release" data-id="${id}">Pay the budget to the responsible party</button>`);
@@ -153,6 +170,8 @@ export function wireMandates(ctx) {
           ref = await postDoc(state.config, signer, { title: `${kind === 'approve' ? 'Approval' : 'Rejection'} for mandate ${id}`, body: text });
         }
         ok = await ctx.sendTx(el, kind === 'approve' ? 'Approve' : 'Reject', () => r.attest(id, kind === 'approve', ref));
+      } else if (kind === 'draw') {
+        ok = await ctx.sendTx(el, 'Draw the checkers', () => r.drawPanel(id));
       } else if (kind === 'back') {
         const amount = $(`back-${id}`).value.trim();
         let value;
