@@ -40,6 +40,10 @@ test('a spec is checked before anything is spent', () => {
   assert.deepEqual(normalizeSpec(once).council, once.council);
   assert.equal(normalizeSpec(once).council.delaySeconds, 3600);
   assert.equal(normalizeSpec(once).seasoningDays, 5);
+  // "Keep me signed in": the spec sets the starting value of the rule residents vote on.
+  assert.equal(normalizeSpec({ slug: 'ok-one', name: 'X', council: { members }, keepSignedIn: true }).rules.KEEP_SIGNED_IN, 1);
+  assert.equal(normalizeSpec({ slug: 'ok-one', name: 'X', council: { members } }).rules.KEEP_SIGNED_IN, undefined);
+  assert.throws(() => normalizeSpec({ slug: 'ok-one', name: 'X', council: { members }, carriers: ['0x123'] }), /carriers/);
 });
 
 test('each community has its own contracts, run by its own council; the deployer keeps nothing', async () => {
