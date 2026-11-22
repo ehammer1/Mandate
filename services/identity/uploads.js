@@ -19,12 +19,19 @@
 const crypto = require('crypto');
 const { ethers } = require('ethers');
 
-const MAX_BYTES = 10 * 1024 * 1024;
+const MAX_BYTES = 25 * 1024 * 1024; // audio; photos and PDFs stay at 10 MB (DOC_MAX_BYTES)
+const DOC_MAX_BYTES = 10 * 1024 * 1024;
 const TYPES = {
   'image/jpeg': (b) => b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff,
   'image/png': (b) => b.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])),
   'image/webp': (b) => b.subarray(0, 4).toString() === 'RIFF' && b.subarray(8, 12).toString() === 'WEBP',
   'application/pdf': (b) => b.subarray(0, 5).toString() === '%PDF-',
+  // Audio: voice messages, campaign ads, podcast clips (checked by their first bytes).
+  'audio/mpeg': (b) => b.subarray(0, 3).toString() === 'ID3' || (b[0] === 0xff && (b[1] & 0xe0) === 0xe0),
+  'audio/mp4': (b) => b.subarray(4, 8).toString() === 'ftyp',
+  'audio/webm': (b) => b[0] === 0x1a && b[1] === 0x45 && b[2] === 0xdf && b[3] === 0xa3,
+  'audio/ogg': (b) => b.subarray(0, 4).toString() === 'OggS',
+  'audio/wav': (b) => b.subarray(0, 4).toString() === 'RIFF' && b.subarray(8, 12).toString() === 'WAVE',
 };
 const SEMAPHORE_ABI = ['function verifyProof(uint256 groupId, tuple(uint256 merkleTreeDepth, uint256 merkleTreeRoot, uint256 nullifier, uint256 message, uint256 scope, uint256[8] points) proof) view returns (bool)'];
 const IDENTITY_ABI = ['function groupId(uint8) view returns (uint256)', 'function semaphore() view returns (address)'];
@@ -101,9 +108,10 @@ function createUploads(o) {
 
   /** POST /upload: [status, body]. */
   async function upload(bytes, headers, query) {
-    if (!bytes.length || bytes.length > MAX_BYTES) return [413, { error: 'Files can be up to 10 MB.' }];
     const type = String(headers['content-type'] || '').split(';')[0].trim();
-    if (!TYPES[type] || !TYPES[type](bytes)) return [415, { error: 'Only photos (JPEG, PNG, WebP) and PDF documents can be added.' }];
+    const audio = type.startsWith('audio/');
+    if (!bytes.length || bytes.length > (audio ? MAX_BYTES : DOC_MAX_BYTES)) return [413, { error: audio ? 'Audio can be up to 25 MB (about 20 minutes of speech).' : 'Files can be up to 10 MB.' }];
+    if (!TYPES[type] || !TYPES[type](bytes)) return [415, { error: 'Only photos (JPEG, PNG, WebP), PDF documents and audio (MP3, M4A, WebM, Ogg, WAV) can be added.' }];
     const sha = crypto.createHash('sha256').update(bytes).digest('hex');
     const problem = await verify(headers['x-upload-proof'], sha);
     if (problem) return [403, { error: problem }];
@@ -117,7 +125,7 @@ function createUploads(o) {
     }
     log(`file stored: ${cid} (${type}, ${bytes.length} bytes)`);
     const out = { cid, sha256: sha, type, size: bytes.length, name };
-    if (query.get('read') === '1' && o.read) {
+    if (query.get('read') === '1' && o.read && !audio) {
       try {
         out.ai = { ...(await o.read(bytes, type)), label: 'Read by AI: check the original' };
       } catch (e) {

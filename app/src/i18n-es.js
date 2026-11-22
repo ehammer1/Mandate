@@ -2296,4 +2296,12 @@ export default {
   "Testimonia seal: verification opens when Testimonia launches": "Sello de Testimonia: la verificación se abrirá cuando se lance Testimonia",
   "Not sealed: authenticity not checked": "Sin sello: autenticidad no comprobada",
   "A seal shows a recording is real and unedited, not that what it says is true.": "Un sello muestra que una grabación es real y sin editar, no que lo que dice sea cierto.",
+  "🎙 Record audio": "🎙 Grabar audio",
+  "⏹ Stop recording": "⏹ Detener la grabación",
+  "What it says: a short summary or a transcript (for people who can't listen)": "Lo que dice: un resumen breve o una transcripción (para quien no puede escuchar)",
+  "What it says (written by the person who added it)": "Lo que dice (escrito por quien lo añadió)",
+  "Download full size (to print or share)": "Descargar a tamaño completo (para imprimir o compartir)",
+  "📎 Add photos, posters, documents or audio (optional)": "📎 Añadir fotos, carteles, documentos o audio (opcional)",
+  "Recording… tap \"Stop recording\" when you are done.": "Grabando… toque \"Detener la grabación\" cuando termine.",
+  "The microphone is not available. Allow it in your browser settings, or add an audio file instead.": "El micrófono no está disponible. Permítalo en la configuración del navegador o añada un archivo de audio.",
 };

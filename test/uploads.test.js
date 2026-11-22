@@ -66,6 +66,23 @@ test('a member adds files anonymously, within the daily limit; the proof fits on
   assert.equal(stored.has(out.cid), false);
 });
 
+test('audio: real audio files only, up to 25 MB, never sent to the AI', async () => {
+  let reads = 0;
+  const up = createUploads({ store, appConfig: () => cfg, provider, perDay: 10, read: async () => (reads++, {}) });
+  const send = async (bytes, type, slot) => up.upload(bytes, { 'content-type': type, 'x-upload-proof': await uploadProof({ provider, identityAddress: cfg.identityAddress, identity: member, bytes, slot }), 'x-file-name': 'clip' }, new URLSearchParams('read=1'));
+  const mp3 = Buffer.concat([Buffer.from('ID3'), Buffer.alloc(200, 1)]);
+  const webm = Buffer.concat([Buffer.from([0x1a, 0x45, 0xdf, 0xa3]), Buffer.alloc(200, 2)]);
+  const [s1, out] = await send(mp3, 'audio/mpeg', 3);
+  assert.equal(s1, 200, JSON.stringify(out));
+  assert.equal(out.type, 'audio/mpeg');
+  assert.equal(out.ai, undefined); // the AI can't listen: the person adds a summary or transcript instead
+  assert.equal((await send(webm, 'audio/webm', 4))[0], 200);
+  assert.equal(reads, 0);
+  assert.equal((await send(Buffer.from('not really audio at all'), 'audio/mpeg', 5))[0], 415);
+  const big = Buffer.concat([Buffer.from('%PDF-'), Buffer.alloc(11 * 1024 * 1024)]);
+  assert.match((await up.upload(big, { 'content-type': 'application/pdf' }, new URLSearchParams()))[1].error, /up to 10 MB/); // documents stay at 10 MB
+});
+
 test('AI reading sends the file to Claude and returns text, summary, description and a privacy flag', async () => {
   let req;
   const client = { beta: { messages: { create: async (r) => {

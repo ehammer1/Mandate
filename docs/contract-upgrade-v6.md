@@ -186,6 +186,18 @@ This is how v5 replaced v4 (council changes #10 to #16 on the main community).
   original, not the platform's copy. A seal shows a recording is real and unedited, not that
   what it says is true.
 
+### 4g. Posters, documents and audio (app and sign-up service, November 2026)
+
+- Photos, posters and PDFs could already be attached to petitions, polls, comments and
+  evidence; now also to agenda issues and candidate statements. Posters get a "Download full
+  size" link for printing.
+- **Audio:** upload a file (MP3, M4A, WebM, Ogg, WAV) or record on the phone; up to 25 MB
+  (photos and PDFs stay at 10 MB). The upload service checks the file's first bytes for each
+  type. The AI does not read audio; the person adds a summary or transcript, shown under the
+  player for people who can't listen. Nothing plays until tapped.
+- Any attachment may carry a Testimonia seal, shown as pending until Testimonia launches; files
+  sent from Testimonia arrive as ordinary attachments with their seal.
+
 ### 5. Receipt-free ballots (larger, may move to v7)
 
 - **Why:** today a voter can prove their choice to a buyer (they can also change it later where

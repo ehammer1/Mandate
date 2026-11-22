@@ -125,6 +125,18 @@ async function send(ctx, bytes, type, name, read) {
   throw new Error('Daily upload limit reached. Please try again tomorrow.');
 }
 
+// Audio: what the upload service accepts (it checks the file's first bytes too).
+const AUDIO_MAX = 25 * 1024 * 1024;
+export function audioType(t) {
+  const x = String(t || '').toLowerCase();
+  if (/webm/.test(x)) return 'audio/webm';
+  if (/mpeg|mp3/.test(x)) return 'audio/mpeg';
+  if (/mp4|m4a|aac/.test(x)) return 'audio/mp4';
+  if (/ogg|oga|opus/.test(x)) return 'audio/ogg';
+  if (/wav/.test(x)) return 'audio/wav';
+  return 'audio/webm';
+}
+
 // ------------------------------------------------------------------ picker UI
 
 /**
@@ -142,20 +154,26 @@ export function attachPicker(box, ctx) {
     if (!service?.enabled) return (box.innerHTML = '');
     box.innerHTML = `<div class="row attach-buttons">
         <label class="button">📷 Take a photo<input type="file" accept="image/*" capture="environment" data-pick="camera" hidden /></label>
-        <label class="button">🖼 Photo or file<input type="file" accept="image/*,application/pdf" multiple data-pick="library" hidden /></label>
+        <label class="button">🖼 Photo or file<input type="file" accept="image/*,application/pdf,audio/*" multiple data-pick="library" hidden /></label>
+        ${typeof MediaRecorder !== 'undefined' ? `<button type="button" data-record>${recorder ? '⏹ Stop recording' : '🎙 Record audio'}</button>` : ''}
         <label class="button">📄 Scan a document<input type="file" accept="image/*" capture="environment" data-pick="scan" hidden /></label>
       </div>
       ${pages.length ? `<p class="note">${pages.length} page${pages.length === 1 ? '' : 's'} scanned. <label class="button">Add a page<input type="file" accept="image/*" capture="environment" data-pick="scan" hidden /></label> <button type="button" data-done>Done: make the PDF</button></p>` : ''}
       ${service.ai ? '<label class="row"><input type="checkbox" data-ai checked /> AI reads it: the text, a short summary, a description for screen readers, and a check for private details</label>' : ''}
       <p class="note">Files are public and permanent. Photos are shrunk and their hidden location data removed. Don't include anyone's private details.</p>
-      <ul class="list attach-list">${files.map((f, i) => `<li>${f.type.startsWith('image/') ? `<img src="${esc(f.preview)}" alt="" class="attach-thumb" />` : '📄'} <strong>${esc(f.name)}</strong> · ${Math.round(f.size / 1024)} KB${f.ai?.personal_info ? `<p class="warn">▲ AI noticed private details: ${esc(f.ai.personal_info_note || 'please check')}. Remove the file if they should not be public.</p>` : ''}
-          <label>Description for screen readers <input type="text" data-alt="${i}" value="${esc(f.alt || '')}" maxlength="300" /></label>
+      <ul class="list attach-list">${files.map((f, i) => `<li>${f.type.startsWith('image/') ? `<img src="${esc(f.preview)}" alt="" class="attach-thumb" />` : f.type.startsWith('audio/') ? '🎙' : '📄'} <strong>${esc(f.name)}</strong> · ${Math.round(f.size / 1024)} KB${f.ai?.personal_info ? `<p class="warn">▲ AI noticed private details: ${esc(f.ai.personal_info_note || 'please check')}. Remove the file if they should not be public.</p>` : ''}
+          ${f.type.startsWith('audio/') ? `<label>What it says: a short summary or a transcript (for people who can't listen) <textarea data-transcript="${i}" rows="2" maxlength="8000">${esc(f.transcript || '')}</textarea></label>` : `<label>Description for screen readers <input type="text" data-alt="${i}" value="${esc(f.alt || '')}" maxlength="300" /></label>`}
+          <details><summary>Testimonia seal (optional)</summary><label>Seal code <input type="text" data-seal="${i}" value="${esc(f.seal || '')}" spellcheck="false" /></label></details>
           ${f.ai?.summary ? `<p class="note">AI summary: ${esc(f.ai.summary)}</p>` : ''}
           <button type="button" data-remove="${i}">Remove</button></li>`).join('')}</ul>
       <p class="status" role="status">${esc(note)}</p>`;
     for (const input of box.querySelectorAll('[data-pick]')) input.onchange = () => pick(input.dataset.pick, [...input.files]);
     for (const b of box.querySelectorAll('[data-remove]')) b.onclick = () => (files.splice(Number(b.dataset.remove), 1), draw());
     for (const a of box.querySelectorAll('[data-alt]')) a.oninput = () => (files[Number(a.dataset.alt)].alt = a.value);
+    for (const a of box.querySelectorAll('[data-transcript]')) a.oninput = () => (files[Number(a.dataset.transcript)].transcript = a.value);
+    for (const a of box.querySelectorAll('[data-seal]')) a.oninput = () => (files[Number(a.dataset.seal)].seal = a.value.trim());
+    const rec = box.querySelector('[data-record]');
+    if (rec) rec.onclick = () => (recorder ? stopRecording() : startRecording());
     const done = box.querySelector('[data-done]');
     if (done) done.onclick = () => finishScan();
   };
@@ -167,6 +185,37 @@ export function attachPicker(box, ctx) {
     }
   };
   const readOn = () => !!box.querySelector('[data-ai]')?.checked;
+
+  // Recording on the phone: the browser's own recorder (WebM on most phones, MP4 on iPhone).
+  let recorder = null;
+  async function startRecording() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const chunks = [];
+      recorder = new MediaRecorder(stream);
+      recorder.ondataavailable = (e) => e.data.size && chunks.push(e.data);
+      recorder.onstop = async () => {
+        stream.getTracks().forEach((t) => t.stop());
+        const type = audioType(recorder.mimeType || chunks[0]?.type || 'audio/webm');
+        recorder = null;
+        const bytes = new Uint8Array(await new Blob(chunks).arrayBuffer());
+        try {
+          if (bytes.length > AUDIO_MAX) throw new Error('Recordings can be up to 25 MB (about 20 minutes).');
+          await add(bytes, type, `recording-${new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-')}.${type === 'audio/mp4' ? 'm4a' : 'webm'}`, '');
+        } catch (e) {
+          setStatus(e.message, 'error');
+        }
+      };
+      recorder.start();
+      draw('Recording… tap "Stop recording" when you are done.');
+    } catch {
+      recorder = null;
+      setStatus('The microphone is not available. Allow it in your browser settings, or add an audio file instead.', 'error');
+    }
+  }
+  function stopRecording() {
+    recorder?.stop();
+  }
 
   async function add(bytes, type, name, preview, look = null) {
     setStatus(`Adding ${name}: proving you are on the voter list, privately…`);
@@ -190,7 +239,10 @@ export function attachPicker(box, ctx) {
           draw('Page added. Add another page, or tap "Done" to make the PDF.');
           continue;
         }
-        if (file.type === 'application/pdf') {
+        if (file.type.startsWith('audio/') || /\.(mp3|m4a|aac|wav|ogg|oga|opus|webm)$/i.test(file.name || '')) {
+          if (file.size > AUDIO_MAX) throw new Error('Audio can be up to 25 MB (about 20 minutes of speech). For longer pieces, post them on a platform and add the link.');
+          await add(new Uint8Array(await file.arrayBuffer()), audioType(file.type || file.name), file.name || 'audio', '');
+        } else if (file.type === 'application/pdf') {
           if (file.size > 10 * 1024 * 1024) throw new Error('PDFs can be up to 10 MB.');
           await add(new Uint8Array(await file.arrayBuffer()), 'application/pdf', file.name, '');
         } else {
@@ -223,6 +275,8 @@ export function attachPicker(box, ctx) {
       if (inflight || pages.length) throw new Error(pages.length ? 'Finish the scan first: tap "Done: make the PDF".' : 'Files are still being added: wait a moment, then try again.');
       return files.map((f) => ({
         cid: f.cid, sha256: f.sha256, type: f.type, size: f.size, name: f.name, alt: String(f.alt || '').slice(0, 300), ...(f.look ? { look: f.look } : {}),
+        ...(f.transcript ? { transcript: String(f.transcript).slice(0, 8000) } : {}),
+        ...(f.seal ? { seal: { by: 'testimonia', code: String(f.seal).slice(0, 4000) } } : {}),
         ...(f.ai ? { ai: { summary: f.ai.summary, text: String(f.ai.text || '').slice(0, 8000), kind: f.ai.kind, model: f.ai.model, label: f.ai.label } } : {}),
       }));
     },
@@ -246,9 +300,16 @@ export function attachmentsHtml(cfg, doc, esc) {
       if (blocked.has(a.cid)) return '<p class="muted">A file here was taken down.</p>';
       const url = fileUrl(cfg, a.cid);
       const img = /^image\//.test(a.type);
+      const audio = /^audio\//.test(a.type);
+      const media = img
+        ? `<a href="${esc(url)}" target="_blank" rel="noopener"><img src="${esc(url)}" alt="${esc(a.alt || a.name || 'Attached photo')}" loading="lazy" /></a><a class="link" href="${esc(url)}" download="${esc(a.name || 'image.jpg')}" target="_blank" rel="noopener">Download full size (to print or share)</a>`
+        : audio
+          ? `<p>🎙 <strong>${esc(a.name || 'Audio')}</strong></p><audio controls preload="none" src="${esc(url)}" style="width:100%"></audio>${a.transcript ? `<details><summary>What it says (written by the person who added it)</summary><p>${esc(a.transcript)}</p></details>` : ''}`
+          : `<a class="button" href="${esc(url)}" target="_blank" rel="noopener">📄 ${esc(a.name || 'Document')} (PDF)</a>`;
       return `<figure class="attachment">
-        ${img ? `<a href="${esc(url)}" target="_blank" rel="noopener"><img src="${esc(url)}" alt="${esc(a.alt || a.name || 'Attached photo')}" loading="lazy" /></a>` : `<a class="button" href="${esc(url)}" target="_blank" rel="noopener">📄 ${esc(a.name || 'Document')} (PDF)</a>`}
+        ${media}
         <figcaption>${a.alt ? esc(a.alt) : ''}
+          ${a.seal ? '<span class="chip">Testimonia seal: verification opens when Testimonia launches</span>' : ''}
           ${a.ai?.summary || a.ai?.text ? `<details><summary>What AI read in it (check the original)</summary>${a.ai.summary ? `<p>${esc(a.ai.summary)}</p>` : ''}${a.ai.text ? `<pre class="ai-text">${esc(a.ai.text)}</pre>` : ''}</details>` : ''}
           <button type="button" class="link" data-check="${esc(a.cid)}" data-sha="${esc(a.sha256 || '')}">Check it is unchanged</button> <span class="check-result" role="status"></span>
           ${img && a.look ? `<label class="link">Compare a copy you saw elsewhere<input type="file" accept="image/*" data-compare="${esc(JSON.stringify(a.look))}" hidden /></label> <span class="check-result" role="status"></span>` : ''}
