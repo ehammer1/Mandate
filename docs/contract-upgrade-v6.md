@@ -149,6 +149,29 @@ This is how v5 replaced v4 (council changes #10 to #16 on the main community).
   issues are not grouped by district yet.
 - Tests: `test/agenda.test.js` and the browser tests.
 
+### 4e. Organizing, track records, sharing and support (app and services, November 2026)
+
+- **AI themes for the People's Agenda:** the watchdog writes `agenda-<address>-<season>.json`
+  with the explainer service's `groupIssues`: a short overview and themes of issues about the
+  same thing, marked when they ask for essentially the same thing. The AI only sorts: issue
+  numbers are checked, each issue is in at most one theme, and organizers decide merges (one
+  tap adds a combined issue while adding is open). The app also points out similar issues as
+  someone types a new one, on the device, so support isn't split.
+- **Track records** (`client/record.js`): from public roles and actions only (promises
+  delivered and on time, overdue or repealed; petitions started from one's own account and
+  whether they reached a vote; official or public-delegate role). Never votes, and never
+  whether someone voted. Shown on candidate profiles and as "People with a public track record"
+  on the Agenda screen. Facts, not one score.
+- **Sharing:** every poll, petition, mandate and motion has "📣 Share": the device's share
+  sheet, or a ready post for X, Bluesky, Threads, Mastodon, Facebook, LinkedIn, Reddit,
+  WhatsApp, Telegram or email, sent from the person's own account (no API keys, nothing posted
+  for them).
+- **Support links (off until a legal review):** with `fundingLinks: true` in a community's
+  config, petitions, agenda issues and candidate statements may carry the organizers' own
+  Base address and fundraising links, shown as "Support this". Promissa never holds, converts,
+  forwards or takes a cut of money (no money transmission). Political campaigns are told they
+  are responsible for campaign-finance law. On only for the demo community.
+
 ### 5. Receipt-free ballots (larger, may move to v7)
 
 - **Why:** today a voter can prove their choice to a buyer (they can also change it later where

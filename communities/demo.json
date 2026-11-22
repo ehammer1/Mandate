@@ -44,5 +44,6 @@
   "rules": {
     "MIN_POLL_MINUTES": 10
   },
-  "keepSignedIn": true
+  "keepSignedIn": true,
+  "fundingLinks": true
 }

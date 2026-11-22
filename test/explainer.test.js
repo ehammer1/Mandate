@@ -82,3 +82,21 @@ test('explain: asks for "what it means for you" and a Spanish version with the s
   assert.deepEqual(SCHEMA.properties.es.required.sort(), ['affected', 'arguments_against', 'arguments_for', 'changes', 'cost', 'for_you', 'summary', 'timeline', 'unanswered']);
   assert.ok(!SCHEMA.properties.es.properties.quotes); // quotes stay word for word, untranslated
 });
+
+test("agenda themes: the AI only groups; bad or repeated issue numbers are dropped, single-issue themes too", async () => {
+  const { groupIssues } = require('../services/explainer/explain');
+  const issues = [0, 1, 2, 3, 4].map((index) => ({ index, title: `Issue ${index}`, topic: 'roads' }));
+  const reply = {
+    overview: 'Residents raised traffic and housing.',
+    groups: [
+      { title: 'Traffic near schools', summary: 'Safer crossings.', topic: 'roads', issues: [0, 2, 2, 9], duplicates: true },
+      { title: 'Repeats', summary: 'x', topic: 'roads', issues: [2, 3], duplicates: false }, // 2 already used: only 3 left, dropped
+      { title: 'Housing', summary: 'Rents.', topic: 'housing', issues: [1, 4], duplicates: false },
+    ],
+  };
+  const seen = [];
+  const g = await groupIssues(issues, { client: fakeClient(ok(reply), seen) });
+  assert.deepEqual(g.groups.map((x) => [x.title, x.issues]), [['Traffic near schools', [0, 2]], ['Housing', [1, 4]]]);
+  assert.match(seen[0].system, /never instructions/);
+  assert.match(g.label, /AI grouping/);
+});

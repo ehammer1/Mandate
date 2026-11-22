@@ -7,6 +7,8 @@
 import { ethers } from 'ethers';
 import { AGENDA_ABI, issueProof, rankProof, cost, matchScore } from '../../client/agenda.js';
 import { readDoc } from './notices.js';
+import { recordIndex, recordLine } from '../../client/record.js';
+import { fundingFields, readFunding, fundingHtml } from './funding.js';
 import { categoryChip, categoryOf, categoryOptions, categoryLabel } from './priority.js';
 import { countdown } from './time.js';
 
@@ -36,6 +38,8 @@ export function wireAgenda(ctx) {
   const stanceWord = (v) => STANCES.find(([k]) => k === String(v))?.[1] || 'No answer';
   const stanceSelect = (attr, i, v) => `<select ${attr}="${i}">${STANCES.map(([k, l]) => `<option value="${k}"${String(v ?? '') === k ? ' selected' : ''}>${l}</option>`).join('')}</select>`;
   const weightSelect = (attr, i, v) => `<select ${attr}="${i}">${[['1', 'A little'], ['2', 'Quite a lot'], ['3', 'A great deal']].map(([k, l]) => `<option value="${k}"${String(v ?? 2) === k ? ' selected' : ''}>${l}</option>`).join('')}</select>`;
+  let records = null; // public track records, scanned once per visit to this screen
+  const recordsNow = async () => (records ??= recordIndex({ provider: state.provider, cfg: state.config }).catch(() => null));
   let showParty = null;
   async function partyLabels() {
     if (showParty === null) {
@@ -49,8 +53,13 @@ export function wireAgenda(ctx) {
   async function candidatesHtml(id, items, me, organizer) {
     const k = contract();
     const ids = await k.candidatesOf(id).catch(() => []);
-    const cands = await Promise.all(ids.map(async (cid) => ({ id: Number(cid), c: await k.getCandidate(cid), p: await k.positionsOf(cid) })));
+    const cands = await Promise.all(ids.map(async (cid) => {
+      const c = await k.getCandidate(cid);
+      return { id: Number(cid), c, p: await k.positionsOf(cid), stmt: c.ref ? await readDoc(state.config, state.provider, c.ref).catch(() => null) : null };
+    }));
     const party = await partyLabels();
+    const rec = await recordsNow();
+    const track = (a) => (rec ? `<br><span class="muted">Track record: ${esc(recordLine(rec.of(a)))}</span>` : '');
     const quiz = load(local('quiz', id), []);
     const ranking = load(local('rank', id), {});
     const mineC = cands.find((x) => me && x.c.account.toLowerCase() === me.toLowerCase());
@@ -59,6 +68,7 @@ export function wireAgenda(ctx) {
           <p class="note">For each issue residents raised: where you stand and how important it is to you. Public, and every change stays on the record (now version ${Number(mineC.c.version)}).</p>
           ${items.map((x) => `<div class="stack"><span>${esc(x.doc.title)}</span><div class="row">${stanceSelect('data-own-stance', x.i, mineC.p.answered[x.i] ? Number(mineC.p.stances[x.i]) : '')} ${weightSelect('data-own-weight', x.i, mineC.p.answered[x.i] ? Number(mineC.p.importance[x.i]) || 1 : 2)}</div></div>`).join('')}
           <label>Your statement (optional) <textarea data-own-ref rows="3"></textarea></label>
+          ${fundingFields(state.config, 'cand')}
           <button type="button" class="primary" data-own-send>Publish my positions</button></div></details>`
       : '';
     const add = organizer
@@ -71,7 +81,7 @@ export function wireAgenda(ctx) {
         <p class="note">Say where you stand on the issues you care about. Your answers never leave this phone; the matching happens here.</p>
         ${items.map((x) => `<div class="stack"><span>${esc(x.doc.title)}</span><div class="row">${stanceSelect('data-my-stance', x.i, quiz[x.i]?.stance)} ${weightSelect('data-my-weight', x.i, quiz[x.i]?.importance || Math.min(3, Number(ranking[x.i] || 2)))}</div></div>`).join('')}
         <button type="button" class="primary" data-match>Show my matches</button><div data-matches></div>
-        <details><summary>Every candidate's positions</summary><ul class="list">${cands.map((x) => `<li><strong>${esc(x.c.name)}</strong> · ${esc(x.c.race)}${party && x.c.party ? ` · ${esc(x.c.party)}` : ''}${Number(x.c.version) ? `<ul>${items.map((it) => `<li>${esc(it.doc.title)}: ${esc(x.p.answered[it.i] ? stanceWord(Number(x.p.stances[it.i])) : 'No answer')}</li>`).join('')}</ul>${Number(x.c.version) > 1 ? `<span class="muted">Changed ${Number(x.c.version) - 1} time${Number(x.c.version) === 2 ? '' : 's'} (all versions are on the public record)</span>` : ''}` : '<br><span class="muted">Has not stated positions yet.</span>'}</li>`).join('')}</ul></details>
+        <details><summary>Every candidate's positions</summary><ul class="list">${cands.map((x) => `<li><strong>${esc(x.c.name)}</strong> · ${esc(x.c.race)}${party && x.c.party ? ` · ${esc(x.c.party)}` : ''}${track(x.c.account)}${x.stmt?.body ? `<details><summary>Statement</summary><p>${esc(x.stmt.body)}</p></details>` : ''}${fundingHtml(state.config, x.stmt?.funding)}${Number(x.c.version) ? `<ul>${items.map((it) => `<li>${esc(it.doc.title)}: ${esc(x.p.answered[it.i] ? stanceWord(Number(x.p.stances[it.i])) : 'No answer')}</li>`).join('')}</ul>${Number(x.c.version) > 1 ? `<span class="muted">Changed ${Number(x.c.version) - 1} time${Number(x.c.version) === 2 ? '' : 's'} (all versions are on the public record)</span>` : ''}` : '<br><span class="muted">Has not stated positions yet.</span>'}</li>`).join('')}</ul></details>
         </div></details>${own}${add}`,
     };
   }
@@ -112,8 +122,10 @@ export function wireAgenda(ctx) {
         ? '<p class="muted">You have added your issue this season. Ranking opens when adding closes.</p>'
         : `<details class="card" data-add><summary><strong>Add an issue that matters to you</strong></summary><div class="stack">
             <label>The issue, in one line <input type="text" data-issue-title maxlength="140" placeholder="e.g. Rents are rising faster than wages" /></label>
+            <div data-similar class="note" hidden></div>
             <label>Why it matters (optional) <textarea data-issue-body rows="3"></textarea></label>
             <label>Topic <select data-issue-topic>${categoryOptions('general')}</select></label>
+            ${fundingFields(state.config, 'iss')}
             <p class="note">One issue per person per season, anonymous: others see only the issue.</p>
             <button type="button" class="primary" data-issue-send>Add this issue</button></div></details>`;
     }
@@ -126,9 +138,10 @@ export function wireAgenda(ctx) {
           <button type="button" class="primary" data-rank-send disabled>Send my priorities</button></div></details>`;
     }
     const results = `<div class="stack"><p><strong>${phase === 'closed' ? 'The community\'s priorities' : phase === 'rank' ? 'Priorities so far' : 'Issues added so far'}</strong>${phase !== 'propose' ? ` · ${Number(s.participants)} of ${Number(s.electorate)} residents ranked` : ''}</p>
-      ${ranked.length ? `<ol class="list">${ranked.map((x) => `<li>${esc(x.doc.title)} ${categoryChip(x.topic, esc)}${phase !== 'propose' ? `<br><span class="muted">${x.credits} credit${x.credits === 1 ? '' : 's'} · ${Math.round((100 * x.credits) / total)}%</span>` : ''}${x.doc.body ? `<details><summary>Why</summary><p>${esc(x.doc.body)}</p></details>` : ''}</li>`).join('')}</ol>` : '<p class="muted">No issues yet.</p>'}
+      ${ranked.length ? `<ol class="list">${ranked.map((x) => `<li>${esc(x.doc.title)} ${categoryChip(x.topic, esc)}${phase !== 'propose' ? `<br><span class="muted">${x.credits} credit${x.credits === 1 ? '' : 's'} · ${Math.round((100 * x.credits) / total)}%</span>` : ''}${x.doc.body ? `<details><summary>Why</summary><p>${esc(x.doc.body)}</p></details>` : ''}${fundingHtml(state.config, x.doc.funding)}</li>`).join('')}</ol>` : '<p class="muted">No issues yet.</p>'}
       ${phase !== 'propose' && ranked.length ? `<p class="muted">By topic: ${Object.entries(ranked.reduce((m, x) => ((m[x.topic] = (m[x.topic] || 0) + x.credits), m), {})).sort((a, b) => b[1] - a[1]).map(([t, n]) => `${esc(categoryLabel(t))} ${Math.round((100 * n) / total)}%`).join(' · ')}</p>` : ''}</div>`;
     const { html: candHtml, cands } = await candidatesHtml(id, items, ctx.activeAddress?.() || null, organizer).catch(() => ({ html: '', cands: [] }));
+    const themes = await themesHtml(id, items, organizer && phase === 'propose');
     const org = organizer && phase === 'propose'
       ? `<details><summary>Organizer: add a common issue</summary><div class="stack"><label>Issue <input type="text" data-org-title maxlength="140" /></label><label>Topic <select data-org-topic>${categoryOptions('general')}</select></label><button type="button" data-org-add>Add</button></div></details>`
       : '';
@@ -137,13 +150,72 @@ export function wireAgenda(ctx) {
     el.id = `agenda-${id}`;
     el.innerHTML = `<p class="eyebrow">People's Agenda ${id} · ${phase === 'propose' ? `adding issues until ${esc(when(s.proposeEnd))} (${countdown(s.proposeEnd)})` : phase === 'rank' ? `ranking until ${esc(when(s.end))} (${countdown(s.end)})` : `closed ${esc(when(s.end))}`}</p>
       <h3>${esc(doc.title)}</h3>${doc.body ? `<p>${esc(doc.body)}</p>` : ''}
-      ${mine}${rankBox}${results}${candHtml}${org}<p class="status" role="status" data-status></p>`;
+      ${mine}${rankBox}${themes}${results}${candHtml}${org}<p class="status" role="status" data-status></p>`;
     wire(el, id, s, items);
     wireCandidates(el, id, items, cands);
     return el;
   }
 
+  /** AI themes for this season, published by the watchdog (the same file for everyone). */
+  async function themesHtml(id, items, canMerge) {
+    const base = state.config.explanationsUrl;
+    if (!base || items.length < 3) return '';
+    let g = null;
+    try {
+      const res = await fetch(`${base.replace(/\/?$/, '/')}agenda-${String(at()).toLowerCase()}-${id}.json?t=${Math.floor(Date.now() / 300_000)}`);
+      g = res.ok ? await res.json() : null;
+    } catch {
+      g = null;
+    }
+    if (!g?.groups?.length) return '';
+    const title = (i) => items.find((x) => x.i === i)?.doc.title || `Issue ${i + 1}`;
+    return `<details class="card"><summary><strong>Themes</strong> (${g.groups.length}), grouped by AI</summary><div class="stack">
+      ${g.overview ? `<p>${esc(g.overview)}</p>` : ''}
+      ${g.groups.map((t, n) => `<div><p><strong>${esc(t.title)}</strong> ${categoryChip(t.topic, esc)}${t.duplicates ? ' <span class="chip">similar asks</span>' : ''}<br>${esc(t.summary)}</p><ul>${t.issues.map((i) => `<li>${esc(title(i))}</li>`).join('')}</ul>${canMerge && t.duplicates ? `<button type="button" data-merge="${n}">Add as one combined issue</button>` : ''}</div>`).join('')}
+      <p class="note">${esc(g.label || 'AI grouping')}, by ${esc(g.model || 'an AI model')}. The issues and how residents rank them decide; this only sorts them.</p>
+      </div></details>`.replace(/data-merge="(\d+)"/g, (m, n) => `${m} data-title="${esc(g.groups[Number(n)].title)}" data-topic="${esc(g.groups[Number(n)].topic)}" data-summary="${esc(g.groups[Number(n)].summary)}"`);
+  }
+
+  /** Words that matter, for spotting an issue that has already been added. */
+  const words = (t) => new Set(String(t).toLowerCase().replace(/[^a-z0-9áéíóúñü ]+/g, ' ').split(/\s+/).filter((w) => w.length > 3 && !STOP.has(w)));
+  const STOP = new Set(['with', 'that', 'this', 'from', 'have', 'more', 'need', 'needs', 'should', 'would', 'about', 'there', 'their', 'into', 'than', 'they', 'them', 'make', 'para', 'como', 'esta', 'este']);
+  function similar(text, items) {
+    const a = words(text);
+    if (a.size < 2) return [];
+    return items
+      .map((x) => {
+        const b = words(x.doc.title);
+        const shared = [...a].filter((w) => b.has(w)).length;
+        return { x, score: shared / Math.min(a.size, b.size || 1) };
+      })
+      .filter((r) => r.score >= 0.5)
+      .sort((p, q) => q.score - p.score)
+      .slice(0, 3)
+      .map((r) => r.x);
+  }
+
   function wire(el, id, s, items) {
+    const input = el.querySelector('[data-issue-title]');
+    input?.addEventListener('input', () => {
+      const box = el.querySelector('[data-similar]');
+      const hits = similar(input.value, items);
+      box.hidden = !hits.length;
+      box.innerHTML = hits.length ? `Already added and similar: ${hits.map((x) => `<strong>${esc(x.doc.title)}</strong>`).join('; ')}. If one says what you mean, you can back it when ranking opens instead of splitting the support.` : '';
+    });
+    for (const b of el.querySelectorAll('[data-merge]')) {
+      b.onclick = async () => {
+        const st2 = el.querySelector('[data-status]');
+        try {
+          status(st2, 'Publishing the combined issue…');
+          const ref = await publish({ title: b.dataset.title, body: b.dataset.summary, category: b.dataset.topic });
+          status(st2, 'Add it: confirm…');
+          await (await contract(ctx.activeSigner()).addIssue(id, ref)).wait();
+          render();
+        } catch (e) {
+          status(st2, e.shortMessage || e.message, 'error');
+        }
+      };
+    }
     const st = el.querySelector('[data-status]');
     const k = contract();
     el.querySelector('[data-issue-send]')?.addEventListener('click', async (ev) => {
@@ -153,7 +225,8 @@ export function wireAgenda(ctx) {
       try {
         if ((await ctx.myTier()) < 0) throw new Error('Join first to add an issue.');
         status(st, 'Publishing your issue privately…');
-        const ref = await publish({ title, body: el.querySelector('[data-issue-body]').value.trim(), category: el.querySelector('[data-issue-topic]').value });
+        const funding = readFunding(state.config, el, 'iss');
+        const ref = await publish({ title, body: el.querySelector('[data-issue-body]').value.trim(), category: el.querySelector('[data-issue-topic]').value, ...(funding ? { funding } : {}) });
         const proof = await issueProof({ provider: state.provider, agenda: k, seasonId: id, identity: state.identity, ref, artifactsBase: state.config.artifactsBase || undefined });
         await relay('/agenda', { method: 'propose', args: [id, ref], proof });
         status(st, 'Added.', 'ok');
@@ -218,11 +291,12 @@ export function wireAgenda(ctx) {
       });
       save(local('quiz', id), mine);
       const party = await partyLabels();
+      const rec = await recordsNow();
       const scored = cands.map((x) => ({ ...x, m: matchScore(mine, x.p) })).filter((x) => x.m);
       const box = el.querySelector('[data-matches]');
       if (!scored.length) return void (box.innerHTML = '<p class="warn">Answer at least one issue first.</p>');
       const races = [...new Set(scored.map((x) => x.c.race))];
-      box.innerHTML = races.map((race) => `<p><strong>${esc(race || 'Candidates')}</strong></p><ol class="list">${scored.filter((x) => x.c.race === race).sort((a, b) => b.m.percent - a.m.percent).map((x) => `<li><strong>${esc(x.c.name)}</strong>${party && x.c.party ? ` · ${esc(x.c.party)}` : ''}: <strong>${x.m.percent}% match</strong><br><span class="muted">${x.m.compared} of your issues compared${x.m.unanswered ? `; ${x.m.unanswered} not answered by this candidate` : ''}</span></li>`).join('')}</ol>`).join('') + '<p class="note">A guide, not advice: read each candidate\'s positions and statement too.</p>';
+      box.innerHTML = races.map((race) => `<p><strong>${esc(race || 'Candidates')}</strong></p><ol class="list">${scored.filter((x) => x.c.race === race).sort((a, b) => b.m.percent - a.m.percent).map((x) => `<li><strong>${esc(x.c.name)}</strong>${party && x.c.party ? ` · ${esc(x.c.party)}` : ''}: <strong>${x.m.percent}% match</strong><br><span class="muted">${x.m.compared} of your issues compared${x.m.unanswered ? `; ${x.m.unanswered} not answered by this candidate` : ''}</span>${rec ? `<br><span class="muted">Track record: ${esc(recordLine(rec.of(x.c.account)))}</span>` : ''}</li>`).join('')}</ol>`).join('') + '<p class="note">A guide, not advice: read each candidate\'s positions and statement too.</p>';
     });
     el.querySelector('[data-own-send]')?.addEventListener('click', async (ev) => {
       const cid = Number(el.querySelector('[data-own]').dataset.own);
@@ -230,10 +304,11 @@ export function wireAgenda(ctx) {
       ev.target.disabled = true;
       try {
         const text = el.querySelector('[data-own-ref]').value.trim();
+        const funding = readFunding(state.config, el, 'cand');
         let ref = '';
-        if (text) {
+        if (text || funding) {
           status(st, 'Publishing your statement…');
-          ref = await publish({ title: 'Candidate statement', body: text });
+          ref = await publish({ title: 'Candidate statement', body: text, ...(funding ? { funding } : {}) });
         }
         status(st, 'Publish your positions: confirm…');
         await (await contract(ctx.activeSigner()).statePositions(cid, picked.map((p) => p[0]), picked.map((p) => Number(p[1])), picked.map((p) => p[2]), ref)).wait();
@@ -257,9 +332,23 @@ export function wireAgenda(ctx) {
     });
   }
 
+  /** People who put in the work: public roles and promises, with their record. Never votes. */
+  async function peopleCard() {
+    const rec = await recordsNow();
+    const people = rec ? rec.people().slice(0, 25) : [];
+    if (!people.length) return null;
+    const el = document.createElement('article');
+    el.className = 'card stack';
+    el.innerHTML = `<h3>People with a public track record</h3>
+      <p class="note">Officials, public delegates and anyone responsible for a public promise, with what they delivered. Potential candidates and leaders. Only public roles and actions count: how anyone votes is secret and never counts. To be listed, become a public delegate (Account screen).</p>
+      <ol class="list">${people.map((p) => `<li><strong>${esc(p.name || `${p.account.slice(0, 6)}…${p.account.slice(-4)}`)}</strong>${p.role ? ` · ${esc(p.role)}` : ''}<br><span class="muted">${esc(recordLine(p))}</span></li>`).join('')}</ol>`;
+    return el;
+  }
+
   async function render() {
     const list = $('agenda-list');
     if (!list || !at()) return;
+    records = null; // fresh each visit
     const k = contract();
     const me = ctx.activeAddress?.() || null;
     const [count, block, organizer] = await Promise.all([k.seasonCount(), state.provider.getBlock('latest'), me ? k.hasRole(ethers.id('ORGANIZER_ROLE'), me).catch(() => false) : false]);
@@ -268,7 +357,9 @@ export function wireAgenda(ctx) {
     for (let i = Number(count); i >= 1 && ids.length < 6; i--) ids.push(i);
     const cards = await Promise.all(ids.map((id) => seasonCard(id, block.timestamp, organizer).catch(() => null)));
     list.replaceChildren(...cards.filter(Boolean));
-    if (!ids.length) list.innerHTML = '<p class="muted">No season yet. When one opens, every resident can add an issue and then rank what matters most.</p>';
+    const people = await peopleCard().catch(() => null);
+    if (people) list.append(people);
+    if (!ids.length) list.insertAdjacentHTML('afterbegin', '<p class="muted">No season yet. When one opens, every resident can add an issue and then rank what matters most.</p>');
   }
 
   $('btn-agenda-open')?.addEventListener('click', async () => {

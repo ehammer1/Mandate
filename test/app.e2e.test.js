@@ -1262,6 +1262,13 @@ test("citizens' assembly: a drawn resident sees it on their phone and gets a sea
 });
 
 test("People's Agenda: a resident adds an issue on their phone, then ranks with priority credits", async () => {
+  // Every item can be shared from the person's own accounts, pre-filled with a link back to it.
+  await page.click('#nav-polls');
+  await page.waitForSelector('#poll-1 details.share summary', { timeout: 60_000 });
+  const x = await page.getAttribute('#poll-1 details.share a:has-text("X")', 'href');
+  assert.match(decodeURIComponent(x), /^https:\/\/twitter\.com\/intent\/tweet\?text=.*have your say on Promissa.*&url=.*#poll-1$/);
+  assert.match(decodeURIComponent(await page.getAttribute('#poll-1 details.share a:has-text("Bluesky")', 'href')), /bsky\.app\/intent\/compose\?text=.*#poll-1$/);
+
   const seed = JSON.stringify({ title: 'Winter 2027: what should Demo Town work on?' });
   await (await c.notices.post(seed)).wait();
   await (await c.agenda.openSeason(0, 600, 86_400, 16, `nb:${ethers.keccak256(ethers.toUtf8Bytes(seed))}`)).wait();
@@ -1273,6 +1280,9 @@ test("People's Agenda: a resident adds an issue on their phone, then ranks with 
   await page.click('#nav-agenda');
   await page.waitForSelector(`#agenda-${id} [data-add] summary`, { timeout: 60_000 });
   await page.click(`#agenda-${id} [data-add] summary`);
+  // Typing something already there: the phone points to it, so support isn't split.
+  await page.fill(`#agenda-${id} [data-issue-title]`, 'Housing costs are far too high');
+  await page.waitForSelector(`#agenda-${id} [data-similar]:not([hidden]) >> text=Housing costs`);
   await page.fill(`#agenda-${id} [data-issue-title]`, 'Safer crossings near schools');
   await page.selectOption(`#agenda-${id} [data-issue-topic]`, 'roads');
   await page.click(`#agenda-${id} [data-issue-send]`);

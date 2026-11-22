@@ -34,7 +34,7 @@ import { renderExplainer } from './explain.js';
 import { informedHtml } from './informed.js';
 import { wireOfficials } from './officials.js';
 import { wireBodies } from './bodies.js';
-import { wireCopy, jumpTo, itemTools } from './copy.js';
+import { wireShare, wireCopy, jumpTo, itemTools } from './copy.js';
 import { wireHelp } from './help.js';
 import { wireAssistant } from './assistant.js';
 import { search, resultsHtml, receiptResult } from './search.js';
@@ -979,7 +979,7 @@ async function refreshPolls() {
         <h3>${esc(q.title)} ${categoryChip(categoryOf(q), esc)}</h3>
         ${q.body ? `<p>${esc(q.body)}</p>` : ''}
         ${attachmentsHtml(state.config, q, esc)}
-        ${itemTools({ anchor: `poll-${id}`, idText: `Poll ${id} (voting contract ${state.config.voteAddress})`, ref: p.questionCID, explorer: state.config.explorer, address: state.config.voteAddress })}
+        ${itemTools({ title: q.title, anchor: `poll-${id}`, idText: `Poll ${id} (voting contract ${state.config.voteAddress})`, ref: p.questionCID, explorer: state.config.explorer, address: state.config.voteAddress })}
         ${(() => {
           const t = mandateTerms(p);
           const other = describeAction(p);
@@ -1852,6 +1852,7 @@ async function boot() {
   // Open with no signal next time (see sw.js).
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
   wireCopy(document);
+  wireShare(document);
   wireCarry();
   window.addEventListener('online', () => sendOutbox().catch(() => {}));
   wireInstallTip();

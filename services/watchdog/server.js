@@ -417,7 +417,7 @@ function createWatchdog(o) {
  * published with the audit history so everyone sees the same one. At most `limit` new
  * ones per run. Returns how many were written.
  */
-async function writeExplanations(dir, cfg, provider, limit, explainFn) {
+async function writeExplanations(dir, cfg, provider, limit, explainFn, groupFn) {
   const fs = require('fs');
   const path = require('path');
   const explain = explainFn || require('../explainer/explain').explain;
@@ -449,6 +449,24 @@ async function writeExplanations(dir, cfg, provider, limit, explainFn) {
       const effect = `A mandate: ${md.responsible} must do this by ${new Date(Number(md.deadline) * 1000).toISOString().slice(0, 10)}; ${md.threshold} independent check(s) confirm it.`;
       const e = await explain({ ...doc, effect, comments: await commentsOf(cfg, provider, 'mandate', id) });
       fs.writeFileSync(file, JSON.stringify({ kind: 'mandate', id, source: md.specCID, ...e }, null, 1) + '\n');
+      made++;
+    }
+  }
+  // The People's Agenda: AI themes for the latest seasons, rewritten when issues are added.
+  if (cfg.agendaAddress) {
+    const group = groupFn || require('../explainer/explain').groupIssues;
+    const ag = new ethers.Contract(cfg.agendaAddress, ['function seasonCount() view returns (uint256)', 'function issues(uint256) view returns (string[] refs, uint256[] credits)'], provider);
+    const n = Number(await ag.seasonCount());
+    for (let id = n; id >= Math.max(1, n - 2) && made < limit; id--) {
+      const file = path.join(out, `agenda-${cfg.agendaAddress.toLowerCase()}-${id}.json`);
+      const [refs] = await ag.issues(id);
+      if (refs.length < 3) continue;
+      const before = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : null;
+      if (before && before.issueCount === refs.length) continue;
+      const docs = await Promise.all(refs.map((r) => readDoc(cfg, provider, r).catch(() => null)));
+      const issues = docs.map((d, index) => (d ? { index, title: d.title, body: d.body, topic: d.category } : null)).filter(Boolean);
+      const g = await group(issues);
+      fs.writeFileSync(file, JSON.stringify({ kind: 'agenda', season: id, issueCount: refs.length, ...g }, null, 1) + '\n');
       made++;
     }
   }
