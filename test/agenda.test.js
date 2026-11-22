@@ -97,3 +97,35 @@ test("a season: residents add issues, then rank them; the community's priorities
   await warp(14 * DAY);
   assert.equal((await rank(3, [0], [1])).status, 422); // closed
 });
+
+test('candidates state positions on the residents\' issues; every change is counted; matching ranks by what you want', async () => {
+  const { matchScore } = require('../client/agenda');
+  const a = c.agenda;
+  const id = await a.seasonCount(); // the season above: 4 issues
+  assert.equal(await errName(a.connect(stranger).addCandidate.staticCall(id, stranger.address, 'Sam', 'Mayor', '')), 'AccessControlUnauthorizedAccount');
+  await send(a.addCandidate(id, clerk.address, 'Rivera', 'Mayor', 'Party A'));
+  await send(a.addCandidate(id, stranger.address, 'Chen', 'Mayor', ''));
+  const [riv, chen] = (await a.candidatesOf(id)).map(Number);
+  assert.equal(await errName(a.connect(stranger).statePositions.staticCall(riv, [0], [2], [3], '')), 'NotCandidate'); // only the candidate
+  assert.equal(await errName(a.connect(clerk).statePositions.staticCall(riv, [0], [3], [3], '')), 'BadPositions'); // stance -2..+2
+  assert.equal(await errName(a.connect(clerk).statePositions.staticCall(riv, [0, 0], [1, 1], [1, 1], '')), 'BadPositions'); // once per issue
+  assert.equal(await errName(a.connect(clerk).statePositions.staticCall(riv, [9], [1], [1], '')), 'BadPositions'); // no such issue
+  await send(a.connect(clerk).statePositions(riv, [0, 1, 2], [2, -2, 1], [3, 1, 2], 'nb:rivera'));
+  await send(a.connect(stranger).statePositions(chen, [0, 1], [-1, 2], [2, 3], ''));
+  await send(a.connect(stranger).statePositions(chen, [0, 1, 2], [-2, 2, 2], [2, 3, 3], '')); // changed
+  const p = await a.positionsOf(riv);
+  assert.deepEqual([...p.answered], [true, true, true, false]);
+  assert.deepEqual([...p.stances].map(Number), [2, -2, 1, 0]);
+  assert.deepEqual([...p.importance].map(Number), [3, 1, 2, 0]);
+  assert.equal(Number((await a.getCandidate(chen)).version), 2);
+
+  // A resident who strongly supports issue 0 and opposes issue 1 matches Rivera, not Chen.
+  const mine = [{ stance: 2, importance: 3 }, { stance: -1, importance: 2 }, null, { stance: 1, importance: 1 }];
+  const r = matchScore(mine, await a.positionsOf(riv));
+  const ch = matchScore(mine, await a.positionsOf(chen));
+  assert.ok(r.percent > ch.percent, `${r.percent} vs ${ch.percent}`);
+  assert.deepEqual([r.compared, r.unanswered], [2, 1]); // issue 3: Rivera gave no answer
+  assert.equal(matchScore([null, null], await a.positionsOf(riv)), null);
+  // Whether party labels are shown is the community's voted rule: off unless residents turn it on.
+  assert.equal(await c.charter.rule(ethers.id('SHOW_PARTY_LABELS')), 0n);
+});

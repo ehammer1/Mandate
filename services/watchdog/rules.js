@@ -167,6 +167,10 @@ function rulesForEvent(ev, ctx) {
       return [{ ...base, rule: 'agenda', severity: 'info', title: `People's Agenda season ${a.id} opened: residents add issues until ${utc(a.proposeEnd)}, then rank them until ${utc(a.end)} (${a.credits} credits each)`, facts: { season: String(a.id), ref: a.ref } }];
     case 'IssueAdded':
       return a.byOrganizer ? [{ ...base, rule: 'agenda', severity: 'info', title: `People's Agenda season ${a.id}: an organizer added an issue (number ${Number(a.index) + 1})`, facts: { season: String(a.id), ref: a.ref } }] : [];
+    case 'CandidateAdded':
+      return [{ ...base, rule: 'agenda', severity: 'info', title: `Candidate added for the People's Agenda season ${a.season}: ${a.name}${a.race ? ` (${a.race})` : ''}, account ${short(a.account)}`, facts: { season: String(a.season), candidate: String(a.candidate), account: a.account } }];
+    case 'PositionsStated':
+      return [{ ...base, rule: 'agenda', severity: Number(a.version) > 1 ? 'medium' : 'info', title: Number(a.version) > 1 ? `Candidate ${a.candidate} changed their positions (version ${a.version}); earlier versions stay on the record` : `Candidate ${a.candidate} stated their positions on the residents' issues`, facts: { candidate: String(a.candidate), version: Number(a.version) } }];
     case 'Announced':
       return [{ ...base, rule: 'assembly', severity: 'medium', title: `Citizens' assembly ${a.id} announced: ${a.seats} seats drawn from the ${['basic members', 'verified residents', 'residents with full voting rights'][Number(a.tier)] || 'voter'} list (${a.size} people, fixed now), seeded by block ${a.drawBlock}`, facts: { assembly: String(a.id), seats: Number(a.seats), size: String(a.size), drawBlock: String(a.drawBlock), ref: a.ref } }];
     case 'Rescheduled':

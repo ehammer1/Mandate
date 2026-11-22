@@ -137,6 +137,14 @@ This is how v5 replaced v4 (council changes #10 to #16 on the main community).
 - **App:** an "Agenda" screen: add an issue (with a topic), rank with + and − buttons showing
   the credits used, and the community's ranking with shares by topic. Organizers open seasons;
   the council grants the role from the role menu.
+- **Candidate match:** an organizer registers candidates for a season (`addCandidate`: account,
+  name, race, optional party). Each candidate states from their own account, for every issue, a
+  stance (-2 strongly oppose to +2 strongly support) and how important it is to them
+  (`statePositions`). Every change raises a public version number, and the watchdog reports
+  changes. Residents answer the same issues on their phone; `matchScore` in
+  `client/agenda.js` ranks the candidates in each race by agreement, weighted by how much the
+  resident cares. Answers never leave the device. Whether party labels are shown at all is
+  the community's voted Charter rule `SHOW_PARTY_LABELS` (default 0: not shown).
 - **Limits:** no moderation of issue text yet (it is public and permanent, like comments);
   issues are not grouped by district yet.
 - Tests: `test/agenda.test.js` and the browser tests.

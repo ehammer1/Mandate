@@ -139,6 +139,8 @@ const ABIS = {
   agenda: [
     'event SeasonOpened(uint256 indexed id, uint8 tier, uint64 proposeEnd, uint64 end, uint32 credits, string ref)',
     'event IssueAdded(uint256 indexed id, uint256 index, string ref, bool byOrganizer)',
+    'event CandidateAdded(uint256 indexed season, uint256 indexed candidate, address account, string name, string race, string party)',
+    'event PositionsStated(uint256 indexed candidate, uint32 version, string ref)',
   ],
   assemblies: [
     'event Announced(uint256 indexed id, uint8 tier, uint16 seats, uint256 size, uint256 drawBlock, string ref)',

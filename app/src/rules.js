@@ -30,6 +30,7 @@ export const RULE_TEXT = {
   RULE_CHANGE_MIN_MINUTES: { label: 'Shortest time a rule-change poll stays open', show: duration, unit: 'minutes' },
   RULE_CHANGE_SUPERMAJORITY_PCT: { label: 'Yes votes needed to change a rule', show: (v) => `${v}%`, unit: 'percent' },
   RULE_CHANGE_VOTER_TIER: { label: 'Who votes on rule changes', show: (v) => `Only ${TIERS[Number(v)]}`, unit: '1 = ID-checked, 2 = full voting rights' },
+  SHOW_PARTY_LABELS: { label: "Show candidates' party labels", show: (v) => (Number(v) ? 'Shown next to each candidate' : 'Not shown: candidates are compared by their positions only'), unit: '0 = not shown, 1 = shown' },
   KEEP_SIGNED_IN: { label: 'Offer "Keep me signed in" on personal devices', show: (v) => (Number(v) ? 'Offered (30 days, never on public computers)' : 'Not offered: people unlock each time'), unit: '0 = not offered, 1 = offered' },
 };
 

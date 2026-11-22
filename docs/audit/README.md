@@ -33,7 +33,7 @@ council governance with public waiting periods.
 | Decision markets (play credits) | `DecisionMarket.sol`, `PlayCredits.sol` | 306 |
 | Public text store | `NoticeBoard.sol` | 24 |
 | Citizens' assemblies: random draws from the voter list, seat acceptance, recommendations | `Assemblies.sol` | about 110 |
-| The People's Agenda: residents add issues and rank them with quadratic credits (anonymous) | `Agenda.sol` | about 170 |
+| The People's Agenda: residents add issues and rank them with quadratic credits (anonymous); candidates' positions on them | `Agenda.sol` | about 250 |
 | **Total Solidity** | 20 contracts, Solidity ^0.8.23 | **about 3,900** |
 
 Off-chain, also in scope:
@@ -95,7 +95,7 @@ Off-chain, also in scope:
 
 ```
 npm ci --ignore-scripts --force    # ganache bundles a macOS-only package
-npm test                           # compiles, builds the app, runs 183 JS tests + the Python tests
+npm test                           # compiles, builds the app, runs 184 JS tests + the Python tests
 ```
 
 - Contracts compile with `scripts/compile.js` (solc via npm); tests run on ganache (`test/*.test.js`),

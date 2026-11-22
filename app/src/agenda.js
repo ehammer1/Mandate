@@ -5,7 +5,7 @@
  */
 
 import { ethers } from 'ethers';
-import { AGENDA_ABI, issueProof, rankProof, cost } from '../../client/agenda.js';
+import { AGENDA_ABI, issueProof, rankProof, cost, matchScore } from '../../client/agenda.js';
 import { readDoc } from './notices.js';
 import { categoryChip, categoryOf, categoryOptions, categoryLabel } from './priority.js';
 import { countdown } from './time.js';
@@ -16,6 +16,66 @@ export function wireAgenda(ctx) {
   const { state, $, status, esc } = ctx;
   const at = () => state.config?.agendaAddress;
   const contract = (runner) => new ethers.Contract(at(), AGENDA_ABI, runner || state.provider);
+  // This resident's answers and ranking stay on this device only.
+  const local = (kind, id) => `mandate.${kind}.${String(at()).toLowerCase()}.${id}`;
+  const load = (key, fallback) => {
+    try {
+      return JSON.parse(localStorage.getItem(key)) ?? fallback;
+    } catch {
+      return fallback;
+    }
+  };
+  const save = (key, v) => {
+    try {
+      localStorage.setItem(key, JSON.stringify(v));
+    } catch {
+      /* private mode: kept for this visit only */
+    }
+  };
+  const STANCES = [['', 'Skip'], ['-2', 'Strongly oppose'], ['-1', 'Oppose'], ['0', 'Neutral'], ['1', 'Support'], ['2', 'Strongly support']];
+  const stanceWord = (v) => STANCES.find(([k]) => k === String(v))?.[1] || 'No answer';
+  const stanceSelect = (attr, i, v) => `<select ${attr}="${i}">${STANCES.map(([k, l]) => `<option value="${k}"${String(v ?? '') === k ? ' selected' : ''}>${l}</option>`).join('')}</select>`;
+  const weightSelect = (attr, i, v) => `<select ${attr}="${i}">${[['1', 'A little'], ['2', 'Quite a lot'], ['3', 'A great deal']].map(([k, l]) => `<option value="${k}"${String(v ?? 2) === k ? ' selected' : ''}>${l}</option>`).join('')}</select>`;
+  let showParty = null;
+  async function partyLabels() {
+    if (showParty === null) {
+      const ch = state.config.charterAddress ? new ethers.Contract(state.config.charterAddress, ['function rule(bytes32) view returns (uint256)'], state.provider) : null;
+      showParty = ch ? (await ch.rule(ethers.id('SHOW_PARTY_LABELS')).catch(() => 0n)) === 1n : false;
+    }
+    return showParty;
+  }
+
+  /** "Compare the candidates": the resident's answers, matched on this device; candidates' own form. */
+  async function candidatesHtml(id, items, me, organizer) {
+    const k = contract();
+    const ids = await k.candidatesOf(id).catch(() => []);
+    const cands = await Promise.all(ids.map(async (cid) => ({ id: Number(cid), c: await k.getCandidate(cid), p: await k.positionsOf(cid) })));
+    const party = await partyLabels();
+    const quiz = load(local('quiz', id), []);
+    const ranking = load(local('rank', id), {});
+    const mineC = cands.find((x) => me && x.c.account.toLowerCase() === me.toLowerCase());
+    const own = mineC
+      ? `<details class="card" data-own="${mineC.id}"><summary><strong>Your positions as a candidate for ${esc(mineC.c.race || 'office')}</strong></summary><div class="stack">
+          <p class="note">For each issue residents raised: where you stand and how important it is to you. Public, and every change stays on the record (now version ${Number(mineC.c.version)}).</p>
+          ${items.map((x) => `<div class="stack"><span>${esc(x.doc.title)}</span><div class="row">${stanceSelect('data-own-stance', x.i, mineC.p.answered[x.i] ? Number(mineC.p.stances[x.i]) : '')} ${weightSelect('data-own-weight', x.i, mineC.p.answered[x.i] ? Number(mineC.p.importance[x.i]) || 1 : 2)}</div></div>`).join('')}
+          <label>Your statement (optional) <textarea data-own-ref rows="3"></textarea></label>
+          <button type="button" class="primary" data-own-send>Publish my positions</button></div></details>`
+      : '';
+    const add = organizer
+      ? `<details><summary>Organizer: add a candidate</summary><div class="stack"><label>Their account address (0x…) <input type="text" data-cand-addr spellcheck="false" /></label><label>Name <input type="text" data-cand-name maxlength="80" /></label><label>Race (e.g. Mayor, Council District 3) <input type="text" data-cand-race maxlength="80" /></label><label>Party (optional; shown only if residents vote to show party labels) <input type="text" data-cand-party maxlength="80" /></label><button type="button" data-cand-add>Add candidate</button></div></details>`
+      : '';
+    if (!cands.length) return { html: own + add, cands };
+    return {
+      cands,
+      html: `<details class="card" data-compare><summary><strong>Compare the candidates (${cands.length})</strong>: by what you want, not by party</summary><div class="stack">
+        <p class="note">Say where you stand on the issues you care about. Your answers never leave this phone; the matching happens here.</p>
+        ${items.map((x) => `<div class="stack"><span>${esc(x.doc.title)}</span><div class="row">${stanceSelect('data-my-stance', x.i, quiz[x.i]?.stance)} ${weightSelect('data-my-weight', x.i, quiz[x.i]?.importance || Math.min(3, Number(ranking[x.i] || 2)))}</div></div>`).join('')}
+        <button type="button" class="primary" data-match>Show my matches</button><div data-matches></div>
+        <details><summary>Every candidate's positions</summary><ul class="list">${cands.map((x) => `<li><strong>${esc(x.c.name)}</strong> · ${esc(x.c.race)}${party && x.c.party ? ` · ${esc(x.c.party)}` : ''}${Number(x.c.version) ? `<ul>${items.map((it) => `<li>${esc(it.doc.title)}: ${esc(x.p.answered[it.i] ? stanceWord(Number(x.p.stances[it.i])) : 'No answer')}</li>`).join('')}</ul>${Number(x.c.version) > 1 ? `<span class="muted">Changed ${Number(x.c.version) - 1} time${Number(x.c.version) === 2 ? '' : 's'} (all versions are on the public record)</span>` : ''}` : '<br><span class="muted">Has not stated positions yet.</span>'}</li>`).join('')}</ul></details>
+        </div></details>${own}${add}`,
+    };
+  }
+
   const when = (s) => new Date(Number(s) * 1000).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 
   async function relay(path, body) {
@@ -68,6 +128,7 @@ export function wireAgenda(ctx) {
     const results = `<div class="stack"><p><strong>${phase === 'closed' ? 'The community\'s priorities' : phase === 'rank' ? 'Priorities so far' : 'Issues added so far'}</strong>${phase !== 'propose' ? ` · ${Number(s.participants)} of ${Number(s.electorate)} residents ranked` : ''}</p>
       ${ranked.length ? `<ol class="list">${ranked.map((x) => `<li>${esc(x.doc.title)} ${categoryChip(x.topic, esc)}${phase !== 'propose' ? `<br><span class="muted">${x.credits} credit${x.credits === 1 ? '' : 's'} · ${Math.round((100 * x.credits) / total)}%</span>` : ''}${x.doc.body ? `<details><summary>Why</summary><p>${esc(x.doc.body)}</p></details>` : ''}</li>`).join('')}</ol>` : '<p class="muted">No issues yet.</p>'}
       ${phase !== 'propose' && ranked.length ? `<p class="muted">By topic: ${Object.entries(ranked.reduce((m, x) => ((m[x.topic] = (m[x.topic] || 0) + x.credits), m), {})).sort((a, b) => b[1] - a[1]).map(([t, n]) => `${esc(categoryLabel(t))} ${Math.round((100 * n) / total)}%`).join(' · ')}</p>` : ''}</div>`;
+    const { html: candHtml, cands } = await candidatesHtml(id, items, ctx.activeAddress?.() || null, organizer).catch(() => ({ html: '', cands: [] }));
     const org = organizer && phase === 'propose'
       ? `<details><summary>Organizer: add a common issue</summary><div class="stack"><label>Issue <input type="text" data-org-title maxlength="140" /></label><label>Topic <select data-org-topic>${categoryOptions('general')}</select></label><button type="button" data-org-add>Add</button></div></details>`
       : '';
@@ -76,8 +137,9 @@ export function wireAgenda(ctx) {
     el.id = `agenda-${id}`;
     el.innerHTML = `<p class="eyebrow">People's Agenda ${id} · ${phase === 'propose' ? `adding issues until ${esc(when(s.proposeEnd))} (${countdown(s.proposeEnd)})` : phase === 'rank' ? `ranking until ${esc(when(s.end))} (${countdown(s.end)})` : `closed ${esc(when(s.end))}`}</p>
       <h3>${esc(doc.title)}</h3>${doc.body ? `<p>${esc(doc.body)}</p>` : ''}
-      ${mine}${rankBox}${results}${org}<p class="status" role="status" data-status></p>`;
+      ${mine}${rankBox}${results}${candHtml}${org}<p class="status" role="status" data-status></p>`;
     wire(el, id, s, items);
+    wireCandidates(el, id, items, cands);
     return el;
   }
 
@@ -124,6 +186,7 @@ export function wireAgenda(ctx) {
         status(st, 'Sending your priorities privately…');
         const proof = await rankProof({ provider: state.provider, agenda: k, seasonId: id, identity: state.identity, picks, credits, artifactsBase: state.config.artifactsBase || undefined });
         await relay('/agenda', { method: 'rank', args: [id, picks, credits], proof });
+        save(local('rank', id), Object.fromEntries(picks.map((p, i) => [p, credits[i]]))); // for "how important" in the candidate match
         status(st, 'Counted. You can change it until the season closes.', 'ok');
         render();
       } catch (e) {
@@ -139,6 +202,54 @@ export function wireAgenda(ctx) {
         const ref = await publish({ title, category: el.querySelector('[data-org-topic]').value });
         status(st, 'Add the issue: confirm…');
         await (await contract(ctx.activeSigner()).addIssue(id, ref)).wait();
+        render();
+      } catch (e) {
+        status(st, e.shortMessage || e.message, 'error');
+      }
+    });
+  }
+
+  function wireCandidates(el, id, items, cands) {
+    const st = el.querySelector('[data-status]');
+    el.querySelector('[data-match]')?.addEventListener('click', async () => {
+      const mine = items.map((x) => {
+        const v = el.querySelector(`[data-my-stance="${x.i}"]`).value;
+        return v === '' ? null : { stance: Number(v), importance: Number(el.querySelector(`[data-my-weight="${x.i}"]`).value) };
+      });
+      save(local('quiz', id), mine);
+      const party = await partyLabels();
+      const scored = cands.map((x) => ({ ...x, m: matchScore(mine, x.p) })).filter((x) => x.m);
+      const box = el.querySelector('[data-matches]');
+      if (!scored.length) return void (box.innerHTML = '<p class="warn">Answer at least one issue first.</p>');
+      const races = [...new Set(scored.map((x) => x.c.race))];
+      box.innerHTML = races.map((race) => `<p><strong>${esc(race || 'Candidates')}</strong></p><ol class="list">${scored.filter((x) => x.c.race === race).sort((a, b) => b.m.percent - a.m.percent).map((x) => `<li><strong>${esc(x.c.name)}</strong>${party && x.c.party ? ` · ${esc(x.c.party)}` : ''}: <strong>${x.m.percent}% match</strong><br><span class="muted">${x.m.compared} of your issues compared${x.m.unanswered ? `; ${x.m.unanswered} not answered by this candidate` : ''}</span></li>`).join('')}</ol>`).join('') + '<p class="note">A guide, not advice: read each candidate\'s positions and statement too.</p>';
+    });
+    el.querySelector('[data-own-send]')?.addEventListener('click', async (ev) => {
+      const cid = Number(el.querySelector('[data-own]').dataset.own);
+      const picked = items.map((x) => [x.i, el.querySelector(`[data-own-stance="${x.i}"]`).value, Number(el.querySelector(`[data-own-weight="${x.i}"]`).value)]).filter(([, v]) => v !== '');
+      ev.target.disabled = true;
+      try {
+        const text = el.querySelector('[data-own-ref]').value.trim();
+        let ref = '';
+        if (text) {
+          status(st, 'Publishing your statement…');
+          ref = await publish({ title: 'Candidate statement', body: text });
+        }
+        status(st, 'Publish your positions: confirm…');
+        await (await contract(ctx.activeSigner()).statePositions(cid, picked.map((p) => p[0]), picked.map((p) => Number(p[1])), picked.map((p) => p[2]), ref)).wait();
+        status(st, 'Your positions are published.', 'ok');
+        render();
+      } catch (e) {
+        status(st, e.shortMessage || e.message, 'error');
+        ev.target.disabled = false;
+      }
+    });
+    el.querySelector('[data-cand-add]')?.addEventListener('click', async () => {
+      const v = (a) => el.querySelector(a).value.trim();
+      if (!ethers.isAddress(v('[data-cand-addr]')) || !v('[data-cand-name]')) return status(st, 'Give the candidate\'s account address and name.', 'error');
+      try {
+        status(st, 'Add the candidate: confirm…');
+        await (await contract(ctx.activeSigner()).addCandidate(id, ethers.getAddress(v('[data-cand-addr]')), v('[data-cand-name]'), v('[data-cand-race]'), v('[data-cand-party]'))).wait();
         render();
       } catch (e) {
         status(st, e.shortMessage || e.message, 'error');

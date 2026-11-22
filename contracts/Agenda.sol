@@ -75,6 +75,8 @@ contract Agenda is AccessControl {
     event IssueAdded(uint256 indexed id, uint256 index, string ref, bool byOrganizer);
     event Ranked(uint256 indexed id, uint256 nullifier, bool changed);
     event VerifierSet(address indexed previous, address indexed next);
+    event CandidateAdded(uint256 indexed season, uint256 indexed candidate, address account, string name, string race, string party);
+    event PositionsStated(uint256 indexed candidate, uint32 version, string ref);
 
     error InvalidParams();
     error UnknownSeason();
@@ -90,6 +92,8 @@ contract Agenda is AccessControl {
     error BadDepth();
     error InvalidProof();
     error VerifierFailedTest();
+    error NotCandidate();
+    error BadPositions();
 
     constructor(address admin, address identity_, address verifier_) {
         if (admin == address(0) || identity_ == address(0) || verifier_ == address(0)) revert InvalidParams();
@@ -190,6 +194,88 @@ contract Agenda is AccessControl {
 
     function rankMessage(uint256 id, uint16[] calldata picks, uint32[] calldata credits) public pure returns (uint256) {
         return uint256(keccak256(abi.encode(id, picks, credits))) >> 8;
+    }
+
+    // --------------------------------------------------------------- candidates
+
+    /// A candidate in an election, answering the season's issues so residents can compare
+    /// candidates by what they want, not by party.
+    struct Candidate {
+        uint256 season;
+        address account;
+        string name;
+        string race; // e.g. "Mayor", "Council, District 3"
+        string party; // optional; whether the app shows it is the community's voted rule
+        uint32 version; // how many times the positions were stated (every change is on the record)
+        uint64 statedAt;
+        string ref; // optional statement explaining the positions
+    }
+
+    uint256 public candidateCount;
+    mapping(uint256 => Candidate) private _candidates;
+    mapping(uint256 => uint256[]) private _seasonCandidates;
+    // candidate => issue index => packed position: stance + 3 (1..5: strongly oppose..strongly support) | importance << 8 (0..3)
+    mapping(uint256 => mapping(uint256 => uint16)) private _positions;
+
+    /// @notice An organizer registers a candidate (after checking they are one) for a season's issues.
+    function addCandidate(uint256 season, address account, string calldata name, string calldata race, string calldata party) external onlyRole(ORGANIZER_ROLE) returns (uint256 id) {
+        _get(season);
+        if (account == address(0) || bytes(name).length == 0 || bytes(name).length > 80 || bytes(race).length > 80 || bytes(party).length > 80) revert InvalidParams();
+        id = ++candidateCount;
+        Candidate storage c = _candidates[id];
+        c.season = season;
+        c.account = account;
+        c.name = name;
+        c.race = race;
+        c.party = party;
+        _seasonCandidates[season].push(id);
+        emit CandidateAdded(season, id, account, name, race, party);
+    }
+
+    /// @notice The candidate states (or updates) their positions: for each issue, a stance from
+    ///         -2 (strongly oppose) to +2 (strongly support) and how important it is to them (0-3).
+    ///         Issues left out are cleared to "no answer". Every version is recorded.
+    function statePositions(uint256 id, uint16[] calldata issueIdx, int8[] calldata stances, uint8[] calldata importance, string calldata ref) external {
+        Candidate storage c = _candidates[id];
+        if (c.account == address(0) || msg.sender != c.account) revert NotCandidate();
+        uint256 n = _issues[c.season].length;
+        if (issueIdx.length != stances.length || issueIdx.length != importance.length || bytes(ref).length > 128) revert BadPositions();
+        for (uint256 i = 0; i < n; i++) delete _positions[id][i];
+        for (uint256 i = 0; i < issueIdx.length; i++) {
+            if (issueIdx[i] >= n || stances[i] < -2 || stances[i] > 2 || importance[i] > 3 || _positions[id][issueIdx[i]] != 0) revert BadPositions();
+            _positions[id][issueIdx[i]] = uint16(uint8(int8(stances[i]) + 3)) | (uint16(importance[i]) << 8);
+        }
+        c.version += 1;
+        c.statedAt = uint64(block.timestamp);
+        c.ref = ref;
+        emit PositionsStated(id, c.version, ref);
+    }
+
+    function getCandidate(uint256 id) external view returns (Candidate memory c) {
+        c = _candidates[id];
+        if (c.account == address(0)) revert NotCandidate();
+    }
+
+    function candidatesOf(uint256 season) external view returns (uint256[] memory) {
+        return _seasonCandidates[season];
+    }
+
+    /// @notice A candidate's positions on every issue of their season: stance -2..+2 (0 with
+    ///         answered=false means no answer) and importance 0..3.
+    function positionsOf(uint256 id) external view returns (bool[] memory answered, int8[] memory stances, uint8[] memory importance) {
+        Candidate storage c = _candidates[id];
+        if (c.account == address(0)) revert NotCandidate();
+        uint256 n = _issues[c.season].length;
+        answered = new bool[](n);
+        stances = new int8[](n);
+        importance = new uint8[](n);
+        for (uint256 i = 0; i < n; i++) {
+            uint16 p = _positions[id][i];
+            if (p == 0) continue;
+            answered[i] = true;
+            stances[i] = int8(uint8(p & 0xff)) - 3;
+            importance[i] = uint8(p >> 8);
+        }
     }
 
     // ------------------------------------------------------- quantum-ready checker

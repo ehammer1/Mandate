@@ -1295,6 +1295,24 @@ test("People's Agenda: a resident adds an issue on their phone, then ranks with 
   const [, credits] = await c.agenda.issues(id);
   assert.deepEqual(credits.map(Number), [2, 3]);
   assert.match(await page.textContent(`#agenda-${id} ol.list li:first-child`), /Safer crossings near schools[\s\S]*3 credits · 60%/);
+
+  // Candidates answer the residents' issues; this resident's phone ranks them by match.
+  await (await c.agenda.addCandidate(id, admin.address, 'Rivera', 'Mayor', 'Party A')).wait();
+  await (await c.agenda.addCandidate(id, clerk.address, 'Chen', 'Mayor', 'Party B')).wait();
+  const [riv, chen] = await c.agenda.candidatesOf(id);
+  await (await c.agenda.statePositions(riv, [0, 1], [-1, 2], [1, 3], '')).wait(); // housing: oppose; crossings: strongly support
+  await (await c.agenda.connect(clerk).statePositions(chen, [0, 1], [2, -2], [3, 3], '')).wait();
+  await page.click('#nav-agenda');
+  await page.waitForSelector(`#agenda-${id} [data-compare] summary`, { timeout: 60_000 });
+  await page.click(`#agenda-${id} [data-compare] summary`);
+  await page.selectOption(`#agenda-${id} [data-my-stance="1"]`, '2');
+  await page.selectOption(`#agenda-${id} [data-my-weight="1"]`, '3');
+  await page.selectOption(`#agenda-${id} [data-my-stance="0"]`, '-1');
+  await page.click(`#agenda-${id} [data-match]`);
+  await page.waitForSelector(`#agenda-${id} [data-matches] li`);
+  const matches = await page.textContent(`#agenda-${id} [data-matches]`);
+  assert.match(matches, /Mayor[\s\S]*Rivera: 100% match[\s\S]*Chen: \d+% match/);
+  assert.doesNotMatch(matches, /Party A/); // party labels are off unless residents vote to show them
 });
 
 test('most requested petitions are ranked, and times count down live', async () => {
