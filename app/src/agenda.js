@@ -9,6 +9,7 @@ import { AGENDA_ABI, issueProof, rankProof, cost, matchScore } from '../../clien
 import { readDoc } from './notices.js';
 import { recordIndex, recordLine } from '../../client/record.js';
 import { fundingFields, readFunding, fundingHtml } from './funding.js';
+import { videoFields, wireVideoFields, readVideos, videosHtml } from './videos.js';
 import { categoryChip, categoryOf, categoryOptions, categoryLabel } from './priority.js';
 import { countdown } from './time.js';
 
@@ -68,6 +69,7 @@ export function wireAgenda(ctx) {
           <p class="note">For each issue residents raised: where you stand and how important it is to you. Public, and every change stays on the record (now version ${Number(mineC.c.version)}).</p>
           ${items.map((x) => `<div class="stack"><span>${esc(x.doc.title)}</span><div class="row">${stanceSelect('data-own-stance', x.i, mineC.p.answered[x.i] ? Number(mineC.p.stances[x.i]) : '')} ${weightSelect('data-own-weight', x.i, mineC.p.answered[x.i] ? Number(mineC.p.importance[x.i]) || 1 : 2)}</div></div>`).join('')}
           <label>Your statement (optional) <textarea data-own-ref rows="3"></textarea></label>
+          ${videoFields('cand')}
           ${fundingFields(state.config, 'cand')}
           <button type="button" class="primary" data-own-send>Publish my positions</button></div></details>`
       : '';
@@ -81,7 +83,7 @@ export function wireAgenda(ctx) {
         <p class="note">Say where you stand on the issues you care about. Your answers never leave this phone; the matching happens here.</p>
         ${items.map((x) => `<div class="stack"><span>${esc(x.doc.title)}</span><div class="row">${stanceSelect('data-my-stance', x.i, quiz[x.i]?.stance)} ${weightSelect('data-my-weight', x.i, quiz[x.i]?.importance || Math.min(3, Number(ranking[x.i] || 2)))}</div></div>`).join('')}
         <button type="button" class="primary" data-match>Show my matches</button><div data-matches></div>
-        <details><summary>Every candidate's positions</summary><ul class="list">${cands.map((x) => `<li><strong>${esc(x.c.name)}</strong> · ${esc(x.c.race)}${party && x.c.party ? ` · ${esc(x.c.party)}` : ''}${track(x.c.account)}${x.stmt?.body ? `<details><summary>Statement</summary><p>${esc(x.stmt.body)}</p></details>` : ''}${fundingHtml(state.config, x.stmt?.funding)}${Number(x.c.version) ? `<ul>${items.map((it) => `<li>${esc(it.doc.title)}: ${esc(x.p.answered[it.i] ? stanceWord(Number(x.p.stances[it.i])) : 'No answer')}</li>`).join('')}</ul>${Number(x.c.version) > 1 ? `<span class="muted">Changed ${Number(x.c.version) - 1} time${Number(x.c.version) === 2 ? '' : 's'} (all versions are on the public record)</span>` : ''}` : '<br><span class="muted">Has not stated positions yet.</span>'}</li>`).join('')}</ul></details>
+        <details><summary>Every candidate's positions</summary><ul class="list">${cands.map((x) => `<li><strong>${esc(x.c.name)}</strong> · ${esc(x.c.race)}${party && x.c.party ? ` · ${esc(x.c.party)}` : ''}${track(x.c.account)}${x.stmt?.body ? `<details><summary>Statement</summary><p>${esc(x.stmt.body)}</p></details>` : ''}${videosHtml(x.stmt?.videos)}${fundingHtml(state.config, x.stmt?.funding)}${Number(x.c.version) ? `<ul>${items.map((it) => `<li>${esc(it.doc.title)}: ${esc(x.p.answered[it.i] ? stanceWord(Number(x.p.stances[it.i])) : 'No answer')}</li>`).join('')}</ul>${Number(x.c.version) > 1 ? `<span class="muted">Changed ${Number(x.c.version) - 1} time${Number(x.c.version) === 2 ? '' : 's'} (all versions are on the public record)</span>` : ''}` : '<br><span class="muted">Has not stated positions yet.</span>'}</li>`).join('')}</ul></details>
         </div></details>${own}${add}`,
     };
   }
@@ -125,6 +127,7 @@ export function wireAgenda(ctx) {
             <div data-similar class="note" hidden></div>
             <label>Why it matters (optional) <textarea data-issue-body rows="3"></textarea></label>
             <label>Topic <select data-issue-topic>${categoryOptions('general')}</select></label>
+            ${videoFields('iss')}
             ${fundingFields(state.config, 'iss')}
             <p class="note">One issue per person per season, anonymous: others see only the issue.</p>
             <button type="button" class="primary" data-issue-send>Add this issue</button></div></details>`;
@@ -138,7 +141,7 @@ export function wireAgenda(ctx) {
           <button type="button" class="primary" data-rank-send disabled>Send my priorities</button></div></details>`;
     }
     const results = `<div class="stack"><p><strong>${phase === 'closed' ? 'The community\'s priorities' : phase === 'rank' ? 'Priorities so far' : 'Issues added so far'}</strong>${phase !== 'propose' ? ` · ${Number(s.participants)} of ${Number(s.electorate)} residents ranked` : ''}</p>
-      ${ranked.length ? `<ol class="list">${ranked.map((x) => `<li>${esc(x.doc.title)} ${categoryChip(x.topic, esc)}${phase !== 'propose' ? `<br><span class="muted">${x.credits} credit${x.credits === 1 ? '' : 's'} · ${Math.round((100 * x.credits) / total)}%</span>` : ''}${x.doc.body ? `<details><summary>Why</summary><p>${esc(x.doc.body)}</p></details>` : ''}${fundingHtml(state.config, x.doc.funding)}</li>`).join('')}</ol>` : '<p class="muted">No issues yet.</p>'}
+      ${ranked.length ? `<ol class="list">${ranked.map((x) => `<li>${esc(x.doc.title)} ${categoryChip(x.topic, esc)}${phase !== 'propose' ? `<br><span class="muted">${x.credits} credit${x.credits === 1 ? '' : 's'} · ${Math.round((100 * x.credits) / total)}%</span>` : ''}${x.doc.body ? `<details><summary>Why</summary><p>${esc(x.doc.body)}</p></details>` : ''}${videosHtml(x.doc.videos)}${fundingHtml(state.config, x.doc.funding)}</li>`).join('')}</ol>` : '<p class="muted">No issues yet.</p>'}
       ${phase !== 'propose' && ranked.length ? `<p class="muted">By topic: ${Object.entries(ranked.reduce((m, x) => ((m[x.topic] = (m[x.topic] || 0) + x.credits), m), {})).sort((a, b) => b[1] - a[1]).map(([t, n]) => `${esc(categoryLabel(t))} ${Math.round((100 * n) / total)}%`).join(' · ')}</p>` : ''}</div>`;
     const { html: candHtml, cands } = await candidatesHtml(id, items, ctx.activeAddress?.() || null, organizer).catch(() => ({ html: '', cands: [] }));
     const themes = await themesHtml(id, items, organizer && phase === 'propose');
@@ -195,6 +198,8 @@ export function wireAgenda(ctx) {
   }
 
   function wire(el, id, s, items) {
+    wireVideoFields(el, 'iss');
+    wireVideoFields(el, 'cand');
     const input = el.querySelector('[data-issue-title]');
     input?.addEventListener('input', () => {
       const box = el.querySelector('[data-similar]');
@@ -226,7 +231,8 @@ export function wireAgenda(ctx) {
         if ((await ctx.myTier()) < 0) throw new Error('Join first to add an issue.');
         status(st, 'Publishing your issue privately…');
         const funding = readFunding(state.config, el, 'iss');
-        const ref = await publish({ title, body: el.querySelector('[data-issue-body]').value.trim(), category: el.querySelector('[data-issue-topic]').value, ...(funding ? { funding } : {}) });
+        const videos = readVideos(el.querySelector('[data-add]') || el, 'iss');
+        const ref = await publish({ title, body: el.querySelector('[data-issue-body]').value.trim(), category: el.querySelector('[data-issue-topic]').value, ...(funding ? { funding } : {}), ...(videos ? { videos } : {}) });
         const proof = await issueProof({ provider: state.provider, agenda: k, seasonId: id, identity: state.identity, ref, artifactsBase: state.config.artifactsBase || undefined });
         await relay('/agenda', { method: 'propose', args: [id, ref], proof });
         status(st, 'Added.', 'ok');
@@ -305,10 +311,11 @@ export function wireAgenda(ctx) {
       try {
         const text = el.querySelector('[data-own-ref]').value.trim();
         const funding = readFunding(state.config, el, 'cand');
+        const videos = readVideos(el.querySelector('[data-own]'), 'cand');
         let ref = '';
-        if (text || funding) {
+        if (text || funding || videos) {
           status(st, 'Publishing your statement…');
-          ref = await publish({ title: 'Candidate statement', body: text, ...(funding ? { funding } : {}) });
+          ref = await publish({ title: 'Candidate statement', body: text, ...(funding ? { funding } : {}), ...(videos ? { videos } : {}) });
         }
         status(st, 'Publish your positions: confirm…');
         await (await contract(ctx.activeSigner()).statePositions(cid, picked.map((p) => p[0]), picked.map((p) => Number(p[1])), picked.map((p) => p[2]), ref)).wait();

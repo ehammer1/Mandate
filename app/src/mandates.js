@@ -18,6 +18,7 @@ import { countdown } from './time.js';
 import { attachPicker, attachmentsHtml, wireAttachments, uploadService } from './attach.js';
 import { itemTools } from './copy.js';
 import { renderProgress } from './progress.js';
+import { videosHtml } from './videos.js';
 
 const REGISTRY_ABI = [
   'function mandateCount() view returns (uint256)',
@@ -96,7 +97,7 @@ export function wireMandates(ctx) {
 
       const parts = [];
       parts.push(`<p class="eyebrow">Mandate ${id} · ${esc(label)}${open && !overdue ? ` · due ${esc(day(m.deadline))} (${countdown(m.deadline)})` : ` · deadline ${esc(day(m.deadline))}${overdue ? ` (${countdown(m.deadline, 'overdue · was due ')})` : ''}`}</p>
-        <h3>${esc(goal.title)}</h3>${goal.body ? `<p>${esc(goal.body)}</p>` : ''}${attachmentsHtml(state.config, goal, esc)}
+        <h3>${esc(goal.title)}</h3>${goal.body ? `<p>${esc(goal.body)}</p>` : ''}${attachmentsHtml(state.config, goal, esc)}${videosHtml(goal.videos)}
         ${itemTools({ title: goal.title, anchor: `mandate-${id}`, idText: `Mandate ${id} (${state.config.registryAddress})`, ref: m.specCID, explorer: state.config.explorer, address: state.config.registryAddress })}
         <p class="muted">Responsible: <span class="code">${esc(short(m.responsible))}</span>${mine ? ' (you)' : ''} · ${m.threshold} independent check${Number(m.threshold) === 1 ? '' : 's'} needed</p>
         <p><strong>Budget:</strong> ${e ? `${esc(eth(locked))} held${contributed > locked && st !== 3 ? ` (of ${esc(eth(contributed))} backed${clawed ? `, ${esc(eth(clawed))} forfeited for lateness` : ''})` : ''}` : 'nobody has backed it yet'}${terms ? `. Paid to the responsible party once verified; refunded if repealed; ${Number(terms[0]) / 100}% forfeited to the public treasury every ${Math.round(Number(terms[1]) / 86_400)} day${Number(terms[1]) === 86_400 ? '' : 's'} while overdue.` : ''}</p>`);

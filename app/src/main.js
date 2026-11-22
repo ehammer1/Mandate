@@ -30,6 +30,7 @@ import { wireBudget } from './budget.js';
 import { wireFeedback } from './feedback.js';
 import { wireAssemblies } from './assemblies.js';
 import { wireAgenda } from './agenda.js';
+import { wireVideos, videosHtml, videoFields, wireVideoFields, readVideos } from './videos.js';
 import { renderExplainer } from './explain.js';
 import { informedHtml } from './informed.js';
 import { wireOfficials } from './officials.js';
@@ -978,7 +979,7 @@ async function refreshPolls() {
         <p class="eyebrow">${open ? `Open until ${esc(when(p.end))} · ${countdown(p.end, 'closes ', 'polls')}` : p.finalized ? (ck.disputed ? 'Closed · contested' : p.passed ? 'Closed · passed' : 'Closed · did not pass') : 'Voting ended · awaiting result'} · ${esc(who)}</p>
         <h3>${esc(q.title)} ${categoryChip(categoryOf(q), esc)}</h3>
         ${q.body ? `<p>${esc(q.body)}</p>` : ''}
-        ${attachmentsHtml(state.config, q, esc)}
+        ${attachmentsHtml(state.config, q, esc)}${videosHtml(q.videos)}
         ${itemTools({ title: q.title, anchor: `poll-${id}`, idText: `Poll ${id} (voting contract ${state.config.voteAddress})`, ref: p.questionCID, explorer: state.config.explorer, address: state.config.voteAddress })}
         ${(() => {
           const t = mandateTerms(p);
@@ -1579,6 +1580,11 @@ async function refreshAdmin() {
   await state.voterGroups?.render();
   await renderAdminTodo().catch(() => {});
   if (!state.pollPicker && $('poll-attach')) state.pollPicker = attachPicker($('poll-attach'), { state, esc });
+  if ($('poll-videos') && !$('poll-videos').dataset.ready) {
+    $('poll-videos').innerHTML = videoFields('poll');
+    wireVideoFields($('poll-videos'), 'poll');
+    $('poll-videos').dataset.ready = '1';
+  }
 }
 
 async function sendAdminTx(statusEl, label, build) {
@@ -1742,7 +1748,7 @@ function wireAdmin() {
       try {
         status(el, 'Publishing the question: confirm if asked…');
         const files = state.pollPicker ? state.pollPicker.list() : [];
-        ref = await postDoc(state.config, activeSigner(), { title, body, options: choices, category: $('poll-category').value, ...($('poll-final')?.value === 'latest' ? { final: 'latest' } : {}), ...(mandate ? { mandate } : {}), ...(files.length ? { attachments: files } : {}) });
+        ref = await postDoc(state.config, activeSigner(), { title, body, options: choices, category: $('poll-category').value, ...($('poll-final')?.value === 'latest' ? { final: 'latest' } : {}), ...(mandate ? { mandate } : {}), ...(files.length ? { attachments: files } : {}), ...((videos) => (videos ? { videos } : {}))(readVideos($('poll-videos'), 'poll')) });
       } catch (e) {
         return status(el, `Could not publish the question: ${e.shortMessage || e.message}`, 'error');
       }
@@ -1853,6 +1859,7 @@ async function boot() {
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
   wireCopy(document);
   wireShare(document);
+  wireVideos(document);
   wireCarry();
   window.addEventListener('online', () => sendOutbox().catch(() => {}));
   wireInstallTip();

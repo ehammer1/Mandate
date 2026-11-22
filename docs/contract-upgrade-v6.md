@@ -172,6 +172,20 @@ This is how v5 replaced v4 (council changes #10 to #16 on the main community).
   forwards or takes a cut of money (no money transmission). Political campaigns are told they
   are responsible for campaign-finance law. On only for the demo community.
 
+### 4f. Campaign and proposal videos (app, November 2026)
+
+- Candidate statements, petitions, agenda issues, polls and promises can list up to three
+  videos posted anywhere (YouTube, TikTok, Instagram, X, Facebook, Vimeo…), in the item's
+  published document. A candidate's list is published from their own account with their
+  positions, so the record shows who attached it.
+- YouTube plays in the app only after a tap, from its no-cookie domain; other platforms open in
+  a new tab. Nothing loads from a platform before that.
+- A video may carry a Testimonia seal and a link to the sealed original file. Until Testimonia
+  launches, it shows as "verification opens when Testimonia launches"; then the app checks the
+  original against the seal. Platforms re-compress uploads, so the seal is checked against the
+  original, not the platform's copy. A seal shows a recording is real and unedited, not that
+  what it says is true.
+
 ### 5. Receipt-free ballots (larger, may move to v7)
 
 - **Why:** today a voter can prove their choice to a buyer (they can also change it later where

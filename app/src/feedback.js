@@ -12,6 +12,7 @@ import { categoryChip, categoryOf } from './priority.js';
 import { attachPicker, attachmentsHtml, wireAttachments, uploadService } from './attach.js';
 import { itemTools } from './copy.js';
 import { fundingFields, readFunding, fundingHtml } from './funding.js';
+import { videoFields, wireVideoFields, readVideos, videosHtml } from './videos.js';
 
 const FEEDBACK_ABI = [
   'function identity() view returns (address)',
@@ -214,7 +215,8 @@ export function wireFeedback(ctx) {
   async function renderPetitions() {
     if (!petitionPicker && $('petition-attach')) petitionPicker = attachPicker($('petition-attach'), { state, esc });
     if ($('petition-funding') && !$('petition-funding').dataset.ready) {
-      $('petition-funding').innerHTML = fundingFields(state.config, 'pet');
+      $('petition-funding').innerHTML = videoFields('pet') + fundingFields(state.config, 'pet');
+      wireVideoFields($('petition-funding'), 'pet');
       $('petition-funding').dataset.ready = '1';
     }
     await uploadService(state.config);
@@ -243,7 +245,7 @@ export function wireFeedback(ctx) {
       const opened = p.pollId > 0n;
       cards.push(`<article class="card stack" id="petition-${id}">
         <p class="eyebrow">${sortBy === 'top' && !opened ? `<span>#${rank + 1} most requested</span> · ` : ''}<span>Petition ${id}</span> · <span>${esc(PETITION_KINDS[Number(p.action)] || 'A vote')}</span> · <span>started</span> ${countdown(p.createdAt)} · <span>signed by ${esc(TIER_WHO[Number(p.tier)].toLowerCase())}s</span></p>
-        <h3>${esc(doc.title)} ${categoryChip(categoryOf(doc), esc)}</h3>${doc.body ? `<p>${esc(doc.body)}</p>` : ''}${attachmentsHtml(state.config, doc, esc)}${fundingHtml(state.config, doc.funding)}
+        <h3>${esc(doc.title)} ${categoryChip(categoryOf(doc), esc)}</h3>${doc.body ? `<p>${esc(doc.body)}</p>` : ''}${attachmentsHtml(state.config, doc, esc)}${videosHtml(doc.videos)}${fundingHtml(state.config, doc.funding)}
         ${itemTools({ title: doc.title, anchor: `petition-${id}`, idText: `Petition ${id} (${state.config.feedbackAddress})`, ref: p.ref, explorer: state.config.explorer, address: state.config.feedbackAddress })}
         <p><strong>${p.signatures} of ${p.needed}</strong> signatures</p>
         <div class="tally"><span>Progress</span><span class="track"><span class="fill" style="display:block;width:${pct}%"></span></span><span class="v">${pct}%</span></div>
@@ -306,7 +308,8 @@ export function wireFeedback(ctx) {
       status(el, 'Publishing the petition…');
       const files = petitionPicker ? petitionPicker.list() : [];
       const funding = readFunding(state.config, $('petition-funding'), 'pet');
-      const ref = await publish({ title, body: why, category: $('petition-category').value, ...(files.length ? { attachments: files } : {}), ...(funding ? { funding } : {}) });
+      const videos = readVideos($('petition-funding'), 'pet');
+      const ref = await publish({ title, body: why, category: $('petition-category').value, ...(files.length ? { attachments: files } : {}), ...(funding ? { funding } : {}), ...(videos ? { videos } : {}) });
       const tier = action === 0 ? Number($('petition-tier').value) : Math.max(1, Number($('petition-tier').value));
       await relay('/feedback', { method: 'petition', args: [tier, action, data, ref] });
       status(el, 'Petition started. Share it: when enough residents sign, the poll opens by itself.', 'ok');
