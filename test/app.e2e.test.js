@@ -129,6 +129,10 @@ before(async () => {
     appConfig: () => appOpts.config,
     askEnabled: true,
     answerQuestion: async (item, q) => ({ answer: `Asked "${q}" about "${item.title}".`, answered_by_text: !/parking/i.test(q), quotes: ['within 30 days'], model: 'claude-opus-5-5' }),
+    aiHelpers: {
+      draftHelp: async ({ kind, text }) => ({ title: `Clearer: ${text.slice(0, 40)}`, body: `Drafted from your notes (${kind}).`, goal: 'Done when a signalled crossing is installed.', checklist: [{ check: 'Who is responsible', ok: false, note: 'Not stated' }], questions: ['By when?'], model: 'claude-opus-5-5', label: 'Suggested by AI from your notes: edit it, it is yours' }),
+      translate: async ({ text, lang }) => ({ text: `[${lang}] ${text}`, model: 'claude-opus-5-5', label: 'Machine translation by AI: the original is the official text' }),
+    },
     roll: () => appRoll,
     rollKey: ROLL_KEY,
     mailer: postbox,
@@ -1268,6 +1272,10 @@ test("People's Agenda: a resident adds an issue on their phone, then ranks with 
   const x = await page.getAttribute('#poll-1 details.share a:has-text("X")', 'href');
   assert.match(decodeURIComponent(x), /^https:\/\/twitter\.com\/intent\/tweet\?text=.*have your say on Promissa.*&url=.*#poll-1$/);
   assert.match(decodeURIComponent(await page.getAttribute('#poll-1 details.share a:has-text("Bluesky")', 'href')), /bsky\.app\/intent\/compose\?text=.*#poll-1$/);
+  // Any proposal can be translated (AI, labelled, the original kept) or read aloud by the device.
+  await page.selectOption('#poll-1 [data-translate]', 'vi');
+  await page.waitForSelector('#poll-1 >> text=Machine translation by AI', { timeout: 30_000 });
+  assert.match(await page.textContent('#poll-1 [data-translation]'), /^\s*\[vi\] /);
 
   const seed = JSON.stringify({ title: 'Winter 2027: what should Demo Town work on?' });
   await (await c.notices.post(seed)).wait();
@@ -1280,6 +1288,14 @@ test("People's Agenda: a resident adds an issue on their phone, then ranks with 
   await page.click('#nav-agenda');
   await page.waitForSelector(`#agenda-${id} [data-add] summary`, { timeout: 60_000 });
   await page.click(`#agenda-${id} [data-add] summary`);
+  // AI writing help: rough notes in, a clearer draft with a feasibility checklist out; nothing is published until the person adds it.
+  await page.fill(`#agenda-${id} [data-issue-title]`, 'crossing near the school unsafe kids');
+  await page.click(`#agenda-${id} [data-help-issue] [data-ai-help]`);
+  await page.waitForSelector(`#agenda-${id} [data-help-issue] >> text=Who is responsible`, { timeout: 30_000 });
+  await page.click(`#agenda-${id} [data-help-issue] [data-ai-use]`);
+  assert.match(await page.inputValue(`#agenda-${id} [data-issue-title]`), /^Clearer: crossing near the school/);
+  assert.match(await page.inputValue(`#agenda-${id} [data-issue-body]`), /Done when: a signalled crossing is installed/);
+  await page.fill(`#agenda-${id} [data-issue-body]`, '');
   // Typing something already there: the phone points to it, so support isn't split.
   await page.fill(`#agenda-${id} [data-issue-title]`, 'Housing costs are far too high');
   await page.waitForSelector(`#agenda-${id} [data-similar]:not([hidden]) >> text=Housing costs`);

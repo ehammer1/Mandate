@@ -166,6 +166,12 @@ This is how v5 replaced v4 (council changes #10 to #16 on the main community).
   sheet, or a ready post for X, Bluesky, Threads, Mastodon, Facebook, LinkedIn, Reddit,
   WhatsApp, Telegram or email, sent from the person's own account (no API keys, nothing posted
   for them).
+- **Connected accounts:** Bluesky (handle and a revocable app password; Promissa keeps only
+  the session Bluesky returns) and Mastodon (OAuth on the person's own server, scope
+  `write:statuses`). Once connected, each Share menu offers "Post to Bluesky now" / "Post to
+  Mastodon now", with the text editable before posting and a link card on Bluesky. Tokens
+  stay in the browser and go only to that platform; off on shared computers. Paid or
+  app-reviewed APIs (X, Meta, TikTok) are left for later.
 - **Support links (off until a legal review):** with `fundingLinks: true` in a community's
   config, petitions, agenda issues and candidate statements may carry the organizers' own
   Base address and fundraising links, shown as "Support this". Promissa never holds, converts,
@@ -197,6 +203,26 @@ This is how v5 replaced v4 (council changes #10 to #16 on the main community).
   player for people who can't listen. Nothing plays until tapped.
 - Any attachment may carry a Testimonia seal, shown as pending until Testimonia launches; files
   sent from Testimonia arrive as ordinary attachments with their seal.
+
+### 4h. AI helpers (app, sign-up service and watchdog, November 2026)
+
+The AI suggests; people decide. Everything it writes is labelled with the model, and it never
+sees votes or anything personal.
+
+- **Help me write this** (sign-up service `POST /ai/draft`, rate-limited): rough notes become a
+  clear agenda issue, petition or candidate statement, keeping the person's meaning and
+  position, with a feasibility checklist (who is responsible, by when, the cost and who pays,
+  how to tell it's done, whether a community vote can decide it). Filled into the form only
+  when the person taps "Use this", and published only by them.
+- **Translate** (`POST /ai/translate`) any poll, petition or agenda issue into 13 languages,
+  labelled, the original kept; **Read aloud** uses the device's own voice (nothing sent).
+- **Evidence notes for checkers** (watchdog, `evidence-…json`): what a promise's evidence
+  doesn't show yet. Checkers decide.
+- **Comments to review** (watchdog, `moderation-…json`): new comments flagged for spam,
+  threats, harassment or private details, listed for admins and council members. Disagreement
+  is never flagged; nothing is removed automatically; out-of-range flags are dropped.
+- **This week** (watchdog, `roundup-…json`, at most weekly): new, closing soon, closed, promises
+  done or overdue, and the agenda's top issues, written neutrally from those facts only.
 
 ### 5. Receipt-free ballots (larger, may move to v7)
 

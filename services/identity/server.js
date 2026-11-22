@@ -714,6 +714,32 @@ function createIdentityService(o) {
     }
   }
 
+  // Writing help and translation (AI): suggestions only; the person edits and publishes.
+  const aiHits = new Map();
+  const aiCache = new Map();
+  async function aiHelp(kind, body, ip) {
+    if (!o.askEnabled) return [503, { error: 'AI help is not available right now.' }];
+    if (recentCount(aiHits, ip, 3600_000).length >= (o.aiPerIpHour ?? 20)) return [429, { error: 'Too many requests this hour. Please try again later.' }];
+    aiHits.get(ip).push(Date.now());
+    const text = String(body.text || '').trim();
+    const lang = String(body.lang || '').slice(0, 10);
+    if (text.length < 3 || text.length > (kind === 'translate' ? 6000 : 4000)) return [400, { error: 'Write a few words first (up to a few paragraphs).' }];
+    if (kind === 'translate' && !/^[a-z]{2,3}(-[A-Za-z]{2,4})?$/.test(lang)) return [400, { error: 'Choose a language.' }];
+    if (kind === 'draft' && !['issue', 'petition', 'poll', 'candidate'].includes(body.kind)) return [400, { error: 'Unknown kind of text.' }];
+    const key = `${kind}:${body.kind || ''}:${lang}:${text}`;
+    if (aiCache.has(key)) return [200, aiCache.get(key)];
+    try {
+      const fns = o.aiHelpers || require('../explainer/explain');
+      const out = kind === 'draft' ? await fns.draftHelp({ kind: body.kind, text, lang }) : await fns.translate({ text, lang });
+      if (aiCache.size > 500) aiCache.clear();
+      aiCache.set(key, out);
+      return [200, out];
+    } catch (e) {
+      log(`AI help failed: ${e.message}`);
+      return [502, { error: 'AI help is unavailable right now. Please try again later.' }];
+    }
+  }
+
   async function emailStart(body, ip) {
     if (!o.emailSender) return [503, { error: 'Email sign-up is not available right now.' }];
     let commitment;
@@ -876,7 +902,7 @@ function createIdentityService(o) {
         const [status, out] = await o.uploads.upload(bytes, req.headers, url.searchParams);
         return json(status, out);
       }
-      if (url.pathname.startsWith('/email/') || url.pathname.startsWith('/clerk/') || url.pathname.startsWith('/mdl/') || url.pathname.startsWith('/roll/') || url.pathname === '/ask' || url.pathname === '/replace') {
+      if (url.pathname.startsWith('/email/') || url.pathname.startsWith('/clerk/') || url.pathname.startsWith('/mdl/') || url.pathname.startsWith('/roll/') || url.pathname === '/ask' || url.pathname === '/replace' || url.pathname === '/ai/draft' || url.pathname === '/ai/translate') {
         // Called from the voter app's page: allow its origin only.
         const origin = req.headers.origin || '';
         const cors = o.allowedReturnOrigins.includes(origin) ? { 'Access-Control-Allow-Origin': origin, Vary: 'Origin' } : {};
@@ -897,7 +923,7 @@ function createIdentityService(o) {
         } catch {
           return json(400, { error: 'Invalid request.' });
         }
-        const route = { '/email/start': () => emailStart(body, ip), '/email/verify': () => emailVerify(body), '/clerk/doc-hash': () => clerkDocHash(body), '/clerk/roll-match': () => clerkRollMatch(body), '/mdl/start': () => mdlStart(body), '/mdl/finish': () => mdlFinish(body, origin), '/roll/mail/start': () => rollMailStart(body, ip), '/roll/mail/verify': () => rollMailVerify(body), '/ask': () => askQuestion(body, ip), '/replace': () => replaceKey(body) }[url.pathname];
+        const route = { '/email/start': () => emailStart(body, ip), '/email/verify': () => emailVerify(body), '/clerk/doc-hash': () => clerkDocHash(body), '/clerk/roll-match': () => clerkRollMatch(body), '/mdl/start': () => mdlStart(body), '/mdl/finish': () => mdlFinish(body, origin), '/roll/mail/start': () => rollMailStart(body, ip), '/roll/mail/verify': () => rollMailVerify(body), '/ask': () => askQuestion(body, ip), '/replace': () => replaceKey(body), '/ai/draft': () => aiHelp('draft', body, ip), '/ai/translate': () => aiHelp('translate', body, ip) }[url.pathname];
         const [status, out] = route ? await route() : [404, { error: 'Not found' }];
         return json(status, out);
       }

@@ -13,6 +13,8 @@ import { attachPicker, attachmentsHtml, wireAttachments, uploadService } from '.
 import { itemTools } from './copy.js';
 import { fundingFields, readFunding, fundingHtml } from './funding.js';
 import { videoFields, wireVideoFields, readVideos, videosHtml } from './videos.js';
+import { helpButtonHtml, wireHelp, listenTranslateHtml } from './aihelp.js';
+import { LANG } from './i18n.js';
 
 const FEEDBACK_ABI = [
   'function identity() view returns (address)',
@@ -216,6 +218,10 @@ export function wireFeedback(ctx) {
     if (!petitionPicker && $('petition-attach')) petitionPicker = attachPicker($('petition-attach'), { state, esc });
     if ($('petition-funding') && !$('petition-funding').dataset.ready) {
       $('petition-funding').innerHTML = videoFields('pet') + fundingFields(state.config, 'pet');
+      if ($('petition-ai')) {
+        $('petition-ai').innerHTML = helpButtonHtml();
+        wireHelp($('petition-ai'), { cfg: state.config, kind: 'petition', lang: LANG, read: () => `${$('petition-title').value}\n${$('petition-body').value}`, apply: ({ title, body }) => (($('petition-title').value = title), ($('petition-body').value = body)) });
+      }
       wireVideoFields($('petition-funding'), 'pet');
       $('petition-funding').dataset.ready = '1';
     }
@@ -245,7 +251,7 @@ export function wireFeedback(ctx) {
       const opened = p.pollId > 0n;
       cards.push(`<article class="card stack" id="petition-${id}">
         <p class="eyebrow">${sortBy === 'top' && !opened ? `<span>#${rank + 1} most requested</span> · ` : ''}<span>Petition ${id}</span> · <span>${esc(PETITION_KINDS[Number(p.action)] || 'A vote')}</span> · <span>started</span> ${countdown(p.createdAt)} · <span>signed by ${esc(TIER_WHO[Number(p.tier)].toLowerCase())}s</span></p>
-        <h3>${esc(doc.title)} ${categoryChip(categoryOf(doc), esc)}</h3>${doc.body ? `<p>${esc(doc.body)}</p>` : ''}${attachmentsHtml(state.config, doc, esc)}${videosHtml(doc.videos)}${fundingHtml(state.config, doc.funding)}
+        <h3>${esc(doc.title)} ${categoryChip(categoryOf(doc), esc)}</h3>${doc.body ? `<p>${esc(doc.body)}</p>` : ''}${listenTranslateHtml(`${doc.title}. ${doc.body || ''}`)}${attachmentsHtml(state.config, doc, esc)}${videosHtml(doc.videos)}${fundingHtml(state.config, doc.funding)}
         ${itemTools({ title: doc.title, anchor: `petition-${id}`, idText: `Petition ${id} (${state.config.feedbackAddress})`, ref: p.ref, explorer: state.config.explorer, address: state.config.feedbackAddress })}
         <p><strong>${p.signatures} of ${p.needed}</strong> signatures</p>
         <div class="tally"><span>Progress</span><span class="track"><span class="fill" style="display:block;width:${pct}%"></span></span><span class="v">${pct}%</span></div>

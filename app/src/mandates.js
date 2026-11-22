@@ -61,6 +61,17 @@ export function wireMandates(ctx) {
   const registry = () => new ethers.Contract(state.config.registryAddress, REGISTRY_ABI, state.provider);
   const factory = () => (state.config.escrowFactoryAddress ? new ethers.Contract(state.config.escrowFactoryAddress, FACTORY_ABI, state.provider) : null);
 
+  const aiNotes = async (name) => {
+    const base = state.config.explanationsUrl;
+    if (!base) return null;
+    try {
+      const res = await fetch(`${base.replace(/\/?$/, '/')}${name}?t=${Math.floor(Date.now() / 300_000)}`);
+      return res.ok ? await res.json() : null;
+    } catch {
+      return null;
+    }
+  };
+
   async function render() {
     const list = $('mandate-list');
     if (!state.config.registryAddress) return (list.innerHTML = '<p class="muted">Mandates are not set up on this deployment.</p>');
@@ -109,7 +120,9 @@ export function wireMandates(ctx) {
           : Number(block.number) > Number(panel.seedBlock)
             ? `<p class="muted"><strong>Checkers are drawn at random</strong> from the verifiers, so nobody knows in advance who will check. Ready to draw.</p><button data-act="draw" data-id="${id}">Draw the checkers</button>`
             : `<p class="muted"><strong>Checkers are drawn at random</strong> from the verifiers in a few seconds, from a block nobody knows yet.</p>`;
-      if (evidence) parts.push(`<div class="card"><p class="eyebrow">Evidence submitted (check ${m.round})</p><p>${esc(evidence.body || evidence.title)}</p>${attachmentsHtml(state.config, evidence, esc)}<p class="muted">${m.approvals} approval${Number(m.approvals) === 1 ? '' : 's'}, ${m.rejections} rejection${Number(m.rejections) === 1 ? '' : 's'} of ${m.threshold} needed</p>${panelLine}</div>`);
+      const notes = evidence ? await aiNotes(`evidence-${state.config.registryAddress.toLowerCase()}-${id}-${m.round}.json`) : null;
+      const notesHtml = notes ? `<details><summary>AI notes for the checkers</summary><p>Covers the goal: <strong>${esc({ yes: 'yes', partly: 'partly', no: 'no', unclear: 'unclear' }[notes.covers_goal] || 'unclear')}</strong></p>${notes.missing?.length ? `<p>Not shown yet:</p><ul>${notes.missing.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}${notes.notes?.length ? `<p>Worth checking:</p><ul>${notes.notes.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}<p class="note">${esc(notes.label || 'AI notes')}</p></details>` : '';
+      if (evidence) parts.push(`<div class="card"><p class="eyebrow">Evidence submitted (check ${m.round})</p><p>${esc(evidence.body || evidence.title)}</p>${attachmentsHtml(state.config, evidence, esc)}<p class="muted">${m.approvals} approval${Number(m.approvals) === 1 ? '' : 's'}, ${m.rejections} rejection${Number(m.rejections) === 1 ? '' : 's'} of ${m.threshold} needed</p>${panelLine}${notesHtml}</div>`);
 
       // Actions for this person.
       const acts = [];

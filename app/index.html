@@ -190,6 +190,19 @@
         <p id="account-credits"></p>
         <button id="btn-auto-wallet" hidden>Switch back to my automatic account</button>
       </div>
+      <h2>Your social accounts</h2>
+      <div class="card stack" id="social-card">
+        <p class="note">Connect your own Bluesky or Mastodon account to post proposals, polls and petitions from here. Nothing is posted without you pressing Post. Your login stays in this browser and goes only to Bluesky or your Mastodon server. For X, Facebook, Threads, Instagram, LinkedIn and others, use 📣 Share on any item.</p>
+        <div id="social-status"></div>
+        <details id="social-bsky"><summary><strong>Connect Bluesky</strong></summary><div class="stack">
+          <label>Your handle <input type="text" id="bsky-handle" placeholder="you.bsky.social" autocomplete="username" /></label>
+          <label>An app password (Bluesky: Settings → Privacy and security → App passwords) <input type="password" id="bsky-pass" placeholder="abcd-efgh-ijkl-mnop" autocomplete="off" /></label>
+          <button id="btn-bsky">Connect Bluesky</button></div></details>
+        <details id="social-masto"><summary><strong>Connect Mastodon</strong></summary><div class="stack">
+          <label>Your server <input type="text" id="masto-server" placeholder="mastodon.social" /></label>
+          <button id="btn-masto">Connect Mastodon</button></div></details>
+        <p class="status" id="social-msg" role="status"></p>
+      </div>
       <h2>Use a wallet instead</h2>
       <p class="note">Works with wallet extensions on a computer, your wallet app's built-in browser on a phone, and (when enabled) any mobile wallet through WalletConnect.</p>
       <div id="wallet-list"></div>
@@ -234,6 +247,7 @@
           <select id="petition-category"><option value="general">General</option><option value="safety">Public safety</option><option value="roads">Roads and transport</option><option value="housing">Housing</option><option value="budget">Budget and taxes</option><option value="environment">Environment and parks</option><option value="health">Health</option><option value="education">Schools and education</option><option value="services">Water, power and services</option><option value="economy">Jobs and business</option><option value="rights">Rights and justice</option><option value="governance">How decisions are made</option></select>
           <label for="petition-body">Why</label>
           <textarea id="petition-body" rows="3"></textarea>
+          <div id="petition-ai"></div>
           <p class="note">Photos or documents (optional): a photo of the problem, a letter, a map.</p>
           <div id="petition-attach"></div>
           <div id="petition-funding"></div>
@@ -699,6 +713,11 @@
         <p class="status" id="credits-status" role="status"></p>
       </div>
 
+      <div class="card stack" id="admin-moderation" hidden>
+        <h3>Comments to review</h3>
+        <p class="note">Flagged by AI for a person to look at: spam, threats, harassment, or someone's private details. Disagreement and criticism are never flagged. Nothing is removed automatically.</p>
+        <div id="moderation-list"></div>
+      </div>
       <div class="card stack" id="admin-checkers" hidden>
         <h3>Who checks mandates</h3>
         <p class="note">Drawing checkers at random for each piece of evidence means nobody knows in advance who will check, so nobody can lean on them. Changes go through the council, in public.</p>

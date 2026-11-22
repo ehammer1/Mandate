@@ -30,7 +30,10 @@ import { wireBudget } from './budget.js';
 import { wireFeedback } from './feedback.js';
 import { wireAssemblies } from './assemblies.js';
 import { wireAgenda } from './agenda.js';
+import * as social from './social.js';
+import { shareText } from './copy.js';
 import { wireVideos, videosHtml, videoFields, wireVideoFields, readVideos } from './videos.js';
+import { wireAids, listenTranslateHtml } from './aihelp.js';
 import { renderExplainer } from './explain.js';
 import { informedHtml } from './informed.js';
 import { wireOfficials } from './officials.js';
@@ -979,7 +982,7 @@ async function refreshPolls() {
         <p class="eyebrow">${open ? `Open until ${esc(when(p.end))} · ${countdown(p.end, 'closes ', 'polls')}` : p.finalized ? (ck.disputed ? 'Closed · contested' : p.passed ? 'Closed · passed' : 'Closed · did not pass') : 'Voting ended · awaiting result'} · ${esc(who)}</p>
         <h3>${esc(q.title)} ${categoryChip(categoryOf(q), esc)}</h3>
         ${q.body ? `<p>${esc(q.body)}</p>` : ''}
-        ${attachmentsHtml(state.config, q, esc)}${videosHtml(q.videos)}
+        ${listenTranslateHtml(`${q.title}. ${q.body || ''}`)}${attachmentsHtml(state.config, q, esc)}${videosHtml(q.videos)}
         ${itemTools({ title: q.title, anchor: `poll-${id}`, idText: `Poll ${id} (voting contract ${state.config.voteAddress})`, ref: p.questionCID, explorer: state.config.explorer, address: state.config.voteAddress })}
         ${(() => {
           const t = mandateTerms(p);
@@ -1554,6 +1557,8 @@ async function refreshAdmin() {
   $('poll-grace-row').hidden = !(await hasGrace(state).catch(() => false)); // delivery windows: v6
   $('admin-budget').hidden = !r.budgetProposer;
   $('admin-roles').hidden = !(r.admin || r.councilMember);
+  // Comments flagged by AI for review (published by the watchdog).
+  renderModeration(r.admin || r.councilMember).catch(() => {});
   // Random mandate checkers (newer registries only).
   const reg6 = state.config.registryAddress ? new ethers.Contract(state.config.registryAddress, ['function panelSize() view returns (uint16)'], state.provider) : null;
   const size = reg6 ? await reg6.panelSize().catch(() => null) : null;
@@ -1852,6 +1857,73 @@ function wireAdmin() {
   };
 }
 
+async function renderModeration(allowed) {
+  const card = $('admin-moderation');
+  const base = state.config.explanationsUrl;
+  card.hidden = true;
+  if (!allowed || !base || !state.config.feedbackAddress) return;
+  const res = await fetch(`${base.replace(/\/?$/, '/')}moderation-${state.config.feedbackAddress.toLowerCase()}.json?t=${Math.floor(Date.now() / 300_000)}`);
+  if (!res.ok) return;
+  const m = await res.json();
+  if (!m.flags?.length) return;
+  const why = { spam: 'Spam', threat: 'Threat', harassment: 'Harassment', personal_info: 'Private details' };
+  $('moderation-list').innerHTML = `<ul class="list">${m.flags.slice(0, 30).map((f) => `<li><strong>${esc(why[f.reason] || f.reason)}</strong> · <a href="#${esc(f.kind)}-${Number(f.id)}">${f.kind === 'poll' ? 'Poll' : 'Promise'} ${Number(f.id)}</a>, comment ${Number(f.index) + 1}: ${esc(f.note)}</li>`).join('')}</ul><p class="note">${esc(m.label || '')}</p>`;
+  card.hidden = false;
+}
+
+// --------------------------------------------------------------------- social accounts
+
+/** Connect Bluesky or Mastodon (Account screen); post directly from any item's Share menu. */
+function wireSocial() {
+  const msg = (t, kind = '') => status($('social-msg'), t, kind);
+  const draw = () => {
+    const c = social.connections();
+    $('social-card').hidden = SHARED; // never on a shared computer
+    $('social-status').innerHTML = [c.bluesky && `<p>✓ Bluesky: <strong>@${esc(c.bluesky.handle)}</strong> <button type="button" data-disconnect="bluesky">Disconnect</button></p>`, c.mastodon && `<p>✓ Mastodon: <strong>${esc(c.mastodon.host)}</strong> <button type="button" data-disconnect="mastodon">Disconnect</button></p>`].filter(Boolean).join('');
+    $('social-bsky').hidden = !!c.bluesky;
+    $('social-masto').hidden = !!c.mastodon;
+    for (const b of $('social-status').querySelectorAll('[data-disconnect]')) b.onclick = () => (social.disconnect(b.dataset.disconnect), draw());
+  };
+  $('btn-bsky').onclick = async () => {
+    try {
+      msg('Connecting…');
+      await social.connectBluesky($('bsky-handle').value, $('bsky-pass').value);
+      $('bsky-pass').value = '';
+      msg('Bluesky connected.', 'ok');
+      draw();
+    } catch (e) {
+      msg(e.message, 'error');
+    }
+  };
+  $('btn-masto').onclick = () => social.connectMastodon($('masto-server').value).catch((e) => msg(e.message, 'error'));
+  if (!SHARED) social.finishMastodon().then((done) => done && (draw(), show('screen-account'), msg(social.connections().mastodon ? 'Mastodon connected.' : 'Mastodon was not connected.', social.connections().mastodon ? 'ok' : 'error'))).catch(() => {});
+  draw();
+  // Share menus: offer direct posting where an account is connected.
+  document.addEventListener('toggle', (e) => {
+    const d = e.target;
+    if (!d.classList?.contains('share') || !d.open || SHARED) return;
+    const c = social.connections();
+    for (const b of d.querySelectorAll('[data-post-direct]')) b.hidden = !c[b.dataset.postDirect];
+    d.querySelector('[data-direct]').hidden = !c.bluesky && !c.mastodon;
+  }, true);
+  document.addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-post-direct]');
+    if (!b) return;
+    const out = b.closest('details').querySelector('[data-direct-status]');
+    const where = b.dataset.postDirect;
+    const draft = `${shareText(b.dataset.title)} ${b.dataset.url}`;
+    const text = window.prompt(`Your post to ${where === 'bluesky' ? 'Bluesky' : 'Mastodon'} (edit it if you like):`, where === 'bluesky' && [...draft].length > 300 ? `${b.dataset.title.slice(0, 200)} ${b.dataset.url}` : draft);
+    if (!text) return;
+    try {
+      status(out, 'Posting…');
+      const link = where === 'bluesky' ? await social.postBluesky({ text, url: b.dataset.url, title: b.dataset.title, description: 'Have your say on Promissa' }) : await social.postMastodon({ text });
+      out.innerHTML = `<span class="ok">Posted.</span> <a href="${esc(link)}" target="_blank" rel="noopener">See your post</a>`;
+    } catch (err) {
+      status(out, err.message, 'error');
+    }
+  });
+}
+
 // --------------------------------------------------------------------- boot
 
 async function boot() {
@@ -1860,6 +1932,8 @@ async function boot() {
   wireCopy(document);
   wireShare(document);
   wireVideos(document);
+  wireSocial();
+  wireAids(() => state.config);
   wireCarry();
   window.addEventListener('online', () => sendOutbox().catch(() => {}));
   wireInstallTip();

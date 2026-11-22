@@ -11,6 +11,8 @@ import { recordIndex, recordLine } from '../../client/record.js';
 import { fundingFields, readFunding, fundingHtml } from './funding.js';
 import { videoFields, wireVideoFields, readVideos, videosHtml } from './videos.js';
 import { attachPicker, attachmentsHtml, wireAttachments } from './attach.js';
+import { helpButtonHtml, wireHelp, listenTranslateHtml } from './aihelp.js';
+import { LANG } from './i18n.js';
 import { categoryChip, categoryOf, categoryOptions, categoryLabel } from './priority.js';
 import { countdown } from './time.js';
 
@@ -70,6 +72,7 @@ export function wireAgenda(ctx) {
           <p class="note">For each issue residents raised: where you stand and how important it is to you. Public, and every change stays on the record (now version ${Number(mineC.c.version)}).</p>
           ${items.map((x) => `<div class="stack"><span>${esc(x.doc.title)}</span><div class="row">${stanceSelect('data-own-stance', x.i, mineC.p.answered[x.i] ? Number(mineC.p.stances[x.i]) : '')} ${weightSelect('data-own-weight', x.i, mineC.p.answered[x.i] ? Number(mineC.p.importance[x.i]) || 1 : 2)}</div></div>`).join('')}
           <label>Your statement (optional) <textarea data-own-ref rows="3"></textarea></label>
+          <div data-help-cand>${helpButtonHtml()}</div>
           <details><summary>📎 Add photos, posters, documents or audio (optional)</summary><div data-cand-attach></div></details>
           ${videoFields('cand')}
           ${fundingFields(state.config, 'cand')}
@@ -128,6 +131,7 @@ export function wireAgenda(ctx) {
             <label>The issue, in one line <input type="text" data-issue-title maxlength="140" placeholder="e.g. Rents are rising faster than wages" /></label>
             <div data-similar class="note" hidden></div>
             <label>Why it matters (optional) <textarea data-issue-body rows="3"></textarea></label>
+            <div data-help-issue>${helpButtonHtml()}</div>
             <label>Topic <select data-issue-topic>${categoryOptions('general')}</select></label>
             <details><summary>📎 Add photos, posters, documents or audio (optional)</summary><div data-iss-attach></div></details>
             ${videoFields('iss')}
@@ -144,7 +148,7 @@ export function wireAgenda(ctx) {
           <button type="button" class="primary" data-rank-send disabled>Send my priorities</button></div></details>`;
     }
     const results = `<div class="stack"><p><strong>${phase === 'closed' ? 'The community\'s priorities' : phase === 'rank' ? 'Priorities so far' : 'Issues added so far'}</strong>${phase !== 'propose' ? ` · ${Number(s.participants)} of ${Number(s.electorate)} residents ranked` : ''}</p>
-      ${ranked.length ? `<ol class="list">${ranked.map((x) => `<li>${esc(x.doc.title)} ${categoryChip(x.topic, esc)}${phase !== 'propose' ? `<br><span class="muted">${x.credits} credit${x.credits === 1 ? '' : 's'} · ${Math.round((100 * x.credits) / total)}%</span>` : ''}${x.doc.body ? `<details><summary>Why</summary><p>${esc(x.doc.body)}</p></details>` : ''}${attachmentsHtml(state.config, x.doc, esc)}${videosHtml(x.doc.videos)}${fundingHtml(state.config, x.doc.funding)}</li>`).join('')}</ol>` : '<p class="muted">No issues yet.</p>'}
+      ${ranked.length ? `<ol class="list">${ranked.map((x) => `<li>${esc(x.doc.title)} ${categoryChip(x.topic, esc)}${phase !== 'propose' ? `<br><span class="muted">${x.credits} credit${x.credits === 1 ? '' : 's'} · ${Math.round((100 * x.credits) / total)}%</span>` : ''}${x.doc.body ? `<details><summary>Why</summary><p>${esc(x.doc.body)}</p>${listenTranslateHtml(`${x.doc.title}. ${x.doc.body}`)}</details>` : ''}${attachmentsHtml(state.config, x.doc, esc)}${videosHtml(x.doc.videos)}${fundingHtml(state.config, x.doc.funding)}</li>`).join('')}</ol>` : '<p class="muted">No issues yet.</p>'}
       ${phase !== 'propose' && ranked.length ? `<p class="muted">By topic: ${Object.entries(ranked.reduce((m, x) => ((m[x.topic] = (m[x.topic] || 0) + x.credits), m), {})).sort((a, b) => b[1] - a[1]).map(([t, n]) => `${esc(categoryLabel(t))} ${Math.round((100 * n) / total)}%`).join(' · ')}</p>` : ''}</div>`;
     const { html: candHtml, cands } = await candidatesHtml(id, items, ctx.activeAddress?.() || null, organizer).catch(() => ({ html: '', cands: [] }));
     const themes = await themesHtml(id, items, organizer && phase === 'propose');
@@ -202,6 +206,21 @@ export function wireAgenda(ctx) {
 
   function wire(el, id, s, items) {
     wireAttachments(el, state.config);
+    const hi = el.querySelector('[data-help-issue]');
+    if (hi) {
+      wireHelp(hi, {
+        cfg: state.config,
+        kind: 'issue',
+        lang: LANG,
+        read: () => `${el.querySelector('[data-issue-title]').value}\n${el.querySelector('[data-issue-body]').value}`,
+        apply: ({ title, body }) => {
+          el.querySelector('[data-issue-title]').value = title.slice(0, 140);
+          el.querySelector('[data-issue-body]').value = body;
+        },
+      });
+    }
+    const hc = el.querySelector('[data-help-cand]');
+    if (hc) wireHelp(hc, { cfg: state.config, kind: 'candidate', lang: LANG, read: () => el.querySelector('[data-own-ref]').value, apply: ({ body }) => (el.querySelector('[data-own-ref]').value = body) });
     const ia = el.querySelector('[data-iss-attach]');
     if (ia) el.issPicker = attachPicker(ia, { state, esc });
     const ca = el.querySelector('[data-cand-attach]');
@@ -349,6 +368,21 @@ export function wireAgenda(ctx) {
     });
   }
 
+  /** "This week": the AI roundup the watchdog publishes once a week, from the public record. */
+  async function roundupCard() {
+    const base = state.config.explanationsUrl;
+    if (!base) return null;
+    const res = await fetch(`${base.replace(/\/?$/, '/')}roundup-${String(state.config.voteAddress).toLowerCase()}.json?t=${Math.floor(Date.now() / 3_600_000)}`);
+    if (!res.ok) return null;
+    const r = await res.json();
+    const el = document.createElement('article');
+    el.className = 'card stack';
+    el.innerHTML = `<p class="eyebrow">This week</p><h3>${esc(r.headline)}</h3>
+      ${(r.sections || []).map((x) => `<p><strong>${esc(x.title)}</strong></p><ul>${x.points.map((pt) => `<li>${esc(pt)}</li>`).join('')}</ul>`).join('')}
+      <p class="note">${esc(r.label || 'Weekly roundup by AI')}, ${esc(new Date(r.generatedAt).toLocaleDateString())}.</p>`;
+    return el;
+  }
+
   /** People who put in the work: public roles and promises, with their record. Never votes. */
   async function peopleCard() {
     const rec = await recordsNow();
@@ -376,6 +410,8 @@ export function wireAgenda(ctx) {
     list.replaceChildren(...cards.filter(Boolean));
     const people = await peopleCard().catch(() => null);
     if (people) list.append(people);
+    const week = await roundupCard().catch(() => null);
+    if (week) list.prepend(week);
     if (!ids.length) list.insertAdjacentHTML('afterbegin', '<p class="muted">No season yet. When one opens, every resident can add an issue and then rank what matters most.</p>');
   }
 

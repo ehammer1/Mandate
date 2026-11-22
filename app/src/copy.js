@@ -81,7 +81,7 @@ function shareMenu(title, url) {
     <button type="button" data-share-native data-title="${escAttr(title)}" data-url="${escAttr(url)}" hidden>Share…</button>
     ${shareLinks(title, url).map(([n, href]) => `<a href="${escAttr(href)}" target="_blank" rel="noopener">${n}</a>`).join(' ')}
     <button type="button" data-share-mastodon data-title="${escAttr(title)}" data-url="${escAttr(url)}">Mastodon</button>
-  </div></details>`;
+  </div><div class="row" data-direct hidden><button type="button" data-post-direct="bluesky" data-title="${escAttr(title)}" data-url="${escAttr(url)}" hidden>Post to Bluesky now</button> <button type="button" data-post-direct="mastodon" data-title="${escAttr(title)}" data-url="${escAttr(url)}" hidden>Post to Mastodon now</button></div><p class="status" role="status" data-direct-status></p></details>`;
 }
 
 /** The phone's share sheet where there is one; Mastodon asks for your server once. */
