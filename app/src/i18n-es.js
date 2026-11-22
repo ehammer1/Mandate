@@ -2350,4 +2350,9 @@ export default {
   "Your files go to the community's storage.": "Sus archivos van al almacenamiento de la comunidad.",
   "Saved in this browser.": "Guardado en este navegador.",
   "Your bucket must allow uploads from this site (CORS): see the storage guide.": "Su bucket debe permitir subidas desde este sitio (CORS): vea la guía de almacenamiento.",
+  "Sign in and connect": "Iniciar sesión y conectar",
+  "You sign in with your own account; files go to a Promissa folder in it and are shared by link so others can open them. Promissa can't see anything else in your storage.": "Inicia sesión con su propia cuenta; los archivos van a una carpeta de Promissa en ella y se comparten por enlace para que otros puedan abrirlos. Promissa no puede ver nada más de su almacenamiento.",
+  "Dropbox (sign in)": "Dropbox (iniciar sesión)",
+  "OneDrive (sign in with Microsoft)": "OneDrive (iniciar sesión con Microsoft)",
+  "Google Drive (sign in with Google)": "Google Drive (iniciar sesión con Google)",
 };

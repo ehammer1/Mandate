@@ -93,6 +93,43 @@ from someone's own account.
 
 Pinata needs no setting: create an API key with upload access and paste its JWT.
 
+## Dropbox, OneDrive and Google Drive
+
+People can also connect their own Dropbox, OneDrive or Google Drive (Account → "Where my files
+go" → Sign in and connect). Each person signs in with their own account; files go to a Promissa
+folder in it and are shared by link. Promissa can't see anything else in their storage. iCloud
+isn't possible: Apple doesn't let websites store files in iCloud Drive.
+
+For these options to appear, Promissa is registered once with each company. Registering gives
+a public app ID, not access to anyone's files. Put each ID in the community's config
+(`app/config.base-sepolia.json`, `app/communities/<slug>.json`). The redirect address is the
+app's address, e.g. `https://ehammer1.github.io/Mandate/`.
+
+**Dropbox** (`dropboxAppKey`):
+1. Go to dropbox.com/developers/apps → Create app.
+2. Choose "Scoped access" and "App folder", and name it Promissa.
+3. Permissions: tick `files.content.write` and `sharing.write`, then Submit.
+4. Settings: add the redirect address under "Redirect URIs" and allow PKCE ("Allow public clients").
+5. Copy the "App key".
+
+**OneDrive** (`microsoftClientId`), using the app you made for Microsoft sign-in or a new one:
+1. Go to portal.azure.com → Microsoft Entra ID → App registrations → your app.
+2. Authentication → Add a platform → Single-page application → add the redirect address.
+3. API permissions → Add → Microsoft Graph → Delegated → `Files.ReadWrite.AppFolder` and
+   `offline_access`.
+4. Copy the "Application (client) ID".
+
+**Google Drive** (`googleClientId`), using the project you made for Google sign-in or a new one:
+1. Go to console.cloud.google.com → APIs & Services → Library → enable "Google Drive API".
+2. OAuth consent screen → Data access → add the scope `.../auth/drive.file`.
+3. Credentials → your Web client (or a new one): add the app's address under "Authorized
+   JavaScript origins" (`https://ehammer1.github.io`) and the redirect address under
+   "Authorized redirect URIs".
+4. Copy the "Client ID".
+
+Google Drive blocks other websites from downloading its files directly, so the app may not be
+able to check Drive copies automatically; it says so next to those files.
+
 ## Permanent records
 
 Records are already permanent: votes, results, the text of every proposal and every file's

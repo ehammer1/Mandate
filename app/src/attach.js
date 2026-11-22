@@ -37,7 +37,7 @@ function fileUrls(cfg, a) {
   const urls = [];
   for (const l of Array.isArray(a.locations) ? a.locations : []) {
     if (l?.kind === 'ipfs' && CID.test(String(l.cid))) urls.push(fileUrl(cfg, l.cid));
-    else if (l?.kind === 's3' && /^https:\/\/[^\s"'<>]+$/.test(String(l.url))) urls.push(l.url);
+    else if (['s3', 'dropbox', 'onedrive', 'gdrive'].includes(l?.kind) && /^https:\/\/[^\s"'<>]+$/.test(String(l.url))) urls.push(l.url);
   }
   if (CID.test(String(a.cid)) && !urls.includes(fileUrl(cfg, a.cid))) urls.push(fileUrl(cfg, a.cid));
   return urls;
@@ -160,6 +160,7 @@ export function audioType(t) {
 }
 
 import { ownStorage, putOwn } from './ownstorage.js';
+import { CLOUDS, putCloud } from './clouds.js';
 
 // ------------------------------------------------------------------ picker UI
 
@@ -248,7 +249,7 @@ export function attachPicker(box, ctx) {
     let out;
     try {
       // Your own storage: straight from this browser to your account; Promissa records the fingerprint.
-      out = own ? { ...(await putOwn(bytes, name, type)), type, size: bytes.length, name, own: true } : await send(ctx, bytes, type, name, readOn());
+      out = own ? { ...(await (CLOUDS[own.kind] ? putCloud(bytes, name, type, state.config) : putOwn(bytes, name, type))), type, size: bytes.length, name, own: true } : await send(ctx, bytes, type, name, readOn());
       if (own) out.cid = out.locations.find((l) => l.kind === 'ipfs')?.cid;
     } finally {
       inflight--;
@@ -339,7 +340,7 @@ export function attachmentsHtml(cfg, doc, esc) {
         <figcaption>${a.alt ? esc(a.alt) : ''}
           ${a.seal ? '<span class="chip">Testimonia seal: verification opens when Testimonia launches</span>' : ''}
           ${a.ai?.summary || a.ai?.text ? `<details><summary>What AI read in it (check the original)</summary>${a.ai.summary ? `<p>${esc(a.ai.summary)}</p>` : ''}${a.ai.text ? `<pre class="ai-text">${esc(a.ai.text)}</pre>` : ''}</details>` : ''}
-          <button type="button" class="link" data-check="${esc(JSON.stringify(urls))}" data-sha="${esc(a.sha256 || '')}">Check it is unchanged</button>${urls.length > 1 ? ` <span class="muted">(${urls.length} copies)</span>` : ''} <span class="check-result" role="status"></span>
+          <button type="button" class="link" data-check="${esc(JSON.stringify(urls))}" data-sha="${esc(a.sha256 || '')}">Check it is unchanged</button>${urls.length > 1 ? ` <span class="muted">(${urls.length} copies)</span>` : ''}${(a.locations || []).some((l) => l?.kind === 'gdrive') ? ' <span class="muted">(stored in Google Drive, which may not allow an automatic check: open it and compare its fingerprint with a checker)</span>' : ''} <span class="check-result" role="status"></span>
           ${img && a.look ? `<label class="link">Compare a copy you saw elsewhere<input type="file" accept="image/*" data-compare="${esc(JSON.stringify(a.look))}" hidden /></label> <span class="check-result" role="status"></span>` : ''}
         </figcaption></figure>`;
     })

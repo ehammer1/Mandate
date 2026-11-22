@@ -32,6 +32,7 @@ import { wireAssemblies } from './assemblies.js';
 import { wireAgenda } from './agenda.js';
 import * as social from './social.js';
 import { ownStorage, setOwnStorage } from './ownstorage.js';
+import { CLOUDS, availableClouds, connectCloud, finishCloud } from './clouds.js';
 import { shareText } from './copy.js';
 import { wireVideos, videosHtml, videoFields, wireVideoFields, readVideos } from './videos.js';
 import { wireAids, listenTranslateHtml } from './aihelp.js';
@@ -1878,13 +1879,30 @@ function wireOwnStorage() {
   const draw = () => {
     const o = ownStorage();
     $('own-storage-card').hidden = SHARED;
-    $('own-storage-now').innerHTML = o ? `Your files go to <strong>${esc(o.kind === 'pinata' ? 'your Pinata account' : `your ${o.provider} bucket "${o.bucket}"`)}</strong>. <button type="button" id="btn-own-forget">Use the community's storage again</button>` : 'Your files go to the community\'s storage.';
+    $('own-storage-now').innerHTML = o ? `Your files go to <strong>${esc(CLOUDS[o.kind] ? `your ${CLOUDS[o.kind].label}` : o.kind === 'pinata' ? 'your Pinata account' : `your ${o.provider} bucket "${o.bucket}"`)}</strong>. <button type="button" id="btn-own-forget">Use the community's storage again</button>` : 'Your files go to the community\'s storage.';
     $('btn-own-forget')?.addEventListener('click', () => (setOwnStorage(null), draw()));
   };
   const pick = () => {
-    const pin = $('own-provider').value === 'pinata';
-    $('own-pinata').hidden = !pin;
-    $('own-s3').hidden = pin;
+    const v = $('own-provider').value;
+    $('own-cloud').hidden = !CLOUDS[v];
+    $('own-pinata').hidden = v !== 'pinata';
+    $('own-s3').hidden = v === 'pinata' || !!CLOUDS[v];
+  };
+  $('btn-own-cloud').onclick = () => connectCloud($('own-provider').value, state.config).catch((e) => status($('own-storage-msg'), e.message, 'error'));
+  // Once the community's settings are loaded: Dropbox, OneDrive and Google Drive where the
+  // community has registered Promissa with them, and finishing a sign-in that came back here.
+  state.afterConfig = () => {
+    const clouds = availableClouds(state.config);
+    for (const opt of $('own-provider').options) if (CLOUDS[opt.value]) opt.hidden = !clouds.some(([k]) => k === opt.value);
+    if (clouds.length) $('own-provider').value = clouds[0][0];
+    pick();
+    if (SHARED) return;
+    finishCloud(state.config).then((label) => {
+      if (!label) return;
+      show('screen-account');
+      status($('own-storage-msg'), `${label} connected: your files will be stored there.`, 'ok');
+      draw();
+    }).catch(() => {});
   };
   $('own-provider').onchange = pick;
   $('btn-own-save').onclick = () => {
@@ -2052,6 +2070,7 @@ async function boot() {
     return;
   }
   state.assistant.refresh();
+  state.afterConfig?.();
   $('nav-assemblies').hidden = !state.config.assembliesAddress;
   $('nav-agenda').hidden = !state.config.agendaAddress;
   renderOutbox().catch(() => {}); // ballots waiting on this phone

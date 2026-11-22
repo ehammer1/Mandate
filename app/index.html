@@ -196,7 +196,8 @@
         <p id="own-storage-now"></p>
         <details id="own-storage-form"><summary><strong>Use my own storage</strong></summary><div class="stack">
           <label for="own-provider">Provider</label>
-          <select id="own-provider"><option value="pinata">Pinata (IPFS, decentralized)</option><option value="filebase">Filebase (IPFS, decentralized)</option><option value="storj">Storj (decentralized)</option><option value="r2">Cloudflare R2</option><option value="b2">Backblaze B2</option><option value="wasabi">Wasabi</option><option value="aws">Amazon S3</option><option value="other">Other S3-compatible</option></select>
+          <select id="own-provider"><option value="dropbox" hidden>Dropbox (sign in)</option><option value="onedrive" hidden>OneDrive (sign in with Microsoft)</option><option value="gdrive" hidden>Google Drive (sign in with Google)</option><option value="pinata">Pinata (IPFS, decentralized)</option><option value="filebase">Filebase (IPFS, decentralized)</option><option value="storj">Storj (decentralized)</option><option value="r2">Cloudflare R2</option><option value="b2">Backblaze B2</option><option value="wasabi">Wasabi</option><option value="aws">Amazon S3</option><option value="other">Other S3-compatible</option></select>
+          <div id="own-cloud" class="stack" hidden><p class="note">You sign in with your own account; files go to a Promissa folder in it and are shared by link so others can open them. Promissa can't see anything else in your storage.</p><button type="button" id="btn-own-cloud">Sign in and connect</button></div>
           <div id="own-pinata" class="stack"><label>Pinata JWT (an API key with upload access) <input type="password" id="own-jwt" autocomplete="off" /></label></div>
           <div id="own-s3" class="stack" hidden>
             <label>Endpoint (leave empty for Filebase, Storj, Wasabi) <input type="url" id="own-endpoint" placeholder="https://…" /></label>
