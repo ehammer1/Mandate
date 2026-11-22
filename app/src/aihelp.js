@@ -54,6 +54,7 @@ export function wireHelp(root, o) {
     out.innerHTML = '<p class="muted">Thinking…</p>';
     try {
       const d = await call(o.cfg, '/ai/draft', { kind: o.kind, text, lang: o.lang });
+      d.goal = String(d.goal || '').replace(/^\s*done when:?\s*/i, ''); // shown after our own "Done when:"
       out.innerHTML = `<div class="card stack"><p class="note">${esc(d.label || 'Suggested by AI')}</p>
         <p><strong>${esc(d.title)}</strong></p><p>${esc(d.body)}</p>${d.goal ? `<p><strong>Done when:</strong> ${esc(d.goal)}</p>` : ''}
         ${d.checklist?.length ? `<ul class="list">${d.checklist.map((c) => `<li>${c.ok ? '✓' : '▲'} ${esc(c.check)}${c.note ? `: ${esc(c.note)}` : ''}</li>`).join('')}</ul>` : ''}
