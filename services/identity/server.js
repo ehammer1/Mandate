@@ -717,6 +717,8 @@ function createIdentityService(o) {
   // Writing help and translation (AI): suggestions only; the person edits and publishes.
   const aiHits = new Map();
   const aiCache = new Map();
+  const draftHits = new Map();
+  const isPlus = o.isPlus || require('./plan').createPlanCheck({ url: o.assistantUrl });
   async function aiHelp(kind, body, ip) {
     if (!o.askEnabled) return [503, { error: 'AI help is not available right now.' }];
     if (recentCount(aiHits, ip, 3600_000).length >= (o.aiPerIpHour ?? 20)) return [429, { error: 'Too many requests this hour. Please try again later.' }];
@@ -726,6 +728,11 @@ function createIdentityService(o) {
     if (text.length < 3 || text.length > (kind === 'translate' ? 6000 : 4000)) return [400, { error: 'Write a few words first (up to a few paragraphs).' }];
     if (kind === 'translate' && !/^[a-z]{2,3}(-[A-Za-z]{2,4})?$/.test(lang)) return [400, { error: 'Choose a language.' }];
     if (kind === 'draft' && !['issue', 'petition', 'poll', 'candidate'].includes(body.kind)) return [400, { error: 'Unknown kind of text.' }];
+    // Writing help: a few free each day for everyone; unlimited with Promissa Plus. Translation stays free.
+    if (kind === 'draft' && !(await isPlus(body.plan))) {
+      if (recentCount(draftHits, ip, 86_400_000).length >= (o.freeDraftsPerDay ?? 3)) return [402, { error: `You've used today's ${o.freeDraftsPerDay ?? 3} free writing helps. Promissa Plus gives unlimited help, or try again tomorrow.`, plus: true }];
+      draftHits.get(ip).push(Date.now());
+    }
     const key = `${kind}:${body.kind || ''}:${lang}:${text}`;
     if (aiCache.has(key)) return [200, aiCache.get(key)];
     try {
@@ -875,7 +882,7 @@ function createIdentityService(o) {
           res.end(JSON.stringify(obj));
         };
         if (req.method === 'OPTIONS') {
-          res.writeHead(204, { ...cors, 'Access-Control-Allow-Methods': 'POST', 'Access-Control-Allow-Headers': 'Content-Type, X-Upload-Proof, X-File-Name', 'Access-Control-Max-Age': '600' });
+          res.writeHead(204, { ...cors, 'Access-Control-Allow-Methods': 'POST', 'Access-Control-Allow-Headers': 'Content-Type, X-Upload-Proof, X-File-Name, X-Promissa-Plan', 'Access-Control-Max-Age': '600' });
           return res.end();
         }
         if (!admin && !cors['Access-Control-Allow-Origin']) return json(403, { error: 'This app is not allowed to use this identity service.' });
@@ -1024,13 +1031,15 @@ if (require.main === module) {
       clerkAnchor: () => (isDefault ? anchor : appConfig()?.clerkAnchor || 'id'),
       appConfig,
       askEnabled: !!clean(process.env.ANTHROPIC_API_KEY),
+      assistantUrl: clean(process.env.ASSISTANT_URL), // Promissa Plus subscriptions (the assistant service)
       mdl,
       mailer: require('./mail').mailerFromEnv(),
       roll: () => (isDefault ? roll : null), // the voter roll belongs to the original community
       rollKey: clean(process.env.ROLL_KEY) || undefined,
-      uploads: clean(process.env.PINATA_JWT)
+      uploads: require('./storage').fromEnv(process.env)
         ? require('./uploads').createUploads({
-          store: require('./uploads').pinata(clean(process.env.PINATA_JWT)),
+          store: require('./storage').fromEnv(process.env, (m) => console.log(`[identity] ${m}`)),
+          isPlus: require('./plan').createPlanCheck({ url: clean(process.env.ASSISTANT_URL) }),
           appConfig,
           provider,
           perDay: Number(process.env.UPLOADS_PER_DAY || 10),

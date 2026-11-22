@@ -2337,4 +2337,5 @@ export default {
   "Worth checking:": "Vale la pena comprobar:",
   "Comments to review": "Comentarios para revisar",
   "Flagged by AI for a person to look at: spam, threats, harassment, or someone's private details. Disagreement and criticism are never flagged. Nothing is removed automatically.": "Marcados por IA para que una persona los revise: spam, amenazas, acoso o datos privados de alguien. El desacuerdo y la crítica nunca se marcan. No se elimina nada automáticamente.",
+  "Get Promissa Plus": "Obtener Promissa Plus",
 };

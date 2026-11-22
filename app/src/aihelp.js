@@ -13,13 +13,28 @@ export const LANGUAGES = [
   ['ht', 'Kreyòl ayisyen'], ['pt', 'Português'], ['fr', 'Français'], ['hi', 'हिन्दी'], ['so', 'Soomaali'], ['en', 'English'],
 ];
 
+/** The Promissa Plus token, when this person has signed in to the assistant (its own key, never the voter key). */
+export function planToken() {
+  try {
+    return sessionStorage.getItem('mandate.assistant.token') || '';
+  } catch {
+    return '';
+  }
+}
+
 async function call(cfg, path, body) {
   if (!cfg.identityService) throw new Error('AI help is not available here.');
-  const res = await fetch(`${cfg.identityService.replace(/\/+$/, '')}${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const res = await fetch(`${cfg.identityService.replace(/\/+$/, '')}${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...body, plan: planToken() }) });
   const out = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(out.error || `AI help answered ${res.status}.`);
+  if (!res.ok) throw Object.assign(new Error(out.error || `AI help answered ${res.status}.`), { plus: !!out.plus });
   return out;
 }
+
+/** A free limit was reached: offer Promissa Plus (the assistant plan) without pushing it. */
+const plusHtml = () => ' <button type="button" class="link" data-get-plus>Get Promissa Plus</button>';
+document.addEventListener?.('click', (e) => {
+  if (e.target.closest?.('[data-get-plus]')) document.getElementById('nav-assistant')?.click();
+});
 
 export const helpButtonHtml = () => '<button type="button" data-ai-help>✨ Help me write this</button><div data-ai-out class="stack"></div>';
 
@@ -50,7 +65,7 @@ export function wireHelp(root, o) {
       };
       out.querySelector('[data-ai-keep]').onclick = () => (out.innerHTML = '');
     } catch (e) {
-      out.innerHTML = `<p class="error">${esc(e.message)}</p>`;
+      out.innerHTML = `<p class="error">${esc(e.message)}${e.plus ? plusHtml() : ''}</p>`;
     } finally {
       b.disabled = false;
     }

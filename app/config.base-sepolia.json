@@ -33,5 +33,6 @@
   "talliesAddress": "0x81edACD8164377A5465117dA09aeABAc2775141a",
   "previousVoteAddress": "0xb1D5556302079E03F53cc5b175986a94E4599441",
   "progressAddress": "0xd65F3A846FAF6D26f7df486644E227d723a71156",
-  "voterGroupsAddress": "0xD80B0d8C33701A5135c353C514D7855e6A6ff489"
+  "voterGroupsAddress": "0xD80B0d8C33701A5135c353C514D7855e6A6ff489",
+  "communityPlan": true
 }

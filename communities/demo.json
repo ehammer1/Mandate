@@ -45,5 +45,6 @@
     "MIN_POLL_MINUTES": 10
   },
   "keepSignedIn": true,
-  "fundingLinks": true
+  "fundingLinks": true,
+  "communityPlan": true
 }

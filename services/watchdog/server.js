@@ -452,8 +452,9 @@ async function writeExplanations(dir, cfg, provider, limit, explainFn, groupFn) 
       made++;
     }
   }
-  // The People's Agenda: AI themes for the latest seasons, rewritten when issues are added.
-  if (cfg.agendaAddress) {
+  // The People's Agenda: AI themes for the latest seasons, rewritten when issues are added
+  // (an organizer tool: communities with the community plan).
+  if (cfg.agendaAddress && cfg.communityPlan === true) {
     const group = groupFn || require('../explainer/explain').groupIssues;
     const ag = new ethers.Contract(cfg.agendaAddress, ['function seasonCount() view returns (uint256)', 'function issues(uint256) view returns (string[] refs, uint256[] credits)'], provider);
     const n = Number(await ag.seasonCount());
@@ -483,6 +484,7 @@ async function writeExplanations(dir, cfg, provider, limit, explainFn, groupFn) 
  * At most `limit` AI calls per run. Returns how many files were written.
  */
 async function writeOrganizerNotes(dir, cfg, provider, limit, fns) {
+  if (cfg.communityPlan !== true) return 0; // organizer tools come with the community plan
   const fs = require('fs');
   const path = require('path');
   const ai = fns || require('../explainer/explain');

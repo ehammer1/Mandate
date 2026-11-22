@@ -83,6 +83,17 @@ test('audio: real audio files only, up to 25 MB, never sent to the AI', async ()
   assert.match((await up.upload(big, { 'content-type': 'application/pdf' }, new URLSearchParams()))[1].error, /up to 10 MB/); // documents stay at 10 MB
 });
 
+test('free audio up to 10 MB; Promissa Plus up to 25 MB and more files a day', async () => {
+  const mk = (plus) => createUploads({ store, appConfig: () => cfg, provider, perDay: 2, perDayPlus: 5, isPlus: async (t) => plus && t === 'tok' });
+  const big = Buffer.concat([Buffer.from('ID3'), Buffer.alloc(12 * 1024 * 1024, 3)]);
+  const send = async (up, slot, token) => up.upload(big, { 'content-type': 'audio/mpeg', 'x-upload-proof': await uploadProof({ provider, identityAddress: cfg.identityAddress, identity: member, bytes: big, slot }), ...(token ? { 'x-promissa-plan': token } : {}) }, new URLSearchParams());
+  const [s1, o1] = await send(mk(false), 6);
+  assert.equal(s1, 413);
+  assert.equal(o1.plus, true);
+  assert.match(o1.error, /Promissa Plus allows 25 MB/);
+  assert.equal((await send(mk(true), 4, 'tok'))[0], 200); // slot 4: beyond the free 2, within Plus's 5
+});
+
 test('AI reading sends the file to Claude and returns text, summary, description and a privacy flag', async () => {
   let req;
   const client = { beta: { messages: { create: async (r) => {

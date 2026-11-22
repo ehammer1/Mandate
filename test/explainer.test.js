@@ -134,8 +134,9 @@ test('organizer notes: evidence gaps for checkers, comments flagged for review, 
     moderate: async (texts) => ((seen.comments = texts), { flags: [{ index: 0, reason: 'personal_info', note: 'a phone number' }, { index: 7, reason: 'spam', note: 'out of range' }], model: 'm', label: 'Flagged by AI for a person to review' }),
     roundup: async (facts) => ((seen.facts = facts), { headline: 'A quiet week', sections: [], model: 'm', generatedAt: new Date().toISOString() }),
   };
-  const cfg = { voteAddress: addresses.vote, registryAddress: addresses.registry, noticeBoardAddress: addresses.notices, feedbackAddress: addresses.feedback };
+  const cfg = { voteAddress: addresses.vote, registryAddress: addresses.registry, noticeBoardAddress: addresses.notices, feedbackAddress: addresses.feedback, communityPlan: true };
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'notes-'));
+  assert.equal(await writeOrganizerNotes(dir, { ...cfg, communityPlan: false }, provider, 5, fns), 0); // organizer tools come with the community plan
   assert.equal(await writeOrganizerNotes(dir, cfg, provider, 5, fns), 3);
   assert.match(seen.evidence.goal, /All four blocks/);
   assert.match(seen.evidence.evidence, /Two blocks repaved/);

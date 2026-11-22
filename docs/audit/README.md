@@ -95,7 +95,7 @@ Off-chain, also in scope:
 
 ```
 npm ci --ignore-scripts --force    # ganache bundles a macOS-only package
-npm test                           # compiles, builds the app, runs 193 JS tests + the Python tests
+npm test                           # compiles, builds the app, runs 199 JS tests + the Python tests
 ```
 
 - Contracts compile with `scripts/compile.js` (solc via npm); tests run on ganache (`test/*.test.js`),

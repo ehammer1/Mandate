@@ -210,7 +210,8 @@ function communityConfig(spec, addresses, startBlock, base = {}, services = {}) 
     ...(base.analyticsUrl ? { analyticsUrl: base.analyticsUrl } : {}),
     ...(spec.languages ? { languages: spec.languages } : {}),
     ...(spec.keepSignedIn === true ? { keepSignedIn: true } : {}),
-    ...(spec.fundingLinks === true ? { fundingLinks: true } : {}), // "Support this" links: off until a legal review
+    ...(spec.fundingLinks === true ? { fundingLinks: true } : {}),
+    ...(spec.communityPlan === true ? { communityPlan: true } : {}), // organizer AI tools (themes, roundup, moderation, evidence notes) // "Support this" links: off until a legal review
   };
 }
 

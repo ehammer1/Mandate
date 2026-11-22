@@ -20,6 +20,28 @@ import { lookOfFile, sameLook } from './look.js';
 const MAX_SIDE = 2000;
 const gateway = (cfg) => String(cfg.ipfsGateway || 'https://gateway.pinata.cloud').replace(/\/+$/, '');
 const fileUrl = (cfg, cid) => `${gateway(cfg)}/ipfs/${cid}`;
+/** Promissa Plus token (the assistant's own key, never the voter key): more files, bigger audio. */
+const plan = () => {
+  try {
+    return sessionStorage.getItem('mandate.assistant.token') || '';
+  } catch {
+    return '';
+  }
+};
+/**
+ * Every address a file can be fetched from: its listed locations (IPFS, cloud storage), then its
+ * content ID. A file is identified by its SHA-256, so any copy that hashes right is the file.
+ */
+const CID = /^[a-zA-Z0-9]{20,100}$/;
+function fileUrls(cfg, a) {
+  const urls = [];
+  for (const l of Array.isArray(a.locations) ? a.locations : []) {
+    if (l?.kind === 'ipfs' && CID.test(String(l.cid))) urls.push(fileUrl(cfg, l.cid));
+    else if (l?.kind === 's3' && /^https:\/\/[^\s"'<>]+$/.test(String(l.url))) urls.push(l.url);
+  }
+  if (CID.test(String(a.cid)) && !urls.includes(fileUrl(cfg, a.cid))) urls.push(fileUrl(cfg, a.cid));
+  return urls;
+}
 
 let service = null;
 /** Whether this deployment accepts files (and can read them with AI), and what was taken down. */
@@ -110,7 +132,7 @@ async function send(ctx, bytes, type, name, read) {
   }
   for (let tries = 0; tries < 10; tries++, slot++) {
     const proof = await uploadProof({ provider: state.provider, identityAddress: state.config.identityAddress, identity: state.identity, bytes, slot, day, artifactsBase: state.config.artifactsBase || undefined });
-    const res = await fetch(`${base}/upload${read ? '?read=1' : ''}`, { method: 'POST', headers: { 'Content-Type': type, 'X-Upload-Proof': proof, 'X-File-Name': name }, body: bytes });
+    const res = await fetch(`${base}/upload${read ? '?read=1' : ''}`, { method: 'POST', headers: { 'Content-Type': type, 'X-Upload-Proof': proof, 'X-File-Name': name, ...(plan() ? { 'X-Promissa-Plan': plan() } : {}) }, body: bytes });
     const out = await res.json().catch(() => ({}));
     if (res.ok) {
       try {
@@ -274,7 +296,7 @@ export function attachPicker(box, ctx) {
     list: () => {
       if (inflight || pages.length) throw new Error(pages.length ? 'Finish the scan first: tap "Done: make the PDF".' : 'Files are still being added: wait a moment, then try again.');
       return files.map((f) => ({
-        cid: f.cid, sha256: f.sha256, type: f.type, size: f.size, name: f.name, alt: String(f.alt || '').slice(0, 300), ...(f.look ? { look: f.look } : {}),
+        ...(f.cid ? { cid: f.cid } : {}), sha256: f.sha256, type: f.type, size: f.size, name: f.name, ...(Array.isArray(f.locations) ? { locations: f.locations } : {}), alt: String(f.alt || '').slice(0, 300), ...(f.look ? { look: f.look } : {}),
         ...(f.transcript ? { transcript: String(f.transcript).slice(0, 8000) } : {}),
         ...(f.seal ? { seal: { by: 'testimonia', code: String(f.seal).slice(0, 4000) } } : {}),
         ...(f.ai ? { ai: { summary: f.ai.summary, text: String(f.ai.text || '').slice(0, 8000), kind: f.ai.kind, model: f.ai.model, label: f.ai.label } } : {}),
@@ -292,13 +314,14 @@ export function attachPicker(box, ctx) {
 
 /** A document's attachments as HTML; call wireAttachments(box) after inserting it. */
 export function attachmentsHtml(cfg, doc, esc) {
-  const list = Array.isArray(doc?.attachments) ? doc.attachments.filter((a) => a && /^[a-zA-Z0-9]{20,100}$/.test(String(a.cid))) : [];
+  const list = Array.isArray(doc?.attachments) ? doc.attachments.filter((a) => a && fileUrls(cfg, a).length) : [];
   if (!list.length) return '';
   const blocked = service?.blocked || new Set();
   return `<div class="attachments">${list
     .map((a) => {
-      if (blocked.has(a.cid)) return '<p class="muted">A file here was taken down.</p>';
-      const url = fileUrl(cfg, a.cid);
+      if (blocked.has(a.cid) || blocked.has(String(a.sha256 || '').toLowerCase())) return `<p class="muted">A file here was taken down. Its fingerprint stays on the record${a.sha256 ? ` (SHA-256 ${esc(String(a.sha256).slice(0, 12))}…)` : ''}.</p>`;
+      const urls = fileUrls(cfg, a);
+      const url = urls[0];
       const img = /^image\//.test(a.type);
       const audio = /^audio\//.test(a.type);
       const media = img
@@ -311,7 +334,7 @@ export function attachmentsHtml(cfg, doc, esc) {
         <figcaption>${a.alt ? esc(a.alt) : ''}
           ${a.seal ? '<span class="chip">Testimonia seal: verification opens when Testimonia launches</span>' : ''}
           ${a.ai?.summary || a.ai?.text ? `<details><summary>What AI read in it (check the original)</summary>${a.ai.summary ? `<p>${esc(a.ai.summary)}</p>` : ''}${a.ai.text ? `<pre class="ai-text">${esc(a.ai.text)}</pre>` : ''}</details>` : ''}
-          <button type="button" class="link" data-check="${esc(a.cid)}" data-sha="${esc(a.sha256 || '')}">Check it is unchanged</button> <span class="check-result" role="status"></span>
+          <button type="button" class="link" data-check="${esc(JSON.stringify(urls))}" data-sha="${esc(a.sha256 || '')}">Check it is unchanged</button>${urls.length > 1 ? ` <span class="muted">(${urls.length} copies)</span>` : ''} <span class="check-result" role="status"></span>
           ${img && a.look ? `<label class="link">Compare a copy you saw elsewhere<input type="file" accept="image/*" data-compare="${esc(JSON.stringify(a.look))}" hidden /></label> <span class="check-result" role="status"></span>` : ''}
         </figcaption></figure>`;
     })
@@ -341,10 +364,27 @@ export function wireAttachments(root, cfg) {
       const out = b.nextElementSibling;
       out.textContent = 'Checking…';
       try {
-        const bytes = new Uint8Array(await (await fetch(fileUrl(cfg, b.dataset.check))).arrayBuffer());
-        const ok = (await sha256Hex(bytes)) === b.dataset.sha;
-        out.textContent = ok ? '✓ Matches its fingerprint on the public record.' : '▲ Does NOT match its fingerprint.';
-        out.className = `check-result ${ok ? 'ok' : 'error'}`;
+        // Every copy is checked against the one fingerprint on the record.
+        let urls = [];
+        try {
+          urls = JSON.parse(b.dataset.check);
+        } catch {
+          urls = [fileUrl(cfg, b.dataset.check)];
+        }
+        const results = [];
+        for (const u of urls) {
+          try {
+            const bytes = new Uint8Array(await (await fetch(u)).arrayBuffer());
+            results.push((await sha256Hex(bytes)) === b.dataset.sha);
+          } catch {
+            results.push(null);
+          }
+        }
+        const good = results.filter((r) => r === true).length;
+        const bad = results.filter((r) => r === false).length;
+        if (!good && !bad) throw new Error('unreachable');
+        out.textContent = bad ? `▲ ${bad} cop${bad === 1 ? 'y does' : 'ies do'} NOT match the fingerprint${good ? `; ${good} match${good === 1 ? 'es' : ''}` : ''}.` : `✓ Matches its fingerprint on the public record${results.length > 1 ? ` (${good} of ${results.length} copies checked)` : ''}.`;
+        out.className = `check-result ${bad ? 'error' : 'ok'}`;
       } catch {
         out.textContent = 'Could not download it to check right now.';
       }

@@ -224,6 +224,27 @@ sees votes or anything personal.
 - **This week** (watchdog, `roundup-…json`, at most weekly): new, closing soon, closed, promises
   done or overdue, and the agenda's top issues, written neutrally from those facts only.
 
+### 4i. Storage choices, Promissa Plus and the community plan (November 2026)
+
+- **Where files go** (sign-up service, `services/identity/storage.js`): `STORAGE=ipfs` (Pinata),
+  `s3` (any S3-compatible service: Cloudflare R2, Backblaze B2, Wasabi, AWS S3, MinIO; requests
+  signed with SigV4; settings `S3_ENDPOINT`, `S3_BUCKET`, `S3_REGION`, `S3_ACCESS_KEY_ID`,
+  `S3_SECRET_ACCESS_KEY`, `S3_PUBLIC_URL`) or `both` (every file in each; an upload succeeds if
+  at least one copy is stored). As in Testimonia's design, a file is identified by the SHA-256
+  of its exact bytes, and each attachment lists its `locations` (`{ kind: 'ipfs', cid }`,
+  `{ kind: 's3', url }`). The app fetches from any of them, and "Check it is unchanged" checks
+  every copy against the one fingerprint. Takedowns remove every location; the fingerprint stays
+  on the record ("a file here was taken down", with its SHA-256). Permanent storage (Arweave,
+  Filecoin) is not used for content, so a community can always take something down.
+- **Promissa Plus** (the assistant's Stripe subscription): more uploads (50 files a day instead
+  of 10), audio up to 25 MB instead of 10 MB, and unlimited writing help (3 a day free). The app
+  sends the assistant's own token (`X-Promissa-Plan`), never the voter key; the sign-up service
+  checks it with the assistant service (`ASSISTANT_URL`), cached 10 minutes. Free for everyone,
+  always: plain-language explanations, translation, read-aloud, duplicate hints, voting.
+- **Community plan** (`communityPlan: true` in a community's config): the organizer AI tools
+  (agenda themes, the weekly roundup, comments to review, evidence notes). On for the main and
+  demo communities.
+
 ### 5. Receipt-free ballots (larger, may move to v7)
 
 - **Why:** today a voter can prove their choice to a buyer (they can also change it later where
