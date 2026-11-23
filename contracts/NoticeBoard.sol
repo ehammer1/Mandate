@@ -16,6 +16,8 @@ contract NoticeBoard {
     mapping(bytes32 => string) private _text;
     mapping(bytes32 => address) public author;
     mapping(bytes32 => uint64) public postedAt;
+    /// @notice The block each text was posted in, so anyone can go straight to its transaction.
+    mapping(bytes32 => uint64) public postedBlock;
 
     event Posted(bytes32 indexed id, address indexed author, uint256 length);
 
@@ -32,6 +34,7 @@ contract NoticeBoard {
         _text[id] = text;
         author[id] = msg.sender;
         postedAt[id] = uint64(block.timestamp);
+        postedBlock[id] = uint64(block.number);
         emit Posted(id, msg.sender, len);
     }
 

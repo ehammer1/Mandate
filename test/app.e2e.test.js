@@ -76,7 +76,7 @@ before(async () => {
   ({ contracts: c } = await deployAll(admin, { seasoningDays: 30, rules: { MIN_POLL_MINUTES: 10, BINDING_QUORUM_PCT: 0, BINDING_CHECK_REQUIRED: 0, CHECK_MIN_VOTES: 1, RULE_CHANGE_MIN_MINUTES: 1440 } }));
   await (await c.identity.setIssuer(clerk.address, 1, true, 'Example City Clerk')).wait();
 
-  relay = createRelayer({ provider, signer: relayerSigner, voteAddress: await c.vote.getAddress(), budgetAddress: await c.budget.getAddress(), feedbackAddress: await c.feedback.getAddress(), noticeBoardAddress: await c.notices.getAddress(), talliesAddress: await c.tallies.getAddress(), log: () => {} });
+  relay = createRelayer({ provider, signer: relayerSigner, voteAddress: await c.vote.getAddress(), budgetAddress: await c.budget.getAddress(), feedbackAddress: await c.feedback.getAddress(), noticeBoardAddress: await c.notices.getAddress(), talliesAddress: await c.tallies.getAddress(), agendaAddress: await c.agenda.getAddress(), log: () => {} });
   const relayPort = await listen(relay);
 
   const ipfs = { [QUESTION_CID]: JSON.stringify({ title: 'Publish the FY2027 line-item budget?', body: 'Every line item above $10,000, as CSV, within 30 days.', options: ['Yes', 'No'] }) };
@@ -93,6 +93,7 @@ before(async () => {
       budgetAddress: await c.budget.getAddress(),
       feedbackAddress: await c.feedback.getAddress(),
       assembliesAddress: await c.assemblies.getAddress(),
+      agendaAddress: await c.agenda.getAddress(),
       escrowFactoryAddress: await c.escrows.getAddress(),
       officialsAddress: await c.officials.getAddress(),
       bodiesAddress: await c.bodies.getAddress(),
@@ -128,6 +129,10 @@ before(async () => {
     appConfig: () => appOpts.config,
     askEnabled: true,
     answerQuestion: async (item, q) => ({ answer: `Asked "${q}" about "${item.title}".`, answered_by_text: !/parking/i.test(q), quotes: ['within 30 days'], model: 'claude-opus-5-5' }),
+    aiHelpers: {
+      draftHelp: async ({ kind, text }) => ({ title: `Clearer: ${text.slice(0, 40)}`, body: `Drafted from your notes (${kind}).`, goal: 'Done when a signalled crossing is installed.', checklist: [{ check: 'Who is responsible', ok: false, note: 'Not stated' }], questions: ['By when?'], model: 'claude-opus-5-5', label: 'Suggested by AI from your notes: edit it, it is yours' }),
+      translate: async ({ text, lang }) => ({ text: `[${lang}] ${text}`, model: 'claude-opus-5-5', label: 'Machine translation by AI: the original is the official text' }),
+    },
     roll: () => appRoll,
     rollKey: ROLL_KEY,
     mailer: postbox,
@@ -1078,7 +1083,7 @@ test('voter-roll lookup at the desk: found by name, birth date and address, enro
   assert.equal((await c.identity.members(maria.commitment)).active, true);
   page.once('dialog', (d) => d.accept());
   await page.click('#btn-clerk-submit');
-  await page.waitForFunction(() => /Done: enrolled/.test(document.querySelector('#clerk-result').textContent), null, { timeout: 120_000 });
+  await page.waitForFunction(() => /old voter code is replaced/.test(document.querySelector('#clerk-result').textContent), null, { timeout: 120_000 }); // one step on voter list v6
   assert.equal((await c.identity.members(maria.commitment)).active, false, 'the old code still votes');
   assert.equal((await c.identity.members(again.commitment)).tier, 2n);
   delete appConfig.clerkAnchor;
@@ -1215,8 +1220,8 @@ test('residents speak between votes: comments, a petition that opens its own pol
 });
 
 test("citizens' assembly: a drawn resident sees it on their phone and gets a seat code the organizer can check", async () => {
-  const { drawOrder, checkAcceptCode } = require('../client/assembly');
-  const text = JSON.stringify({ title: 'How should we make Main Street safer to cross?' });
+  const { drawOrder, checkAcceptCode, checkEndorsements } = require('../client/assembly');
+  const text = JSON.stringify({ title: 'How should we make Main Street safer to cross?', reviewOf: { poll: 1 } }); // a review panel for poll 1
   await (await c.notices.post(text)).wait();
   const size = Number(await c.identity.leafCount(0));
   await (await c.assemblies.announce(0, size, 30, `nb:${ethers.keccak256(ethers.toUtf8Bytes(text))}`)).wait(); // as many seats as members: everyone is drawn
@@ -1237,6 +1242,103 @@ test("citizens' assembly: a drawn resident sees it on their phone and gets a sea
   await (await c.assemblies.acceptSeat(id, r.position)).wait();
   await page.click('#nav-assemblies');
   await page.waitForSelector('#assembly-list >> text=You have a seat on this assembly', { timeout: 60_000 });
+
+  // The panel's draft statement: the seated resident endorses it on their phone.
+  const post = async (doc) => {
+    const t = JSON.stringify(doc);
+    await (await c.notices.post(t)).wait();
+    return `nb:${ethers.keccak256(ethers.toUtf8Bytes(t))}`;
+  };
+  const draft = { title: 'Most of the panel found a signalled crossing worth its cost.', for: ['Three crashes at Oak and Main last year'], against: ['$180,000 from the roads budget'], stage: 'draft' };
+  const draftRef = await post(draft);
+  await (await c.assemblies.report(id, draftRef)).wait();
+  await page.click('#nav-assemblies');
+  await page.waitForSelector('#assembly-list >> text=Draft: waiting for the panel members to endorse it', { timeout: 60_000 });
+  await page.click('#assembly-list [data-endorse]');
+  const endorsement = (await page.textContent('#assembly-list [data-endorse-code] .addr')).trim();
+  const seated = new Set([r.position]);
+  assert.deepEqual(checkEndorsements([endorsement], { chainId: net.chainId, address: await c.assemblies.getAddress(), id, ref: draftRef, order, seated }).positions, [r.position]);
+  await (await c.assemblies.report(id, await post({ ...draft, stage: 'final', draft: draftRef, endorsements: [endorsement] }))).wait();
+  // Shown with the poll it reviews, each endorsement checked on the phone.
+  await page.click('#nav-polls');
+  await page.waitForSelector('#poll-1 .review-box >> text=Endorsed by', { timeout: 60_000 });
+  assert.match(await page.textContent('#poll-1 .review-box'), /Citizens' review panel[\s\S]*signalled crossing[\s\S]*Three crashes[\s\S]*\$180,000[\s\S]*Endorsed by 1 of 1/);
+});
+
+test("People's Agenda: a resident adds an issue on their phone, then ranks with priority credits", async () => {
+  // Every item can be shared from the person's own accounts, pre-filled with a link back to it.
+  await page.click('#nav-polls');
+  await page.waitForSelector('#poll-1 details.share summary', { timeout: 60_000 });
+  const x = await page.getAttribute('#poll-1 details.share a:has-text("X")', 'href');
+  assert.match(decodeURIComponent(x), /^https:\/\/twitter\.com\/intent\/tweet\?text=.*have your say on Promissa.*&url=.*#poll-1$/);
+  assert.match(decodeURIComponent(await page.getAttribute('#poll-1 details.share a:has-text("Bluesky")', 'href')), /bsky\.app\/intent\/compose\?text=.*#poll-1$/);
+  // Any proposal can be translated (AI, labelled, the original kept) or read aloud by the device.
+  await page.selectOption('#poll-1 [data-translate]', 'vi');
+  await page.waitForSelector('#poll-1 >> text=Machine translation by AI', { timeout: 30_000 });
+  assert.match(await page.textContent('#poll-1 [data-translation]'), /^\s*\[vi\] /);
+
+  const seed = JSON.stringify({ title: 'Winter 2027: what should Demo Town work on?' });
+  await (await c.notices.post(seed)).wait();
+  await (await c.agenda.openSeason(0, 600, 86_400, 16, `nb:${ethers.keccak256(ethers.toUtf8Bytes(seed))}`)).wait();
+  const id = await c.agenda.seasonCount();
+  const common = JSON.stringify({ title: 'Housing costs', category: 'housing' });
+  await (await c.notices.post(common)).wait();
+  await (await c.agenda.addIssue(id, `nb:${ethers.keccak256(ethers.toUtf8Bytes(common))}`)).wait();
+
+  await page.click('#nav-agenda');
+  await page.waitForSelector(`#agenda-${id} [data-add] summary`, { timeout: 60_000 });
+  await page.click(`#agenda-${id} [data-add] summary`);
+  // AI writing help: rough notes in, a clearer draft with a feasibility checklist out; nothing is published until the person adds it.
+  await page.fill(`#agenda-${id} [data-issue-title]`, 'crossing near the school unsafe kids');
+  await page.click(`#agenda-${id} [data-help-issue] [data-ai-help]`);
+  await page.waitForSelector(`#agenda-${id} [data-help-issue] >> text=Who is responsible`, { timeout: 30_000 });
+  await page.click(`#agenda-${id} [data-help-issue] [data-ai-use]`);
+  assert.match(await page.inputValue(`#agenda-${id} [data-issue-title]`), /^Clearer: crossing near the school/);
+  assert.match(await page.inputValue(`#agenda-${id} [data-issue-body]`), /Done when: a signalled crossing is installed/);
+  await page.fill(`#agenda-${id} [data-issue-body]`, '');
+  // Typing something already there: the phone points to it, so support isn't split.
+  await page.fill(`#agenda-${id} [data-issue-title]`, 'Housing costs are far too high');
+  await page.waitForSelector(`#agenda-${id} [data-similar]:not([hidden]) >> text=Housing costs`);
+  await page.fill(`#agenda-${id} [data-issue-title]`, 'Safer crossings near schools');
+  await page.selectOption(`#agenda-${id} [data-issue-topic]`, 'roads');
+  await page.click(`#agenda-${id} [data-issue-send]`);
+  await page.waitForSelector(`#agenda-${id} >> text=You have added your issue this season`, { timeout: 120_000 });
+  assert.match(await page.textContent(`#agenda-${id}`), /Safer crossings near schools[\s\S]*Roads and transport/);
+
+  // Adding closes; ranking opens. 3 credits on crossings (9) and 2 on housing (4): 13 of 16.
+  await provider.send('evm_increaseTime', [601]);
+  await provider.send('evm_mine', []);
+  await page.click('#nav-agenda');
+  await page.waitForSelector(`#agenda-${id} [data-rank-send]`, { timeout: 60_000 });
+  for (let i = 0; i < 3; i++) await page.click(`#agenda-${id} [data-plus="1"]`);
+  for (let i = 0; i < 2; i++) await page.click(`#agenda-${id} [data-plus="0"]`);
+  assert.match(await page.textContent(`#agenda-${id} [data-used]`), /Used 13 of 16/);
+  await page.click(`#agenda-${id} [data-plus="0"]`); // 3 + 3 would cost 18: not allowed
+  assert.equal(await page.isDisabled(`#agenda-${id} [data-rank-send]`), true);
+  await page.click(`#agenda-${id} [data-minus="0"]`);
+  await page.click(`#agenda-${id} [data-rank-send]`);
+  await page.waitForSelector(`#agenda-${id} >> text=1 of`, { timeout: 120_000 });
+  const [, credits] = await c.agenda.issues(id);
+  assert.deepEqual(credits.map(Number), [2, 3]);
+  assert.match(await page.textContent(`#agenda-${id} ol.list li:first-child`), /Safer crossings near schools[\s\S]*3 credits · 60%/);
+
+  // Candidates answer the residents' issues; this resident's phone ranks them by match.
+  await (await c.agenda.addCandidate(id, admin.address, 'Rivera', 'Mayor', 'Party A')).wait();
+  await (await c.agenda.addCandidate(id, clerk.address, 'Chen', 'Mayor', 'Party B')).wait();
+  const [riv, chen] = await c.agenda.candidatesOf(id);
+  await (await c.agenda.statePositions(riv, [0, 1], [-1, 2], [1, 3], '')).wait(); // housing: oppose; crossings: strongly support
+  await (await c.agenda.connect(clerk).statePositions(chen, [0, 1], [2, -2], [3, 3], '')).wait();
+  await page.click('#nav-agenda');
+  await page.waitForSelector(`#agenda-${id} [data-compare] summary`, { timeout: 60_000 });
+  await page.click(`#agenda-${id} [data-compare] summary`);
+  await page.selectOption(`#agenda-${id} [data-my-stance="1"]`, '2');
+  await page.selectOption(`#agenda-${id} [data-my-weight="1"]`, '3');
+  await page.selectOption(`#agenda-${id} [data-my-stance="0"]`, '-1');
+  await page.click(`#agenda-${id} [data-match]`);
+  await page.waitForSelector(`#agenda-${id} [data-matches] li`);
+  const matches = await page.textContent(`#agenda-${id} [data-matches]`);
+  assert.match(matches, /Mayor[\s\S]*Rivera: 100% match[\s\S]*Chen: \d+% match/);
+  assert.doesNotMatch(matches, /Party A/); // party labels are off unless residents vote to show them
 });
 
 test('most requested petitions are ranked, and times count down live', async () => {
@@ -1312,6 +1414,13 @@ test('photos and documents: take, scan, AI reads them, fingerprints check out, t
   await page.waitForSelector('#petition-attach .attach-list li', { timeout: 120_000 });
   assert.equal(await page.inputValue('#petition-attach [data-alt="0"]'), 'A deep pothole on Elm Street'); // AI wrote the description
   assert.match(await page.textContent('#petition-attach'), /AI noticed private details: a car licence plate/);
+  // A Testimonia seal for the photo as it was taken: that original is stored unchanged, not shrunk.
+  const rawSha = require('node:crypto').createHash('sha256').update(png).digest('hex');
+  const sealRecord = { format: 'attest-file/1', file: { sha256: rawSha, name: 'pothole.png', mediaType: 'image/png' }, signer: { keyId: 'b'.repeat(64) }, sig: 'x' };
+  await page.click('#petition-attach .attach-list li summary >> text=Testimonia seal');
+  await page.fill('#petition-attach [data-seal="0"]', `https://testimonia.example/#proof=${Buffer.from(JSON.stringify(sealRecord)).toString('base64url')}`);
+  await page.press('#petition-attach [data-seal="0"]', 'Tab');
+  await page.waitForSelector('#petition-attach >> text=sealed original is stored exactly as Testimonia sealed it', { timeout: 120_000 });
   // A two-page scan becomes one PDF.
   await page.setInputFiles('#petition-attach [data-pick="scan"]', { name: 'p1.png', mimeType: 'image/png', buffer: png });
   await page.waitForSelector('#petition-attach >> text=1 page scanned');
@@ -1333,7 +1442,22 @@ test('photos and documents: take, scan, AI reads them, fingerprints check out, t
   assert.equal(doc.attachments.length, 2);
   assert.match(doc.attachments[0].sha256, /^[0-9a-f]{64}$/);
   assert.equal(doc.attachments[1].type, 'application/pdf');
-  assert.equal(doc.attachments[0].ai.summary, 'A photo of a pothole next to a street sign.');
+  assert.equal(doc.attachments[0].sha256, rawSha); // the sealed original, unchanged
+  assert.deepEqual([doc.attachments[0].seal.by, doc.attachments[0].seal.keyId, doc.attachments[0].seal.sealDigest], ['testimonia', 'b'.repeat(64), null]);
+  assert.match(await page.textContent(`#petition-${pid} .attachments`), /Sealed by Testimonia: check it \(not yet anchored on Base\)/);
+  // ✔ Verify: a public page with the record, and a check for a file someone was sent.
+  const ref = (await c.feedback.getPetition(pid)).ref;
+  assert.ok(await page.$(`#petition-${pid} a[href*="verify.html?ref=${encodeURIComponent(ref)}"]`), 'a Verify link on the item');
+  const v = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  await v.goto(`${appUrl}verify.html?ref=${encodeURIComponent(ref)}`);
+  await v.waitForSelector('#verify >> text=On the public record', { timeout: 60_000 });
+  assert.match(await v.textContent('#verify'), /Fix the pothole on Elm Street/);
+  await v.setInputFiles('#verify-file', { name: 'other.txt', mimeType: 'text/plain', buffer: Buffer.from('not the poster') });
+  await v.waitForSelector('#verify-result >> text=not on this record');
+  assert.match(await v.textContent('#verify'), /Verify: http/); // a plain line to add to posts
+  await v.goto(`${appUrl}verify.html?ref=${encodeURIComponent('nb:0x' + '1'.repeat(64))}`);
+  await v.waitForSelector('#verify >> text=not on the public record');
+  await v.close();
   // A takedown: the file stops being served, and the app says so.
   const res = await fetch(`${appConfig.identityService}/upload/remove`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer takedown-token' }, body: JSON.stringify({ cid: doc.attachments[0].cid, reason: 'licence plate' }) });
   assert.equal(res.status, 200);
@@ -2112,9 +2236,16 @@ test('signed in, links to other pages open in a new tab, so the app stays unlock
   await tab.close();
 });
 
+// "Keep me signed in" is the community's voted rule (KEEP_SIGNED_IN); here the vote's result is set directly.
+async function setKeepRule(v) {
+  const G = await c.charter.GOVERNOR_ROLE();
+  if (!(await c.charter.hasRole(G, admin.address))) await (await c.charter.grantRole(G, admin.address)).wait();
+  await (await c.charter.setRule(ethers.id('KEEP_SIGNED_IN'), v)).wait();
+}
+
 test('own device: Face ID is asked for on opening, and "keep me signed in" skips it for 30 days', async () => {
   appConfig.autoUnlock = true;
-  appConfig.keepSignedIn = true; // off by default: a community turns it on
+  await setKeepRule(1); // off by default: residents vote to offer it
   await page.bringToFront(); // the last test opened another tab
   try {
     await page.click('#btn-signout').catch(() => {});
@@ -2133,11 +2264,11 @@ test('own device: Face ID is asked for on opening, and "keep me signed in" skips
     await page.waitForSelector('#screen-home:not([hidden])', { timeout: 30_000 }); // straight in, no passkey
     assert.match(await page.textContent('#btn-keep'), /Stop keeping me signed in/);
     // The community turns the option off: the kept sign-in ends on the next visit.
-    appConfig.keepSignedIn = false;
+    await setKeepRule(0);
     await page.reload();
     await page.waitForSelector('#screen-signin:not([hidden])');
     assert.equal(await page.isVisible('#screen-home'), false);
-    appConfig.keepSignedIn = true;
+    await setKeepRule(1);
     // And "Sign out" ends it too.
     await page.reload(); // pick up the setting again
     await page.click('#btn-welcome-unlock');
@@ -2151,12 +2282,12 @@ test('own device: Face ID is asked for on opening, and "keep me signed in" skips
     assert.equal(await page.isVisible('#screen-home'), false);
   } finally {
     appConfig.autoUnlock = false;
-    delete appConfig.keepSignedIn;
+    await setKeepRule(0);
   }
 });
 
 test('public computer link (&shared=1): only shared sign-in, nothing kept, no "keep me signed in"', async () => {
-  appConfig.keepSignedIn = true; // even where the community allows it
+  await setKeepRule(1); // even where the community allows it
   await page.click('#btn-signout').catch(() => {});
   await page.goto(`${appUrl}?shared=1`);
   await page.waitForSelector('#shared-note:not([hidden])');
@@ -2167,7 +2298,7 @@ test('public computer link (&shared=1): only shared sign-in, nothing kept, no "k
   await page.click('#btn-public-code');
   await page.waitForSelector('#screen-home:not([hidden])');
   assert.equal(await page.isVisible('#keep-row'), false);
-  delete appConfig.keepSignedIn;
+  await setKeepRule(0);
   await page.click('#btn-signout');
   await page.goto(appUrl);
 });

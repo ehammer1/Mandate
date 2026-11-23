@@ -83,6 +83,8 @@ A list for decisions only some people make: a district or ward, a union local, a
 Where your community offers it: on the poll, open "Check in", choose the mail option, and write the code it shows on your return envelope (not on the ballot). Clerks match envelopes to check-ins, so each person is counted once, and the same rule about online and paper votes applies.
 **How do I check my vote was counted?**
 On a poll you voted in, tap **Check my vote**: your phone finds your own ballot in the public count, using a one-time code only your voter key can recompute. **Copy receipt** gives a code anyone can check in Search to confirm that ballot was counted, without learning who cast it; anyone you show it to can also see its choice, so keep it to yourself.
+**How can I tell a post, photo or video is real?**
+Every item carries proofs you can check: that a real resident or the named candidate posted it, that a file is unchanged, and, for recordings, a Testimonia seal. See [Is it real?](#authentic)
 **How do I share or find a specific poll, proposal or item?**
 Tap **🔗 Copy link** on it to share a link that opens it directly. To find one, use **Search** with its number ("poll 12", "council 4", "#7"), an address (0x…), a reference (nb:0x…) or words from it.
 
@@ -237,6 +239,79 @@ The public dashboard has a calendar feed (on iPhone, turn off "Remove Alerts" fo
 ## Photos and documents
 
 Use 📷 *Take a photo*, 🖼 *Photo or file*, or 📄 *Scan a document* (pages are cleaned up and joined into one PDF). Photos are shrunk and their hidden location data removed. Files are public and permanent: don't include anyone's private details. With "AI reads it", you get the text, a summary, a screen-reader description and a privacy warning.
+
+Audio: add a file or tap Record audio, and write a short summary or transcript for people who can't listen. Posters can be downloaded full size for printing. Videos are posted on any platform and linked.
+
+<a id="agenda"></a>
+## The People's Agenda: residents set the priorities
+
+Residents, not politicians, decide what the community should work on. Each season has two parts.
+
+- **Adding issues.** Everyone can add one issue, anonymously, with a topic and why it matters. While you type, the app points out similar issues already added, so support isn't split.
+- **Ranking.** Everyone gets the same priority credits to spread over the issues with + and −. More credits on one issue cost more (one costs one, two cost four, three cost nine), so strong feelings count but no group can buy the list. You can change your ranking until the season closes.
+
+The result is a public, live list of what residents want, by topic. Nobody can see who added or ranked what. Organizers can see AI themes that group similar issues, and can add a combined issue; the AI only sorts, it never decides.
+
+<a id="candidates"></a>
+## Comparing candidates by what they'd do
+
+Candidates answer the residents' own issues: where they stand and how much it matters to them. They publish from their own account, so nobody can answer for them, and every change stays on the record.
+
+Open Compare the candidates, say where you stand on the issues you care about, and tap Show my matches. Your answers never leave your phone; the matching happens there. It's a guide, not advice: read each candidate's positions and statement too.
+
+The match ignores parties. Whether party labels are shown at all is a rule residents vote on, off unless they turn it on. Each candidate also shows their public track record: promises delivered, on time or late, and petitions they started. How anyone votes never counts.
+
+<a id="assemblies"></a>
+## Citizens' assemblies and review panels
+
+A small group of residents is drawn at random from the voter list, like a jury, to study a question and recommend what everyone then votes on. Nobody can be bought or pressured before the draw, because nobody knows who will be chosen.
+
+If you are drawn, your phone tells you and shows a seat code to give the organizer; if you can't serve, do nothing and the seat passes to the next person. A review panel is an assembly for one ballot question: it hears both sides and writes the strongest reasons for and against, shown on the poll with how many seated members endorsed it, each signature checked on your phone.
+
+<a id="random"></a>
+## Random draws nobody can rig
+
+Assemblies, review panels and, where the council turns it on, the checkers for each promise are drawn at random. The draw is announced first, then uses a number from a blockchain block made afterwards, which nobody could know or choose in advance. Anyone can redo the draw in the app (Check the draw) and get the same result.
+
+<a id="authentic"></a>
+## Is it real? Checking posts, files and videos
+
+- **A real resident posted it.** Proposals, comments and issues carry an anonymous proof that the poster is on the voter list, without saying who.
+- **This candidate said it.** Candidate positions, statements and video links come from the candidate's own account.
+- **The file is unchanged.** Every photo, poster, document and audio file has a fingerprint on the public record. Check it is unchanged compares every stored copy with it.
+- **The recording is real and unedited.** A Testimonia seal, made when it was recorded, proves when, on which device, and that nothing was cut or altered. Tap "check it" next to the seal: Testimonia's own checker opens, and you add the file there (nothing is uploaded). A seal shows a recording is real, not that what it says is true.
+
+Posts on X and other platforms can't carry these checks. Promissa's share links lead back to the original, where you can check it.
+
+<a id="sharing"></a>
+## Sharing, videos and social media
+
+Every poll, petition, promise and motion has a Share button: your phone's own share menu, or a ready post for X, Bluesky, Threads, Mastodon, Facebook, LinkedIn, Reddit, WhatsApp, Telegram or email, sent from your own account. Nothing is posted for you.
+
+You can also connect your own Bluesky or Mastodon account (Account screen) and post directly from Promissa. Campaign and proposal videos are posted wherever you like, then linked; photos, posters, documents and audio can be attached, or recorded on the phone.
+
+<a id="storage"></a>
+## Where files are stored
+
+Votes, results and the text of proposals are on the public blockchain. Files you add go to your community's storage: decentralized (IPFS), centralized cloud storage, or both. Every file is identified by its fingerprint, so any copy that matches is the file.
+
+Or keep your files in your own account (Account screen, Where my files go): Pinata, Filebase, Storj, Dropbox, OneDrive, Google Drive or any S3-compatible storage. Your keys stay in your browser and go only to your provider.
+
+<a id="ai"></a>
+## AI helpers: they suggest, people decide
+
+- **Help me write this** turns rough notes into a clear proposal or candidate statement, with a checklist: who is responsible, by when, the cost, how to tell it's done. You edit it; nothing is published until you do.
+- **Plain-language explanations, translation and read-aloud** for every proposal, labelled, with the original always kept.
+- **For organizers:** themes for the People's Agenda, a weekly roundup, comments flagged for a person to review (nothing is removed automatically), and notes for the people checking a promise. They decide, not the AI.
+
+The AI never sees how anyone voted or anything personal.
+
+<a id="plus"></a>
+## Free for everyone, Promissa Plus and the community plan
+
+Free for everyone, always: voting, explanations, translation, read-aloud, duplicate hints, a daily allowance of files and a few uses a day of the writing help, so nobody's voice depends on money.
+
+Promissa Plus, the assistant subscription, adds more files a day, longer audio, unlimited writing help and the assistant. It is checked with the assistant's own key, never your voter key, so it can't be linked to a vote. Communities can take a community plan for the organizer tools and storage.
 
 <a id="privacy"></a>
 ## Privacy and safety

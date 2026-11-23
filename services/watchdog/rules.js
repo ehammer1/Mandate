@@ -19,7 +19,7 @@
 const { ethers } = require('ethers');
 
 const ROLE_NAMES = Object.fromEntries(
-  ['GOVERNOR_ROLE', 'VERIFIER_ROLE', 'ISSUER_ROLE', 'PROPOSER_ROLE', 'CREATOR_ROLE', 'RESOLVER_ROLE', 'VETO_ROLE'].map((r) => [ethers.id(r), r.replace('_ROLE', '')]),
+  ['GOVERNOR_ROLE', 'VERIFIER_ROLE', 'ISSUER_ROLE', 'PROPOSER_ROLE', 'CREATOR_ROLE', 'RESOLVER_ROLE', 'VETO_ROLE', 'ORGANIZER_ROLE', 'CARRIER_ROLE'].map((r) => [ethers.id(r), r.replace('_ROLE', '')]),
 );
 ROLE_NAMES[ethers.ZeroHash] = 'ADMIN';
 
@@ -39,6 +39,7 @@ const CALLS = new ethers.Interface([
   'function setMinBond(uint256 amount)',
   'function setElectorate(address electorate)',
   'function setDelegates(address registry)',
+  'function setPanelSize(uint16 size)',
   'function setVerifier(address next, (uint256,uint256,uint256,uint256,uint256,uint256[8]) test)',
 ]);
 const utc = (secs) => new Date(Number(secs) * 1000).toISOString().slice(0, 16).replace('T', ' ') + ' UTC';
@@ -77,6 +78,8 @@ function describeCall(target, data, names = {}) {
       return `make the council answer to ${names[String(a.electorate).toLowerCase()] || short(a.electorate)} (residents elect, recall and remove power through it)`;
     case 'setDelegates':
       return `connect public delegates (${names[String(a.registry).toLowerCase()] || short(a.registry)}) to ${where}`;
+    case 'setPanelSize':
+      return Number(a.size) ? `draw mandate checkers at random, ${a.size} per check` : 'stop drawing mandate checkers at random (every verifier may check)';
     case 'setVerifier':
       return `switch the ballot-proof checker on ${where} to ${short(a.next)} (for polls opened afterwards)`;
     default:
@@ -156,6 +159,28 @@ function rulesForEvent(ev, ctx) {
     }
     case 'VoterGroupsSet':
       return [{ ...base, rule: 'role-change', severity: 'high', title: `Voting contract connected to smaller voter lists at ${short(a.groups)}: polls can now be limited to its groups`, facts: { groups: a.groups } }];
+    case 'PanelSizeSet':
+      return [{ ...base, rule: 'role-change', severity: 'high', title: Number(a.size) ? `Mandate checkers will now be drawn at random: ${a.size} per check, from the verifiers` : 'Mandate checkers are no longer drawn at random: every verifier may check. Check this was publicly agreed.', facts: { size: Number(a.size) } }];
+    case 'PanelDrawn':
+      return [{ ...base, rule: 'mandate', severity: 'info', title: `Mandate ${a.id}, check ${a.round}: checkers drawn at random (${a.members.map(short).join(', ')})`, facts: { mandate: String(a.id), round: Number(a.round), members: [...a.members] } }];
+    case 'SeasonOpened':
+      return [{ ...base, rule: 'agenda', severity: 'info', title: `People's Agenda season ${a.id} opened: residents add issues until ${utc(a.proposeEnd)}, then rank them until ${utc(a.end)} (${a.credits} credits each)`, facts: { season: String(a.id), ref: a.ref } }];
+    case 'IssueAdded':
+      return a.byOrganizer ? [{ ...base, rule: 'agenda', severity: 'info', title: `People's Agenda season ${a.id}: an organizer added an issue (number ${Number(a.index) + 1})`, facts: { season: String(a.id), ref: a.ref } }] : [];
+    case 'CandidateAdded':
+      return [{ ...base, rule: 'agenda', severity: 'info', title: `Candidate added for the People's Agenda season ${a.season}: ${a.name}${a.race ? ` (${a.race})` : ''}, account ${short(a.account)}`, facts: { season: String(a.season), candidate: String(a.candidate), account: a.account } }];
+    case 'PositionsStated':
+      return [{ ...base, rule: 'agenda', severity: Number(a.version) > 1 ? 'medium' : 'info', title: Number(a.version) > 1 ? `Candidate ${a.candidate} changed their positions (version ${a.version}); earlier versions stay on the record` : `Candidate ${a.candidate} stated their positions on the residents' issues`, facts: { candidate: String(a.candidate), version: Number(a.version) } }];
+    case 'Announced':
+      return [{ ...base, rule: 'assembly', severity: 'medium', title: `Citizens' assembly ${a.id} announced: ${a.seats} seats drawn from the ${['basic members', 'verified residents', 'residents with full voting rights'][Number(a.tier)] || 'voter'} list (${a.size} people, fixed now), seeded by block ${a.drawBlock}`, facts: { assembly: String(a.id), seats: Number(a.seats), size: String(a.size), drawBlock: String(a.drawBlock), ref: a.ref } }];
+    case 'Rescheduled':
+      return [{ ...base, rule: 'assembly', severity: 'info', title: `Citizens' assembly ${a.id}: the draw was not run in time; new seed block ${a.drawBlock}`, facts: { assembly: String(a.id), drawBlock: String(a.drawBlock) } }];
+    case 'Drawn':
+      return [{ ...base, rule: 'assembly', severity: 'info', title: `Citizens' assembly ${a.id} drawn (seed ${String(a.seed).slice(0, 10)}…): anyone can redo the draw in the app`, facts: { assembly: String(a.id), seed: a.seed } }];
+    case 'SeatAccepted':
+      return [{ ...base, rule: 'assembly', severity: 'info', title: `Citizens' assembly ${a.id}: seat accepted by the person drawn at position ${Number(a.position) + 1}`, facts: { assembly: String(a.id), position: Number(a.position) } }];
+    case 'Reported':
+      return [{ ...base, rule: 'assembly', severity: 'medium', title: `Citizens' assembly ${a.id} published its recommendation`, facts: { assembly: String(a.id), ref: a.ref } }];
     case 'GroupCreated':
       return [{ ...base, rule: 'voter-group', severity: 'medium', title: `Smaller voter list "${a.name}" created (members must be ${['basic members', 'verified residents', 'residents with full voting rights'][Number(a.baseTier)] || 'listed'} or higher), managed by ${short(a.manager)}`, facts: { groupId: String(a.groupId), name: a.name, manager: a.manager } }];
     case 'ManagerChanged':

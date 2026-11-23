@@ -92,7 +92,7 @@ const TOOLS = [
   },
   {
     name: 'propose_action',
-    description: 'Put a button on screen for the person to tap. "open" opens a poll, petition or mandate (target like "poll-12"); "screen" opens a part of the app (target is one of: polls, petitions, mandates, budget, bodies, rules, search, help, account); "help" opens a Help topic (target is its id); "draft" shows text you wrote (a petition, comment, proposal, evidence description) with a copy button, for the person to edit and use. Nothing is voted, signed, submitted or paid by a button: the person does that in the app.',
+    description: 'Put a button on screen for the person to tap. "open" opens a poll, petition or mandate (target like "poll-12"); "screen" opens a part of the app (target is one of: polls, petitions, agenda, assemblies, mandates, budget, bodies, rules, search, help, account); "help" opens a Help topic (target is its id); "draft" shows text you wrote (a petition, comment, proposal, evidence description) with a copy button, for the person to edit and use. Nothing is voted, signed, submitted or paid by a button: the person does that in the app.',
     strict: true,
     input_schema: {
       type: 'object',

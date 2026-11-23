@@ -60,6 +60,12 @@ function normalizeSpec(spec) {
   s.pollOpeners = addrs(s.pollOpeners, 'pollOpeners');
   s.registrars = addrs(s.registrars, 'registrars');
   s.groupCreators = addrs(s.groupCreators, 'groupCreators');
+  s.carriers = addrs(s.carriers, 'carriers');
+  s.randomCheckers = Number(s.randomCheckers || 0); // mandate checkers drawn at random: panel size, 0 = off
+  if (!(Number.isInteger(s.randomCheckers) && s.randomCheckers >= 0 && s.randomCheckers <= 25)) throw new Error('randomCheckers: how many verifiers check each mandate, drawn at random (0 to 25; 0 = all verifiers)'); // deliver offline ballots in a poll's delivery window
+  // "Keep me signed in" is a rule residents can change by vote; the spec sets its starting value.
+  s.rules = { ...(s.rules || {}) };
+  if (s.keepSignedIn === true && s.rules.KEEP_SIGNED_IN === undefined) s.rules.KEEP_SIGNED_IN = 1;
   s.tallyClerks = addrs(s.tallyClerks ?? s.clerks.map((k) => k.address), 'tallyClerks');
   s.onlineSignup = s.onlineSignup !== false;
   s.seasoningDays = Number(s.seasoningDays ?? 30);
@@ -101,7 +107,10 @@ async function createCommunity(signer, spec, o = {}) {
   }
   for (const a of s.tallyClerks) await grant(c.tallies, await c.tallies.CLERK_ROLE(), a, `${a} records paper counts`);
   for (const a of s.groupCreators) await grant(c.voterGroups, await c.voterGroups.GROUP_CREATOR_ROLE(), a, `${a} creates smaller voter lists`);
+  if (s.randomCheckers && (await c.registry.panelSize().catch(() => null)) !== null && Number(await c.registry.panelSize()) !== s.randomCheckers) await send(`mandate checkers drawn at random, ${s.randomCheckers} per check`, c.registry.setPanelSize(s.randomCheckers));
+  if (c.vote.CARRIER_ROLE) for (const a of s.carriers) await grant(c.vote, await c.vote.CARRIER_ROLE(), a, `${a} carries offline ballots`);
   if (c.assemblies) for (const a of s.registrars) await grant(c.assemblies, await c.assemblies.ORGANIZER_ROLE(), a, `${a} organizes citizens' assemblies`);
+  if (c.agenda) for (const a of s.registrars) await grant(c.agenda, await c.agenda.ORGANIZER_ROLE(), a, `${a} opens People's Agenda seasons`);
 
   // 2. The community's council, which takes every admin power.
   const termEnd = s.council.termDays ? (await signer.provider.getBlock('latest')).timestamp + Math.round(s.council.termDays * 86_400) : 0;
@@ -135,16 +144,32 @@ async function finishHandover(runner, c, s, { log = () => {} } = {}) {
   await drop(c.voterGroups, await c.voterGroups.GROUP_CREATOR_ROLE(), 'deployer gave up creating voter lists');
   await drop(c.tallies, await c.tallies.CLERK_ROLE(), 'deployer gave up recording counts');
   if (c.assemblies) await drop(c.assemblies, await c.assemblies.ORGANIZER_ROLE(), 'deployer gave up organizing assemblies');
+  if (c.agenda) await drop(c.agenda, await c.agenda.ORGANIZER_ROLE(), "deployer gave up opening People's Agenda seasons");
   log(`council ${council} (${s.council.threshold} of ${s.council.members.length}) now holds every admin power`);
 }
 
-/** A provider that waits and retries when a public network says "too many requests". */
+/**
+ * A provider that waits and retries when a public network says "too many requests". Requests go
+ * one at a time (no batches): a retried batch could resend a transaction that already went
+ * through, and the network then refuses it ("nonce has already been used").
+ */
 class PatientProvider extends ethers.JsonRpcProvider {
+  constructor(url, network, options = {}) {
+    super(url, network, { ...options, batchMaxCount: 1 });
+  }
+
   async _send(payload) {
     for (let i = 0; ; i++) {
       const out = await super._send(payload);
       const limited = out.some((r) => r.error && (r.error.code === -32007 || r.error.code === 429 || /limit|rate/i.test(r.error.message || '')));
       if (!limited || i >= 8) return out;
+      // A transaction the network may have taken anyway: if it did, don't send it twice.
+      const raw = [].concat(payload).find((q) => q.method === 'eth_sendRawTransaction');
+      if (raw) {
+        const hash = ethers.keccak256(raw.params[0]);
+        const known = await super._send({ method: 'eth_getTransactionByHash', params: [hash], id: raw.id, jsonrpc: '2.0' }).catch(() => null);
+        if (known?.[0]?.result) return [{ id: raw.id, result: hash }];
+      }
       await new Promise((r) => setTimeout(r, 500 * 2 ** Math.min(i, 4)));
     }
   }
@@ -153,7 +178,7 @@ class PatientProvider extends ethers.JsonRpcProvider {
 /** Contracts at known addresses (for --resume). */
 function attach(runner, addresses) {
   const abi = (n) => JSON.parse(fs.readFileSync(path.join(ROOT, 'build', `${n}.json`), 'utf8')).abi;
-  const names = { identity: 'IdentityRegistry', registry: 'MandateRegistry', vote: 'MandateVote', market: 'DecisionMarket', charter: 'Charter', budget: 'CivicBudget', officials: 'Officials', bodies: 'Bodies', tallies: 'Tallies', voterGroups: 'VoterGroups', credits: 'PlayCredits', council: 'Council', assemblies: 'Assemblies' };
+  const names = { identity: 'IdentityRegistry', registry: 'MandateRegistry', vote: 'MandateVote', market: 'DecisionMarket', charter: 'Charter', budget: 'CivicBudget', officials: 'Officials', bodies: 'Bodies', tallies: 'Tallies', voterGroups: 'VoterGroups', credits: 'PlayCredits', council: 'Council', assemblies: 'Assemblies', agenda: 'Agenda' };
   const c = {};
   for (const [k, n] of Object.entries(names)) if (addresses[k]) c[k] = new ethers.Contract(addresses[k], abi(n), runner);
   return c;
@@ -189,6 +214,7 @@ function communityConfig(spec, addresses, startBlock, base = {}, services = {}) 
     progressAddress: addresses.progress,
     voterGroupsAddress: addresses.voterGroups,
     ...(addresses.assemblies ? { assembliesAddress: addresses.assemblies } : {}),
+    ...(addresses.agenda ? { agendaAddress: addresses.agenda } : {}),
     escrowFactoryAddress: addresses.escrows,
     relayers: (services.relayers || []).map((u) => `${trim(u)}/c/${spec.slug}`),
     identityService: services.identity ? `${trim(services.identity)}/c/${spec.slug}` : '',
@@ -199,6 +225,8 @@ function communityConfig(spec, addresses, startBlock, base = {}, services = {}) 
     ...(base.analyticsUrl ? { analyticsUrl: base.analyticsUrl } : {}),
     ...(spec.languages ? { languages: spec.languages } : {}),
     ...(spec.keepSignedIn === true ? { keepSignedIn: true } : {}),
+    ...(spec.fundingLinks === true ? { fundingLinks: true } : {}),
+    ...(spec.communityPlan === true ? { communityPlan: true } : {}), // organizer AI tools (themes, roundup, moderation, evidence notes) // "Support this" links: off until a legal review
   };
 }
 

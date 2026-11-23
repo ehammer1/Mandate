@@ -51,6 +51,8 @@ const IDENTITY_ABI = [
   'function commitmentOfDoc(bytes32) view returns (uint256)',
   'function issuers(address) view returns (uint8 maxTier, bool active, string name)',
   'function revoke(uint256 commitment, uint256[][] siblings)',
+  'function replace(uint256 oldCommitment, uint256 newCommitment, uint256[][] siblings)',
+  'function MAX_REPLACEMENTS_PER_DAY() view returns (uint256)',
   'function leaves(uint8 tier, uint256 start, uint256 count) view returns (uint256[] commitments, uint64[] removedAt)',
   'function leafCount(uint8 tier) view returns (uint256)',
   'error AccountAlreadyUsed(uint256 commitment)',
@@ -276,6 +278,12 @@ function createIdentityService(o) {
     try {
       const run = queue.then(async () => {
         const siblings = await siblingsFor(oldCommitment, Number(m.tier));
+        // Voter list v6: one step, recorded as a replacement (the watchdog explains it).
+        if (await registry.MAX_REPLACEMENTS_PER_DAY().then(() => true, () => false)) {
+          const one = await registry.replace(oldCommitment, BigInt(r.commitment), siblings);
+          await one.wait();
+          return one.hash;
+        }
         const out = await registry.revoke(oldCommitment, siblings);
         await out.wait();
         const add = await registry.enroll(BigInt(r.commitment), 0, r.hash, 0);
@@ -706,6 +714,40 @@ function createIdentityService(o) {
     }
   }
 
+  // Writing help and translation (AI): suggestions only; the person edits and publishes.
+  const aiHits = new Map();
+  const aiCache = new Map();
+  const draftHits = new Map();
+  const isPlus = o.isPlus || require('./plan').createPlanCheck({ url: o.assistantUrl });
+  async function aiHelp(kind, body, ip) {
+    if (!o.askEnabled) return [503, { error: 'AI help is not available right now.' }];
+    if (recentCount(aiHits, ip, 3600_000).length >= (o.aiPerIpHour ?? 20)) return [429, { error: 'Too many requests this hour. Please try again later.' }];
+    aiHits.get(ip).push(Date.now());
+    const text = String(body.text || '').trim();
+    const lang = String(body.lang || '').slice(0, 10);
+    if (text.length < 3 || text.length > (kind === 'translate' ? 6000 : 4000)) return [400, { error: 'Write a few words first (up to a few paragraphs).' }];
+    if (kind === 'translate' && !/^[a-z]{2,3}(-[A-Za-z]{2,4})?$/.test(lang)) return [400, { error: 'Choose a language.' }];
+    if (kind === 'draft' && !['issue', 'petition', 'poll', 'candidate'].includes(body.kind)) return [400, { error: 'Unknown kind of text.' }];
+    // Writing help: a few free each day for everyone; unlimited with Promissa Plus. Translation stays free.
+    if (kind === 'draft') {
+      const free = recentCount(draftHits, ip, 86_400_000).length < (o.freeDraftsPerDay ?? 3);
+      if (free) draftHits.get(ip).push(Date.now());
+      else if (!(await isPlus(body.plan))) return [402, { error: `You've used today's ${o.freeDraftsPerDay ?? 3} free writing helps. Promissa Plus gives unlimited help, or try again tomorrow.`, plus: true }];
+    }
+    const key = `${kind}:${body.kind || ''}:${lang}:${text}`;
+    if (aiCache.has(key)) return [200, aiCache.get(key)];
+    try {
+      const fns = o.aiHelpers || require('../explainer/explain');
+      const out = kind === 'draft' ? await fns.draftHelp({ kind: body.kind, text, lang }) : await fns.translate({ text, lang });
+      if (aiCache.size > 500) aiCache.clear();
+      aiCache.set(key, out);
+      return [200, out];
+    } catch (e) {
+      log(`AI help failed: ${e.message}`);
+      return [502, { error: 'AI help is unavailable right now. Please try again later.' }];
+    }
+  }
+
   async function emailStart(body, ip) {
     if (!o.emailSender) return [503, { error: 'Email sign-up is not available right now.' }];
     let commitment;
@@ -809,7 +851,11 @@ function createIdentityService(o) {
   const server = http.createServer(async (req, res) => {
     try {
       const url = new URL(req.url, o.publicUrl);
-      const ip = req.headers['x-forwarded-for']?.split(',')[0].trim() || req.socket.remoteAddress || '';
+      // The client's address as our own proxy saw it: the entry it added, counted from the right
+      // (the leftmost entries are whatever the client sent, so they can't be trusted for limits).
+      const hops = String(req.headers['x-forwarded-for'] || '').split(',').map((s) => s.trim()).filter(Boolean);
+      const trust = o.trustProxy ?? 1;
+      const ip = (trust > 0 && hops.length >= trust ? hops[hops.length - trust] : '') || req.socket.remoteAddress || '';
       if (url.pathname === '/health') {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         return res.end('{"ok":true}');
@@ -841,7 +887,7 @@ function createIdentityService(o) {
           res.end(JSON.stringify(obj));
         };
         if (req.method === 'OPTIONS') {
-          res.writeHead(204, { ...cors, 'Access-Control-Allow-Methods': 'POST', 'Access-Control-Allow-Headers': 'Content-Type, X-Upload-Proof, X-File-Name', 'Access-Control-Max-Age': '600' });
+          res.writeHead(204, { ...cors, 'Access-Control-Allow-Methods': 'POST', 'Access-Control-Allow-Headers': 'Content-Type, X-Upload-Proof, X-File-Name, X-Promissa-Plan', 'Access-Control-Max-Age': '600' });
           return res.end();
         }
         if (!admin && !cors['Access-Control-Allow-Origin']) return json(403, { error: 'This app is not allowed to use this identity service.' });
@@ -868,7 +914,7 @@ function createIdentityService(o) {
         const [status, out] = await o.uploads.upload(bytes, req.headers, url.searchParams);
         return json(status, out);
       }
-      if (url.pathname.startsWith('/email/') || url.pathname.startsWith('/clerk/') || url.pathname.startsWith('/mdl/') || url.pathname.startsWith('/roll/') || url.pathname === '/ask' || url.pathname === '/replace') {
+      if (url.pathname.startsWith('/email/') || url.pathname.startsWith('/clerk/') || url.pathname.startsWith('/mdl/') || url.pathname.startsWith('/roll/') || url.pathname === '/ask' || url.pathname === '/replace' || url.pathname === '/ai/draft' || url.pathname === '/ai/translate') {
         // Called from the voter app's page: allow its origin only.
         const origin = req.headers.origin || '';
         const cors = o.allowedReturnOrigins.includes(origin) ? { 'Access-Control-Allow-Origin': origin, Vary: 'Origin' } : {};
@@ -889,7 +935,7 @@ function createIdentityService(o) {
         } catch {
           return json(400, { error: 'Invalid request.' });
         }
-        const route = { '/email/start': () => emailStart(body, ip), '/email/verify': () => emailVerify(body), '/clerk/doc-hash': () => clerkDocHash(body), '/clerk/roll-match': () => clerkRollMatch(body), '/mdl/start': () => mdlStart(body), '/mdl/finish': () => mdlFinish(body, origin), '/roll/mail/start': () => rollMailStart(body, ip), '/roll/mail/verify': () => rollMailVerify(body), '/ask': () => askQuestion(body, ip), '/replace': () => replaceKey(body) }[url.pathname];
+        const route = { '/email/start': () => emailStart(body, ip), '/email/verify': () => emailVerify(body), '/clerk/doc-hash': () => clerkDocHash(body), '/clerk/roll-match': () => clerkRollMatch(body), '/mdl/start': () => mdlStart(body), '/mdl/finish': () => mdlFinish(body, origin), '/roll/mail/start': () => rollMailStart(body, ip), '/roll/mail/verify': () => rollMailVerify(body), '/ask': () => askQuestion(body, ip), '/replace': () => replaceKey(body), '/ai/draft': () => aiHelp('draft', body, ip), '/ai/translate': () => aiHelp('translate', body, ip) }[url.pathname];
         const [status, out] = route ? await route() : [404, { error: 'Not found' }];
         return json(status, out);
       }
@@ -990,13 +1036,16 @@ if (require.main === module) {
       clerkAnchor: () => (isDefault ? anchor : appConfig()?.clerkAnchor || 'id'),
       appConfig,
       askEnabled: !!clean(process.env.ANTHROPIC_API_KEY),
+      assistantUrl: clean(process.env.ASSISTANT_URL), // Promissa Plus subscriptions (the assistant service)
+      trustProxy: Number(process.env.TRUST_PROXY ?? 1), // proxies in front (Render: 1)
       mdl,
       mailer: require('./mail').mailerFromEnv(),
       roll: () => (isDefault ? roll : null), // the voter roll belongs to the original community
       rollKey: clean(process.env.ROLL_KEY) || undefined,
-      uploads: clean(process.env.PINATA_JWT)
+      uploads: require('./storage').fromEnv(process.env)
         ? require('./uploads').createUploads({
-          store: require('./uploads').pinata(clean(process.env.PINATA_JWT)),
+          store: require('./storage').fromEnv(process.env, (m) => console.log(`[identity] ${m}`)),
+          isPlus: require('./plan').createPlanCheck({ url: clean(process.env.ASSISTANT_URL) }),
           appConfig,
           provider,
           perDay: Number(process.env.UPLOADS_PER_DAY || 10),

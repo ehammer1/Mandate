@@ -13,6 +13,7 @@ import { ethers } from 'ethers';
 import { Group } from '@semaphore-protocol/group';
 import { encodeRanking, instantRunoff } from '../../client/ballot.js';
 import { countdown } from './time.js';
+import { heldTree, signHeld, heldCode } from '../../client/held.js';
 
 export const V5_ABI = [
   'function settingsOf(uint256) view returns (uint32 changeCutoff, uint8 channels, bool ranked)',
@@ -34,7 +35,11 @@ export const V6_ABI = [
   'function hasRole(bytes32, address) view returns (bool)',
   'function getPoll(uint256) view returns (tuple(uint256 groupId, uint256 snapshotRoot, uint256 electorate, uint64 start, uint64 end, uint32 quorum, uint8 options, uint8 action, bool finalized, bool passed, address proposer, uint256 bond, string questionCID, bytes actionData))',
   'function castBallot(uint256 id, tuple(uint256 merkleTreeDepth, uint256 merkleTreeRoot, uint256 nullifier, uint256 message, uint256 scope, uint256[8] points) b)',
-  'error NotOpen()', 'error NullifierUsed()',
+  'function commitHeld(uint256 id, bytes32 root, uint8 v, bytes32 r, bytes32 s)',
+  'function unprovenLate(uint256) view returns (uint256)',
+  'function deliverHeld(uint256 id, tuple(uint256 merkleTreeDepth, uint256 merkleTreeRoot, uint256 nullifier, uint256 message, uint256 scope, uint256[8] points) b, bytes32 root, bytes32[] path)',
+  'function heldBy(uint256, bytes32) view returns (address)',
+  'error NotOpen()', 'error NullifierUsed()', 'error NotHeld()',
 ];
 export const GROUPS_ABI = [
   'function GROUP_CREATOR_ROLE() view returns (bytes32)',
@@ -83,14 +88,23 @@ export async function hasGrace(state) {
 export async function readSettings(state, id) {
   if (!(await hasSettings(state))) return DEFAULTS;
   const v6 = await hasGrace(state);
-  const s = await (v6 ? new ethers.Contract(state.config.voteAddress, V6_ABI, state.provider) : vote5(state)).settingsOf(id).catch(() => null);
-  return s ? { changeCutoff: Number(s.changeCutoff), channels: Number(s.channels), ranked: s.ranked, grace: v6 ? Number(s.grace) : 0 } : DEFAULTS;
+  const k = v6 ? new ethers.Contract(state.config.voteAddress, V6_ABI, state.provider) : vote5(state);
+  const s = await k.settingsOf(id).catch(() => null);
+  if (!s) return DEFAULTS;
+  const grace = v6 ? Number(s.grace) : 0;
+  // Ballots carriers delivered late with no fingerprint from before the close (counted publicly).
+  const unproven = grace ? Number(await k.unprovenLate(id).catch(() => 0n)) : 0;
+  return { changeCutoff: Number(s.changeCutoff), channels: Number(s.channels), ranked: s.ranked, grace, unproven };
 }
 
 /**
  * For an approved carrier (v6): deliver ballots after the close, within the poll's delivery
  * window, from this account. Only ballots this device took in before the close are delivered.
  * Returns undefined when this account is not an approved carrier.
+ */
+/**
+ * A carrier's delivery after the close: only ballots covered by a fingerprint it published
+ * before the close (see fingerprintHeld), so each provably existed in time.
  */
 export async function carrierDelivery(state, signer) {
   if (!signer || !(await hasGrace(state))) return undefined;
@@ -101,7 +115,8 @@ export async function carrierDelivery(state, signer) {
     const poll = await v.getPoll(item.pollId);
     if (item.at / 1000 >= Number(poll.end)) return 'rejected'; // taken in after the close: not ours to deliver
     try {
-      await (await v.castBallot(item.pollId, item.ballot)).wait();
+      // Without a fingerprint, only older v6 contracts take it (newer ones need the proof of time).
+      await (await (item.held ? v.deliverHeld(item.pollId, item.ballot, item.held.root, item.held.path) : v.castBallot(item.pollId, item.ballot))).wait();
       return 'sent';
     } catch (e) {
       let name = e.revert?.name;
@@ -115,6 +130,49 @@ export async function carrierDelivery(state, signer) {
   };
 }
 
+/**
+ * Before a poll closes, a carrier publishes one fingerprint of every ballot it holds for it, so
+ * those can still be delivered after the close. Signed with the carrier's key; sent through the
+ * relay, else directly. Returns the fingerprint codes made (short enough to text, if neither works).
+ */
+export async function fingerprintHeld(state, signer, items, { relayers = [], saveItems } = {}) {
+  if (!signer || !(await hasGrace(state).catch(() => false))) return [];
+  const v = new ethers.Contract(state.config.voteAddress, V6_ABI, signer);
+  if (!(await v.hasRole(await v.CARRIER_ROLE(), await signer.getAddress()).catch(() => false))) return [];
+  const now = Math.floor(Date.now() / 1000);
+  const byPoll = new Map();
+  for (const i of items) if (i.status === 'waiting' && !i.mine) byPoll.set(i.pollId, [...(byPoll.get(i.pollId) || []), i]);
+  const codes = [];
+  for (const [pollId, list] of byPoll) {
+    if (list.every((i) => i.held?.posted)) continue; // all covered already
+    const poll = await v.getPoll(pollId).catch(() => null);
+    const st = await v.settingsOf(pollId).catch(() => null);
+    if (!poll || !st || !Number(st.grace) || now >= Number(poll.end)) continue;
+    const { root, paths } = heldTree(list.map((i) => i.ballot));
+    const where = { chainId: Number(state.config.chainId), voteAddress: state.config.voteAddress, pollId: BigInt(pollId), root };
+    const sig = await signHeld(signer, where);
+    const code = heldCode(where, sig);
+    let ok = false;
+    for (const url of relayers) {
+      try {
+        const res = await fetch(`${url.replace(/\/+$/, '')}/held`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code }) });
+        if (res.ok) {
+          ok = true;
+          break;
+        }
+      } catch {
+        /* next */
+      }
+    }
+    if (!ok) ok = await v.commitHeld(pollId, root, 0, ethers.ZeroHash, ethers.ZeroHash).then((tx) => tx.wait()).then(() => true, () => false);
+    // Kept on the items either way: once anyone publishes the code before the close, they count.
+    list.forEach((i, k) => (i.held = { root, path: paths[k], posted: ok }));
+    await saveItems?.(list);
+    if (!ok) codes.push(code);
+  }
+  return codes;
+}
+
 /** Can a cast vote still be changed now? */
 export const changesOpen = (st, poll, now) => st.changeCutoff !== NO_CHANGES && Number(now) + st.changeCutoff < Number(poll.end);
 
@@ -125,6 +183,7 @@ export function settingsNote(st, poll, now, esc) {
   if (st.channels === 1) bits.push('Online only');
   if (st.channels === 2) bits.push('<strong>On paper only:</strong> check in and vote at a polling place');
   if (st.grace > 0) bits.push(`Ballots sealed offline before the close can be delivered by approved carriers up to ${st.grace >= 3600 ? `${Math.round(st.grace / 3600)} hour${st.grace >= 7200 ? 's' : ''}` : `${Math.round(st.grace / 60)} minutes`} after it; the result follows then`);
+  if (st.unproven > 0) bits.push(`<strong>${st.unproven} ballot${st.unproven === 1 ? ' was' : 's were'} delivered after the close by an approved carrier that had no signal before it:</strong> counted, but not proven to have been sealed before the close (carriers that had any signal publish a fingerprint that proves it)`);
   if (st.changeCutoff === NO_CHANGES) bits.push('Your first vote is final: it cannot be changed');
   else if (st.changeCutoff > 0) {
     const until = Number(poll.end) - st.changeCutoff;

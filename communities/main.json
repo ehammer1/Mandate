@@ -1,0 +1,34 @@
+{
+  "slug": "main",
+  "name": "Promissa",
+  "type": "city",
+  "council": {
+    "members": [
+      "0x433B8c945c9f4664870fFD3dA3Ea8d16dD41476F",
+      "0xb8e5DA10ce9BE2A0dc3D86cB180c0E605491Cb71",
+      "0x0C5Fa8ED834e1bDE2884069178ff21Da12565777"
+    ],
+    "threshold": 2,
+    "delayHours": 1,
+    "termDays": 365
+  },
+  "clerks": [
+    { "address": "0x433B8c945c9f4664870fFD3dA3Ea8d16dD41476F", "name": "Front desk" },
+    { "address": "0x4C9a795fb70e9ED9877082Afd74257db3EA1b71B", "name": "Front desk 2" }
+  ],
+  "pollOpeners": ["0x433B8c945c9f4664870fFD3dA3Ea8d16dD41476F"],
+  "registrars": ["0x433B8c945c9f4664870fFD3dA3Ea8d16dD41476F"],
+  "groupCreators": ["0x433B8c945c9f4664870fFD3dA3Ea8d16dD41476F"],
+  "tallyClerks": ["0x433B8c945c9f4664870fFD3dA3Ea8d16dD41476F", "0x4C9a795fb70e9ED9877082Afd74257db3EA1b71B"],
+  "carriers": ["0x433B8c945c9f4664870fFD3dA3Ea8d16dD41476F", "0x4C9a795fb70e9ED9877082Afd74257db3EA1b71B"],
+  "onlineSignup": true,
+  "seasoningDays": 30,
+  "rules": {
+    "MIN_POLL_MINUTES": 10,
+    "MAX_POLL_MINUTES": 43200,
+    "PETITION_POLL_MINUTES": 1440,
+    "CHECK_MIN_VOTES": 1,
+    "RULE_CHANGE_MIN_MINUTES": 1440
+  },
+  "communityPlan": true
+}

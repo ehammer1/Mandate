@@ -29,6 +29,7 @@
         <button id="nav-mandates">Mandates</button>
         <button id="nav-budget">Budget</button>
         <button id="nav-petitions">Petitions</button>
+        <button id="nav-agenda" hidden>Agenda</button>
         <button id="nav-assemblies" hidden>Assemblies</button>
         <button id="nav-bodies">Government</button>
         <button id="nav-rules">Rules</button>
@@ -159,7 +160,7 @@
           <p class="note" style="margin:0">Someone with no connection can show their sealed ballot as a QR code. Scan it here and this device sends it for them as soon as it has a connection. A sealed ballot can't be changed or used to vote twice: you just carry it.</p>
           <button type="button" id="btn-carry-scan">Scan a ballot QR code</button>
           <video id="carry-video" playsinline muted hidden style="width:100%;max-width:360px;border-radius:12px"></video>
-          <label for="carry-code">Or paste a ballot code (it starts with PB1:)</label>
+          <label for="carry-code">Or paste a ballot code (it starts with PB1:), or a carrier's fingerprint code (PH1:)</label>
           <textarea id="carry-code" rows="3" spellcheck="false" autocomplete="off"></textarea>
           <div class="row"><button type="button" id="btn-carry-add">Add this ballot</button><button type="button" id="btn-carry-send">Send waiting ballots now</button></div>
           <p class="muted" id="carry-list"></p>
@@ -188,6 +189,40 @@
         <p id="account-kind" class="note"></p>
         <p id="account-credits"></p>
         <button id="btn-auto-wallet" hidden>Switch back to my automatic account</button>
+      </div>
+      <h2>Where my files go</h2>
+      <div class="card stack" id="own-storage-card">
+        <p class="note">Photos, posters, documents and audio you add are stored by your community. Or store them in your own account (you pay your own provider; no Promissa limits). Promissa records only each file's fingerprint and where it is. Your keys stay in this browser and go only to your provider.</p>
+        <p id="own-storage-now"></p>
+        <details id="own-storage-form"><summary><strong>Use my own storage</strong></summary><div class="stack">
+          <label for="own-provider">Provider</label>
+          <select id="own-provider"><option value="dropbox" hidden>Dropbox (sign in)</option><option value="onedrive" hidden>OneDrive (sign in with Microsoft)</option><option value="gdrive" hidden>Google Drive (sign in with Google)</option><option value="pinata">Pinata (IPFS, decentralized)</option><option value="filebase">Filebase (IPFS, decentralized)</option><option value="storj">Storj (decentralized)</option><option value="r2">Cloudflare R2</option><option value="b2">Backblaze B2</option><option value="wasabi">Wasabi</option><option value="aws">Amazon S3</option><option value="other">Other S3-compatible</option></select>
+          <div id="own-cloud" class="stack" hidden><p class="note">You sign in with your own account; files go to a Promissa folder in it and are shared by link so others can open them. Promissa can't see anything else in your storage.</p><button type="button" id="btn-own-cloud">Sign in and connect</button></div>
+          <div id="own-pinata" class="stack"><label>Pinata JWT (an API key with upload access) <input type="password" id="own-jwt" autocomplete="off" /></label></div>
+          <div id="own-s3" class="stack" hidden>
+            <label>Endpoint (leave empty for Filebase, Storj, Wasabi) <input type="url" id="own-endpoint" placeholder="https://…" /></label>
+            <label>Region (optional) <input type="text" id="own-region" /></label>
+            <label>Bucket <input type="text" id="own-bucket" /></label>
+            <label>Access key ID <input type="text" id="own-key" autocomplete="off" spellcheck="false" /></label>
+            <label>Secret access key <input type="password" id="own-secret" autocomplete="off" /></label>
+            <label>The bucket's public address (not needed for Filebase) <input type="url" id="own-public" placeholder="https://…" /></label>
+            <p class="note">Your bucket must allow uploads from this site (CORS): see the storage guide.</p>
+          </div>
+          <button id="btn-own-save">Use this storage</button></div></details>
+        <p class="status" id="own-storage-msg" role="status"></p>
+      </div>
+      <h2>Your social accounts</h2>
+      <div class="card stack" id="social-card">
+        <p class="note">Connect your own Bluesky or Mastodon account to post proposals, polls and petitions from here. Nothing is posted without you pressing Post. Your login stays in this browser and goes only to Bluesky or your Mastodon server. For X, Facebook, Threads, Instagram, LinkedIn and others, use 📣 Share on any item.</p>
+        <div id="social-status"></div>
+        <details id="social-bsky"><summary><strong>Connect Bluesky</strong></summary><div class="stack">
+          <label>Your handle <input type="text" id="bsky-handle" placeholder="you.bsky.social" autocomplete="username" /></label>
+          <label>An app password (Bluesky: Settings → Privacy and security → App passwords) <input type="password" id="bsky-pass" placeholder="abcd-efgh-ijkl-mnop" autocomplete="off" /></label>
+          <button id="btn-bsky">Connect Bluesky</button></div></details>
+        <details id="social-masto"><summary><strong>Connect Mastodon</strong></summary><div class="stack">
+          <label>Your server <input type="text" id="masto-server" placeholder="mastodon.social" /></label>
+          <button id="btn-masto">Connect Mastodon</button></div></details>
+        <p class="status" id="social-msg" role="status"></p>
       </div>
       <h2>Use a wallet instead</h2>
       <p class="note">Works with wallet extensions on a computer, your wallet app's built-in browser on a phone, and (when enabled) any mobile wallet through WalletConnect.</p>
@@ -233,8 +268,10 @@
           <select id="petition-category"><option value="general">General</option><option value="safety">Public safety</option><option value="roads">Roads and transport</option><option value="housing">Housing</option><option value="budget">Budget and taxes</option><option value="environment">Environment and parks</option><option value="health">Health</option><option value="education">Schools and education</option><option value="services">Water, power and services</option><option value="economy">Jobs and business</option><option value="rights">Rights and justice</option><option value="governance">How decisions are made</option></select>
           <label for="petition-body">Why</label>
           <textarea id="petition-body" rows="3"></textarea>
+          <div id="petition-ai"></div>
           <p class="note">Photos or documents (optional): a photo of the problem, a letter, a map.</p>
           <div id="petition-attach"></div>
+          <div id="petition-funding"></div>
           <label for="petition-tier">Who signs and votes</label>
           <select id="petition-tier"><option value="2">Residents with full voting rights</option><option value="1">ID-checked residents</option><option value="0">All members (advisory questions only)</option></select>
           <button class="primary" id="btn-petition">Start petition</button>
@@ -244,6 +281,31 @@
       <div class="row" role="group" aria-label="Order petitions"><span class="muted">Show:</span><button id="petition-sort-top" aria-pressed="true">Most signed</button><button id="petition-sort-new" aria-pressed="false">Newest</button></div>
       <label class="row">Topic <select id="petition-filter" style="width:auto"><option value="all">All topics</option><option value="general">General</option><option value="safety">Public safety</option><option value="roads">Roads and transport</option><option value="housing">Housing</option><option value="budget">Budget and taxes</option><option value="environment">Environment and parks</option><option value="health">Health</option><option value="education">Schools and education</option><option value="services">Water, power and services</option><option value="economy">Jobs and business</option><option value="rights">Rights and justice</option><option value="governance">How decisions are made</option></select></label>
       <div id="petition-list" class="stack"></div>
+    </section>
+
+    <!-- The People's Agenda -->
+    <section id="screen-agenda" data-screen hidden>
+      <h1>The People's Agenda</h1>
+      <p>What should our community work on? Residents decide the priorities, not politicians. Each season, everyone can add one issue, then rank what matters most with priority credits. Anonymous: nobody can see who added or ranked what. The result is a public list of what residents want, by topic, for candidates and officials to answer to.</p>
+      <details class="card" id="agenda-new" hidden><summary><strong>Open a season</strong></summary>
+        <div class="stack">
+          <label for="agenda-title">Name</label>
+          <input type="text" id="agenda-title" placeholder="e.g. Spring 2027: what should the city work on?" />
+          <label for="agenda-body">Details (optional)</label>
+          <textarea id="agenda-body" rows="2"></textarea>
+          <label for="agenda-tier">Who takes part</label>
+          <select id="agenda-tier"><option value="0">All members</option><option value="1">ID-checked residents</option><option value="2">Residents with full voting rights</option></select>
+          <label for="agenda-propose-days">Days to add issues</label>
+          <input type="text" id="agenda-propose-days" value="7" inputmode="decimal" style="width:100px" />
+          <label for="agenda-rank-days">Days to rank them</label>
+          <input type="text" id="agenda-rank-days" value="14" inputmode="decimal" style="width:100px" />
+          <label for="agenda-credits">Priority credits each</label>
+          <input type="text" id="agenda-credits" value="16" inputmode="numeric" style="width:100px" />
+          <button class="primary" id="btn-agenda-open">Open the season</button>
+          <p class="status" id="agenda-status" role="status"></p>
+        </div>
+      </details>
+      <div id="agenda-list" class="stack"></div>
     </section>
 
     <!-- Citizens' assemblies -->
@@ -256,6 +318,8 @@
           <input type="text" id="assembly-title" placeholder="e.g. How should we make Main Street safer to cross?" />
           <label for="assembly-body">Details (optional): how often it meets, where, support offered (childcare, pay, interpreters)</label>
           <textarea id="assembly-body" rows="3"></textarea>
+          <label for="assembly-review">Review panel for poll number (optional): the panel hears both sides and writes the for-and-against statement shown with that poll</label>
+          <input type="text" id="assembly-review" inputmode="numeric" style="width:100px" />
           <label for="assembly-tier">Draw from</label>
           <select id="assembly-tier"><option value="2">Residents with full voting rights</option><option value="1">ID-checked residents</option><option value="0">All members</option></select>
           <label for="assembly-seats">Seats</label>
@@ -424,6 +488,7 @@
         <label for="poll-body">Details: what exactly, by when, what it costs</label>
         <textarea id="poll-body" rows="4"></textarea>
         <div id="poll-attach"></div>
+        <div id="poll-videos"></div>
         <label for="poll-kind">What a Yes does</label> <a href="#help-binding" class="whats" data-help="binding">What's this?</a>
         <select id="poll-kind">
           <option value="0">Advisory: records what the public wants</option>
@@ -669,6 +734,20 @@
         <p class="status" id="credits-status" role="status"></p>
       </div>
 
+      <div class="card stack" id="admin-moderation" hidden>
+        <h3>Comments to review</h3>
+        <p class="note">Flagged by AI for a person to look at: spam, threats, harassment, or someone's private details. Disagreement and criticism are never flagged. Nothing is removed automatically.</p>
+        <div id="moderation-list"></div>
+      </div>
+      <div class="card stack" id="admin-checkers" hidden>
+        <h3>Who checks mandates</h3>
+        <p class="note">Drawing checkers at random for each piece of evidence means nobody knows in advance who will check, so nobody can lean on them. Changes go through the council, in public.</p>
+        <p id="checkers-now" class="muted"></p>
+        <label for="checkers-size">Checkers for each piece of evidence</label>
+        <select id="checkers-size"><option value="0">All verifiers may check</option><option value="3">3 drawn at random</option><option value="5">5 drawn at random</option><option value="7">7 drawn at random</option></select>
+        <button id="btn-checkers">Submit</button>
+        <p class="status" id="checkers-status" role="status"></p>
+      </div>
       <div class="card stack" id="admin-roles" hidden>
         <h3 id="roles-title">Give or remove a role</h3>
         <p class="note" id="roles-note" hidden>Changes go to the council as a proposal: other members approve, then there is a public waiting period before they take effect. Removing a role needs approvals but no wait.</p>
@@ -688,6 +767,7 @@
           <option value="budget">Can open budget rounds</option>
           <option value="registrar">Can register officials and set up government bodies</option>
           <option value="assembly">Can organize citizens' assemblies (random draws)</option>
+          <option value="agenda">Can open People's Agenda seasons</option>
           <option value="carrier">Can deliver offline ballots after a poll closes (approved carrier)</option>
           <option value="admin">Admin (council member, if there is a council)</option>
           <option value="all">Every role this account has (remove only)</option>

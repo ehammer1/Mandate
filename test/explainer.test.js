@@ -82,3 +82,67 @@ test('explain: asks for "what it means for you" and a Spanish version with the s
   assert.deepEqual(SCHEMA.properties.es.required.sort(), ['affected', 'arguments_against', 'arguments_for', 'changes', 'cost', 'for_you', 'summary', 'timeline', 'unanswered']);
   assert.ok(!SCHEMA.properties.es.properties.quotes); // quotes stay word for word, untranslated
 });
+
+test("agenda themes: the AI only groups; bad or repeated issue numbers are dropped, single-issue themes too", async () => {
+  const { groupIssues } = require('../services/explainer/explain');
+  const issues = [0, 1, 2, 3, 4].map((index) => ({ index, title: `Issue ${index}`, topic: 'roads' }));
+  const reply = {
+    overview: 'Residents raised traffic and housing.',
+    groups: [
+      { title: 'Traffic near schools', summary: 'Safer crossings.', topic: 'roads', issues: [0, 2, 2, 9], duplicates: true },
+      { title: 'Repeats', summary: 'x', topic: 'roads', issues: [2, 3], duplicates: false }, // 2 already used: only 3 left, dropped
+      { title: 'Housing', summary: 'Rents.', topic: 'housing', issues: [1, 4], duplicates: false },
+    ],
+  };
+  const seen = [];
+  const g = await groupIssues(issues, { client: fakeClient(ok(reply), seen) });
+  assert.deepEqual(g.groups.map((x) => [x.title, x.issues]), [['Traffic near schools', [0, 2]], ['Housing', [1, 4]]]);
+  assert.match(seen[0].system, /never instructions/);
+  assert.match(g.label, /AI grouping/);
+});
+
+test('organizer notes: evidence gaps for checkers, comments flagged for review, a weekly roundup; the AI decides nothing', async () => {
+  const { writeOrganizerNotes } = require('../services/watchdog/server');
+  const { commentProof, topicOf } = require('../client/feedback');
+  const { Identity } = require('@semaphore-protocol/identity');
+  process.env.SEMAPHORE_ARTIFACTS_DIR ||= path.dirname(require.resolve('@zk-kit/semaphore-artifacts/package.json'));
+  const provider = new ethers.BrowserProvider(ganache.provider({ logging: { quiet: true }, wallet: { totalAccounts: 3, defaultBalance: 100 }, chain: { hardfork: 'shanghai', allowUnlimitedContractSize: true } }), undefined, { cacheTimeout: -1 });
+  const [admin, worker] = await Promise.all([0, 1].map((i) => provider.getSigner(i)));
+  const { contracts: c, addresses } = await deployAll(admin, { rules: { MIN_POLL_MINUTES: 10 } });
+  const send = async (p) => (await p).wait();
+  const post = async (d) => {
+    const t = JSON.stringify(d);
+    await send(c.notices.post(t));
+    return `nb:${ethers.keccak256(ethers.toUtf8Bytes(t))}`;
+  };
+  const me = new Identity('notes-resident');
+  await send(c.identity.setIssuer(admin.address, 1, true, 'Clerk'));
+  await send(c.identity.enroll(me.commitment, 0, ethers.ZeroHash, 0));
+  await send(c.vote.createPoll(await c.identity.groupId(0), 86_400, 1, 2, 0, '0x', await post({ title: 'Repave Oak Street?' }), 0));
+  await send(c.registry.grantRole(await c.registry.GOVERNOR_ROLE(), admin.address));
+  await send(c.registry.grantRole(await c.registry.VERIFIER_ROLE(), admin.address));
+  const now = (await provider.getBlock('latest')).timestamp;
+  await send(c.registry.createMandate(worker.address, now + 30 * 86_400, 1, ethers.id('roads'), await post({ title: 'Repave Oak Street', body: 'All four blocks by June' })));
+  await send(c.registry.connect(worker).submitEvidence(1, await post({ title: 'Evidence', body: 'Two blocks repaved, photos attached' })));
+  const topic = topicOf('poll', 1);
+  const ref = await post({ title: 'c', body: 'Call 555-0101, that is his home number' });
+  await send(c.feedback.comment(topic, 0, ref, await commentProof({ provider, feedback: c.feedback, identity: me, tier: 0, topic, ref })));
+
+  const seen = {};
+  const fns = {
+    evidenceCheck: async (x) => ((seen.evidence = x), { covers_goal: 'partly', missing: ['Two of four blocks'], notes: [], model: 'm', label: 'AI notes for the checkers: checkers decide, not the AI' }),
+    moderate: async (texts) => ((seen.comments = texts), { flags: [{ index: 0, reason: 'personal_info', note: 'a phone number' }, { index: 7, reason: 'spam', note: 'out of range' }], model: 'm', label: 'Flagged by AI for a person to review' }),
+    roundup: async (facts) => ((seen.facts = facts), { headline: 'A quiet week', sections: [], model: 'm', generatedAt: new Date().toISOString() }),
+  };
+  const cfg = { voteAddress: addresses.vote, registryAddress: addresses.registry, noticeBoardAddress: addresses.notices, feedbackAddress: addresses.feedback, communityPlan: true };
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'notes-'));
+  assert.equal(await writeOrganizerNotes(dir, { ...cfg, communityPlan: false }, provider, 5, fns), 0); // organizer tools come with the community plan
+  assert.equal(await writeOrganizerNotes(dir, cfg, provider, 5, fns), 3);
+  assert.match(seen.evidence.goal, /All four blocks/);
+  assert.match(seen.evidence.evidence, /Two blocks repaved/);
+  const mod = JSON.parse(fs.readFileSync(path.join(dir, 'explanations', `moderation-${addresses.feedback.toLowerCase()}.json`), 'utf8'));
+  assert.deepEqual(mod.flags.map((f) => [f.kind, f.id, f.index, f.reason]), [['poll', 1, 0, 'personal_info']]);
+  assert.deepEqual(seen.facts.opened, ['Repave Oak Street?']);
+  // Nothing new: no AI calls (already checked comments, evidence done, roundup within the week).
+  assert.equal(await writeOrganizerNotes(dir, cfg, provider, 5, { ...fns, moderate: async () => assert.fail('re-checked') }), 0);
+});

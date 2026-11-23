@@ -70,6 +70,8 @@ const ABIS = {
     'event MandateCancelled(uint256 indexed id, string reasonCID)',
     'event MandatePaused(uint256 indexed id, string reasonCID)',
     'event MandateRevised(uint256 indexed id, address indexed responsible, uint64 deadline, uint16 threshold, string specCID, string reasonCID)',
+    'event PanelSizeSet(uint16 size)',
+    'event PanelDrawn(uint256 indexed id, uint32 indexed round, address[] members)',
     'function mandateCount() view returns (uint256)',
     'function isOverdue(uint256) view returns (bool)',
   ],
@@ -134,6 +136,19 @@ const ABIS = {
     'event MotionDecided(uint256 indexed motionId, uint8 stage, uint32 yes, uint32 no, uint32 abstain)',
     'event ExecutiveActed(uint256 indexed motionId, bool signed, string ref)',
   ],
+  agenda: [
+    'event SeasonOpened(uint256 indexed id, uint8 tier, uint64 proposeEnd, uint64 end, uint32 credits, string ref)',
+    'event IssueAdded(uint256 indexed id, uint256 index, string ref, bool byOrganizer)',
+    'event CandidateAdded(uint256 indexed season, uint256 indexed candidate, address account, string name, string race, string party)',
+    'event PositionsStated(uint256 indexed candidate, uint32 version, string ref)',
+  ],
+  assemblies: [
+    'event Announced(uint256 indexed id, uint8 tier, uint16 seats, uint256 size, uint256 drawBlock, string ref)',
+    'event Rescheduled(uint256 indexed id, uint256 drawBlock)',
+    'event Drawn(uint256 indexed id, bytes32 seed)',
+    'event SeatAccepted(uint256 indexed id, uint256 position)',
+    'event Reported(uint256 indexed id, string ref)',
+  ],
   voterGroups: [
     'event GroupCreated(uint256 indexed groupId, string name, address manager, uint8 baseTier)',
     'event ManagerChanged(uint256 indexed groupId, address manager)',
@@ -155,7 +170,7 @@ const ROLE_EVENTS = [
   'event RoleGranted(bytes32 indexed role, address indexed account, address indexed sender)',
   'event RoleRevoked(bytes32 indexed role, address indexed account, address indexed sender)',
 ];
-const CONTRACT_LABEL = { identity: 'identity registry', vote: 'voting', registry: 'mandate registry', market: 'decision markets', council: 'council', charter: 'charter (voting rules)', budget: 'civic budget', feedback: 'petitions and comments', officials: 'officials registry', bodies: 'government bodies', bodyRecords: 'body records', tallies: 'paper and in-person results', progress: 'mandate progress', voterGroups: 'smaller voter lists' };
+const CONTRACT_LABEL = { identity: 'identity registry', vote: 'voting', registry: 'mandate registry', market: 'decision markets', council: 'council', charter: 'charter (voting rules)', budget: 'civic budget', feedback: 'petitions and comments', officials: 'officials registry', bodies: 'government bodies', bodyRecords: 'body records', tallies: 'paper and in-person results', progress: 'mandate progress', voterGroups: 'smaller voter lists', assemblies: "citizens' assemblies", agenda: "People's Agenda" };
 
 /**
  * @param {object} o
@@ -402,7 +417,7 @@ function createWatchdog(o) {
  * published with the audit history so everyone sees the same one. At most `limit` new
  * ones per run. Returns how many were written.
  */
-async function writeExplanations(dir, cfg, provider, limit, explainFn) {
+async function writeExplanations(dir, cfg, provider, limit, explainFn, groupFn) {
   const fs = require('fs');
   const path = require('path');
   const explain = explainFn || require('../explainer/explain').explain;
@@ -437,10 +452,139 @@ async function writeExplanations(dir, cfg, provider, limit, explainFn) {
       made++;
     }
   }
+  // The People's Agenda: AI themes for the latest seasons, rewritten when issues are added
+  // (an organizer tool: communities with the community plan).
+  if (cfg.agendaAddress && cfg.communityPlan === true) {
+    const group = groupFn || require('../explainer/explain').groupIssues;
+    const ag = new ethers.Contract(cfg.agendaAddress, ['function seasonCount() view returns (uint256)', 'function issues(uint256) view returns (string[] refs, uint256[] credits)'], provider);
+    const n = Number(await ag.seasonCount());
+    for (let id = n; id >= Math.max(1, n - 2) && made < limit; id--) {
+      const file = path.join(out, `agenda-${cfg.agendaAddress.toLowerCase()}-${id}.json`);
+      const [refs] = await ag.issues(id);
+      if (refs.length < 3) continue;
+      const before = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : null;
+      if (before && before.issueCount === refs.length) continue;
+      const docs = await Promise.all(refs.map((r) => readDoc(cfg, provider, r).catch(() => null)));
+      const issues = docs.map((d, index) => (d ? { index, title: d.title, body: d.body, topic: d.category } : null)).filter(Boolean);
+      const g = await group(issues);
+      fs.writeFileSync(file, JSON.stringify({ kind: 'agenda', season: id, issueCount: refs.length, ...g }, null, 1) + '\n');
+      made++;
+    }
+  }
   return made;
 }
 
-module.exports = { createWatchdog, writeExplanations };
+/**
+ * AI notes for the people who decide (published with the explanations, the same for everyone):
+ *  - evidence-<registry>-<id>-<round>.json: what a promise's evidence doesn't yet show, for the
+ *    checkers (who decide, not the AI)
+ *  - moderation-<feedback>.json: new comments flagged for a person to review (spam, threats,
+ *    harassment, private details); nothing is removed automatically
+ *  - roundup-<vote>.json: the week in plain words, at most once a week
+ * At most `limit` AI calls per run. Returns how many files were written.
+ */
+async function writeOrganizerNotes(dir, cfg, provider, limit, fns) {
+  if (cfg.communityPlan !== true) return 0; // organizer tools come with the community plan
+  const fs = require('fs');
+  const path = require('path');
+  const ai = fns || require('../explainer/explain');
+  const { readDoc } = require('../explainer/source');
+  const out = path.join(dir, 'explanations');
+  fs.mkdirSync(out, { recursive: true });
+  let made = 0;
+  const coder = ethers.AbiCoder.defaultAbiCoder();
+  const MANDATE = 'function getMandate(uint256) view returns (tuple(address responsible, uint64 createdAt, uint64 deadline, uint64 settledAt, uint16 threshold, uint8 status, uint32 round, uint32 approvals, uint32 rejections, bytes32 category, string specCID, string evidenceCID, uint64 pausedAt))';
+  const reg = cfg.registryAddress ? new ethers.Contract(cfg.registryAddress, ['function mandateCount() view returns (uint256)', MANDATE], provider) : null;
+  const mandates = reg ? Number(await reg.mandateCount()) : 0;
+
+  // Evidence under review.
+  for (let id = mandates; reg && id >= Math.max(1, mandates - 19) && made < limit; id--) {
+    const m = await reg.getMandate(id);
+    if (Number(m.status) !== 2 || !m.evidenceCID) continue;
+    const file = path.join(out, `evidence-${cfg.registryAddress.toLowerCase()}-${id}-${m.round}.json`);
+    if (fs.existsSync(file)) continue;
+    const [goal, ev] = await Promise.all([readDoc(cfg, provider, m.specCID), readDoc(cfg, provider, m.evidenceCID)]);
+    if (!goal || !ev) continue;
+    const files = (ev.attachments || []).map((a) => `${a.name || 'file'}: ${a.alt || ''} ${a.ai?.text || ''} ${a.transcript || ''}`).join('\n');
+    const n = await ai.evidenceCheck({ goal: `${goal.title}\n${goal.body || ''}`, evidence: `${ev.body || ev.title}\n${files}` });
+    fs.writeFileSync(file, JSON.stringify({ kind: 'evidence', mandate: id, round: Number(m.round), ...n }, null, 1) + '\n');
+    made++;
+  }
+
+  // New comments on recent polls and promises.
+  if (cfg.feedbackAddress && made < limit) {
+    const fb = new ethers.Contract(cfg.feedbackAddress, ['function commentCount(bytes32) view returns (uint256)', 'function comments(bytes32, uint256, uint256) view returns (tuple(string ref, uint8 tier, uint64 at)[])'], provider);
+    const file = path.join(out, `moderation-${cfg.feedbackAddress.toLowerCase()}.json`);
+    const state = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : { checked: {}, flags: [] };
+    const vote = new ethers.Contract(cfg.voteAddress, ['function pollCount() view returns (uint256)'], provider);
+    const polls = Number(await vote.pollCount());
+    const topics = [];
+    for (let id = polls; id >= Math.max(1, polls - 19); id--) topics.push(['poll', id]);
+    for (let id = mandates; id >= Math.max(1, mandates - 19); id--) topics.push(['mandate', id]);
+    const batch = [];
+    for (const [kind, id] of topics) {
+      const key = `${kind}-${id}`;
+      const n = Number(await fb.commentCount(ethers.keccak256(coder.encode(['string', 'uint256'], [kind, id]))));
+      const from = state.checked[key] || 0;
+      if (n <= from) continue;
+      const list = await fb.comments(ethers.keccak256(coder.encode(['string', 'uint256'], [kind, id])), from, Math.min(n - from, 50));
+      for (const [i, c] of list.entries()) {
+        const d = await readDoc(cfg, provider, c.ref).catch(() => null);
+        batch.push({ kind, id, index: from + i, text: d ? d.body || d.title : '' });
+      }
+      state.checked[key] = from + list.length;
+      if (batch.length >= 60) break;
+    }
+    if (batch.length) {
+      const r = await ai.moderate(batch.map((b) => b.text));
+      state.flags = [...r.flags.filter((f) => batch[f.index]).map((f) => ({ kind: batch[f.index].kind, id: batch[f.index].id, index: batch[f.index].index, reason: f.reason, note: f.reason === 'personal_info' ? 'Contains a private person\'s details (not repeated here)' : String(f.note).slice(0, 200), at: new Date().toISOString() })), ...state.flags].slice(0, 200);
+      state.model = r.model;
+      state.label = r.label;
+      made++;
+    }
+    fs.writeFileSync(file, JSON.stringify(state, null, 1) + '\n');
+  }
+
+  // The weekly roundup.
+  const rfile = path.join(out, `roundup-${cfg.voteAddress.toLowerCase()}.json`);
+  const last = fs.existsSync(rfile) ? JSON.parse(fs.readFileSync(rfile, 'utf8')) : null;
+  if (made < limit && (!last || Date.now() - Date.parse(last.generatedAt || 0) > 7 * 86_400_000)) {
+    const now = (await provider.getBlock('latest')).timestamp;
+    const week = now - 7 * 86_400;
+    const vote = new ethers.Contract(cfg.voteAddress, ['function pollCount() view returns (uint256)', 'function getPoll(uint256) view returns (tuple(uint256 groupId, uint256 snapshotRoot, uint256 electorate, uint64 start, uint64 end, uint32 quorum, uint8 options, uint8 action, bool finalized, bool passed, address proposer, uint256 bond, string questionCID, bytes actionData))'], provider);
+    const facts = { opened: [], closingSoon: [], closed: [], promisesDone: [], promisesOverdue: [], agenda: [] };
+    const pc = Number(await vote.pollCount());
+    for (let id = pc; id >= Math.max(1, pc - 29); id--) {
+      const p = await vote.getPoll(id);
+      const title = (await readDoc(cfg, provider, p.questionCID).catch(() => null))?.title || `Poll ${id}`;
+      if (Number(p.start) >= week) facts.opened.push(title);
+      if (Number(p.end) > now && Number(p.end) < now + 7 * 86_400) facts.closingSoon.push(title);
+      if (Number(p.end) <= now && Number(p.end) >= week) facts.closed.push(`${title}: ${p.passed ? 'passed' : 'did not pass'}`);
+    }
+    for (let id = mandates; reg && id >= Math.max(1, mandates - 29); id--) {
+      const m = await reg.getMandate(id);
+      const title = (await readDoc(cfg, provider, m.specCID).catch(() => null))?.title || `Promise ${id}`;
+      if (Number(m.status) === 3 && Number(m.settledAt) >= week) facts.promisesDone.push(title);
+      else if ([1, 2].includes(Number(m.status)) && Number(m.deadline) < now) facts.promisesOverdue.push(title);
+    }
+    if (cfg.agendaAddress) {
+      const ag = new ethers.Contract(cfg.agendaAddress, ['function seasonCount() view returns (uint256)', 'function issues(uint256) view returns (string[] refs, uint256[] credits)'], provider);
+      const sc = Number(await ag.seasonCount());
+      if (sc) {
+        const [refs, credits] = await ag.issues(sc);
+        const top = refs.map((r, i) => [r, Number(credits[i])]).sort((a, b) => b[1] - a[1]).slice(0, 5);
+        for (const [r, c] of top) facts.agenda.push(`${(await readDoc(cfg, provider, r).catch(() => null))?.title || 'Issue'} (${c} credits)`);
+      }
+    }
+    if (Object.values(facts).some((v) => v.length)) {
+      fs.writeFileSync(rfile, JSON.stringify({ kind: 'roundup', ...(await ai.roundup(facts)), facts }, null, 1) + '\n');
+      made++;
+    }
+  }
+  return made;
+}
+
+module.exports = { createWatchdog, writeExplanations, writeOrganizerNotes };
 
 if (require.main === module) {
   const fs = require('fs');
@@ -459,7 +603,7 @@ if (require.main === module) {
     const startBlock = env('START_BLOCK') ? Number(env('START_BLOCK')) : cfg.startBlock ? Number(cfg.startBlock) : Math.max(0, head - Number(env('LOOKBACK_BLOCKS') || 43_200));
     const dog = createWatchdog({
       provider,
-      addresses: { identity: cfg.identityAddress, vote: cfg.voteAddress, registry: cfg.registryAddress, market: cfg.marketAddress, council: cfg.councilAddress, charter: cfg.charterAddress, budget: cfg.budgetAddress, feedback: cfg.feedbackAddress, officials: cfg.officialsAddress, bodies: cfg.bodiesAddress, bodyRecords: cfg.bodyRecordsAddress, tallies: cfg.talliesAddress, progress: cfg.progressAddress, voterGroups: cfg.voterGroupsAddress },
+      addresses: { identity: cfg.identityAddress, vote: cfg.voteAddress, registry: cfg.registryAddress, market: cfg.marketAddress, council: cfg.councilAddress, charter: cfg.charterAddress, budget: cfg.budgetAddress, feedback: cfg.feedbackAddress, officials: cfg.officialsAddress, bodies: cfg.bodiesAddress, bodyRecords: cfg.bodyRecordsAddress, tallies: cfg.talliesAddress, progress: cfg.progressAddress, voterGroups: cfg.voterGroupsAddress, assemblies: cfg.assembliesAddress, agenda: cfg.agendaAddress },
       startBlock,
       blockSpan: Number(env('LOG_BLOCK_SPAN') || 200),
       enrolPerHour: Number(env('ENROL_PER_HOUR') || 50),
@@ -514,6 +658,8 @@ if (require.main === module) {
         try {
           const made = await writeExplanations(dir, cfg, provider, Number(env('EXPLAIN_PER_RUN') || 3));
           if (made) console.log(`[watchdog] wrote ${made} plain-language explanation(s)`);
+          const notes = await writeOrganizerNotes(dir, cfg, provider, Number(env('NOTES_PER_RUN') || 3));
+          if (notes) console.log(`[watchdog] wrote ${notes} AI note(s) for checkers and organizers`);
         } catch (e) {
           console.error(`[watchdog] explanations skipped: ${e.message}`);
         }

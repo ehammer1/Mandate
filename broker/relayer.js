@@ -52,6 +52,10 @@ const BUDGET_ABI = [
 ];
 const VOTE_ABI = [
   'function castBallot(uint256 id, tuple(uint256 merkleTreeDepth, uint256 merkleTreeRoot, uint256 nullifier, uint256 message, uint256 scope, uint256[8] points) b)',
+  'function deliverHeld(uint256 id, tuple(uint256 merkleTreeDepth, uint256 merkleTreeRoot, uint256 nullifier, uint256 message, uint256 scope, uint256[8] points) b, bytes32 root, bytes32[] path)',
+  'function commitHeld(uint256 id, bytes32 root, uint8 v, bytes32 r, bytes32 s)',
+  'error NotHeld()',
+  'error AccessControlUnauthorizedAccount(address account, bytes32 neededRole)',
   'function getPoll(uint256 id) view returns (tuple(uint256 groupId, uint256 snapshotRoot, uint256 electorate, uint64 start, uint64 end, uint32 quorum, uint8 options, uint8 action, bool finalized, bool passed, address proposer, uint256 bond, string questionCID, bytes actionData))',
   'function tally(uint256 id) view returns (uint256[])',
   'function nullifierUsed(uint256 id, uint256 nullifier) view returns (bool)',
@@ -69,14 +73,22 @@ const VOTE_ABI = [
   'error BadRanking()',
 ];
 
+const AGENDA_ABI = [
+  `function proposeIssue(uint256 id, string ref, ${PROOF} p)`,
+  `function rank(uint256 id, uint16[] picks, uint32[] credits, ${PROOF} p)`,
+  'error InvalidParams()', 'error UnknownSeason()', 'error NotProposing()', 'error NotRanking()', 'error TooManyIssues()', 'error AlreadyProposed()',
+  'error BadPicks()', 'error OverBudget(uint256 cost, uint32 credits)', 'error WrongRoot()', 'error WrongScope()', 'error WrongMessage()', 'error BadDepth()', 'error InvalidProof()',
+];
+
 const MAX_BODY = 16 * 1024;
 
-function createRelayer({ provider, signer, voteAddress, budgetAddress, feedbackAddress, noticeBoardAddress, talliesAddress, rateLimitPerMin = 30, corsOrigin = '*', confirmations = 1, log = console.log }) {
+function createRelayer({ provider, signer, voteAddress, budgetAddress, feedbackAddress, noticeBoardAddress, talliesAddress, agendaAddress, rateLimitPerMin = 30, corsOrigin = '*', confirmations = 1, log = console.log }) {
   const vote = new ethers.Contract(voteAddress, VOTE_ABI, signer);
   const budget = budgetAddress ? new ethers.Contract(budgetAddress, BUDGET_ABI, signer) : null;
   const feedback = feedbackAddress ? new ethers.Contract(feedbackAddress, FEEDBACK_ABI, signer) : null;
   const tallies = talliesAddress ? new ethers.Contract(talliesAddress, ['function checkIn(uint256 pollId, uint32 place, tuple(uint256 merkleTreeDepth, uint256 merkleTreeRoot, uint256 nullifier, uint256 message, uint256 scope, uint256[8] points) proof)', 'error NotOpen()', 'error AlreadyCheckedIn()', 'error BadProof()', 'error BadInput()'], signer) : null;
   const board = noticeBoardAddress ? new ethers.Contract(noticeBoardAddress, ['function post(string) returns (bytes32)', 'function read(bytes32) view returns (string)'], signer) : null;
+  const agenda = agendaAddress ? new ethers.Contract(agendaAddress, AGENDA_ABI, signer) : null;
   const hits = new Map(); // ip -> [timestamps]; in memory only, never logged
   const inFlight = new Set(); // pollId:nullifier being submitted
   let queue = Promise.resolve(); // serialise sends to keep nonces simple
@@ -126,9 +138,14 @@ function createRelayer({ provider, signer, voteAddress, budgetAddress, feedbackA
     if (body?.pollId === undefined || !b || !Array.isArray(b.points) || b.points.length !== 8) {
       throw Object.assign(new Error('expected { pollId, ballot: { ..., points[8] } }'), { status: 400 });
     }
+    const h = body.held;
+    if (h && (!/^0x[0-9a-fA-F]{64}$/.test(h.root || '') || !Array.isArray(h.path) || h.path.length > 32 || !h.path.every((x) => /^0x[0-9a-fA-F]{64}$/.test(x)))) {
+      throw Object.assign(new Error('held must be { root, path[] } of 32-byte hex values'), { status: 400 });
+    }
     try {
       return {
         pollId: BigInt(body.pollId),
+        held: h ? { root: h.root, path: h.path } : null,
         ballot: {
           merkleTreeDepth: BigInt(b.merkleTreeDepth),
           merkleTreeRoot: BigInt(b.merkleTreeRoot),
@@ -154,7 +171,11 @@ function createRelayer({ provider, signer, voteAddress, budgetAddress, feedbackA
   }
 
   async function handleBallot(req, res) {
-    const { pollId, ballot } = parseBallot(await readJson(req));
+    const { pollId, ballot, held } = parseBallot(await readJson(req));
+    // A ballot a carrier fingerprinted before the close is delivered with its path to the
+    // fingerprint (anyone may deliver it; the contract checks the fingerprint was published in time).
+    const fn = held ? vote.deliverHeld : vote.castBallot;
+    const args = held ? [pollId, ballot, held.root, held.path] : [pollId, ballot];
     const key = `${pollId}:${ballot.nullifier}`;
     // A second ballot from the same voter changes their vote (the contract refuses the same
     // choice twice, and polls on contracts without vote-changing refuse it outright).
@@ -163,7 +184,7 @@ function createRelayer({ provider, signer, voteAddress, budgetAddress, feedbackA
     }
     // Validate fully (proof included) before spending gas.
     try {
-      await vote.castBallot.staticCall(pollId, ballot);
+      await fn.staticCall(...args);
     } catch (e) {
       const name = revertName(e);
       if (name === 'NullifierUsed') return send(res, 409, { error: name, message: 'this voter already cast this choice' });
@@ -172,8 +193,8 @@ function createRelayer({ provider, signer, voteAddress, budgetAddress, feedbackA
     inFlight.add(key);
     try {
       const run = queue.then(async () => {
-        const gas = await vote.castBallot.estimateGas(pollId, ballot);
-        const tx = await vote.castBallot(pollId, ballot, { gasLimit: (gas * 12n) / 10n });
+        const gas = await fn.estimateGas(...args);
+        const tx = await fn(...args, { gasLimit: (gas * 12n) / 10n });
         return tx.wait(confirmations);
       });
       queue = run.catch(() => {}); // a failed send must not block the next one
@@ -186,6 +207,35 @@ function createRelayer({ provider, signer, voteAddress, budgetAddress, feedbackA
       send(res, name ? 422 : 502, { error: name || 'SubmitFailed', message: e.shortMessage || e.message });
     } finally {
       inFlight.delete(key);
+    }
+  }
+
+  // POST /held { code: "PH1:..." }: publish a carrier's signed fingerprint of the ballots it holds,
+  // before the close. The code is short enough to text, so a carrier with almost no signal can
+  // send it to anyone, who passes it on here.
+  async function handleHeld(req, res) {
+    const { readHeldCode, sigParts } = require('../client/held');
+    let h;
+    try {
+      h = readHeldCode((await readJson(req))?.code);
+    } catch (e) {
+      return send(res, 400, { error: e.message });
+    }
+    if (h.voteAddress.toLowerCase() !== voteAddress.toLowerCase()) return send(res, 404, { error: 'that code is for a different community' });
+    try {
+      await vote.commitHeld.staticCall(h.pollId, h.root, ...sigParts(h.sig));
+    } catch (e) {
+      const name = revertName(e) || (/AccessControl/.test(e.shortMessage || e.message) ? 'NotACarrier' : null);
+      return send(res, name ? 422 : 502, { error: name || 'RPCError' });
+    }
+    try {
+      const run = queue.then(async () => (await vote.commitHeld(h.pollId, h.root, ...sigParts(h.sig))).wait(confirmations));
+      queue = run.catch(() => {});
+      const receipt = await run;
+      log(`carrier fingerprint recorded poll=${h.pollId} tx=${receipt.hash}`);
+      send(res, 200, { txHash: receipt.hash });
+    } catch (e) {
+      send(res, 502, { error: revertName(e) || 'SubmitFailed', message: e.shortMessage || e.message });
     }
   }
 
@@ -290,6 +340,49 @@ function createRelayer({ provider, signer, voteAddress, budgetAddress, feedbackA
     }
   }
 
+  // POST /agenda { method: 'propose' | 'rank', args: [...], proof }: the People's Agenda (anonymous).
+  async function handleAgenda(req, res) {
+    if (!agenda) return send(res, 404, { error: 'no agenda contract on this relayer' });
+    const body = await readJson(req);
+    const method = { propose: 'proposeIssue', rank: 'rank' }[body?.method];
+    if (!method || !Array.isArray(body.args) || body.args.length > 3) return send(res, 400, { error: 'expected { method, args[], proof }' });
+    let args;
+    try {
+      const p = body.proof;
+      const proof = { merkleTreeDepth: BigInt(p.merkleTreeDepth), merkleTreeRoot: BigInt(p.merkleTreeRoot), nullifier: BigInt(p.nullifier), message: BigInt(p.message), scope: BigInt(p.scope), points: p.points.map((x) => BigInt(x)) };
+      if (proof.points.length !== 8) throw new Error();
+      args = [...body.args, proof];
+    } catch {
+      return send(res, 400, { error: 'bad proof' });
+    }
+    const why = (e) => {
+      try {
+        return e?.revert?.name || agenda.interface.parseError(e?.data || e?.info?.error?.data)?.name || null;
+      } catch {
+        return null;
+      }
+    };
+    try {
+      await agenda[method].staticCall(...args);
+    } catch (e) {
+      const name = why(e);
+      return send(res, name ? (name === 'AlreadyProposed' ? 409 : 422) : 502, { error: name || 'RPCError' });
+    }
+    try {
+      const run = queue.then(async () => {
+        const gas = await agenda[method].estimateGas(...args);
+        return (await agenda[method](...args, { gasLimit: (gas * 13n) / 10n })).wait(confirmations);
+      });
+      queue = run.catch(() => {});
+      const receipt = await run;
+      log(`agenda ${body.method} recorded tx=${receipt.hash}`);
+      send(res, 200, { txHash: receipt.hash });
+    } catch (e) {
+      const name = why(e);
+      send(res, name ? 422 : 502, { error: name || 'SubmitFailed', message: e.shortMessage || e.message });
+    }
+  }
+
   // POST /checkin { pollId, place, proof }: check in at a polling place to vote on paper.
   async function handleCheckIn(req, res) {
     if (!tallies) return send(res, 404, { error: 'no tallies contract on this relayer' });
@@ -377,8 +470,10 @@ function createRelayer({ provider, signer, voteAddress, budgetAddress, feedbackA
       const poll = req.method === 'GET' && req.url.match(/^\/poll\/(\d+)$/);
       if (poll) return await handlePoll(res, poll[1]);
       if (req.method === 'POST' && req.url === '/ballot') return await handleBallot(req, res);
+      if (req.method === 'POST' && req.url === '/held') return await handleHeld(req, res);
       if (req.method === 'POST' && req.url === '/allocation') return await handleAllocation(req, res);
       if (req.method === 'POST' && req.url === '/feedback') return await handleFeedback(req, res);
+      if (req.method === 'POST' && req.url === '/agenda') return await handleAgenda(req, res);
       if (req.method === 'POST' && req.url === '/notice') return await handleNotice(req, res);
       if (req.method === 'POST' && req.url === '/checkin') return await handleCheckIn(req, res);
       send(res, 404, { error: 'not found' });
@@ -408,6 +503,7 @@ if (require.main === module) {
     let feedbackAddress = clean('FEEDBACK_ADDRESS');
     let noticeBoardAddress = clean('NOTICE_BOARD_ADDRESS');
     let talliesAddress = clean('TALLIES_ADDRESS');
+    let agendaAddress = clean('AGENDA_ADDRESS');
     let rpcUrl = clean('RPC_URL');
     const loadConfig = async () => (await fetch(`${configUrl}${configUrl.includes('?') ? '&' : '?'}t=${Date.now()}`, { cache: 'no-store' })).json();
     if (configUrl) {
@@ -417,6 +513,7 @@ if (require.main === module) {
       feedbackAddress = feedbackAddress || cfg.feedbackAddress || '';
       noticeBoardAddress = noticeBoardAddress || cfg.noticeBoardAddress || '';
       talliesAddress = talliesAddress || cfg.talliesAddress || '';
+      agendaAddress = agendaAddress || cfg.agendaAddress || '';
       rpcUrl = rpcUrl || cfg.rpcUrl;
     }
     if (!rpcUrl) fail('missing RPC_URL (or CONFIG_URL)');
@@ -433,7 +530,7 @@ if (require.main === module) {
     voteAddress = ethers.getAddress(voteAddress);
     console.log(`[relayer] paying fees from ${signer.address}`);
     const addr = (a) => (ethers.isAddress(a || '') ? ethers.getAddress(a) : undefined);
-    const build = (vote, budget, fb, tal = talliesAddress, nb = noticeBoardAddress) =>
+    const build = (vote, budget, fb, tal = talliesAddress, nb = noticeBoardAddress, ag = agendaAddress) =>
       createRelayer({
         provider,
         signer,
@@ -442,12 +539,16 @@ if (require.main === module) {
         feedbackAddress: addr(fb),
         noticeBoardAddress: addr(nb),
         talliesAddress: addr(tal),
+        agendaAddress: addr(ag),
         rateLimitPerMin: Number(process.env.RATE_LIMIT_PER_MIN || 30),
         corsOrigin: process.env.CORS_ORIGIN || '*',
         confirmations: Number(process.env.CONFIRMATIONS || 1),
         log: (m) => console.log(`${new Date().toISOString()} [relayer] ${m}`),
       });
     const { createRouter, syncCommunities, indexUrlFrom } = require('../services/lib/communities');
+    // Random draws (assemblies, promise checkers) run as soon as they are due, for every community.
+    const drawConfigs = new Map();
+    const { runDueDraws } = require('./draws');
     const server = build(voteAddress, budgetAddress, feedbackAddress);
     // Other communities are served under /c/<slug>/, each with its own contracts.
     const router = createRouter(server.listeners('request')[0]);
@@ -456,12 +557,16 @@ if (require.main === module) {
     const indexUrl = indexUrlFrom(configUrl, clean('COMMUNITIES_URL'));
     if (indexUrl) {
       const sync = () =>
-        syncCommunities(router, indexUrl, (c) => build(ethers.getAddress(c.voteAddress), addr(c.budgetAddress) || '', addr(c.feedbackAddress) || '', addr(c.talliesAddress) || '', addr(c.noticeBoardAddress) || '').listeners('request')[0], {
+        syncCommunities(router, indexUrl, (c) => (drawConfigs.set(c.voteAddress, c), build(ethers.getAddress(c.voteAddress), addr(c.budgetAddress) || '', addr(c.feedbackAddress) || '', addr(c.talliesAddress) || '', addr(c.noticeBoardAddress) || '', addr(c.agendaAddress) || '').listeners('request')[0]), {
           log: (m) => console.log(`[relayer] ${m}`),
         }).catch((e) => console.log(`[relayer] community list unavailable: ${e.message}`));
       await sync();
       setInterval(sync, 5 * 60 * 1000).unref();
     }
+    if (configUrl) loadConfig().then((cfg) => drawConfigs.set('main', cfg)).catch(() => {});
+    setInterval(async () => {
+      for (const cfg of drawConfigs.values()) await runDueDraws({ signer, cfg, log: (m) => console.log(`[relayer] ${m}`) }).catch(() => {});
+    }, Number(process.env.DRAW_EVERY_MS || 120_000)).unref();
     const port = Number(process.env.PORT || 8787);
     server.listen(port, () => console.log(`[relayer] listening on :${port} for ${voteAddress}`));
 
@@ -475,15 +580,17 @@ if (require.main === module) {
           const b = ethers.isAddress(cfg.budgetAddress || '') ? ethers.getAddress(cfg.budgetAddress) : '';
           const f = addr(cfg.feedbackAddress) || '';
           const t = addr(cfg.talliesAddress) || '';
+          const ag = addr(cfg.agendaAddress) || '';
           const current = ethers.isAddress(budgetAddress || '') ? ethers.getAddress(budgetAddress) : '';
-          if (v === voteAddress && b === current && f === (addr(feedbackAddress) || '') && t === (addr(talliesAddress) || '')) return;
-          const next = build(v, b, f, t).listeners('request')[0];
+          if (v === voteAddress && b === current && f === (addr(feedbackAddress) || '') && t === (addr(talliesAddress) || '') && ag === (addr(agendaAddress) || '')) return;
+          const next = build(v, b, f, t, noticeBoardAddress, ag).listeners('request')[0];
           router.setDefault(next);
           console.log(`[relayer] now serving voting ${v}${b ? ` and civic budget ${b}` : ''}`);
           voteAddress = v;
           budgetAddress = b;
           feedbackAddress = f;
           talliesAddress = t;
+          agendaAddress = ag;
         } catch {
           /* keep serving the current addresses */
         }

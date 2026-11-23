@@ -70,6 +70,24 @@ contract MandateRegistry is AccessControlEnumerable {
     /// @notice mandateId => review round => verifier => has attested
     mapping(uint256 => mapping(uint32 => mapping(address => bool))) public hasAttested;
 
+    /// @notice Random checkers: when above 0, each round of evidence is checked by a panel of
+    ///         this many verifiers (at least the mandate's threshold), drawn at random once the
+    ///         evidence is in; only they may attest. Nobody knows in advance who will check, so
+    ///         there is nobody to lean on. 0: every verifier may check (as before).
+    uint16 public panelSize;
+    uint256 public constant PANEL_DELAY_BLOCKS = 5;
+    uint16 public constant MAX_PANEL = 25;
+    struct Panel {
+        uint16 size; // wanted, fixed when the evidence came in (0: no panel)
+        uint64 seedBlock;
+        address[] members;
+        uint64 drawnAt;
+        uint16 reschedules; // public: draw blocks missed and set again, and redraws
+    }
+    /// @notice A drawn panel that hasn't decided within this time can be drawn again.
+    uint64 public constant PANEL_TIMEOUT = 7 days;
+    mapping(uint256 => mapping(uint32 => Panel)) private _panels;
+
     // ------------------------------------------------------------------ events
 
     event MandateCreated(
@@ -86,6 +104,9 @@ contract MandateRegistry is AccessControlEnumerable {
     event MandateFulfilled(uint256 indexed id, uint32 round, string evidenceCID);
     event MandateCancelled(uint256 indexed id, string reasonCID);
     event MandatePaused(uint256 indexed id, string reasonCID);
+    event PanelSizeSet(uint16 size);
+    event PanelScheduled(uint256 indexed id, uint32 indexed round, uint64 seedBlock);
+    event PanelDrawn(uint256 indexed id, uint32 indexed round, address[] members);
     event MandateRevised(uint256 indexed id, address indexed responsible, uint64 deadline, uint16 threshold, string specCID, string reasonCID);
 
     // ------------------------------------------------------------------ errors
@@ -99,6 +120,11 @@ contract MandateRegistry is AccessControlEnumerable {
     error NotResponsible();
     error AlreadyAttested();
     error ResponsibleCannotVerify();
+    error NotOnPanel();
+    error PanelNotReady();
+    error PanelAlreadyDrawn();
+    error BadPanelSize();
+    error NoVerifiers();
 
     constructor(address admin) {
         if (admin == address(0)) revert ZeroAddress();
@@ -215,6 +241,97 @@ contract MandateRegistry is AccessControlEnumerable {
         m.rejections = 0;
         m.evidenceCID = evidenceCID;
         emit EvidenceSubmitted(id, m.round, evidenceCID);
+        if (panelSize > 0) {
+            Panel storage p = _panels[id][m.round];
+            p.size = panelSize < m.threshold ? m.threshold : panelSize;
+            p.seedBlock = uint64(block.number + PANEL_DELAY_BLOCKS);
+            emit PanelScheduled(id, m.round, p.seedBlock);
+        }
+    }
+
+    // ---------------------------------------------------------- random checkers
+
+    /// @notice Turn random checkers on (a panel size) or off (0). Admin (the council) only.
+    function setPanelSize(uint16 size) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (size > MAX_PANEL) revert BadPanelSize();
+        panelSize = size;
+        emit PanelSizeSet(size);
+    }
+
+    /// @notice Draw this round's checkers once its seed block exists. Anyone may call it.
+    ///         If nobody did within 256 blocks, it sets a new seed block instead.
+    function drawPanel(uint256 id) external {
+        Mandate storage m = _get(id);
+        if (m.status != Status.UnderReview) revert WrongStatus(id, m.status);
+        Panel storage p = _panels[id][m.round];
+        if (p.size == 0 || block.number <= p.seedBlock) revert PanelNotReady();
+        if (p.members.length != 0) revert PanelAlreadyDrawn();
+        bytes32 h = _blockHash(p.seedBlock);
+        if (h == 0) {
+            p.seedBlock = uint64(block.number + PANEL_DELAY_BLOCKS);
+            p.reschedules += 1;
+            emit PanelScheduled(id, m.round, p.seedBlock);
+            return;
+        }
+        bytes32 seed = keccak256(abi.encode(h, block.chainid, address(this), id, m.round, p.reschedules));
+        uint256 n = getRoleMemberCount(VERIFIER_ROLE);
+        if (n == 0) revert NoVerifiers();
+        uint256 want = p.size;
+        for (uint256 j = 0; p.members.length < want && j < want * 20 + 50; j++) {
+            address a = getRoleMember(VERIFIER_ROLE, uint256(keccak256(abi.encode(seed, j))) % n);
+            if (a == m.responsible || _onPanel(p, a)) continue;
+            p.members.push(a);
+        }
+        // Never fewer than needed to decide: fill in order from a random start if the draw fell short.
+        uint256 start = uint256(seed) % n;
+        for (uint256 k = 0; p.members.length < want && k < n; k++) {
+            address a = getRoleMember(VERIFIER_ROLE, (start + k) % n);
+            if (a != m.responsible && !_onPanel(p, a)) p.members.push(a);
+        }
+        p.drawnAt = uint64(block.timestamp);
+        emit PanelDrawn(id, m.round, p.members);
+    }
+
+    /// @notice A drawn panel that hasn't decided within PANEL_TIMEOUT is drawn again (anyone may
+    ///         ask): a checker who never answers can't freeze a review. Checks already made count.
+    function redrawPanel(uint256 id) external {
+        Mandate storage m = _get(id);
+        if (m.status != Status.UnderReview) revert WrongStatus(id, m.status);
+        Panel storage p = _panels[id][m.round];
+        if (p.members.length == 0 || block.timestamp < p.drawnAt + PANEL_TIMEOUT) revert PanelNotReady();
+        delete p.members;
+        p.seedBlock = uint64(block.number + PANEL_DELAY_BLOCKS);
+        p.reschedules += 1;
+        emit PanelScheduled(id, m.round, p.seedBlock);
+    }
+
+    /// @notice This round's panel: wanted size, seed block, and the checkers drawn (empty until drawn).
+    function panelOf(uint256 id, uint32 round) external view returns (uint16 size, uint64 seedBlock, address[] memory members) {
+        Panel storage p = _panels[id][round];
+        return (p.size, p.seedBlock, p.members);
+    }
+
+    /// @notice When this round's panel was drawn, and how many times its draw was set again (public).
+    function panelHistory(uint256 id, uint32 round) external view returns (uint64 drawnAt, uint16 reschedules) {
+        Panel storage p = _panels[id][round];
+        return (p.drawnAt, p.reschedules);
+    }
+
+
+    /// Block hashes older than 256 blocks, from the chain's history contract (EIP-2935, about
+    /// 8191 blocks: hours rather than minutes on Base), so nobody can wait out a draw to get a new one.
+    address private constant BLOCK_HISTORY = 0x0000F90827F1C53a10cb7A02335B175320002935;
+
+    function _blockHash(uint256 n) internal view returns (bytes32 h) {
+        h = blockhash(n);
+        if (h != 0 || n >= block.number || BLOCK_HISTORY.code.length == 0) return h;
+        (bool ok, bytes memory out) = BLOCK_HISTORY.staticcall(abi.encode(n));
+        if (ok && out.length == 32) h = abi.decode(out, (bytes32));
+    }
+
+    function _onPanel(Panel storage p, address a) private view returns (bool) {
+        for (uint256 i = 0; i < p.members.length; i++) if (p.members[i] == a) return true;
+        return false;
     }
 
     // --------------------------------------------------------------- verifiers
@@ -229,6 +346,11 @@ contract MandateRegistry is AccessControlEnumerable {
         if (m.status != Status.UnderReview) revert WrongStatus(id, m.status);
         if (msg.sender == m.responsible) revert ResponsibleCannotVerify();
         if (hasAttested[id][m.round][msg.sender]) revert AlreadyAttested();
+        Panel storage p = _panels[id][m.round];
+        if (p.size != 0) {
+            if (p.members.length == 0) revert PanelNotReady();
+            if (!_onPanel(p, msg.sender)) revert NotOnPanel();
+        }
         if (bytes(reasonCID).length > MAX_CID_LENGTH) revert InvalidCID();
 
         hasAttested[id][m.round][msg.sender] = true;

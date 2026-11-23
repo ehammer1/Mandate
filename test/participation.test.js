@@ -11,7 +11,7 @@ const { Identity } = require('@semaphore-protocol/identity');
 const { Group } = require('@semaphore-protocol/group');
 const { deployAll } = require('../scripts/deploy');
 const { commentProof, markProof, topicOf, bridgeScore } = require('../client/feedback');
-const { candidateAt, drawOrder, acceptCode, checkAcceptCode } = require('../client/assembly');
+const { candidateAt, drawOrder, acceptCode, checkAcceptCode, endorseCode, checkEndorsements } = require('../client/assembly');
 
 process.env.SEMAPHORE_ARTIFACTS_DIR = path.dirname(require.resolve('@zk-kit/semaphore-artifacts/package.json'));
 let provider, admin, clerk, stranger, c;
@@ -95,7 +95,9 @@ test("citizens' assembly: announced first, drawn from a block nobody knew, redon
   const id = await k.assemblyCount();
   assert.equal(await errName(k.draw.staticCall(id)), 'TooEarly');
   await mine(31);
-  await send(k.connect(stranger).draw(id)); // anyone may run it
+  // The relay runs draws as soon as they are due (anyone may), so nobody can wait one out.
+  const { runDueDraws } = require('../broker/draws');
+  assert.equal(await runDueDraws({ signer: stranger, cfg: { assembliesAddress: await k.getAddress() } }), 1);
   assert.equal(await errName(k.draw.staticCall(id)), 'AlreadyDrawn');
   const a = await k.getAssembly(id);
   for (const step of [0, 1, 7]) assert.equal(await k.candidate(id, step), candidateAt(a.seed, step, a.size));
@@ -117,12 +119,38 @@ test("citizens' assembly: announced first, drawn from a block nobody knew, redon
   assert.equal(checkAcceptCode('PA1.nonsense', { ...where, order }).ok, false);
 
   assert.equal(await errName(k.connect(stranger).acceptSeat.staticCall(id, 0)), 'NotOrganizer');
-  for (const p of [0, 1, 4]) await send(k.acceptSeat(id, p));
+  for (const p of [0, 1]) await send(k.acceptSeat(id, p));
+  // A seat left open goes to the alternates strictly in draw order, after the first choices' week.
+  assert.equal(await errName(k.acceptSeat.staticCall(id, 4)), 'OutOfOrder');
+  await provider.send('evm_increaseTime', [7 * 86_400 + 1]);
+  await provider.send('evm_mine', []);
+  assert.equal(await errName(k.acceptSeat.staticCall(id, 4)), 'OutOfOrder'); // number 4 (position 3) is next
+  const skipped = await send(k.skipAlternate(id)); // recorded publicly
+  assert.ok(skipped.logs.some((l) => k.interface.parseLog(l)?.name === 'AlternateSkipped'));
+  await send(k.acceptSeat(id, 4));
   assert.equal(await errName(k.acceptSeat.staticCall(id, 1)), 'AlreadySeated');
   assert.equal(await errName(k.acceptSeat.staticCall(id, 2)), 'SeatsFull');
   await send(k.report(id, 'nb:recommendation'));
   const done = await k.getAssembly(id);
   assert.deepEqual([Number(done.filled), done.reportRef], [3, 'nb:recommendation']);
+});
+
+test("review panel statement: seated members endorse the exact draft, and anyone can count them", async () => {
+  const k = c.assemblies;
+  const id = 1n; // the assembly above: seats 0, 1 and 4 accepted
+  const order = await drawOrder({ assemblies: k, provider, id });
+  const net = await provider.getNetwork();
+  const where = { chainId: net.chainId, address: await k.getAddress(), id };
+  const draft = 'nb:0x' + 'd'.repeat(64);
+  const who = (pos) => residents.find((r) => r.commitment === order[pos].commitment);
+  const seated = new Set([0, 1, 4].filter((p) => p < order.length));
+  const codes = [0, 1, 2].map((pos) => endorseCode(who(pos), { ...where, position: pos, ref: draft }));
+  codes.push(endorseCode(who(0), { ...where, position: 0, ref: draft })); // the same member twice counts once
+  codes.push(endorseCode(who(1), { ...where, position: 1, ref: 'nb:0x' + 'e'.repeat(64) })); // a different text
+  codes.push(endorseCode(who(4), { ...where, position: 0, ref: draft })); // someone else's seat
+  const r = checkEndorsements(codes, { ...where, ref: draft, order, seated });
+  assert.deepEqual(r.positions, [0, 1]); // position 2 was drawn but never seated
+  assert.equal(r.bad.length, 3);
 });
 
 test('a draw nobody ran in time is rescheduled to a new future block', async () => {

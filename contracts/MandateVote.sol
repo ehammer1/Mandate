@@ -5,6 +5,7 @@ import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {MerkleProof} from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 import {ISemaphoreVerifier} from "@semaphore-protocol/contracts/interfaces/ISemaphoreVerifier.sol";
 
 interface ISemaphoreGroupsView {
@@ -87,14 +88,16 @@ contract MandateVote is AccessControl, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     bytes32 public constant PROPOSER_ROLE = keccak256("PROPOSER_ROLE");
-    /// @notice Approved carriers (clerk tablets, polling-place boxes) that deliver ballots sealed
-    ///         offline. Only they may deliver during a poll's grace period. Never the public relay.
+    /// @notice Approved carriers (clerk tablets, polling-place boxes) that hold ballots sealed
+    ///         offline. A ballot delivered after the close is proven to predate it when a carrier
+    ///         published a fingerprint covering it before the close (commitHeld); a carrier with
+    ///         no signal at all may deliver without one, and each such ballot is counted publicly.
     bytes32 public constant CARRIER_ROLE = keccak256("CARRIER_ROLE");
     uint32 public constant MAX_GRACE = 1 days;
 
-    uint8 public constant YES = 0;
-    uint8 public constant NO = 1;
-    uint8 public constant MAX_OPTIONS = 8;
+    uint8 internal constant YES = 0;
+    uint8 internal constant NO = 1;
+    uint8 internal constant MAX_OPTIONS = 8;
     uint256 private constant MIN_DEPTH = 1;
     uint256 private constant MAX_DEPTH = 32;
 
@@ -180,9 +183,9 @@ contract MandateVote is AccessControl, ReentrancyGuard {
     uint256 public minBond;
 
     uint32 public constant NO_CHANGES = type(uint32).max;
-    uint8 public constant ONLINE_AND_PAPER = 0;
-    uint8 public constant ONLINE_ONLY = 1;
-    uint8 public constant PAPER_ONLY = 2;
+    uint8 internal constant ONLINE_AND_PAPER = 0;
+    uint8 internal constant ONLINE_ONLY = 1;
+    uint8 internal constant PAPER_ONLY = 2;
 
     /// @notice Smaller voter lists (districts, wards, union locals) a poll may be limited to.
     IVoterGroupsView public voterGroups;
@@ -205,7 +208,7 @@ contract MandateVote is AccessControl, ReentrancyGuard {
     IDelegates public delegates;
     /// @notice A ballot whose message is DELEGATE_BASE + id hands the vote to delegate `id`.
     uint256 public constant DELEGATE_BASE = 1_000_000;
-    uint256 public constant MAX_DELEGATES_PER_POLL = 50;
+    uint256 internal constant MAX_DELEGATES_PER_POLL = 50;
     mapping(uint256 => uint256[]) private _delegatesUsed; // poll => delegate ids
     mapping(uint256 => mapping(uint256 => uint256)) private _delegated; // poll => delegate => ballots
     mapping(uint256 => mapping(uint256 => uint256)) private _delegatedChecked; // the same, from checked voters
@@ -217,6 +220,8 @@ contract MandateVote is AccessControl, ReentrancyGuard {
         uint256 indexed id, uint256 indexed groupId, uint256 snapshotRoot, Action action, uint64 end, string questionCID
     );
     event BallotCast(uint256 indexed id, uint256 option, uint256 nullifier);
+    /// @notice A carrier's fingerprint (Merkle root) of the ballots it held, published before the close.
+    event HeldCommitted(uint256 indexed id, address indexed carrier, bytes32 root);
     /// A voter changed their vote: the earlier choice no longer counts (resists pressure and vote-buying).
     event BallotChanged(uint256 indexed id, uint256 nullifier, uint256 previous, uint256 option);
     event DelegatedVotesCounted(uint256 indexed id, uint256 indexed delegateId, uint256 ballots, bool stated, uint8 position);
@@ -237,6 +242,7 @@ contract MandateVote is AccessControl, ReentrancyGuard {
     error EmptyGroup();
     error UnknownPoll();
     error NotOpen();
+    error NotHeld();
     error StillOpen();
     error AlreadyFinalized();
     error BondTooLow(uint256 minBond);
@@ -296,7 +302,9 @@ contract MandateVote is AccessControl, ReentrancyGuard {
         ISemaphoreVerifier v = ISemaphoreVerifier(next);
         Ballot memory tampered = test;
         tampered.nullifier ^= 1;
-        if (!_accepts(v, test) || _accepts(v, tampered)) revert VerifierFailedTest();
+        Ballot memory tampered2 = test;
+        tampered2.message += 1; // and a different message: a checker must refuse both
+        if (!_accepts(v, test) || _accepts(v, tampered) || _accepts(v, tampered2)) revert VerifierFailedTest();
         emit VerifierSet(address(verifier), next);
         verifier = v;
     }
@@ -453,13 +461,49 @@ contract MandateVote is AccessControl, ReentrancyGuard {
     ///         only the latest counts. Someone pressured or paid to vote a certain way can quietly
     ///         change it later. Anyone may submit it; the proof is the authorisation.
     function castBallot(uint256 id, Ballot calldata b) external {
+        _cast(id, b, false);
+    }
+
+    /// @notice poll => ballots a carrier delivered after the close with no fingerprint published
+    ///         before it (it had no signal at all): counted, but not proven to predate the close.
+    mapping(uint256 => uint256) public unprovenLate;
+    event DeliveredUnproven(uint256 indexed id, address indexed carrier, uint256 nullifier);
+
+    /// @notice poll => fingerprint => the carrier that published it before the close (0 if none).
+    mapping(uint256 => mapping(bytes32 => address)) public heldBy;
+
+    /// @notice A carrier publishes a fingerprint (Merkle root of keccak(nullifier, message)) of
+    ///         the ballots it holds, before the close. Signed by the carrier, so anyone may post it
+    ///         (the relay, or a text-message gateway when the carrier has almost no signal).
+    function commitHeld(uint256 id, bytes32 root, uint8 v, bytes32 r, bytes32 s) external {
+        if (block.timestamp >= _get(id).end) revert NotOpen();
+        // v = 0: the carrier sends it itself. Otherwise its signature (Ethereum signed message).
+        address carrier = v == 0
+            ? msg.sender
+            : ecrecover(keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", keccak256(abi.encode("promissa-held", block.chainid, address(this), id, root)))), v, r, s);
+        _checkRole(CARRIER_ROLE, carrier);
+        if (heldBy[id][root] == address(0)) {
+            heldBy[id][root] = carrier;
+            emit HeldCommitted(id, carrier, root);
+        }
+    }
+
+    /// @notice Deliver, within the poll's delivery window, a ballot covered by a fingerprint a
+    ///         carrier published before the close. Anyone may deliver it; the proofs are the authorisation.
+    function deliverHeld(uint256 id, Ballot calldata b, bytes32 root, bytes32[] calldata path) external {
+        if (heldBy[id][root] == address(0) || !MerkleProof.verifyCalldata(path, root, keccak256(bytes.concat(keccak256(abi.encode(b.nullifier, b.message)))))) revert NotHeld();
+        _cast(id, b, true);
+    }
+
+    function _cast(uint256 id, Ballot calldata b, bool held) private {
         Poll storage p = _get(id);
         Settings storage st = settingsOf[id];
-        // After the close, only an approved carrier may deliver, and only within the grace period;
-        // a ballot delivered then can't change an earlier vote (changes close with the poll).
-        uint256 until = p.end;
-        if (block.timestamp >= until && hasRole(CARRIER_ROLE, msg.sender)) until += st.grace;
-        if (block.timestamp >= until || p.finalized) revert NotOpen();
+        // After the close, only ballots a carrier fingerprinted before it, within the delivery
+        // window; such a ballot can't change an earlier vote (changes close with the poll).
+        // A carrier that had no signal of any kind before the close may still deliver within the
+        // window without a fingerprint; each such ballot is counted publicly as unproven in time.
+        bool unproven = !held && block.timestamp >= p.end && hasRole(CARRIER_ROLE, msg.sender);
+        if (block.timestamp >= p.end + (held || unproven ? st.grace : 0) || p.finalized) revert NotOpen();
         if (st.channels == PAPER_ONLY) revert OnlineClosed();
         uint256 checkRoot = _checks[id].root;
         bool checked = checkRoot != 0 && b.merkleTreeRoot == checkRoot;
@@ -502,6 +546,10 @@ contract MandateVote is AccessControl, ReentrancyGuard {
             if (checked) _checkTally[id][b.message] += 1;
         }
         emit BallotCast(id, b.message, b.nullifier);
+        if (unproven) {
+            unprovenLate[id] += 1;
+            emit DeliveredUnproven(id, msg.sender, b.nullifier);
+        }
     }
 
     /// Remove an earlier ballot from the counts when its voter changes their vote.

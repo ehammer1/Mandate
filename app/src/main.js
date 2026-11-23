@@ -17,7 +17,7 @@ import { keep, recall, forget, KEEP_DAYS } from './remember.js';
 import * as offline from './offline.js';
 import { poseidon2 } from 'poseidon-lite/poseidon2';
 import { buildBallot } from '../../client/ballot.js';
-import { readSettings, settingsNote, changesOpen, rankedPickerHtml, wireRankers, rankedResultsHtml, groupInfo, groupOptionsHtml, hasSettings, hasGrace, carrierDelivery, wireVoterGroups, V5_ABI, V6_ABI, ERRORS as V5_ERRORS } from './pollsettings.js';
+import { readSettings, settingsNote, changesOpen, rankedPickerHtml, wireRankers, rankedResultsHtml, groupInfo, groupOptionsHtml, hasSettings, hasGrace, carrierDelivery, fingerprintHeld, wireVoterGroups, V5_ABI, V6_ABI, ERRORS as V5_ERRORS } from './pollsettings.js';
 import { enrolStartUrl, ownershipProof } from '../../client/enrol.js';
 import { voterCodeQr } from '../../client/clerk.js';
 import QRCode from 'qrcode';
@@ -29,11 +29,19 @@ import { loadRules, describeRuleChange, RULE_ERRORS } from './rules.js';
 import { wireBudget } from './budget.js';
 import { wireFeedback } from './feedback.js';
 import { wireAssemblies } from './assemblies.js';
+import { wireAgenda } from './agenda.js';
+import * as social from './social.js';
+import { ownStorage, setOwnStorage } from './ownstorage.js';
+import { CLOUDS, availableClouds, connectCloud, finishCloud } from './clouds.js';
+import { shareText } from './copy.js';
+import { wireVideos, videosHtml, videoFields, wireVideoFields, readVideos } from './videos.js';
+import { wireAids, listenTranslateHtml } from './aihelp.js';
+import { wireOnBase } from './onbase.js';
 import { renderExplainer } from './explain.js';
 import { informedHtml } from './informed.js';
 import { wireOfficials } from './officials.js';
 import { wireBodies } from './bodies.js';
-import { wireCopy, jumpTo, itemTools } from './copy.js';
+import { wireShare, wireCopy, jumpTo, itemTools } from './copy.js';
 import { wireHelp } from './help.js';
 import { wireAssistant } from './assistant.js';
 import { search, resultsHtml, receiptResult } from './search.js';
@@ -127,6 +135,29 @@ async function loadConfig() {
   uploadService(cfg).catch(() => {});
   state.vote = new ethers.Contract(cfg.voteAddress, VOTE_ABI, state.provider);
   state.registry = new ethers.Contract(cfg.identityAddress, IDENTITY_ABI, state.provider);
+  // Voting contracts v6: whether "keep me signed in" is offered is the community's own voted rule.
+  // Older charters have no such rule: the config's setting stays. No signal: the config's too.
+  // Read in the background; awaited only where "keep me signed in" is decided.
+  state.keepRule = !cfg.charterAddress
+    ? Promise.resolve()
+    : Promise.race([
+        new ethers.Contract(cfg.charterAddress, ['function rule(bytes32) view returns (uint256)'], state.provider).rule(ethers.id('KEEP_SIGNED_IN')).catch((e) => (e?.code === 'CALL_EXCEPTION' ? 'none' : null)), // 'none': an older charter without this rule
+        new Promise((r) => setTimeout(() => r(null), 4000)),
+      ]).then((v) => {
+        // The community's vote decides; if it can't be read right now, use the last answer seen
+        // on this device, else treat it as off (never fall back to "on").
+        if (v === 'none') return; // older charters: the config's setting stays
+        const key = `mandate.keepRule.${cfg.communitySlug || 'main'}`;
+        let known = null;
+        try {
+          if (v !== null && v !== undefined) localStorage.setItem(key, v === 1n ? '1' : '0');
+          known = localStorage.getItem(key);
+        } catch {
+          /* private mode */
+        }
+        if (v !== null && v !== undefined) cfg.keepSignedIn = v === 1n;
+        else cfg.keepSignedIn = known === '1';
+      });
 }
 
 // ------------------------------------------------------------------ sign in
@@ -353,7 +384,16 @@ function wireSignIn() {
     $('restore-code').scrollIntoView({ block: 'center' });
     $('restore-code').focus();
   };
-  $('btn-signout').onclick = () => signOut();
+  $('btn-signout').onclick = () => {
+    // Signing out also disconnects this device's storage and social accounts: no tokens left behind.
+    try {
+      for (const k of ['mandate.social', 'mandate.ownStorage']) localStorage.removeItem(k);
+      sessionStorage.removeItem('mandate.assistant.token');
+    } catch {
+      /* private mode: nothing kept anyway */
+    }
+    signOut();
+  };
   function signOut(reason) {
     Object.assign(state, { keys: null, identity: null, wallet: null, external: null, roles: null, publicMode: false, clerkSession: null, clerkCount: 0, keptUntil: 0 });
     forget(state.config?.communitySlug || ''); // signing out ends "keep me signed in"
@@ -966,8 +1006,8 @@ async function refreshPolls() {
         <p class="eyebrow">${open ? `Open until ${esc(when(p.end))} · ${countdown(p.end, 'closes ', 'polls')}` : p.finalized ? (ck.disputed ? 'Closed · contested' : p.passed ? 'Closed · passed' : 'Closed · did not pass') : 'Voting ended · awaiting result'} · ${esc(who)}</p>
         <h3>${esc(q.title)} ${categoryChip(categoryOf(q), esc)}</h3>
         ${q.body ? `<p>${esc(q.body)}</p>` : ''}
-        ${attachmentsHtml(state.config, q, esc)}
-        ${itemTools({ anchor: `poll-${id}`, idText: `Poll ${id} (voting contract ${state.config.voteAddress})`, ref: p.questionCID, explorer: state.config.explorer, address: state.config.voteAddress })}
+        ${listenTranslateHtml(`${q.title}. ${q.body || ''}`)}${attachmentsHtml(state.config, q, esc)}${videosHtml(q.videos, state.config)}
+        ${itemTools({ title: q.title, anchor: `poll-${id}`, idText: `Poll ${id} (voting contract ${state.config.voteAddress})`, ref: p.questionCID, explorer: state.config.explorer, address: state.config.voteAddress })}
         ${(() => {
           const t = mandateTerms(p);
           const other = describeAction(p);
@@ -993,7 +1033,7 @@ async function refreshPolls() {
         <div class="tallies-box" data-id="${id}" data-online="${esc(JSON.stringify(tally.map(String)))}" data-labels="${esc(JSON.stringify(labels))}" data-canvote="${eligibleTier && open && !p.finalized && !paperPlace && st.channels !== 1 ? 1 : 0}" data-final="${latestWins ? 'latest' : 'paper'}"></div>
         ${st.ranked ? `<div class="card stack ranked-results" data-id="${id}"><p class="muted">Counting the rankings…</p></div>` : ''}
         <div class="officials-box" data-id="${id}" data-canvote="${open && !voted && eligibleTier && Number(p.options) === 2 ? 1 : 0}"></div>
-        <div class="explain-box" data-id="${id}"></div>
+        <div class="review-box" data-id="${id}"></div>        <div class="explain-box" data-id="${id}"></div>
         <div class="thread-box" data-kind="poll" data-id="${id}"></div>
       </article>`);
     }
@@ -1032,6 +1072,7 @@ async function refreshPolls() {
       state.officials.pollSection(box, Number(box.dataset.id), box.dataset.canvote === '1', (option, btn) => castVote(BigInt(box.dataset.id), option, btn)).catch(() => {});
     }
     for (const box of list.querySelectorAll('.explain-box')) renderExplainer({ state, esc, status }, box, 'poll', Number(box.dataset.id)).catch(() => {});
+    for (const box of list.querySelectorAll('.review-box')) state.assemblies?.renderReview(box, Number(box.dataset.id));
     (async () => {
       for (const poll of toSave) await offline.savePoll(state, poll); // one at a time, in the background
     })();
@@ -1116,12 +1157,29 @@ async function renderOutbox() {
   const sent = carried.filter((i) => i.status === 'sent').length;
   const waiting = carried.filter((i) => i.status === 'waiting').length;
   const rejected = carried.filter((i) => i.status === 'rejected').length;
-  $('carry-list').textContent = carried.length ? `Carried here: ${carried.length} · sent ${sent} · waiting ${waiting}${rejected ? ` · not accepted ${rejected}` : ''}` : '';
+  const covered = carried.filter((i) => i.status === 'waiting' && i.held?.posted).length;
+  $('carry-list').textContent = carried.length ? `Carried here: ${carried.length} · sent ${sent} · waiting ${waiting}${covered ? ` (${covered} fingerprinted in time)` : ''}${rejected ? ` · not accepted ${rejected}` : ''}` : '';
+  const codes = state.heldCodes || [];
+  let box = $('held-codes');
+  if (!box) {
+    box = document.createElement('div');
+    box.id = 'held-codes';
+    $('carry-list').after(box);
+  }
+  box.hidden = !codes.length;
+  box.innerHTML = codes.length
+    ? `<p class="muted" style="margin:6px 0 0">No data connection to publish the fingerprint of the ballots you carry. Before the poll closes, text this code to anyone with the app; they paste it under "Carry ballots for people without signal". Ballots not covered by a fingerprint published before the close can't be counted after it.</p>${codes.map((c) => `<textarea readonly rows="3" style="width:100%">${esc(c)}</textarea><a href="sms:?&body=${encodeURIComponent(c)}">Text it</a>`).join('')}`
+    : '';
 }
 
 async function sendOutbox() {
   if (!state.config) return null;
-  const late = await carrierDelivery(state, state.identity ? activeSigner() : null).catch(() => undefined);
+  const signer = state.identity ? activeSigner() : null;
+  // A carrier first publishes a fingerprint of the ballots it holds, so they count even if
+  // delivered after the close; the code can also be texted to anyone with a connection.
+  const codes = await fingerprintHeld(state, signer, await offline.outbox(state.config), { relayers: state.config.relayers || [], saveItems: offline.saveItems }).catch(() => []);
+  if (codes.length) state.heldCodes = codes;
+  const late = await carrierDelivery(state, signer).catch(() => undefined);
   const r = await offline.sendWaiting(state.config, { late }).catch(() => null);
   await renderOutbox();
   if (r?.sent && state.identity) setTimeout(refreshPolls, 1500);
@@ -1180,7 +1238,11 @@ function wireCarry() {
   };
   const take = async (text) => {
     try {
-      await offline.carryCode(state.config, text);
+      const r = await offline.carryCode(state.config, text);
+      if (r?.held) {
+        $('carry-code').value = '';
+        return status(el, "Carrier's fingerprint published. The ballots it covers can now be delivered after the close.", 'ok');
+      }
       status(el, 'Ballot added. It is sent as soon as this device has a connection.', 'ok');
       $('carry-code').value = '';
       await renderOutbox();
@@ -1540,6 +1602,16 @@ async function refreshAdmin() {
   $('poll-grace-row').hidden = !(await hasGrace(state).catch(() => false)); // delivery windows: v6
   $('admin-budget').hidden = !r.budgetProposer;
   $('admin-roles').hidden = !(r.admin || r.councilMember);
+  // Comments flagged by AI for review (published by the watchdog).
+  renderModeration(r.admin || r.councilMember).catch(() => {});
+  // Random mandate checkers (newer registries only).
+  const reg6 = state.config.registryAddress ? new ethers.Contract(state.config.registryAddress, ['function panelSize() view returns (uint16)'], state.provider) : null;
+  const size = reg6 ? await reg6.panelSize().catch(() => null) : null;
+  $('admin-checkers').hidden = size === null || !(r.admin || r.councilMember);
+  if (size !== null) {
+    $('checkers-now').textContent = Number(size) ? `Now: ${size} checkers drawn at random for each piece of evidence.` : 'Now: all verifiers may check.';
+    $('btn-checkers').textContent = !r.admin && r.councilMember ? 'Propose to the council' : 'Submit';
+  }
   // With a council, role changes are proposals (unless this account is still a direct admin).
   const viaCouncil = !r.admin && r.councilMember;
   $('roles-note').hidden = !viaCouncil;
@@ -1557,7 +1629,12 @@ async function refreshAdmin() {
   await state.tallies?.render();
   await state.voterGroups?.render();
   await renderAdminTodo().catch(() => {});
-  if (!state.pollPicker && $('poll-attach')) state.pollPicker = attachPicker($('poll-attach'), { state, esc });
+  if (!state.pollPicker && $('poll-attach')) state.pollPicker = attachPicker($('poll-attach'), { state, esc, public: true });
+  if ($('poll-videos') && !$('poll-videos').dataset.ready) {
+    $('poll-videos').innerHTML = videoFields('poll');
+    wireVideoFields($('poll-videos'), 'poll');
+    $('poll-videos').dataset.ready = '1';
+  }
 }
 
 async function sendAdminTx(statusEl, label, build) {
@@ -1721,7 +1798,7 @@ function wireAdmin() {
       try {
         status(el, 'Publishing the question: confirm if asked…');
         const files = state.pollPicker ? state.pollPicker.list() : [];
-        ref = await postDoc(state.config, activeSigner(), { title, body, options: choices, category: $('poll-category').value, ...($('poll-final')?.value === 'latest' ? { final: 'latest' } : {}), ...(mandate ? { mandate } : {}), ...(files.length ? { attachments: files } : {}) });
+        ref = await postDoc(state.config, activeSigner(), { title, body, options: choices, category: $('poll-category').value, ...($('poll-final')?.value === 'latest' ? { final: 'latest' } : {}), ...(mandate ? { mandate } : {}), ...(files.length ? { attachments: files } : {}), ...((videos) => (videos ? { videos } : {}))(readVideos($('poll-videos'), 'poll')) });
       } catch (e) {
         return status(el, `Could not publish the question: ${e.shortMessage || e.message}`, 'error');
       }
@@ -1765,6 +1842,7 @@ function wireAdmin() {
       budget: [[cfg.budgetAddress, 'PROPOSER_ROLE', 'open budget rounds']],
       registrar: [[cfg.officialsAddress, 'REGISTRAR_ROLE', 'register officials'], [cfg.bodiesAddress, 'REGISTRAR_ROLE', 'set up government bodies']],
       assembly: [[cfg.assembliesAddress, 'ORGANIZER_ROLE', "organize citizens' assemblies"]],
+      agenda: [[cfg.agendaAddress, 'ORGANIZER_ROLE', "open People's Agenda seasons"]],
       carrier: [[cfg.voteAddress, 'CARRIER_ROLE', 'deliver ballots carried offline after a poll closes, within its delivery window']],
     };
     const roleChange = ([at, role, what]) => [new ethers.Contract(at, ROLE_ABI, state.provider), give ? 'grantRole' : 'revokeRole', [ethers.id(role), target], `${give ? 'Allow' : 'Stop'}: ${what}`];
@@ -1809,10 +1887,139 @@ function wireAdmin() {
     $('grant-reason').value = '';
   };
 
+  $('btn-checkers').onclick = async () => {
+    const el = $('checkers-status');
+    const n = Number($('checkers-size').value);
+    const k = new ethers.Contract(state.config.registryAddress, ['function setPanelSize(uint16)'], state.provider);
+    const label = n ? `Draw ${n} mandate checkers at random for each piece of evidence` : 'Let all verifiers check mandates';
+    const viaCouncil = !state.roles?.admin && state.roles?.councilMember;
+    const ok = viaCouncil ? await state.council.propose(el, await k.getAddress(), k.interface.encodeFunctionData('setPanelSize', [n]), label) : await sendAdminTx(el, label, (s) => k.connect(s).setPanelSize(n));
+    if (ok && !viaCouncil) refreshAdmin().catch(() => {});
+  };
   $('btn-credits-handover').onclick = async () => {
     const credits = new ethers.Contract(state.config.creditsAddress, ['function transferOwnership(address)'], state.provider);
     if (await sendAdminTx($('credits-status'), 'Hand play credits to the council', (s) => credits.connect(s).transferOwnership(state.config.councilAddress))) $('admin-credits').hidden = true;
   };
+}
+
+async function renderModeration(allowed) {
+  const card = $('admin-moderation');
+  const base = state.config.explanationsUrl;
+  card.hidden = true;
+  if (!allowed || !base || !state.config.feedbackAddress) return;
+  const res = await fetch(`${base.replace(/\/?$/, '/')}moderation-${state.config.feedbackAddress.toLowerCase()}.json?t=${Math.floor(Date.now() / 300_000)}`);
+  if (!res.ok) return;
+  const m = await res.json();
+  if (!m.flags?.length) return;
+  const why = { spam: 'Spam', threat: 'Threat', harassment: 'Harassment', personal_info: 'Private details' };
+  $('moderation-list').innerHTML = `<ul class="list">${m.flags.slice(0, 30).map((f) => `<li><strong>${esc(why[f.reason] || f.reason)}</strong> · <a href="#${esc(f.kind)}-${Number(f.id)}">${f.kind === 'poll' ? 'Poll' : 'Promise'} ${Number(f.id)}</a>, comment ${Number(f.index) + 1}: ${esc(f.note)}</li>`).join('')}</ul><p class="note">${esc(m.label || '')}</p>`;
+  card.hidden = false;
+}
+
+// --------------------------------------------------------------------- own storage
+
+function wireOwnStorage() {
+  const draw = () => {
+    const o = ownStorage();
+    $('own-storage-card').hidden = SHARED;
+    $('own-storage-now').innerHTML = o ? `Your files go to <strong>${esc(CLOUDS[o.kind] ? `your ${CLOUDS[o.kind].label}` : o.kind === 'pinata' ? 'your Pinata account' : `your ${o.provider} bucket "${o.bucket}"`)}</strong>. <button type="button" id="btn-own-forget">Use the community's storage again</button>` : 'Your files go to the community\'s storage.';
+    $('btn-own-forget')?.addEventListener('click', () => (setOwnStorage(null), draw()));
+  };
+  const pick = () => {
+    const v = $('own-provider').value;
+    $('own-cloud').hidden = !CLOUDS[v];
+    $('own-pinata').hidden = v !== 'pinata';
+    $('own-s3').hidden = v === 'pinata' || !!CLOUDS[v];
+  };
+  $('btn-own-cloud').onclick = () => connectCloud($('own-provider').value, state.config).catch((e) => status($('own-storage-msg'), e.message, 'error'));
+  // Once the community's settings are loaded: Dropbox, OneDrive and Google Drive where the
+  // community has registered Promissa with them, and finishing a sign-in that came back here.
+  state.afterConfig = () => {
+    const clouds = availableClouds(state.config);
+    for (const opt of $('own-provider').options) if (CLOUDS[opt.value]) opt.hidden = !clouds.some(([k]) => k === opt.value);
+    if (clouds.length) $('own-provider').value = clouds[0][0];
+    pick();
+    if (SHARED) return;
+    finishCloud(state.config).then((label) => {
+      if (!label) return;
+      show('screen-account');
+      status($('own-storage-msg'), `${label} connected: your files will be stored there.`, 'ok');
+      draw();
+    }).catch(() => {});
+  };
+  $('own-provider').onchange = pick;
+  $('btn-own-save').onclick = () => {
+    const p = $('own-provider').value;
+    const v = (id) => $(id).value.trim();
+    if (p === 'pinata') {
+      if (!v('own-jwt')) return status($('own-storage-msg'), 'Paste your Pinata JWT.', 'error');
+      setOwnStorage({ kind: 'pinata', jwt: v('own-jwt') });
+    } else {
+      if (!v('own-bucket') || !v('own-key') || !v('own-secret')) return status($('own-storage-msg'), 'Fill in the bucket and both keys.', 'error');
+      if (['r2', 'b2', 'aws', 'other'].includes(p) && !v('own-endpoint') && p !== 'aws') return status($('own-storage-msg'), 'Add your provider\'s endpoint address.', 'error');
+      if (p !== 'filebase' && !v('own-public')) return status($('own-storage-msg'), 'Add the bucket\'s public address, so others can open your files.', 'error');
+      setOwnStorage({ kind: 's3', provider: p, endpoint: v('own-endpoint') || (p === 'aws' ? `https://s3.${v('own-region') || 'us-east-1'}.amazonaws.com` : ''), region: v('own-region'), bucket: v('own-bucket'), accessKeyId: v('own-key'), secretAccessKey: v('own-secret'), publicUrl: v('own-public') });
+    }
+    for (const id of ['own-jwt', 'own-secret']) $(id).value = '';
+    status($('own-storage-msg'), 'Saved in this browser.', 'ok');
+    $('own-storage-form').open = false;
+    draw();
+  };
+  pick();
+  draw();
+}
+
+// --------------------------------------------------------------------- social accounts
+
+/** Connect Bluesky or Mastodon (Account screen); post directly from any item's Share menu. */
+function wireSocial() {
+  const msg = (t, kind = '') => status($('social-msg'), t, kind);
+  const draw = () => {
+    const c = social.connections();
+    $('social-card').hidden = SHARED; // never on a shared computer
+    $('social-status').innerHTML = [c.bluesky && `<p>✓ Bluesky: <strong>@${esc(c.bluesky.handle)}</strong> <button type="button" data-disconnect="bluesky">Disconnect</button></p>`, c.mastodon && `<p>✓ Mastodon: <strong>${esc(c.mastodon.host)}</strong> <button type="button" data-disconnect="mastodon">Disconnect</button></p>`].filter(Boolean).join('');
+    $('social-bsky').hidden = !!c.bluesky;
+    $('social-masto').hidden = !!c.mastodon;
+    for (const b of $('social-status').querySelectorAll('[data-disconnect]')) b.onclick = () => (social.disconnect(b.dataset.disconnect), draw());
+  };
+  $('btn-bsky').onclick = async () => {
+    try {
+      msg('Connecting…');
+      await social.connectBluesky($('bsky-handle').value, $('bsky-pass').value);
+      $('bsky-pass').value = '';
+      msg('Bluesky connected.', 'ok');
+      draw();
+    } catch (e) {
+      msg(e.message, 'error');
+    }
+  };
+  $('btn-masto').onclick = () => social.connectMastodon($('masto-server').value).catch((e) => msg(e.message, 'error'));
+  if (!SHARED) social.finishMastodon().then((done) => done && (draw(), show('screen-account'), msg(social.connections().mastodon ? 'Mastodon connected.' : 'Mastodon was not connected.', social.connections().mastodon ? 'ok' : 'error'))).catch(() => {});
+  draw();
+  // Share menus: offer direct posting where an account is connected.
+  document.addEventListener('toggle', (e) => {
+    const d = e.target;
+    if (!d.classList?.contains('share') || !d.open || SHARED) return;
+    const c = social.connections();
+    for (const b of d.querySelectorAll('[data-post-direct]')) b.hidden = !c[b.dataset.postDirect];
+    d.querySelector('[data-direct]').hidden = !c.bluesky && !c.mastodon;
+  }, true);
+  document.addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-post-direct]');
+    if (!b) return;
+    const out = b.closest('details').querySelector('[data-direct-status]');
+    const where = b.dataset.postDirect;
+    const draft = `${shareText(b.dataset.title, b.dataset.verifyLink || '')} ${b.dataset.url}`;
+    const text = window.prompt(`Your post to ${where === 'bluesky' ? 'Bluesky' : 'Mastodon'} (edit it if you like):`, where === 'bluesky' && [...draft].length > 300 ? `${b.dataset.title.slice(0, 200)} ${b.dataset.url}` : draft);
+    if (!text) return;
+    try {
+      status(out, 'Posting…');
+      const link = where === 'bluesky' ? await social.postBluesky({ text, url: b.dataset.url, title: b.dataset.title, description: 'Have your say on Promissa' }) : await social.postMastodon({ text });
+      out.innerHTML = `<span class="ok">Posted.</span>${/^https:\/\/[^\s"'<>]+$/.test(String(link || '')) ? ` <a href="${esc(link)}" target="_blank" rel="noopener">See your post</a>` : ''}`;
+    } catch (err) {
+      status(out, err.message, 'error');
+    }
+  });
 }
 
 // --------------------------------------------------------------------- boot
@@ -1821,6 +2028,12 @@ async function boot() {
   // Open with no signal next time (see sw.js).
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
   wireCopy(document);
+  wireShare(document);
+  wireVideos(document);
+  wireSocial();
+  wireOwnStorage();
+  wireAids(() => state.config);
+  wireOnBase(() => state);
   wireCarry();
   window.addEventListener('online', () => sendOutbox().catch(() => {}));
   wireInstallTip();
@@ -1880,6 +2093,11 @@ async function boot() {
   state.prevCouncil = wireCouncil({ state, $, status, esc, activeSigner, activeAddress }, { addressKey: 'previousCouncilAddress', prefix: 'prevcouncil', box: 'admin-prevcouncil' });
   state.clerk = wireClerk({ state, $, status, esc, show, activeSigner, activeAddress });
   state.assemblies = wireAssemblies({ state, $, status, esc, show, activeSigner, activeAddress });
+  state.agenda = wireAgenda({ state, $, status, esc, activeSigner, activeAddress, nullifierFor, myTier: async () => (state.identity ? ((m) => (m.active ? Number(m.tier) : -1))(await state.registry.members(state.identity.commitment)) : -1) });
+  $('nav-agenda').onclick = async () => {
+    show('screen-agenda');
+    await state.agenda.render();
+  };
   $('nav-assemblies').onclick = async () => {
     show('screen-assemblies');
     await state.assemblies.render();
@@ -1896,7 +2114,9 @@ async function boot() {
     return;
   }
   state.assistant.refresh();
+  state.afterConfig?.();
   $('nav-assemblies').hidden = !state.config.assembliesAddress;
+  $('nav-agenda').hidden = !state.config.agendaAddress;
   renderOutbox().catch(() => {}); // ballots waiting on this phone
   if (navigator.onLine) sendOutbox().catch(() => {});
   if (keys.savedMethod() === 'passkey') $('btn-unlock').classList.add('primary');
@@ -1928,6 +2148,7 @@ async function boot() {
   } catch {
     /* ignore */
   }
+  await state.keepRule;
   const keepAllowed = state.config.keepSignedIn === true && !SHARED && !justSignedOut;
   if (!keepAllowed) await forget(state.config.communitySlug || '');
   const kept = keepAllowed ? await recall(state.config.communitySlug || '') : null;

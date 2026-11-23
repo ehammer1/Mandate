@@ -2,7 +2,8 @@
  * app/src/copy.js - one-tap copying of addresses, codes and links, and a small "jump to"
  * helper that scrolls to an item and highlights it.
  */
-import { appBase } from './community.js';
+import { appBase, withOrg } from './community.js';
+import { onBaseButton } from './onbase.js';
 
 const escAttr = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
@@ -48,9 +49,75 @@ export function wireCopy(root = document) {
  * Link, ID and public record for one item (a poll, petition, mandate, council change or
  * agenda item): "🔗 Copy link" opens the app at that item.
  */
-export function itemTools({ anchor, idText, ref, explorer, address }) {
+export function itemTools({ title, anchor, idText, ref, explorer, address }) {
   const url = `${appBase()}#${anchor}`;
-  return `<p class="row item-tools">${copyBtn(url, '🔗 Copy link')} ${copyBtn(idText, 'Copy ID')}${ref ? ` ${copyBtn(ref, 'Copy text reference')}` : ''}${explorer && address ? ` <a href="${escAttr(`${explorer.replace(/\/+$/, '')}/address/${address}`)}" target="_blank" rel="noopener">View on the blockchain</a>` : ''}</p>`;
+  // Items on the notice board get a public Verify page: the record, its files and videos.
+  const verify = /^nb:0x[0-9a-fA-F]{64}$/.test(String(ref || '')) ? withOrg(new URL(`verify.html?ref=${encodeURIComponent(ref)}`, location.href).href) : '';
+  return `<p class="row item-tools">${title ? `${shareMenu(title, url, verify)} ` : ''}${copyBtn(url, '🔗 Copy link')} ${copyBtn(idText, 'Copy ID')}${ref ? ` ${copyBtn(ref, 'Copy text reference')} ${onBaseButton(ref)}` : ''}${verify ? ` <a href="${escAttr(verify)}" target="_blank" rel="noopener">✔ Verify</a>` : ''}${explorer && address ? ` <a href="${escAttr(`${explorer.replace(/\/+$/, '')}/address/${address}`)}" target="_blank" rel="noopener">View on the blockchain</a>` : ''}</p>`;
+}
+
+/**
+ * "📣 Share": the phone's own share sheet, or a post ready to send on each platform from the
+ * person's own account (no Promissa account or API key involved; nothing is posted for them).
+ */
+export function shareText(title, verify = '') {
+  return `${title}: have your say on Promissa (secret ballot, open source, anyone can check the count)${verify ? `. Verify: ${verify}` : ''}`;
+}
+export function shareLinks(title, url, verify = '') {
+  const t = encodeURIComponent(shareText(title, verify));
+  const u = encodeURIComponent(url);
+  const tu = encodeURIComponent(`${shareText(title, verify)} ${url}`);
+  return [
+    ['X', `https://twitter.com/intent/tweet?text=${t}&url=${u}`],
+    ['Bluesky', `https://bsky.app/intent/compose?text=${tu}`],
+    ['Threads', `https://www.threads.net/intent/post?text=${tu}`],
+    ['Facebook', `https://www.facebook.com/sharer/sharer.php?u=${u}`],
+    ['LinkedIn', `https://www.linkedin.com/sharing/share-offsite/?url=${u}`],
+    ['Reddit', `https://www.reddit.com/submit?url=${u}&title=${encodeURIComponent(title)}`],
+    ['WhatsApp', `https://wa.me/?text=${tu}`],
+    ['Telegram', `https://t.me/share/url?url=${u}&text=${t}`],
+    ['Email', `mailto:?subject=${encodeURIComponent(title)}&body=${tu}`],
+  ];
+}
+function shareMenu(title, url, verify = '') {
+  return `<details class="share"><summary>📣 Share</summary><div class="row" style="flex-wrap:wrap">
+    <button type="button" data-share-native data-title="${escAttr(title)}" data-url="${escAttr(url)}" data-verify-link="${escAttr(verify)}" hidden>Share…</button>
+    ${shareLinks(title, url, verify).map(([n, href]) => `<a href="${escAttr(href)}" target="_blank" rel="noopener">${n}</a>`).join(' ')}
+    <button type="button" data-share-mastodon data-title="${escAttr(title)}" data-url="${escAttr(url)}" data-verify-link="${escAttr(verify)}">Mastodon</button>
+  </div><div class="row" data-direct hidden><button type="button" data-post-direct="bluesky" data-title="${escAttr(title)}" data-url="${escAttr(url)}" data-verify-link="${escAttr(verify)}" hidden>Post to Bluesky now</button> <button type="button" data-post-direct="mastodon" data-title="${escAttr(title)}" data-url="${escAttr(url)}" data-verify-link="${escAttr(verify)}" hidden>Post to Mastodon now</button></div><p class="status" role="status" data-direct-status></p></details>`;
+}
+
+/** The phone's share sheet where there is one; Mastodon asks for your server once. */
+export function wireShare(root = document) {
+  root.addEventListener('toggle', (e) => {
+    const d = e.target;
+    if (d.classList?.contains('share') && d.open) for (const b of d.querySelectorAll('[data-share-native]')) b.hidden = !navigator.share;
+  }, true);
+  root.addEventListener('click', async (e) => {
+    const n = e.target.closest('[data-share-native]');
+    if (n) {
+      e.preventDefault();
+      navigator.share?.({ title: n.dataset.title, text: shareText(n.dataset.title, n.dataset.verifyLink || ''), url: n.dataset.url }).catch(() => {});
+      return;
+    }
+    const m = e.target.closest('[data-share-mastodon]');
+    if (!m) return;
+    e.preventDefault();
+    let server = '';
+    try {
+      server = localStorage.getItem('mandate.mastodon') || '';
+    } catch {
+      /* ignore */
+    }
+    server = (window.prompt('Your Mastodon server (for example mastodon.social)', server) || '').trim().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
+    if (!/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(server)) return;
+    try {
+      localStorage.setItem('mandate.mastodon', server);
+    } catch {
+      /* ignore */
+    }
+    window.open(`https://${server}/share?text=${encodeURIComponent(`${shareText(m.dataset.title, m.dataset.verifyLink || '')} ${m.dataset.url}`)}`, '_blank', 'noopener');
+  });
 }
 
 /** Scroll to an element and flash it so it is easy to spot. */
