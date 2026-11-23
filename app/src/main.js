@@ -38,6 +38,7 @@ import { shareText } from './copy.js';
 import { wireVideos, videosHtml, videoFields, wireVideoFields, readVideos } from './videos.js';
 import { wireAids, listenTranslateHtml } from './aihelp.js';
 import { wireOnBase } from './onbase.js';
+import { districtOfferHtml, pollDistrictsHtml, wireDistricts } from './districts.js';
 import { renderExplainer } from './explain.js';
 import { informedHtml } from './informed.js';
 import { wireOfficials } from './officials.js';
@@ -1026,13 +1027,14 @@ async function refreshPolls() {
         ${open && !voted && !eligibleTier ? `<p class="note">${myTier < 0 ? 'Join first to vote in polls.' : `Only ${esc(who.toLowerCase())} can vote in this poll. ${pollTier === 2 ? 'Verify your ID with the city clerk, a library desk or a mobile ID to get full voting rights.' : 'Verify your ID to vote in it.'}`}</p>` : ''}
         ${voted ? `<div class="receipt-box stack" data-id="${id}" data-nullifier="${myNullifier}"><p class="ok">Your vote is recorded. Nobody can see which way you voted.</p>
           <div class="row"><button type="button" data-checkvote>Check my vote</button> ${copyBtn(receiptCode(id, myNullifier), 'Copy receipt')}</div>
+          ${!st.ranked ? districtOfferHtml(state.config, scope) : ''}
           ${open && eligibleTier && !paperLocks && onlineOk && canChange ? `<details class="change-vote"><summary>Change my vote</summary><p class="note">${st.changeCutoff ? 'Until the cutoff above' : 'Until the poll closes'} you can change your vote, privately; only your latest vote counts. If anyone pressured you to vote a certain way, you can quietly change it.</p>${buttons}</details>` : ''}
           <p class="note">The receipt lets anyone confirm this ballot was counted (in Search), without learning who cast it. Anyone you show it to can also see its choice, so keep it to yourself.</p>
           <p class="note"><strong>Never share your voter key or backup code.</strong> Anyone who asks for it, or offers anything for your vote, may be trying to buy or control it; buying and selling votes is a crime. You can always change your online vote until the poll closes, or vote on paper.</p><div data-receipt></div></div>` : ''}
         <p class="status" id="poll-status-${id}" role="status"></p>
         <details><summary>Current count (${total} of ${p.electorate} eligible, quorum ${p.quorum})</summary><ul class="tally">${results}</ul></details>
         <div class="tallies-box" data-id="${id}" data-online="${esc(JSON.stringify(tally.map(String)))}" data-labels="${esc(JSON.stringify(labels))}" data-canvote="${eligibleTier && open && !p.finalized && !paperPlace && st.channels !== 1 ? 1 : 0}" data-final="${latestWins ? 'latest' : 'paper'}"></div>
-        ${st.ranked ? `<div class="card stack ranked-results" data-id="${id}"><p class="muted">Counting the rankings…</p></div>` : ''}
+        ${st.ranked ? `<div class="card stack ranked-results" data-id="${id}"><p class="muted">Counting the rankings…</p></div>` : pollDistrictsHtml(state.config, id, Number(p.options), labels)}
         <div class="officials-box" data-id="${id}" data-canvote="${open && !voted && eligibleTier && Number(p.options) === 2 ? 1 : 0}"></div>
         <div class="review-box" data-id="${id}"></div>        <div class="explain-box" data-id="${id}"></div>
         <div class="thread-box" data-kind="poll" data-id="${id}"></div>
@@ -1057,6 +1059,7 @@ async function refreshPolls() {
     for (const box of list.querySelectorAll('.ranked-results')) rankedResultsHtml(state, BigInt(box.dataset.id), labelsById[box.dataset.id] || [], esc).then((h) => (box.innerHTML = h), () => (box.innerHTML = ''));
     for (const box of list.querySelectorAll('.thread-box')) state.feedback.thread(box, box.dataset.kind, Number(box.dataset.id)).catch(() => {});
     wireAttachments(list, state.config);
+    wireDistricts(list, { state, nullifierFor }).catch(() => {});
     for (const box of list.querySelectorAll('.receipt-box')) {
       const b = box.querySelector('[data-checkvote]');
       b.onclick = async () => {
@@ -2085,7 +2088,7 @@ async function boot() {
     await renderBodiesTodo().catch(() => {});
   };
   state.officials = wireOfficials({ state, $, status, esc, activeSigner, activeAddress, sendTx: (el, label, fn) => sendAdminTx(el, label, () => fn()) });
-  state.publicPetitions = wirePublicPetitions({ state, $, status, esc, myTier: async () => {
+  state.publicPetitions = wirePublicPetitions({ state, $, status, esc, nullifierFor, myTier: async () => {
     const m = await state.registry.members(state.identity.commitment);
     return m.active ? Number(m.tier) : -1;
   } });

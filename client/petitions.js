@@ -31,6 +31,7 @@ const PETITIONS_ABI = [
   'function sheets(uint256 id, uint256 from, uint256 count) view returns (tuple(bytes32 photo, uint32 signatures, string ref, uint8 tier, uint64 at)[])',
   'function custody(uint256 id, uint256 sheet) view returns (tuple(string ref, uint8 tier, uint64 at)[])',
   'function sheetOfPhoto(bytes32) view returns (uint256)',
+  'function nullifierUsed(uint256) view returns (bool)',
   'function signScope(uint256) view returns (uint256)',
   'function sheetScope(uint256, bytes32) view returns (uint256)',
   'function custodyScope(uint256, uint256, uint256) view returns (uint256)',

@@ -17,6 +17,7 @@ import { ethers } from 'ethers';
 import { PETITIONS_ABI, CONSENT, petitionText, signatureText, sheetText, custodyText, signProof, sheetProof, custodyProof, checkPetition, packetCsv, readRef, statementRef, statementBytes } from '../../client/petitions.js';
 import { storeStatement, fetchStatement } from './attach.js';
 import { readSeal } from './testimonia.js';
+import { districtOfferHtml, petitionDistrictsHtml, wireDistricts } from './districts.js';
 
 const TIER_WHO = ['members', 'ID-checked residents', 'residents with full voting rights'];
 const BOARD_ABI = ['function read(bytes32) view returns (string)'];
@@ -66,6 +67,8 @@ export function wirePublicPetitions(ctx) {
     const cards = [];
     for (const id of ids) {
       const p = await pp.getPetition(id);
+      const scope = await pp.signScope(id);
+      const signed = state.identity && ctx.nullifierFor ? await pp.nullifierUsed(await ctx.nullifierFor(scope)).catch(() => false) : false;
       const doc = (await readRef(board(), p.ref)).doc || {};
       cards.push(`<article class="card stack" id="ppetition-${id}">
         <p class="eyebrow"><span>Petition to deliver ${id}</span> · <span>started</span> ${esc(when(p.createdAt))} · <span>signed by name by ${esc(TIER_WHO[Number(p.tier)])}</span></p>
@@ -94,12 +97,14 @@ export function wirePublicPetitions(ctx) {
           <label for="pp-rrole-${id}">Your role (e.g. organizer, county clerk)</label><input type="text" id="pp-rrole-${id}" maxlength="120" />
           <button data-pp-receive="${id}">Record that I received it</button>
         </div></details>` : ''}
+        ${signed ? districtOfferHtml(state.config, scope) : ''}${petitionDistrictsHtml(state.config, state.config.petitionsAddress, scope, p.named)}
         <div class="row"><button data-pp-check="${id}">Check and deliver</button></div>
         <p class="status" role="status"></p>
         <div class="pp-report"></div>
       </article>`);
     }
     box.innerHTML = cards.join('');
+    wireDistricts(box, { state, nullifierFor: ctx.nullifierFor }).catch(() => {});
     for (const b of box.querySelectorAll('[data-pp-sign]')) b.onclick = () => signByName(Number(b.dataset.ppSign));
     for (const b of box.querySelectorAll('[data-pp-sheet]')) b.onclick = () => fileSheet(Number(b.dataset.ppSheet));
     for (const b of box.querySelectorAll('[data-pp-receive]')) b.onclick = () => receive(Number(b.dataset.ppReceive));

@@ -282,6 +282,7 @@ export function wireVoterGroups(ctx) {
         <label>Remove a voter (their voter code) <input type="text" data-f="g-remove" inputmode="numeric" /></label>
         <button type="button" data-g-remove>Remove from the list</button>
         <p class="muted">Removing someone from the main voter list does not remove them here: remove them here too.</p></div>`).join('')}
+      ${creator && state.config.districtsAddress ? await districtsCard(rows) : ''}
       <p class="status" role="status" data-g-status></p>`;
     const el = box.querySelector('[data-g-status]');
     const send = async (label, fn) => {
@@ -308,6 +309,9 @@ export function wireVoterGroups(ctx) {
       if (!name || !ethers.isAddress(manager)) return status(el, 'Give the list a name and a valid manager address.', 'error');
       send('Create list', (k) => k.createGroup(name, Number(f(box, 'g-tier')), ethers.getAddress(manager)));
     });
+    for (const b of box.querySelectorAll('[data-g-district]')) {
+      b.onclick = () => send('Mark as a district', async () => new ethers.Contract(state.config.districtsAddress, ['function addDistrict(uint256 groupId)'], ctx.activeSigner()).addDistrict(BigInt(b.dataset.gDistrict)));
+    }
     for (const card of box.querySelectorAll('[data-group]')) {
       const id = BigInt(card.dataset.group);
       card.querySelector('[data-g-add]').onclick = () => {
@@ -327,6 +331,17 @@ export function wireVoterGroups(ctx) {
         send('Remove voter', (c) => c.removeMember(id, BigInt(code), grp.generateMerkleProof(i).siblings));
       };
     }
+  }
+  /** Which lists are districts: results can then be shown by district (people choose to add theirs). */
+  async function districtsCard(rows) {
+    const d = new ethers.Contract(state.config.districtsAddress, ['function isDistrict(uint256) view returns (bool)', 'function minMembers() view returns (uint256)'], state.provider);
+    const min = Number(await d.minMembers().catch(() => 0n));
+    const flags = await Promise.all(rows.map(([id]) => d.isDistrict(id).catch(() => false)));
+    if (!rows.length) return '';
+    return `<details><summary><strong>Districts (results by district)</strong></summary><div class="stack">
+      <p class="note">Mark the lists that are districts or wards (not, say, a union local). After voting or signing, people on a district's list can choose to add their district, so results can be shown by district; nobody learns who. A district is counted once at least ${min} people are on its list, and shown once 5 have added it. Keep districts separate: one person on one district's list.</p>
+      <ul class="list">${rows.map(([id, [info, size]], k) => `<li><strong>${esc(info.name)}</strong> · ${Number(size)} on the list · ${flags[k] ? 'a district' : `<button type="button" data-g-district="${id}">Mark as a district</button>`}</li>`).join('')}</ul>
+    </div></details>`;
   }
   return { render: () => render().catch(() => {}), short };
 }

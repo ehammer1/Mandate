@@ -82,12 +82,13 @@ const AGENDA_ABI = [
 
 const MAX_BODY = 16 * 1024;
 
-function createRelayer({ provider, signer, voteAddress, budgetAddress, feedbackAddress, noticeBoardAddress, talliesAddress, agendaAddress, petitionsAddress, rateLimitPerMin = 30, corsOrigin = '*', confirmations = 1, log = console.log }) {
+function createRelayer({ provider, signer, voteAddress, budgetAddress, feedbackAddress, noticeBoardAddress, talliesAddress, agendaAddress, petitionsAddress, districtsAddress, rateLimitPerMin = 30, corsOrigin = '*', confirmations = 1, log = console.log }) {
   const vote = new ethers.Contract(voteAddress, VOTE_ABI, signer);
   const budget = budgetAddress ? new ethers.Contract(budgetAddress, BUDGET_ABI, signer) : null;
   const feedback = feedbackAddress ? new ethers.Contract(feedbackAddress, FEEDBACK_ABI, signer) : null;
   const tallies = talliesAddress ? new ethers.Contract(talliesAddress, ['function checkIn(uint256 pollId, uint32 place, tuple(uint256 merkleTreeDepth, uint256 merkleTreeRoot, uint256 nullifier, uint256 message, uint256 scope, uint256[8] points) proof)', 'error NotOpen()', 'error AlreadyCheckedIn()', 'error BadProof()', 'error BadInput()'], signer) : null;
   const petitions = petitionsAddress ? new ethers.Contract(petitionsAddress, require('../client/petitions').PETITIONS_ABI, signer) : null;
+  const districts = districtsAddress ? new ethers.Contract(districtsAddress, require('../client/districts').DISTRICTS_ABI, signer) : null;
   const board = noticeBoardAddress ? new ethers.Contract(noticeBoardAddress, ['function post(string) returns (bytes32)', 'function read(bytes32) view returns (string)'], signer) : null;
   const agenda = agendaAddress ? new ethers.Contract(agendaAddress, AGENDA_ABI, signer) : null;
   const hits = new Map(); // ip -> [timestamps]; in memory only, never logged
@@ -384,6 +385,45 @@ function createRelayer({ provider, signer, voteAddress, budgetAddress, feedbackA
     }
   }
 
+  // POST /district { groupId, proof }: add a resident's district to their own ballot or
+  // signature (Districts.sol), so results can be shown by district. Anonymous, like the ballot.
+  async function handleDistrict(req, res) {
+    if (!districts) return send(res, 404, { error: 'no districts contract on this relayer' });
+    const body = await readJson(req);
+    let groupId;
+    let proof;
+    try {
+      const p = body.proof;
+      groupId = BigInt(body.groupId);
+      proof = { merkleTreeDepth: BigInt(p.merkleTreeDepth), merkleTreeRoot: BigInt(p.merkleTreeRoot), nullifier: BigInt(p.nullifier), message: BigInt(p.message), scope: BigInt(p.scope), points: p.points.map((x) => BigInt(x)) };
+      if (proof.points.length !== 8) throw new Error();
+    } catch {
+      return send(res, 400, { error: 'expected { groupId, proof }' });
+    }
+    const why = (e) => {
+      try {
+        return e?.revert?.name || districts.interface.parseError(e?.data || e?.info?.error?.data)?.name || null;
+      } catch {
+        return null;
+      }
+    };
+    try {
+      await districts.tag.staticCall(groupId, proof);
+    } catch (e) {
+      const name = why(e);
+      return send(res, name ? (name === 'AlreadyTagged' ? 409 : 422) : 502, { error: name || 'RPCError' });
+    }
+    try {
+      const run = queue.then(async () => (await districts.tag(groupId, proof)).wait(confirmations));
+      queue = run.catch(() => {});
+      const receipt = await run;
+      log(`district added tx=${receipt.hash}`);
+      send(res, 200, { txHash: receipt.hash });
+    } catch (e) {
+      send(res, 502, { error: why(e) || 'SubmitFailed', message: e.shortMessage || e.message });
+    }
+  }
+
   // POST /petitions { method: 'create' | 'sign' | 'sheet' | 'receive', args: [...], proof? }
   // Petitions delivered outside Promissa (PublicPetitions.sol): new petitions, named
   // signatures, paper sheets and their custody, each with its anonymous proof.
@@ -523,6 +563,7 @@ function createRelayer({ provider, signer, voteAddress, budgetAddress, feedbackA
       if (req.method === 'POST' && req.url === '/agenda') return await handleAgenda(req, res);
       if (req.method === 'POST' && req.url === '/notice') return await handleNotice(req, res);
       if (req.method === 'POST' && req.url === '/petitions') return await handlePetitions(req, res);
+      if (req.method === 'POST' && req.url === '/district') return await handleDistrict(req, res);
       if (req.method === 'POST' && req.url === '/checkin') return await handleCheckIn(req, res);
       send(res, 404, { error: 'not found' });
     } catch (e) {
@@ -552,6 +593,7 @@ if (require.main === module) {
     let noticeBoardAddress = clean('NOTICE_BOARD_ADDRESS');
     let talliesAddress = clean('TALLIES_ADDRESS');
     let petitionsAddress = clean('PETITIONS_ADDRESS');
+    let districtsAddress = clean('DISTRICTS_ADDRESS');
     let agendaAddress = clean('AGENDA_ADDRESS');
     let rpcUrl = clean('RPC_URL');
     const loadConfig = async () => (await fetch(`${configUrl}${configUrl.includes('?') ? '&' : '?'}t=${Date.now()}`, { cache: 'no-store' })).json();
@@ -563,6 +605,7 @@ if (require.main === module) {
       noticeBoardAddress = noticeBoardAddress || cfg.noticeBoardAddress || '';
       talliesAddress = talliesAddress || cfg.talliesAddress || '';
       petitionsAddress = petitionsAddress || cfg.petitionsAddress || '';
+      districtsAddress = districtsAddress || cfg.districtsAddress || '';
       agendaAddress = agendaAddress || cfg.agendaAddress || '';
       rpcUrl = rpcUrl || cfg.rpcUrl;
     }
@@ -580,7 +623,7 @@ if (require.main === module) {
     voteAddress = ethers.getAddress(voteAddress);
     console.log(`[relayer] paying fees from ${signer.address}`);
     const addr = (a) => (ethers.isAddress(a || '') ? ethers.getAddress(a) : undefined);
-    const build = (vote, budget, fb, tal = talliesAddress, nb = noticeBoardAddress, ag = agendaAddress, pp = petitionsAddress) =>
+    const build = (vote, budget, fb, tal = talliesAddress, nb = noticeBoardAddress, ag = agendaAddress, pp = petitionsAddress, dd = districtsAddress) =>
       createRelayer({
         provider,
         signer,
@@ -591,6 +634,7 @@ if (require.main === module) {
         talliesAddress: addr(tal),
         agendaAddress: addr(ag),
         petitionsAddress: addr(pp),
+        districtsAddress: addr(dd),
         rateLimitPerMin: Number(process.env.RATE_LIMIT_PER_MIN || 30),
         corsOrigin: process.env.CORS_ORIGIN || '*',
         confirmations: Number(process.env.CONFIRMATIONS || 1),
@@ -608,7 +652,7 @@ if (require.main === module) {
     const indexUrl = indexUrlFrom(configUrl, clean('COMMUNITIES_URL'));
     if (indexUrl) {
       const sync = () =>
-        syncCommunities(router, indexUrl, (c) => (drawConfigs.set(c.voteAddress, c), build(ethers.getAddress(c.voteAddress), addr(c.budgetAddress) || '', addr(c.feedbackAddress) || '', addr(c.talliesAddress) || '', addr(c.noticeBoardAddress) || '', addr(c.agendaAddress) || '', addr(c.petitionsAddress) || '').listeners('request')[0]), {
+        syncCommunities(router, indexUrl, (c) => (drawConfigs.set(c.voteAddress, c), build(ethers.getAddress(c.voteAddress), addr(c.budgetAddress) || '', addr(c.feedbackAddress) || '', addr(c.talliesAddress) || '', addr(c.noticeBoardAddress) || '', addr(c.agendaAddress) || '', addr(c.petitionsAddress) || '', addr(c.districtsAddress) || '').listeners('request')[0]), {
           log: (m) => console.log(`[relayer] ${m}`),
         }).catch((e) => console.log(`[relayer] community list unavailable: ${e.message}`));
       await sync();

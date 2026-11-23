@@ -5,6 +5,7 @@
  */
 
 import { ethers } from 'ethers';
+import { districtOfferHtml, petitionDistrictsHtml, wireDistricts } from './districts.js';
 import { commentProof, ratingProof, markProof, signatureProof, topicOf, bridgeScore } from '../../client/feedback.js';
 import { readDoc } from './notices.js';
 import { countdown } from './time.js';
@@ -255,11 +256,13 @@ export function wireFeedback(ctx) {
         ${itemTools({ title: doc.title, anchor: `petition-${id}`, idText: `Petition ${id} (${state.config.feedbackAddress})`, ref: p.ref, explorer: state.config.explorer, address: state.config.feedbackAddress })}
         <p><strong>${p.signatures} of ${p.needed}</strong> signatures</p>
         <div class="tally"><span>Progress</span><span class="track"><span class="fill" style="display:block;width:${pct}%"></span></span><span class="v">${pct}%</span></div>
+        ${signed ? districtOfferHtml(state.config, await f.petitionScope(id)) : ''}${petitionDistrictsHtml(state.config, state.config.feedbackAddress, await f.petitionScope(id), p.signatures)}
         ${opened ? `<p class="ok">Enough signatures: poll ${p.pollId} opened by itself. Go to Polls to vote.</p>` : signed ? '<p class="ok">You signed this. Nobody can see who signed.</p>' : tier >= Number(p.tier) ? `<button class="primary" data-sign="${id}">Sign anonymously</button>` : `<p class="note">${tier < 0 ? 'Join first to sign.' : `Only ${esc(TIER_WHO[Number(p.tier)].toLowerCase())}s can sign this petition.`}</p>`}
         <p class="status" role="status"></p>
       </article>`);
     }
     list.innerHTML = cards.join('') || `<p class="muted">${topic === 'all' ? 'No petitions yet.' : 'No petitions on this topic yet.'}</p>`;
+    wireDistricts(list, { state, nullifierFor: ctx.nullifierFor }).catch(() => {});
     for (const [k, v] of [['petition-sort-top', 'top'], ['petition-sort-new', 'new']]) {
       const b = $(k);
       if (!b) continue;

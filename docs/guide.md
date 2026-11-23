@@ -186,6 +186,19 @@ Some petitions go to someone outside the community's own votes, who wants names,
 
 Electronic signatures count only where the recipient or the law accepts them; where they don't, the paper sheets and their custody records are what count. States have their own required circulator wording: use theirs when filing officially.
 
+<a id="districts"></a>
+### Results by district
+
+Where the community has district or ward voter lists, polls and petitions can show their results
+by district. After you vote or sign, tap **📍 Count this in the results for** your district: your
+phone proves, privately, that you are on that district's list. It never changes your vote and
+never shows who you are, only that someone from your district took part. Under a poll or
+petition, **By district** shows the counts.
+
+To protect small groups, a district is counted only once enough people are on its list (50 by
+default), and shown only once 5 people from it have added it; smaller ones are counted under
+"Other". In Admin, those who create voter lists mark which lists are districts.
+
 <a id="mandates"></a>
 ## Mandates: making sure it gets done
 

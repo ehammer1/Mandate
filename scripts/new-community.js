@@ -221,6 +221,7 @@ function communityConfig(spec, addresses, startBlock, base = {}, services = {}) 
     ...(addresses.assemblies ? { assembliesAddress: addresses.assemblies } : {}),
     ...(addresses.agenda ? { agendaAddress: addresses.agenda } : {}),
     ...(addresses.petitions ? { petitionsAddress: addresses.petitions } : {}),
+    ...(addresses.districts ? { districtsAddress: addresses.districts } : {}),
     escrowFactoryAddress: addresses.escrows,
     relayers: (services.relayers || []).map((u) => `${trim(u)}/c/${spec.slug}`),
     identityService: services.identity ? `${trim(services.identity)}/c/${spec.slug}` : '',

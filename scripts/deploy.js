@@ -133,6 +133,8 @@ async function deployAll(signer, opts = {}) {
   await send(vote.grantRole(await vote.PROPOSER_ROLE(), await contracts.feedback.getAddress()));
   // Petitions delivered outside Promissa: named signatures, paper sheets and their custody.
   contracts.petitions = await deploy(signer, 'PublicPetitions', {}, await identity.getAddress());
+  // Results by district: residents may add their district to their own ballot or signature.
+  contracts.districts = await deploy(signer, 'Districts', {}, await contracts.voterGroups.getAddress(), opts.districtMinMembers ?? 50);
   // Citizens' assemblies: residents drawn at random from a voter list, like a jury.
   contracts.assemblies = await deploy(signer, 'Assemblies', {}, me, await identity.getAddress());
   await send(contracts.assemblies.grantRole(await contracts.assemblies.ORGANIZER_ROLE(), opts.registrar || me));
@@ -226,6 +228,7 @@ if (require.main === module) {
       budgetAddress: addresses.budget,
       feedbackAddress: addresses.feedback,
       petitionsAddress: addresses.petitions,
+      districtsAddress: addresses.districts,
       officialsAddress: addresses.officials,
       bodiesAddress: addresses.bodies,
       bodyRecordsAddress: addresses.bodyRecords,
