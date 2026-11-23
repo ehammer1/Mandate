@@ -16,17 +16,19 @@ test('YouTube links of every shape give the video id; other platforms are named'
   assert.equal(platformOf('https://x.com/a/status/1'), 'X');
 });
 
-test('only https links; a seal is kept with its original file; shown as pending until Testimonia launches', () => {
+test('only https links; a Testimonia seal is kept with its original file and links to Testimonia', () => {
   assert.throws(() => readVideos(root({ url0: 'http://youtube.com/x' }), 'pet'), /https/);
   assert.throws(() => readVideos(root({ url0: 'https://youtu.be/abcdefg', orig0: 'javascript:alert(1)' }), 'pet'), /original file/);
   assert.equal(readVideos(root({}), 'pet'), undefined);
-  const v = readVideos(root({ url0: 'https://youtu.be/dQw4w9WgXcQ', title0: 'Why we need a crosswalk', seal0: 'TS1.abc', orig0: 'ipfs://bafyexample', url1: 'https://www.tiktok.com/@a/video/1' }), 'pet');
+  const rec = JSON.stringify({ format: 'attest-record/1', sealDigest: '0x' + '2'.repeat(64), manifest: { meta: { keyId: 'e'.repeat(64) }, seal: { fileHash: 'f'.repeat(64) } } });
+  assert.throws(() => readVideos(root({ url0: 'https://youtu.be/dQw4w9WgXcQ', seal0: 'TS1.abc' }), 'pet'), /not a Testimonia seal/);
+  const v = readVideos(root({ url0: 'https://youtu.be/dQw4w9WgXcQ', title0: 'Why we need a crosswalk', seal0: rec, orig0: 'ipfs://bafyexample', url1: 'https://www.tiktok.com/@a/video/1' }), 'pet');
   assert.equal(v.length, 2);
-  assert.deepEqual(v[0].seal, { by: 'testimonia', code: 'TS1.abc', original: 'ipfs://bafyexample' });
+  assert.deepEqual([v[0].seal.by, v[0].seal.kind, v[0].seal.keyId, v[0].seal.sealDigest, v[0].seal.originalFile], ['testimonia', 'recording', 'e'.repeat(64), '0x' + '2'.repeat(64), 'ipfs://bafyexample']);
   const html = videosHtml(v);
   assert.match(html, /data-yt="dQw4w9WgXcQ"/); // tap to play; nothing loads before
   assert.doesNotMatch(html, /<iframe/);
-  assert.match(html, /Testimonia seal: verification opens when Testimonia launches/);
+  assert.match(html, /Sealed by Testimonia: <a href="https:\/\/ehammer1\.github\.io\/testimonia\/#proof=/);
   assert.match(html, /Not sealed: authenticity not checked/);
   assert.match(html, /https:\/\/ipfs\.io\/ipfs\/bafyexample/);
   assert.equal(videosHtml([{ url: 'javascript:alert(1)' }]), '');

@@ -16,6 +16,7 @@ import { videosHtml, wireVideos } from './videos.js';
 import { copyBtn, wireCopy } from './copy.js';
 import { sameLook, lookOfFile } from './look.js';
 import { sha256Hex } from '../../client/uploads.js';
+import { testimoniaUrl } from './testimonia.js';
 
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
@@ -35,9 +36,6 @@ export function refFrom(text) {
   const m = t.match(/nb:0x[0-9a-fA-F]{64}/);
   return m ? m[0] : null;
 }
-
-/** Testimonia's checker (the person adds the file there; nothing is uploaded). Its address will change at launch. */
-export const testimoniaUrl = (cfg) => cfg.testimoniaUrl || 'https://ehammer1.github.io/testimonia/';
 
 /** Compare a file someone has with the files on the record. */
 export async function checkFile(file, attachments) {
@@ -76,7 +74,7 @@ async function render(cfg, provider, ref) {
       <h2 style="margin:0">${esc(doc.title)}</h2>
       ${doc.body ? `<p style="white-space:pre-wrap">${esc(doc.body)}</p>` : ''}
       ${attachmentsHtml(cfg, doc, esc)}
-      ${videosHtml(videos)}
+      ${videosHtml(videos, cfg)}
     </div>
     <div class="card stack">
       <h3 style="margin:0">Check a file you were sent</h3>

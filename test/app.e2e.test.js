@@ -1414,6 +1414,13 @@ test('photos and documents: take, scan, AI reads them, fingerprints check out, t
   await page.waitForSelector('#petition-attach .attach-list li', { timeout: 120_000 });
   assert.equal(await page.inputValue('#petition-attach [data-alt="0"]'), 'A deep pothole on Elm Street'); // AI wrote the description
   assert.match(await page.textContent('#petition-attach'), /AI noticed private details: a car licence plate/);
+  // A Testimonia seal for the photo as it was taken: that original is stored unchanged, not shrunk.
+  const rawSha = require('node:crypto').createHash('sha256').update(png).digest('hex');
+  const sealRecord = { format: 'attest-file/1', file: { sha256: rawSha, name: 'pothole.png', mediaType: 'image/png' }, signer: { keyId: 'b'.repeat(64) }, sig: 'x' };
+  await page.click('#petition-attach .attach-list li summary >> text=Testimonia seal');
+  await page.fill('#petition-attach [data-seal="0"]', `https://testimonia.example/#proof=${Buffer.from(JSON.stringify(sealRecord)).toString('base64url')}`);
+  await page.press('#petition-attach [data-seal="0"]', 'Tab');
+  await page.waitForSelector('#petition-attach >> text=sealed original is stored exactly as Testimonia sealed it', { timeout: 120_000 });
   // A two-page scan becomes one PDF.
   await page.setInputFiles('#petition-attach [data-pick="scan"]', { name: 'p1.png', mimeType: 'image/png', buffer: png });
   await page.waitForSelector('#petition-attach >> text=1 page scanned');
@@ -1435,7 +1442,9 @@ test('photos and documents: take, scan, AI reads them, fingerprints check out, t
   assert.equal(doc.attachments.length, 2);
   assert.match(doc.attachments[0].sha256, /^[0-9a-f]{64}$/);
   assert.equal(doc.attachments[1].type, 'application/pdf');
-  assert.equal(doc.attachments[0].ai.summary, 'A photo of a pothole next to a street sign.');
+  assert.equal(doc.attachments[0].sha256, rawSha); // the sealed original, unchanged
+  assert.deepEqual([doc.attachments[0].seal.by, doc.attachments[0].seal.keyId, doc.attachments[0].seal.sealDigest], ['testimonia', 'b'.repeat(64), null]);
+  assert.match(await page.textContent(`#petition-${pid} .attachments`), /Sealed by Testimonia: check it \(not yet anchored on Base\)/);
   // ✔ Verify: a public page with the record, and a check for a file someone was sent.
   const ref = (await c.feedback.getPetition(pid)).ref;
   assert.ok(await page.$(`#petition-${pid} a[href*="verify.html?ref=${encodeURIComponent(ref)}"]`), 'a Verify link on the item');

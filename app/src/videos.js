@@ -5,14 +5,16 @@
  * the poster's own account or anonymously like the item itself, so the record shows who
  * attached what.
  *
- * Authenticity: a video may carry a seal from Testimonia (a fingerprint of the original file,
- * when and how it was recorded). Until Testimonia launches the seal is shown as "pending
- * verification". It will prove the recording is real and unedited, not that what it says is
- * true. Platforms re-compress uploads, so the seal is checked against the original file.
+ * Authenticity: a video may carry a seal from Testimonia, made when it was recorded. Promissa keeps
+ * its identifiers (see testimonia.js) and links to Testimonia's checker. A seal proves the
+ * recording is real and unedited, not that what it says is true. Platforms re-compress uploads,
+ * so the seal is checked against the original file.
  *
  * Privacy: nothing from a video platform loads until the person taps Play (YouTube plays from
  * its no-cookie domain); other platforms open in a new tab.
  */
+
+import { readSeal, sealHtml } from './testimonia.js';
 
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const MAX = 3;
@@ -56,7 +58,7 @@ export function videoFields(p) {
     <p class="note">Post your video wherever you like (YouTube, TikTok, Instagram…) and paste the link here. Recorded with Testimonia? Add its seal and the original file, so people can check it is real and unedited.</p>
     ${[0, 1, 2].map((i) => `<div class="stack"${i ? ' data-more hidden' : ''}><label>Video link (https://…) <input type="url" data-${p}-vid-url="${i}" /></label>
       <label>Title <input type="text" data-${p}-vid-title="${i}" maxlength="120" /></label>
-      <details><summary>Testimonia seal (optional)</summary><label>Seal code <input type="text" data-${p}-vid-seal="${i}" spellcheck="false" /></label><label>Original file link <input type="url" data-${p}-vid-orig="${i}" /></label></details></div>`).join('')}
+      <details><summary>Testimonia seal (optional)</summary><label>The Testimonia link or record <input type="text" data-${p}-vid-seal="${i}" spellcheck="false" /></label><label>Original file link <input type="url" data-${p}-vid-orig="${i}" /></label></details></div>`).join('')}
     <button type="button" data-${p}-vid-more>Add another video</button>
   </div></details>`;
 }
@@ -82,22 +84,26 @@ export function readVideos(root, p) {
     const orig = v('orig');
     if (orig && !/^(https:\/\/|ipfs:\/\/)[^\s]+$/.test(orig)) throw new Error('The original file link must start with https:// or ipfs://');
     const seal = v('seal');
-    out.push({ url, title: v('title').slice(0, 120), ...(seal ? { seal: { by: 'testimonia', code: seal.slice(0, 4000), ...(orig ? { original: orig } : {}) } } : {}) });
+    // A recording's seal: its identifiers and record (Testimonia checks it), and where the sealed original is.
+    out.push({ url, title: v('title').slice(0, 120), ...(seal ? { seal: { ...readSeal(seal), ...(orig ? { originalFile: orig } : {}) } } : {}) });
   }
   return out.length ? out : undefined;
 }
 
 /** Video cards for a document's videos. */
-export function videosHtml(videos) {
+/** The sealed original of a video (a link), from current or older seals. */
+const sealedOriginal = (v) => [v.seal?.originalFile, v.seal?.original].find((x) => typeof x === 'string' && /^(https|ipfs):\/\/[^\s]+$/.test(x)) || '';
+
+export function videosHtml(videos, cfg = {}) {
   const list = (Array.isArray(videos) ? videos : []).filter((v) => v && /^https:\/\/[^\s]+$/.test(v.url)).slice(0, MAX);
   if (!list.length) return '';
   return `<div class="stack videos">${list
     .map((v) => {
       const yt = youtubeId(v.url);
-      const badge = v.seal ? '<span class="chip">Testimonia seal: verification opens when Testimonia launches</span>' : '<span class="chip muted">Not sealed: authenticity not checked</span>';
+      const badge = v.seal ? sealHtml(cfg, v.seal, esc) : '<span class="chip muted">Not sealed: authenticity not checked</span>';
       return `<div class="card stack video"><p><strong>🎬 ${esc(v.title || 'Video')}</strong> · ${esc(platformOf(v.url))}</p>
         ${yt ? `<div data-yt="${esc(yt)}"><button type="button" data-play>▶ Play here</button></div>` : ''}
-        <p><a href="${esc(v.url)}" target="_blank" rel="noopener">Watch on ${esc(platformOf(v.url))}</a>${v.seal?.original && /^(https|ipfs):\/\//.test(v.seal.original) ? ` · <a href="${esc(v.seal.original.replace(/^ipfs:\/\//, 'https://ipfs.io/ipfs/'))}" target="_blank" rel="noopener">The sealed original</a>` : ''}</p>
+        <p><a href="${esc(v.url)}" target="_blank" rel="noopener">Watch on ${esc(platformOf(v.url))}</a>${sealedOriginal(v) ? ` · <a href="${esc(sealedOriginal(v).replace(/^ipfs:\/\//, 'https://ipfs.io/ipfs/'))}" target="_blank" rel="noopener">The sealed original</a>` : ''}</p>
         <p>${badge}</p></div>`;
     })
     .join('')}<p class="note">Each video's link and seal are recorded on Base with this item (📜 On Base). A seal shows a recording is real and unedited, not that what it says is true.</p></div>`;

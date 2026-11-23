@@ -279,7 +279,7 @@ Assemblies, review panels and, where the council turns it on, the checkers for e
 - **A real resident posted it.** Proposals, comments and issues carry an anonymous proof that the poster is on the voter list, without saying who.
 - **This candidate said it.** Candidate positions, statements and video links come from the candidate's own account.
 - **The file is unchanged.** Every photo, poster, document and audio file has a fingerprint on the public record. Check it is unchanged compares every stored copy with it.
-- **The recording is real and unedited.** A Testimonia seal, made when it was recorded, proves when, on which device, and that nothing was cut or altered. It shows as pending until Testimonia launches. A seal shows a recording is real, not that what it says is true.
+- **The recording is real and unedited.** A Testimonia seal, made when it was recorded, proves when, on which device, and that nothing was cut or altered. Tap "check it" next to the seal: Testimonia's own checker opens, and you add the file there (nothing is uploaded). A seal shows a recording is real, not that what it says is true.
 
 Posts on X and other platforms can't carry these checks. Promissa's share links lead back to the original, where you can check it.
 

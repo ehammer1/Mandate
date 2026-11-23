@@ -1006,7 +1006,7 @@ async function refreshPolls() {
         <p class="eyebrow">${open ? `Open until ${esc(when(p.end))} · ${countdown(p.end, 'closes ', 'polls')}` : p.finalized ? (ck.disputed ? 'Closed · contested' : p.passed ? 'Closed · passed' : 'Closed · did not pass') : 'Voting ended · awaiting result'} · ${esc(who)}</p>
         <h3>${esc(q.title)} ${categoryChip(categoryOf(q), esc)}</h3>
         ${q.body ? `<p>${esc(q.body)}</p>` : ''}
-        ${listenTranslateHtml(`${q.title}. ${q.body || ''}`)}${attachmentsHtml(state.config, q, esc)}${videosHtml(q.videos)}
+        ${listenTranslateHtml(`${q.title}. ${q.body || ''}`)}${attachmentsHtml(state.config, q, esc)}${videosHtml(q.videos, state.config)}
         ${itemTools({ title: q.title, anchor: `poll-${id}`, idText: `Poll ${id} (voting contract ${state.config.voteAddress})`, ref: p.questionCID, explorer: state.config.explorer, address: state.config.voteAddress })}
         ${(() => {
           const t = mandateTerms(p);

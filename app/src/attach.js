@@ -15,6 +15,7 @@
  */
 
 import { uploadProof, sha256Hex } from '../../client/uploads.js';
+import { readSeal, sealMatches, sealHtml } from './testimonia.js';
 import { lookOfFile, sameLook } from './look.js';
 
 const MAX_SIDE = 2000;
@@ -215,7 +216,7 @@ export function attachPicker(box, ctx) {
       <p class="note">Files are public and permanent. Photos are shrunk and their hidden location data removed. Don't include anyone's private details.${ownStorage() ? (ctx.public || anonymousOk(ownStorage()) ? ' Stored in your own storage account (Account screen).' : ' This post is anonymous, so files go to the community\'s storage, not your own account (its share pages could show your name).') : ''}</p>
       <ul class="list attach-list">${files.map((f, i) => `<li>${f.type.startsWith('image/') ? `<img src="${esc(f.preview)}" alt="" class="attach-thumb" />` : f.type.startsWith('audio/') ? '🎙' : '📄'} <strong>${esc(f.name)}</strong> · ${Math.round(f.size / 1024)} KB${f.ai?.personal_info ? `<p class="warn">▲ AI noticed private details: ${esc(f.ai.personal_info_note || 'please check')}. Remove the file if they should not be public.</p>` : ''}
           ${f.type.startsWith('audio/') ? `<label>What it says: a short summary or a transcript (for people who can't listen) <textarea data-transcript="${i}" rows="2" maxlength="8000">${esc(f.transcript || '')}</textarea></label>` : `<label>Description for screen readers <input type="text" data-alt="${i}" value="${esc(f.alt || '')}" maxlength="300" /></label>`}
-          <details><summary>Testimonia seal (optional)</summary><label>Seal code <input type="text" data-seal="${i}" value="${esc(f.seal || '')}" spellcheck="false" /></label></details>
+          <details${f.seal ? ' open' : ''}><summary>Testimonia seal (optional)</summary><label>The Testimonia link or record for this file <input type="text" data-seal="${i}" value="${esc(f.seal || '')}" spellcheck="false" /></label></details>
           ${f.ai?.summary ? `<p class="note">AI summary: ${esc(f.ai.summary)}</p>` : ''}
           <button type="button" data-remove="${i}">Remove</button></li>`).join('')}</ul>
       <p class="status" role="status">${esc(note)}</p>`;
@@ -223,7 +224,7 @@ export function attachPicker(box, ctx) {
     for (const b of box.querySelectorAll('[data-remove]')) b.onclick = () => (files.splice(Number(b.dataset.remove), 1), draw());
     for (const a of box.querySelectorAll('[data-alt]')) a.oninput = () => (files[Number(a.dataset.alt)].alt = a.value);
     for (const a of box.querySelectorAll('[data-transcript]')) a.oninput = () => (files[Number(a.dataset.transcript)].transcript = a.value);
-    for (const a of box.querySelectorAll('[data-seal]')) a.oninput = () => (files[Number(a.dataset.seal)].seal = a.value.trim());
+    for (const a of box.querySelectorAll('[data-seal]')) a.onchange = () => addSeal(Number(a.dataset.seal), a.value.trim());
     const rec = box.querySelector('[data-record]');
     if (rec) rec.onclick = () => (recorder ? stopRecording() : startRecording());
     const done = box.querySelector('[data-done]');
@@ -274,6 +275,12 @@ export function attachPicker(box, ctx) {
   // owner), so there only content-addressed own storage (IPFS) is used, else the community's.
   const anonymousOk = (o) => o && (o.kind === 'pinata' || (o.kind === 's3' && o.provider === 'filebase' && !o.publicUrl));
   async function add(bytes, type, name, preview, look = null) {
+    const out = await upload(bytes, type, name);
+    files.push({ ...out, name, preview, alt: out.ai?.alt || '', ...(look ? { look } : {}) });
+    draw(out.ai ? `Added ${name}. AI read it: check its description below.` : `Added ${name}.`);
+  }
+
+  async function upload(bytes, type, name) {
     const mine = ownStorage();
     const own = ctx.public || anonymousOk(mine) ? mine : null;
     setStatus(own ? `Adding ${name} to your own storage…` : `Adding ${name}: proving you are on the voter list, privately…`);
@@ -287,8 +294,34 @@ export function attachPicker(box, ctx) {
     } finally {
       inflight--;
     }
-    files.push({ ...out, name, preview, alt: out.ai?.alt || '', ...(look ? { look } : {}) });
-    draw(out.ai ? `Added ${name}. AI read it: check its description below.` : `Added ${name}.`);
+    return out;
+  }
+
+  // A Testimonia seal covers the exact bytes of the sealed photo, which shrinking changes. When the
+  // seal is for the original the person picked, that original is stored instead, unchanged.
+  async function addSeal(i, text) {
+    const f = files[i];
+    f.seal = text;
+    if (!text) return draw();
+    let seal;
+    try {
+      seal = readSeal(text);
+    } catch (e) {
+      return setStatus(e.message, 'error');
+    }
+    if (sealMatches(seal, f.sha256) !== false) return draw(seal.kind === 'recording' ? 'Seal added. Recordings are checked with Testimonia.' : 'Seal added: it matches this file.');
+    if (f.raw && (await sha256Hex(new Uint8Array(await f.raw.arrayBuffer()))) === seal.fileHash) {
+      try {
+        const bytes = new Uint8Array(await f.raw.arrayBuffer());
+        setStatus('This seal is for the photo exactly as it was taken: storing that original, unchanged…');
+        const out = await upload(bytes, f.raw.type || 'image/jpeg', f.raw.name || f.name);
+        files[i] = { ...out, name: f.raw.name || f.name, preview: URL.createObjectURL(f.raw), alt: f.alt, seal: text, sealedOriginal: true };
+        return draw('Seal added. The sealed original is stored exactly as Testimonia sealed it (not shrunk), so its fingerprint matches the seal. Anything inside the file stays in it.');
+      } catch (e) {
+        return setStatus(e.message, 'error');
+      }
+    }
+    setStatus('▲ This Testimonia seal is for a different file. Add the file it sealed, or remove the seal.', 'error');
   }
 
   async function pick(kind, list) {
@@ -310,6 +343,7 @@ export function attachPicker(box, ctx) {
           setStatus('Shrinking the photo and removing hidden data…');
           const img = await prepareImage(file);
           await add(img.bytes, img.type, (file.name || 'photo').replace(/\.[^.]+$/, '') + '.jpg', URL.createObjectURL(new Blob([img.bytes], { type: img.type })), img.look);
+          files[files.length - 1].raw = file; // kept on this device only, in case a Testimonia seal is for it
         }
       }
     } catch (e) {
@@ -329,6 +363,12 @@ export function attachPicker(box, ctx) {
     }
   }
 
+  const sealFor = (f) => {
+    const seal = readSeal(f.seal);
+    if (sealMatches(seal, f.sha256) === false) throw new Error(`The Testimonia seal on ${f.name} is for a different file. Add the file it sealed, or remove the seal.`);
+    return seal;
+  };
+
   uploadService(state.config).then(() => draw());
   return {
     /** For the published document: what each file is, and its fingerprint. */
@@ -337,7 +377,7 @@ export function attachPicker(box, ctx) {
       return files.map((f) => ({
         ...(f.cid ? { cid: f.cid } : {}), sha256: f.sha256, type: f.type, size: f.size, name: f.name, ...(Array.isArray(f.locations) ? { locations: f.locations } : {}), alt: String(f.alt || '').slice(0, 300), ...(f.look ? { look: f.look } : {}),
         ...(f.transcript ? { transcript: String(f.transcript).slice(0, 8000) } : {}),
-        ...(f.seal ? { seal: { by: 'testimonia', code: String(f.seal).slice(0, 4000) } } : {}),
+        ...(f.seal ? { seal: sealFor(f) } : {}),
         ...(f.ai ? { ai: { summary: f.ai.summary, text: String(f.ai.text || '').slice(0, 8000), kind: f.ai.kind, model: f.ai.model, label: f.ai.label } } : {}),
       }));
     },
@@ -376,7 +416,7 @@ export function attachmentsHtml(cfg, doc, esc) {
       return `<figure class="attachment">
         ${media}
         <figcaption>${a.alt ? esc(a.alt) : ''}
-          ${a.seal ? '<span class="chip">Testimonia seal: verification opens when Testimonia launches</span>' : ''}
+          ${a.seal ? sealHtml(cfg, a.seal, esc, { sha256: a.sha256 }) : ''}
           ${a.ai?.summary || a.ai?.text ? `<details><summary>What AI read in it (check the original)</summary>${a.ai.summary ? `<p>${esc(a.ai.summary)}</p>` : ''}${a.ai.text ? `<pre class="ai-text">${esc(a.ai.text)}</pre>` : ''}</details>` : ''}
           <button type="button" class="link" data-check="${esc(JSON.stringify(urls))}" data-sha="${esc(a.sha256 || '')}">Check it is unchanged</button>${urls.length > 1 ? ` <span class="muted">(${urls.length} copies)</span>` : ''}${(a.locations || []).some((l) => l?.kind === 'gdrive') ? ' <span class="muted">(stored in Google Drive, which may not allow an automatic check: open it and compare its fingerprint with a checker)</span>' : ''} <span class="check-result" role="status"></span>
           ${img && a.look ? `<label class="link">Compare a copy you saw elsewhere<input type="file" accept="image/*" data-compare="${esc(JSON.stringify(a.look))}" hidden /></label> <span class="check-result" role="status"></span>` : ''}

@@ -251,7 +251,7 @@ export function wireFeedback(ctx) {
       const opened = p.pollId > 0n;
       cards.push(`<article class="card stack" id="petition-${id}">
         <p class="eyebrow">${sortBy === 'top' && !opened ? `<span>#${rank + 1} most requested</span> · ` : ''}<span>Petition ${id}</span> · <span>${esc(PETITION_KINDS[Number(p.action)] || 'A vote')}</span> · <span>started</span> ${countdown(p.createdAt)} · <span>signed by ${esc(TIER_WHO[Number(p.tier)].toLowerCase())}s</span></p>
-        <h3>${esc(doc.title)} ${categoryChip(categoryOf(doc), esc)}</h3>${doc.body ? `<p>${esc(doc.body)}</p>` : ''}${listenTranslateHtml(`${doc.title}. ${doc.body || ''}`)}${attachmentsHtml(state.config, doc, esc)}${videosHtml(doc.videos)}${fundingHtml(state.config, doc.funding)}
+        <h3>${esc(doc.title)} ${categoryChip(categoryOf(doc), esc)}</h3>${doc.body ? `<p>${esc(doc.body)}</p>` : ''}${listenTranslateHtml(`${doc.title}. ${doc.body || ''}`)}${attachmentsHtml(state.config, doc, esc)}${videosHtml(doc.videos, state.config)}${fundingHtml(state.config, doc.funding)}
         ${itemTools({ title: doc.title, anchor: `petition-${id}`, idText: `Petition ${id} (${state.config.feedbackAddress})`, ref: p.ref, explorer: state.config.explorer, address: state.config.feedbackAddress })}
         <p><strong>${p.signatures} of ${p.needed}</strong> signatures</p>
         <div class="tally"><span>Progress</span><span class="track"><span class="fill" style="display:block;width:${pct}%"></span></span><span class="v">${pct}%</span></div>
