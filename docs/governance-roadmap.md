@@ -126,7 +126,10 @@ technology: the wrong method can be gamed or can hide what people actually want.
 by initiative; the rest need the legislature to propose them. Promissa can help organize
 residents to draft an amendment, deliberate on it (an assembly draw is built), show measured
 support, and gather signatures. Most states still require handwritten petition signatures; in
-those, Promissa organizes and tracks, and the signatures are collected on paper. Allowing
+those, Promissa organizes and tracks, and the signatures are collected on paper: built as
+petitions to deliver (PublicPetitions.sol), with signatures by name (one per verified person),
+photographed paper sheets with their circulator's statement, each sheet's chain of custody,
+and a delivery packet the recipient can check on the blockchain. Allowing
 verified electronic signatures for petitions is itself a law change worth proposing.
 
 **The US Constitution.** Article V: two-thirds of both houses of Congress propose, or

@@ -28,6 +28,7 @@ import { wireMandates } from './mandates.js';
 import { loadRules, describeRuleChange, RULE_ERRORS } from './rules.js';
 import { wireBudget } from './budget.js';
 import { wireFeedback } from './feedback.js';
+import { wirePublicPetitions } from './public-petitions.js';
 import { wireAssemblies } from './assemblies.js';
 import { wireAgenda } from './agenda.js';
 import * as social from './social.js';
@@ -262,7 +263,7 @@ async function signedIn(k, backupCode) {
 async function openFromLink(hash) {
   if (/^#assistant(-subscribed)?$/.test(hash || '')) return void state.assistant?.open();
   if (hash === '#dashboard-officials') return void window.open(withOrg('dashboard.html#h-officials'), '_blank');
-  const m = /^#(poll|petition|mandate|council|prevcouncil|motion|body|help)-([\w-]+)$/.exec(hash || '');
+  const m = /^#(poll|petition|ppetition|mandate|council|prevcouncil|motion|body|help)-([\w-]+)$/.exec(hash || '');
   if (!m) return;
   const [, kind, id] = m;
   if (kind === 'help') return state.help.open(id);
@@ -274,7 +275,7 @@ async function openFromLink(hash) {
   }
   if (kind === 'motion' || kind === 'body') return goToTarget(target);
   // Polls are on the home screen: open it if another screen (the assistant, say) is showing.
-  const nav = { petition: 'nav-petitions', mandate: 'nav-mandates', poll: $('screen-home').hidden ? 'nav-polls' : null }[kind];
+  const nav = { petition: 'nav-petitions', ppetition: 'nav-petitions', mandate: 'nav-mandates', poll: $('screen-home').hidden ? 'nav-polls' : null }[kind];
   if (nav) $(nav).click();
   for (let i = 0; i < 60; i++) {
     if ($(target) && !$(target).closest('[hidden]')) return jumpTo($(target));
@@ -2084,7 +2085,11 @@ async function boot() {
     await renderBodiesTodo().catch(() => {});
   };
   state.officials = wireOfficials({ state, $, status, esc, activeSigner, activeAddress, sendTx: (el, label, fn) => sendAdminTx(el, label, () => fn()) });
-  state.feedback = wireFeedback({ state, $, status, esc, show, nullifierFor, myTier: async () => {
+  state.publicPetitions = wirePublicPetitions({ state, $, status, esc, myTier: async () => {
+    const m = await state.registry.members(state.identity.commitment);
+    return m.active ? Number(m.tier) : -1;
+  } });
+  state.feedback = wireFeedback({ state, $, status, esc, show, nullifierFor, publicPetitions: () => state.publicPetitions, myTier: async () => {
     const m = await state.registry.members(state.identity.commitment);
     return m.active ? Number(m.tier) : -1;
   } });

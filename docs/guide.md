@@ -175,6 +175,17 @@ Petitions, *Start a petition*. Say what the vote should decide, why, and who sho
 
 Petitions can ask an advisory question, or to pause or revise a mandate, elect or recall a council member, or remove someone's role. "Most signed" shows what residents want most.
 
+<a id="petitions-to-deliver"></a>
+### Petitions to deliver: to a clerk, a legislature, a board or a company
+
+Some petitions go to someone outside the community's own votes, who wants names, or where the law still wants signatures on paper. Petitions, *Petitions to deliver*:
+
+- **Signing by name.** You sign under your own name and place (a city, town or district, not your street address), once. Your voter key proves privately that you are on the voter list and haven't signed before, so every named signature is a different verified person; the name is as you type it. Your name and place are public and go to the recipient.
+- **Paper sheets.** Where the law requires ink, circulators collect signatures on paper, photograph each signed sheet (ideally with Testimonia, which seals the photo as it is taken) and file it: the photo's fingerprint, how many signatures it holds, and their circulator's statement. The photo itself stays with the organizer, because it shows people's handwriting and addresses; only its fingerprint is published. Each person who receives a sheet (the organizer, then the clerk) records it, and the app checks their photo matches the one filed.
+- **Check and deliver.** Re-reads everything from the blockchain and checks it, then prints a delivery packet (or saves it as PDF), downloads the list as a spreadsheet, and gives a link the recipient can open to check the count themselves.
+
+Electronic signatures count only where the recipient or the law accepts them; where they don't, the paper sheets and their custody records are what count. States have their own required circulator wording: use theirs when filing officially.
+
 <a id="mandates"></a>
 ## Mandates: making sure it gets done
 
