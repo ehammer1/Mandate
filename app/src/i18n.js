@@ -18,7 +18,7 @@
  */
 
 import ES from './i18n-es.js';
-import INDEX from '../i18n/index.json';
+import INDEX from '../i18n/index.json' with { type: 'json' };
 import { LANG_NAMES, closestLang } from './i18n-names.js';
 
 export { LANG_NAMES };

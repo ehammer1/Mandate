@@ -234,7 +234,7 @@ after(async () => {
 });
 
 test('passkey sign-up, enrollment, anonymous vote through relayer fail-over, same identity on return', async () => {
-  page.on('pageerror', (e) => console.error('page error:', e.message));
+  page.on('pageerror', (e) => console.error('page error:', e.message, (e.stack || '').split('\n').slice(1, 3).join(' ').trim()));
   await page.goto(appUrl);
   await page.waitForSelector('#screen-signin:not([hidden])');
   await shot('1-sign-in');
