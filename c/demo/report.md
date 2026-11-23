@@ -1,57 +1,60 @@
 # Mandate audit report
 
-Generated 2026-11-22T11:45:46.000Z · last 24 hours · 43 high, 34 medium, 0 info
+Generated 2026-11-23T10:01:09.000Z · last 24 hours · 43 high, 40 medium, 0 info
 
-# Daily Audit Note: 22 November 2026
+# Daily Audit Note: 22–23 November 2026
 
-**Yes, today's changes need attention:** in about four and a half minutes (11:31–11:35 UTC), one account changed who controls every part of the governance system.
+**Yes, today's record needs attention.** Over about four minutes on 22 November, one account took full control of every part of the system, appointed new office-holders and a council, handed control to a different account, and then gave up its own powers.
 
-## High-severity changes
+### High-severity alerts
 
-**One account gave itself full control of all systems.** Account 0xC782…f834 gave itself the ADMIN role on eleven parts of the system:
-- the identity registry
-- the mandate registry
-- the charter (voting rules)
+**One account gave itself top-level control everywhere.** Between 11:31 and 11:32 on 22 November, account 0xC782…f834 granted itself the ADMIN role on ten parts of the system:
+- identity registry
+- mandate registry
+- charter (voting rules)
 - voting
-- the civic budget
+- civic budget
 - decision markets
-- the officials registry
-- government bodies
+- officials registry
 - smaller voter lists
+- government bodies
 - citizens' assemblies
 - paper and in-person results
 
-The account granted these roles to itself. ADMIN is the highest level of control, so this matters.
+In every case the account approved its own grant. This matters because ADMIN is the highest permission level, and the record shows no second party approving it.
 
-**Control was passed to a new account.** 0xC782…f834 then gave ADMIN on the same eleven systems to account 0xb847…C3C4. Afterwards, 0xC782…f834 removed all of its own roles. At the end of the day, 0xb847…C3C4 holds top-level control everywhere.
+**Charter authority granted.** 0xC782…f834 gave the GOVERNOR role on the charter (voting rules) to 0x316B…6467. This matters because the charter sets the rules for how votes work.
 
-**Someone gained power over the voting rules.** Account 0x316B…6467 received the GOVERNOR role on the charter. This role relates to the rules that govern voting.
+**Voting connected to smaller voter lists.** The voting system was linked to a voter-list contract at 0xB1eF…6530. Polls can now be limited to the groups that contract defines.
 
-**Three new identity sources were approved.** These sources can confirm who residents are:
-- "Demo front desk 2" (0x433B…476F), up to verified tier
-- "Demo front desk 3" (0x4C9a…b71B), up to verified tier
-- "Online sign-up" (0x7b12…2889), up to basic tier
+**Three new identity sources approved.** These sources can confirm residents' identities:
+- "Demo front desk 2" (0x433B…476F), approved up to the verified tier
+- "Demo front desk 3" (0x4C9a…b71B), approved up to the verified tier
+- "Online sign-up" (0x7b12…2889), approved up to the basic tier
 
-Identity sources decide who can take part, so new ones are significant.
+Sources like these decide who gets verified, so each approval matters. Two of the approved names begin with "Demo."
 
-**Voting is now linked to smaller voter lists.** The voting system was connected to the voter lists at 0xB1eF…6530. This means polls can now be limited to specific groups.
+**A council was formed.** Three accounts joined the council: 0x433B…476F, 0xb8e5…Cb71 and 0x0C5F…5777. Changes now need 2 approvals and a 24-hour waiting period. These settings add checks on future changes.
 
-**The council was formed and its rules set.** Three accounts joined the council: 0x433B…476F, 0xb8e5…Cb71 and 0x0C5F…5777. The council now needs 2 approvals for each change and has a 24-hour waiting period. 0x433B…476F is also one of the newly approved identity sources.
+**Control was handed over.** At about 11:34, 0xC782…f834 granted ADMIN on all ten parts of the system to 0xb847…C3C4. Between 11:34 and 11:35 it then removed its own ADMIN role from all ten. The alerts do not say whether 0xb847…C3C4 is connected to the council.
 
-## Other changes
+### Other activity
 
-0xC782…f834 granted a number of medium-severity roles:
-- **Mandate registry:** GOVERNOR roles to 0x316B…6467 and 0xE616…5aCE.
-- **Decision markets:** a VETO role to 0x316B…6467.
-- **Voting:** PROPOSER roles to 0x3BD2…9428, 0x9272…e7eD, 0xcd6f…aCfF, 0x433B…476F and 0xb847…C3C4.
-- **Civic budget:** a PROPOSER role to 0x433B…476F.
+0xC782…f834 also granted a number of working roles to other accounts:
+- **Proposing votes:** five accounts received the PROPOSER role on voting.
+- **Mandate registry:** two accounts received the GOVERNOR role.
+- **Decision markets:** 0x316B…6467 received the VETO role.
+- **Unnamed roles:** several roles that appear in the record only as codes were granted on the officials registry, government bodies, paper and in-person results, and smaller voter lists.
 
-0x433B…476F received several further roles across systems, including:
-- ORGANIZER on citizens' assemblies
-- CARRIER on voting (also given to 0x4C9a…b71B)
-- unnamed roles on the officials registry, government bodies, smaller voter lists, and paper and in-person results
+One account, 0x433B…476F, now holds an unusually wide set of roles. It is:
+- an approved identity source
+- a council member
+- a proposer on voting and the civic budget
+- a carrier on voting
+- an organiser of citizens' assemblies
+- a holder of coded roles on four other parts of the system
 
-0xC782…f834 also temporarily held its own PROPOSER, ORGANIZER and unnamed roles. It removed all of them by 11:35:50.
+0xC782…f834 removed all of its remaining working roles from itself on 22 November. On 23 November at 09:45 it removed several of the same roles again. This included an ORGANIZER role on "People's Agenda," a role whose original grant does not appear in these alerts.
 
 ## All alerts
 
@@ -132,5 +135,11 @@ Identity sources decide who can take part, so new ones are significant.
 - **medium** 0xc26be8e0016d7720ca689986256cecb8764bcfd041a3c876681d44dc4d9d7519 role revoked from 0xC782…f834 on smaller voter lists ([tx](https://sepolia.basescan.org/tx/0x824b7d97edb0f17dd16f5b2975bbc903071ec5fdc4d89395f46c0a1d0d66e8d5))
 - **medium** 0xd603cc2d39ea2ab57038652f29ac8e7fd0e40e6a9b0f81de9bbc4acc6780d962 role revoked from 0xC782…f834 on paper and in-person results ([tx](https://sepolia.basescan.org/tx/0x246ffee9e5b9274c8f5353d06ce165eb9b209bfdcbcf6f2cf21e73fd5c2d80b9))
 - **medium** ORGANIZER role revoked from 0xC782…f834 on citizens' assemblies ([tx](https://sepolia.basescan.org/tx/0xff9ce9f0a33a83aabacf06c40be8217c669d41df2d13f210e56cf141084dfb07))
+- **medium** 0xedcc084d3dcd65a1f7f23c65c46722faca6953d28e43150a467cf43e5c309238 role revoked from 0xC782…f834 on officials registry ([tx](https://sepolia.basescan.org/tx/0xa2efa621760ce4b824c997806e3f1eecb3ddd824e6ad990348c12c870a78aadc))
+- **medium** 0xedcc084d3dcd65a1f7f23c65c46722faca6953d28e43150a467cf43e5c309238 role revoked from 0xC782…f834 on government bodies ([tx](https://sepolia.basescan.org/tx/0x16c240e88a5aa637b415b3df2462c0b80779d5215d89c5c4db109aa2a4a5f789))
+- **medium** 0xc26be8e0016d7720ca689986256cecb8764bcfd041a3c876681d44dc4d9d7519 role revoked from 0xC782…f834 on smaller voter lists ([tx](https://sepolia.basescan.org/tx/0x6f30a3886951403cd8f2ea527936b881e5ce0a7856b387ae1b9e75335f021175))
+- **medium** 0xd603cc2d39ea2ab57038652f29ac8e7fd0e40e6a9b0f81de9bbc4acc6780d962 role revoked from 0xC782…f834 on paper and in-person results ([tx](https://sepolia.basescan.org/tx/0x4caef38348d9bae87f8566a3808dbcde4aed116e3978334c899079b0238486fe))
+- **medium** ORGANIZER role revoked from 0xC782…f834 on citizens' assemblies ([tx](https://sepolia.basescan.org/tx/0xf7333afd806edeb3402f685339ac3cbb8c250ec7f61d79ddcf0626d8d8a125a5))
+- **medium** ORGANIZER role revoked from 0xC782…f834 on People's Agenda ([tx](https://sepolia.basescan.org/tx/0xf35e55a6f7c6281527c988def0f8cc97d44718dbe6bce13ac64d2f7259457280))
 
 Summary written by: AI (claude-opus-5-5); the alerts themselves come from fixed rules.

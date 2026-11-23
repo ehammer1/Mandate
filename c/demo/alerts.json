@@ -1,5 +1,101 @@
 [
  {
+  "tx": "0xf35e55a6f7c6281527c988def0f8cc97d44718dbe6bce13ac64d2f7259457280",
+  "block": 62526368,
+  "time": 1795427142,
+  "contract": "People's Agenda",
+  "event": "RoleRevoked",
+  "rule": "role-change",
+  "severity": "medium",
+  "title": "ORGANIZER role revoked from 0xC782…f834 on People's Agenda",
+  "facts": {
+   "role": "ORGANIZER",
+   "account": "0xC782e1690D4B6c4C2Aba21283a6271477690f834",
+   "by": "0xC782e1690D4B6c4C2Aba21283a6271477690f834"
+  },
+  "id": "role-change:0xf35e55a6f7c6281527c988def0f8cc97d44718dbe6bce13ac64d2f7259457280:1795427142"
+ },
+ {
+  "tx": "0xf7333afd806edeb3402f685339ac3cbb8c250ec7f61d79ddcf0626d8d8a125a5",
+  "block": 62526366,
+  "time": 1795427142,
+  "contract": "citizens' assemblies",
+  "event": "RoleRevoked",
+  "rule": "role-change",
+  "severity": "medium",
+  "title": "ORGANIZER role revoked from 0xC782…f834 on citizens' assemblies",
+  "facts": {
+   "role": "ORGANIZER",
+   "account": "0xC782e1690D4B6c4C2Aba21283a6271477690f834",
+   "by": "0xC782e1690D4B6c4C2Aba21283a6271477690f834"
+  },
+  "id": "role-change:0xf7333afd806edeb3402f685339ac3cbb8c250ec7f61d79ddcf0626d8d8a125a5:1795427142"
+ },
+ {
+  "tx": "0x4caef38348d9bae87f8566a3808dbcde4aed116e3978334c899079b0238486fe",
+  "block": 62526344,
+  "time": 1795427137,
+  "contract": "paper and in-person results",
+  "event": "RoleRevoked",
+  "rule": "role-change",
+  "severity": "medium",
+  "title": "0xd603cc2d39ea2ab57038652f29ac8e7fd0e40e6a9b0f81de9bbc4acc6780d962 role revoked from 0xC782…f834 on paper and in-person results",
+  "facts": {
+   "role": "0xd603cc2d39ea2ab57038652f29ac8e7fd0e40e6a9b0f81de9bbc4acc6780d962",
+   "account": "0xC782e1690D4B6c4C2Aba21283a6271477690f834",
+   "by": "0xC782e1690D4B6c4C2Aba21283a6271477690f834"
+  },
+  "id": "role-change:0x4caef38348d9bae87f8566a3808dbcde4aed116e3978334c899079b0238486fe:1795427137"
+ },
+ {
+  "tx": "0x6f30a3886951403cd8f2ea527936b881e5ce0a7856b387ae1b9e75335f021175",
+  "block": 62526342,
+  "time": 1795427137,
+  "contract": "smaller voter lists",
+  "event": "RoleRevoked",
+  "rule": "role-change",
+  "severity": "medium",
+  "title": "0xc26be8e0016d7720ca689986256cecb8764bcfd041a3c876681d44dc4d9d7519 role revoked from 0xC782…f834 on smaller voter lists",
+  "facts": {
+   "role": "0xc26be8e0016d7720ca689986256cecb8764bcfd041a3c876681d44dc4d9d7519",
+   "account": "0xC782e1690D4B6c4C2Aba21283a6271477690f834",
+   "by": "0xC782e1690D4B6c4C2Aba21283a6271477690f834"
+  },
+  "id": "role-change:0x6f30a3886951403cd8f2ea527936b881e5ce0a7856b387ae1b9e75335f021175:1795427137"
+ },
+ {
+  "tx": "0x16c240e88a5aa637b415b3df2462c0b80779d5215d89c5c4db109aa2a4a5f789",
+  "block": 62526320,
+  "time": 1795427132,
+  "contract": "government bodies",
+  "event": "RoleRevoked",
+  "rule": "role-change",
+  "severity": "medium",
+  "title": "0xedcc084d3dcd65a1f7f23c65c46722faca6953d28e43150a467cf43e5c309238 role revoked from 0xC782…f834 on government bodies",
+  "facts": {
+   "role": "0xedcc084d3dcd65a1f7f23c65c46722faca6953d28e43150a467cf43e5c309238",
+   "account": "0xC782e1690D4B6c4C2Aba21283a6271477690f834",
+   "by": "0xC782e1690D4B6c4C2Aba21283a6271477690f834"
+  },
+  "id": "role-change:0x16c240e88a5aa637b415b3df2462c0b80779d5215d89c5c4db109aa2a4a5f789:1795427132"
+ },
+ {
+  "tx": "0xa2efa621760ce4b824c997806e3f1eecb3ddd824e6ad990348c12c870a78aadc",
+  "block": 62526298,
+  "time": 1795427128,
+  "contract": "officials registry",
+  "event": "RoleRevoked",
+  "rule": "role-change",
+  "severity": "medium",
+  "title": "0xedcc084d3dcd65a1f7f23c65c46722faca6953d28e43150a467cf43e5c309238 role revoked from 0xC782…f834 on officials registry",
+  "facts": {
+   "role": "0xedcc084d3dcd65a1f7f23c65c46722faca6953d28e43150a467cf43e5c309238",
+   "account": "0xC782e1690D4B6c4C2Aba21283a6271477690f834",
+   "by": "0xC782e1690D4B6c4C2Aba21283a6271477690f834"
+  },
+  "id": "role-change:0xa2efa621760ce4b824c997806e3f1eecb3ddd824e6ad990348c12c870a78aadc:1795427128"
+ },
+ {
   "tx": "0xff9ce9f0a33a83aabacf06c40be8217c669d41df2d13f210e56cf141084dfb07",
   "block": 62127410,
   "time": 1795347350,
