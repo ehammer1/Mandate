@@ -72,12 +72,33 @@ This is how v5 replaced v4 (council changes #10 to #16 on the main community).
 - **Built (November 2026):** `Settings.grace` (seconds, at most `MAX_GRACE` = 24 hours, fixed
   when the poll opens). After the close, only accounts with the new `CARRIER_ROLE` (granted by
   the council to clerk tablets or polling-place boxes, never the public relay) may deliver, and
-  only within the window. A ballot delivered then can't change an earlier vote. `finalize` waits
-  for the window. A ballot proof carries no time, so the contract can't tell when it was sealed:
-  carriers are trusted, like clerks, to take in ballots only before the close. The app enforces
-  this: a carrier's device delivers late only ballots it scanned before the close. "Open a poll"
-  offers no window, 6 hours or 24 hours, and the poll card explains it. Tests:
+  only within the window, and only ballots it published a fingerprint of before the close (below).
+  A ballot delivered then can't change an earlier vote. `finalize` waits for the window. "Open a
+  poll" offers no window, 6 hours or 24 hours, and the poll card explains it. Tests:
   `test/grace.test.js`.
+- **Proof of time (November 2026):** a ballot proof carries no time, so on its own the contract
+  can't tell when it was sealed. So before the close, a carrier publishes one fingerprint (a
+  Merkle root of `keccak(nullifier, choice)`) of every ballot it holds for that poll:
+  `commitHeld(poll, root, signature)`. It is signed with the carrier's key, so anyone may post
+  it: the relay (`POST /held`), or anyone the carrier texts its short `PH1:` code to (pasted
+  under "Carry a ballot"), when the carrier has a text-message signal but no data. After the
+  close, a ballot counts only through `deliverHeld(poll, ballot, root, path)`, which checks it is
+  under a fingerprint a carrier published before the close; anyone may deliver it.
+  The carrier's app publishes a new fingerprint whenever it holds ballots not yet covered, and
+  shows the code to text if it can't publish one itself.
+- **A carrier with no signal at all before the close** may still deliver, through `castBallot`
+  within the window, without a fingerprint. Each such ballot is counted, and also counted
+  publicly as unproven (`unprovenLate(poll)`, event `DeliveredUnproven`), so everyone sees how
+  many ballots rest on trusting the council-approved carrier; the poll card says so. If that
+  number could change the result, it is visible before anyone relies on it.
+- **No time stamp in the ballot:** a ballot is tied to its poll (its scope) and the poll's frozen
+  voter list, so it already can't be made before the poll opens; a block hash inside it would
+  add nothing.
+- **Contract size:** MandateVote is 24564 bytes of the 24576 allowed. To fit, signatures use the
+  chain's built-in `ecrecover` (`commitHeld(poll, root, v, r, s)`; v = 0 when the carrier sends
+  it itself), and seven constants nothing reads (`YES`, `NO`, `MAX_OPTIONS`, the three channel
+  values, `MAX_DELEGATES_PER_POLL`) are no longer public getters. The next addition needs a
+  split into a second contract.
 
 ### 4b. Helping everyone take part (built, November 2026)
 
@@ -277,12 +298,10 @@ An internal review of everything above found these, now fixed:
   code, changed message). It is a check against mistakes; the council and the public waiting
   period are the protection against a malicious switch.
 
-**Known trust assumption (unchanged):** a ballot proof carries no time, so the contract can't
-tell whether a ballot an approved carrier delivers during a poll's delivery window was sealed
-before the close. Carriers are approved by the council, like clerks, and the app delivers late
-only ballots the device took in before the close. A stronger design (carriers committing a
-fingerprint of the ballots they hold before the close) needs a connection before the close and
-is left for after the pilots.
+**Carriers, formerly a trust assumption:** a ballot delivered after the close used to be
+trusted to have been sealed before it. Now it is proven when a fingerprint a carrier published
+before the close covers it (4, "Proof of time"). Only ballots from a carrier with no signal at all
+before the close still rest on trust, and they are counted publicly as unproven.
 
 ### 5. Receipt-free ballots (larger, may move to v7)
 

@@ -94,9 +94,22 @@ export async function addToOutbox(cfg, { pollId, ballot, title = '', mine = fals
 
 /** A scanned or pasted ballot code, checked and added to the outbox. */
 export async function carryCode(cfg, text) {
+  if (/^\s*PH1:/.test(text)) return publishHeldCode(cfg, text);
   const b = decodeBallotCode(text);
   if (b.chainId !== Number(cfg.chainId) || b.voteAddress.toLowerCase() !== cfg.voteAddress.toLowerCase()) throw new Error('This ballot is for a different community. Open that community in the app to carry it.');
   return addToOutbox(cfg, { pollId: b.pollId, ballot: b.ballot });
+}
+
+/** A carrier's fingerprint code, texted to someone with a connection: passed to the relay. */
+async function publishHeldCode(cfg, text) {
+  const code = String(text).trim();
+  for (const url of cfg.relayers || []) {
+    const res = await fetch(`${url.replace(/\/+$/, '')}/held`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code }) }).catch(() => null);
+    if (res?.ok) return { held: true };
+    const body = await res?.json().catch(() => ({}));
+    if (res && res.status !== 502) throw new Error(body?.error === 'NotOpen' ? 'That poll has closed: the fingerprint came too late.' : body?.error === 'NotACarrier' ? 'That code is not from an approved carrier.' : 'That fingerprint code was not accepted.');
+  }
+  throw new Error('No connection to the relay right now. Try again when you have signal.');
 }
 
 export async function outbox(cfg) {
@@ -120,7 +133,7 @@ export async function sendWaiting(cfg, { late } = {}) {
     let done = false;
     for (const url of relayers) {
       try {
-        const res = await fetch(`${url.replace(/\/+$/, '')}/ballot`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pollId: item.pollId, ballot: item.ballot }) });
+        const res = await fetch(`${url.replace(/\/+$/, '')}/ballot`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pollId: item.pollId, ballot: item.ballot, ...(item.held ? { held: item.held } : {}) }) });
         const body = await res.json().catch(() => ({}));
         if (res.ok || res.status === 409) {
           Object.assign(item, { status: 'sent', sentAt: Date.now() });
@@ -152,6 +165,11 @@ export async function sendWaiting(cfg, { late } = {}) {
     await put(OUTBOX, `${item.voteAddress.toLowerCase()}:${item.pollId}:${item.ballot.nullifier}:${item.ballot.message}`, item);
   }
   return out;
+}
+
+/** Save changes to outbox items (a carrier's fingerprint paths). */
+export async function saveItems(items) {
+  for (const item of items) await put(OUTBOX, `${item.voteAddress.toLowerCase()}:${item.pollId}:${item.ballot.nullifier}:${item.ballot.message}`, item);
 }
 
 /** Camera scanning for ballot QR codes (the scanner library loads only when used). */

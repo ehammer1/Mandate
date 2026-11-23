@@ -17,7 +17,7 @@ import { keep, recall, forget, KEEP_DAYS } from './remember.js';
 import * as offline from './offline.js';
 import { poseidon2 } from 'poseidon-lite/poseidon2';
 import { buildBallot } from '../../client/ballot.js';
-import { readSettings, settingsNote, changesOpen, rankedPickerHtml, wireRankers, rankedResultsHtml, groupInfo, groupOptionsHtml, hasSettings, hasGrace, carrierDelivery, wireVoterGroups, V5_ABI, V6_ABI, ERRORS as V5_ERRORS } from './pollsettings.js';
+import { readSettings, settingsNote, changesOpen, rankedPickerHtml, wireRankers, rankedResultsHtml, groupInfo, groupOptionsHtml, hasSettings, hasGrace, carrierDelivery, fingerprintHeld, wireVoterGroups, V5_ABI, V6_ABI, ERRORS as V5_ERRORS } from './pollsettings.js';
 import { enrolStartUrl, ownershipProof } from '../../client/enrol.js';
 import { voterCodeQr } from '../../client/clerk.js';
 import QRCode from 'qrcode';
@@ -1157,12 +1157,29 @@ async function renderOutbox() {
   const sent = carried.filter((i) => i.status === 'sent').length;
   const waiting = carried.filter((i) => i.status === 'waiting').length;
   const rejected = carried.filter((i) => i.status === 'rejected').length;
-  $('carry-list').textContent = carried.length ? `Carried here: ${carried.length} · sent ${sent} · waiting ${waiting}${rejected ? ` · not accepted ${rejected}` : ''}` : '';
+  const covered = carried.filter((i) => i.status === 'waiting' && i.held?.posted).length;
+  $('carry-list').textContent = carried.length ? `Carried here: ${carried.length} · sent ${sent} · waiting ${waiting}${covered ? ` (${covered} fingerprinted in time)` : ''}${rejected ? ` · not accepted ${rejected}` : ''}` : '';
+  const codes = state.heldCodes || [];
+  let box = $('held-codes');
+  if (!box) {
+    box = document.createElement('div');
+    box.id = 'held-codes';
+    $('carry-list').after(box);
+  }
+  box.hidden = !codes.length;
+  box.innerHTML = codes.length
+    ? `<p class="muted" style="margin:6px 0 0">No data connection to publish the fingerprint of the ballots you carry. Before the poll closes, text this code to anyone with the app; they paste it under "Carry ballots for people without signal". Ballots not covered by a fingerprint published before the close can't be counted after it.</p>${codes.map((c) => `<textarea readonly rows="3" style="width:100%">${esc(c)}</textarea><a href="sms:?&body=${encodeURIComponent(c)}">Text it</a>`).join('')}`
+    : '';
 }
 
 async function sendOutbox() {
   if (!state.config) return null;
-  const late = await carrierDelivery(state, state.identity ? activeSigner() : null).catch(() => undefined);
+  const signer = state.identity ? activeSigner() : null;
+  // A carrier first publishes a fingerprint of the ballots it holds, so they count even if
+  // delivered after the close; the code can also be texted to anyone with a connection.
+  const codes = await fingerprintHeld(state, signer, await offline.outbox(state.config), { relayers: state.config.relayers || [], saveItems: offline.saveItems }).catch(() => []);
+  if (codes.length) state.heldCodes = codes;
+  const late = await carrierDelivery(state, signer).catch(() => undefined);
   const r = await offline.sendWaiting(state.config, { late }).catch(() => null);
   await renderOutbox();
   if (r?.sent && state.identity) setTimeout(refreshPolls, 1500);
@@ -1221,7 +1238,11 @@ function wireCarry() {
   };
   const take = async (text) => {
     try {
-      await offline.carryCode(state.config, text);
+      const r = await offline.carryCode(state.config, text);
+      if (r?.held) {
+        $('carry-code').value = '';
+        return status(el, "Carrier's fingerprint published. The ballots it covers can now be delivered after the close.", 'ok');
+      }
       status(el, 'Ballot added. It is sent as soon as this device has a connection.', 'ok');
       $('carry-code').value = '';
       await renderOutbox();
@@ -1988,7 +2009,7 @@ function wireSocial() {
     if (!b) return;
     const out = b.closest('details').querySelector('[data-direct-status]');
     const where = b.dataset.postDirect;
-    const draft = `${shareText(b.dataset.title)} ${b.dataset.url}`;
+    const draft = `${shareText(b.dataset.title, b.dataset.verifyLink || '')} ${b.dataset.url}`;
     const text = window.prompt(`Your post to ${where === 'bluesky' ? 'Bluesky' : 'Mastodon'} (edit it if you like):`, where === 'bluesky' && [...draft].length > 300 ? `${b.dataset.title.slice(0, 200)} ${b.dataset.url}` : draft);
     if (!text) return;
     try {

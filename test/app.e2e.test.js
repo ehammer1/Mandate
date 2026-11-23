@@ -1436,6 +1436,19 @@ test('photos and documents: take, scan, AI reads them, fingerprints check out, t
   assert.match(doc.attachments[0].sha256, /^[0-9a-f]{64}$/);
   assert.equal(doc.attachments[1].type, 'application/pdf');
   assert.equal(doc.attachments[0].ai.summary, 'A photo of a pothole next to a street sign.');
+  // ✔ Verify: a public page with the record, and a check for a file someone was sent.
+  const ref = (await c.feedback.getPetition(pid)).ref;
+  assert.ok(await page.$(`#petition-${pid} a[href*="verify.html?ref=${encodeURIComponent(ref)}"]`), 'a Verify link on the item');
+  const v = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  await v.goto(`${appUrl}verify.html?ref=${encodeURIComponent(ref)}`);
+  await v.waitForSelector('#verify >> text=On the public record', { timeout: 60_000 });
+  assert.match(await v.textContent('#verify'), /Fix the pothole on Elm Street/);
+  await v.setInputFiles('#verify-file', { name: 'other.txt', mimeType: 'text/plain', buffer: Buffer.from('not the poster') });
+  await v.waitForSelector('#verify-result >> text=not on this record');
+  assert.match(await v.textContent('#verify'), /Verify: http/); // a plain line to add to posts
+  await v.goto(`${appUrl}verify.html?ref=${encodeURIComponent('nb:0x' + '1'.repeat(64))}`);
+  await v.waitForSelector('#verify >> text=not on the public record');
+  await v.close();
   // A takedown: the file stops being served, and the app says so.
   const res = await fetch(`${appConfig.identityService}/upload/remove`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer takedown-token' }, body: JSON.stringify({ cid: doc.attachments[0].cid, reason: 'licence plate' }) });
   assert.equal(res.status, 200);

@@ -52,6 +52,10 @@ const BUDGET_ABI = [
 ];
 const VOTE_ABI = [
   'function castBallot(uint256 id, tuple(uint256 merkleTreeDepth, uint256 merkleTreeRoot, uint256 nullifier, uint256 message, uint256 scope, uint256[8] points) b)',
+  'function deliverHeld(uint256 id, tuple(uint256 merkleTreeDepth, uint256 merkleTreeRoot, uint256 nullifier, uint256 message, uint256 scope, uint256[8] points) b, bytes32 root, bytes32[] path)',
+  'function commitHeld(uint256 id, bytes32 root, uint8 v, bytes32 r, bytes32 s)',
+  'error NotHeld()',
+  'error AccessControlUnauthorizedAccount(address account, bytes32 neededRole)',
   'function getPoll(uint256 id) view returns (tuple(uint256 groupId, uint256 snapshotRoot, uint256 electorate, uint64 start, uint64 end, uint32 quorum, uint8 options, uint8 action, bool finalized, bool passed, address proposer, uint256 bond, string questionCID, bytes actionData))',
   'function tally(uint256 id) view returns (uint256[])',
   'function nullifierUsed(uint256 id, uint256 nullifier) view returns (bool)',
@@ -134,9 +138,14 @@ function createRelayer({ provider, signer, voteAddress, budgetAddress, feedbackA
     if (body?.pollId === undefined || !b || !Array.isArray(b.points) || b.points.length !== 8) {
       throw Object.assign(new Error('expected { pollId, ballot: { ..., points[8] } }'), { status: 400 });
     }
+    const h = body.held;
+    if (h && (!/^0x[0-9a-fA-F]{64}$/.test(h.root || '') || !Array.isArray(h.path) || h.path.length > 32 || !h.path.every((x) => /^0x[0-9a-fA-F]{64}$/.test(x)))) {
+      throw Object.assign(new Error('held must be { root, path[] } of 32-byte hex values'), { status: 400 });
+    }
     try {
       return {
         pollId: BigInt(body.pollId),
+        held: h ? { root: h.root, path: h.path } : null,
         ballot: {
           merkleTreeDepth: BigInt(b.merkleTreeDepth),
           merkleTreeRoot: BigInt(b.merkleTreeRoot),
@@ -162,7 +171,11 @@ function createRelayer({ provider, signer, voteAddress, budgetAddress, feedbackA
   }
 
   async function handleBallot(req, res) {
-    const { pollId, ballot } = parseBallot(await readJson(req));
+    const { pollId, ballot, held } = parseBallot(await readJson(req));
+    // A ballot a carrier fingerprinted before the close is delivered with its path to the
+    // fingerprint (anyone may deliver it; the contract checks the fingerprint was published in time).
+    const fn = held ? vote.deliverHeld : vote.castBallot;
+    const args = held ? [pollId, ballot, held.root, held.path] : [pollId, ballot];
     const key = `${pollId}:${ballot.nullifier}`;
     // A second ballot from the same voter changes their vote (the contract refuses the same
     // choice twice, and polls on contracts without vote-changing refuse it outright).
@@ -171,7 +184,7 @@ function createRelayer({ provider, signer, voteAddress, budgetAddress, feedbackA
     }
     // Validate fully (proof included) before spending gas.
     try {
-      await vote.castBallot.staticCall(pollId, ballot);
+      await fn.staticCall(...args);
     } catch (e) {
       const name = revertName(e);
       if (name === 'NullifierUsed') return send(res, 409, { error: name, message: 'this voter already cast this choice' });
@@ -180,8 +193,8 @@ function createRelayer({ provider, signer, voteAddress, budgetAddress, feedbackA
     inFlight.add(key);
     try {
       const run = queue.then(async () => {
-        const gas = await vote.castBallot.estimateGas(pollId, ballot);
-        const tx = await vote.castBallot(pollId, ballot, { gasLimit: (gas * 12n) / 10n });
+        const gas = await fn.estimateGas(...args);
+        const tx = await fn(...args, { gasLimit: (gas * 12n) / 10n });
         return tx.wait(confirmations);
       });
       queue = run.catch(() => {}); // a failed send must not block the next one
@@ -194,6 +207,35 @@ function createRelayer({ provider, signer, voteAddress, budgetAddress, feedbackA
       send(res, name ? 422 : 502, { error: name || 'SubmitFailed', message: e.shortMessage || e.message });
     } finally {
       inFlight.delete(key);
+    }
+  }
+
+  // POST /held { code: "PH1:..." }: publish a carrier's signed fingerprint of the ballots it holds,
+  // before the close. The code is short enough to text, so a carrier with almost no signal can
+  // send it to anyone, who passes it on here.
+  async function handleHeld(req, res) {
+    const { readHeldCode, sigParts } = require('../client/held');
+    let h;
+    try {
+      h = readHeldCode((await readJson(req))?.code);
+    } catch (e) {
+      return send(res, 400, { error: e.message });
+    }
+    if (h.voteAddress.toLowerCase() !== voteAddress.toLowerCase()) return send(res, 404, { error: 'that code is for a different community' });
+    try {
+      await vote.commitHeld.staticCall(h.pollId, h.root, ...sigParts(h.sig));
+    } catch (e) {
+      const name = revertName(e) || (/AccessControl/.test(e.shortMessage || e.message) ? 'NotACarrier' : null);
+      return send(res, name ? 422 : 502, { error: name || 'RPCError' });
+    }
+    try {
+      const run = queue.then(async () => (await vote.commitHeld(h.pollId, h.root, ...sigParts(h.sig))).wait(confirmations));
+      queue = run.catch(() => {});
+      const receipt = await run;
+      log(`carrier fingerprint recorded poll=${h.pollId} tx=${receipt.hash}`);
+      send(res, 200, { txHash: receipt.hash });
+    } catch (e) {
+      send(res, 502, { error: revertName(e) || 'SubmitFailed', message: e.shortMessage || e.message });
     }
   }
 
@@ -428,6 +470,7 @@ function createRelayer({ provider, signer, voteAddress, budgetAddress, feedbackA
       const poll = req.method === 'GET' && req.url.match(/^\/poll\/(\d+)$/);
       if (poll) return await handlePoll(res, poll[1]);
       if (req.method === 'POST' && req.url === '/ballot') return await handleBallot(req, res);
+      if (req.method === 'POST' && req.url === '/held') return await handleHeld(req, res);
       if (req.method === 'POST' && req.url === '/allocation') return await handleAllocation(req, res);
       if (req.method === 'POST' && req.url === '/feedback') return await handleFeedback(req, res);
       if (req.method === 'POST' && req.url === '/agenda') return await handleAgenda(req, res);

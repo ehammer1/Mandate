@@ -84,6 +84,9 @@ neighbor's phone), which uploads it when it's back online.
 - Handoff, from first to build: **QR code** (built, November 2026: the phone shows the ballot,
   the anchor scans it under "Carry ballots for people without signal"; works on every phone), then the **local Wi-Fi box**, then **Bluetooth** or a phone mesh
   (needs a native app: iPhone browsers don't allow Bluetooth).
+- After a poll closes, a carried ballot counts only if the carrier published a fingerprint of it
+  before the close (`commitHeld`; a short code it can text if it has no data signal), so late
+  ballots are proven to have existed in time.
 - Anchors can't alter, read or duplicate ballots. They could fail to deliver: voters keep their
   receipt to check, their phone also sends the ballot once online, and several anchors can carry
   copies (duplicates are ignored).
