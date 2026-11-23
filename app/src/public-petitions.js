@@ -14,7 +14,8 @@
  */
 
 import { ethers } from 'ethers';
-import { PETITIONS_ABI, CONSENT, petitionText, signatureText, sheetText, custodyText, signProof, sheetProof, custodyProof, checkPetition, packetCsv, readRef } from '../../client/petitions.js';
+import { PETITIONS_ABI, CONSENT, petitionText, signatureText, sheetText, custodyText, signProof, sheetProof, custodyProof, checkPetition, packetCsv, readRef, statementRef, statementBytes } from '../../client/petitions.js';
+import { storeStatement, fetchStatement } from './attach.js';
 import { readSeal } from './testimonia.js';
 
 const TIER_WHO = ['members', 'ID-checked residents', 'residents with full voting rights'];
@@ -45,6 +46,10 @@ export function wirePublicPetitions(ctx) {
     throw new Error(last);
   }
   const publish = async (doc) => (await relay('/notice', { text: JSON.stringify(doc) })).ref;
+  // Statements with a person's name go to the community's file storage, not the permanent notice
+  // board, so they can be taken down on request; the chain keeps where each is and its fingerprint.
+  const keep = async (doc) => statementRef(await storeStatement(state, statementBytes(doc)));
+  const sources = () => ({ board: board(), fetchStatement: (cid) => fetchStatement(state.config, cid) });
   const needKey = () => {
     if (!state.identity) throw new Error('Unlock your voter key first (Account).');
   };
@@ -123,11 +128,11 @@ export function wirePublicPetitions(ctx) {
   async function signByName(id) {
     try {
       needKey();
-      if (!$(`pp-consent-${id}`).checked) throw new Error('Tick the box to agree that your name is published with the petition.');
+      if (!$(`pp-consent-${id}`).checked) throw new Error('Tick the box to agree that your name is shown with the petition.');
       const pp = contract();
       const p = await pp.getPetition(id);
-      say(id, 'Publishing your signature…');
-      const ref = await publish(await signatureText(pp, id, { name: $(`pp-name-${id}`).value, place: $(`pp-place-${id}`).value }));
+      say(id, 'Saving your signature…');
+      const ref = await keep(await signatureText(pp, id, { name: $(`pp-name-${id}`).value, place: $(`pp-place-${id}`).value }));
       say(id, 'Proving you’re on the voter list, privately…');
       const proof = await signProof({ provider: state.provider, petitions: pp, identity: state.identity, tier: Number(p.tier), petitionId: id, ref, artifactsBase: state.config.artifactsBase || undefined });
       await relay('/petitions', { method: 'sign', args: [id, ref], proof });
@@ -155,8 +160,8 @@ export function wirePublicPetitions(ctx) {
       const pp = contract();
       const tier = Math.max(0, await ctx.myTier());
       const doc = await sheetText(pp, id, { photo, signatures, name: $(`pp-circ-${id}`).value, testimonia });
-      say(id, 'Publishing the sheet’s record…');
-      const ref = await publish(doc);
+      say(id, 'Saving the sheet’s record…');
+      const ref = await keep(doc);
       say(id, 'Proving you’re on the voter list, privately…');
       const proof = await sheetProof({ provider: state.provider, petitions: pp, identity: state.identity, tier, petitionId: id, photo, signatures, ref, artifactsBase: state.config.artifactsBase || undefined });
       await relay('/petitions', { method: 'sheet', args: [id, photo, signatures, ref, tier], proof });
@@ -178,7 +183,7 @@ export function wirePublicPetitions(ctx) {
       if (!f) throw new Error('Choose the sheet’s photo, to check it’s the one that was filed.');
       if ((await sha256(await f.arrayBuffer())) !== sh.photo) throw new Error('That photo isn’t the one filed for this sheet: its fingerprint differs.');
       const tier = Math.max(0, await ctx.myTier());
-      const ref = await publish(await custodyText(pp, id, { sheet: n - 1, photo: sh.photo, name: $(`pp-rname-${id}`).value, role: $(`pp-rrole-${id}`).value }));
+      const ref = await keep(await custodyText(pp, id, { sheet: n - 1, photo: sh.photo, name: $(`pp-rname-${id}`).value, role: $(`pp-rrole-${id}`).value }));
       say(id, 'Proving you’re on the voter list, privately…');
       const proof = await custodyProof({ provider: state.provider, petitions: pp, identity: state.identity, tier, petitionId: id, sheet: n - 1, ref, artifactsBase: state.config.artifactsBase || undefined });
       await relay('/petitions', { method: 'receive', args: [id, n - 1, ref, tier], proof });
@@ -193,12 +198,12 @@ export function wirePublicPetitions(ctx) {
     const out = card(id).querySelector('.pp-report');
     try {
       say(id, 'Checking every signature and sheet on the blockchain…');
-      const c = await checkPetition({ petitions: contract(), board: board(), id });
+      const c = await checkPetition({ petitions: contract(), ...sources(), id });
       say(id, c.ok ? 'Everything checks.' : 'Problems found: see below.', c.ok ? 'ok' : 'error');
       const link = `${location.origin}${location.pathname}#ppetition-${id}`;
       out.innerHTML = `<div class="stack">
         ${c.problems.length ? `<ul class="error">${c.problems.map((p) => `<li>${esc(p)}</li>`).join('')}</ul>` : ''}
-        <p><strong>${c.totals.named}</strong> <span>named signature${c.totals.named === 1 ? '' : 's'}, each by a different person on the voter list</span>${c.totals.sameName ? ` <span>(${c.totals.sameName} name${c.totals.sameName === 1 ? '' : 's'} appear more than once: different people, or worth a look)</span>` : ''}${c.totals.sheets ? `; <strong>${c.totals.sheets}</strong> <span>paper sheet${c.totals.sheets === 1 ? '' : 's'} with</span> <strong>${c.totals.paperSignatures}</strong> <span>signatures, as their circulators counted (the recipient counts the sheets themselves)</span>` : ''}.</p>
+        <p><strong>${c.totals.named}</strong> <span>named signature${c.totals.named === 1 ? '' : 's'}, each by a different person on the voter list</span>${c.totals.removed ? ` <span>(${c.totals.removed} name${c.totals.removed === 1 ? '' : 's'} taken down on request; still counted)</span>` : ''}${c.totals.sameName ? ` <span>(${c.totals.sameName} name${c.totals.sameName === 1 ? '' : 's'} appear more than once: different people, or worth a look)</span>` : ''}${c.totals.sheets ? `; <strong>${c.totals.sheets}</strong> <span>paper sheet${c.totals.sheets === 1 ? '' : 's'} with</span> <strong>${c.totals.paperSignatures}</strong> <span>signatures, as their circulators counted (the recipient counts the sheets themselves)</span>` : ''}.</p>
         <div class="row"><button data-pp-print>Print the delivery packet</button> <button data-pp-csv>Download the list (CSV)</button> <button data-pp-json>Download everything (JSON)</button> <button data-pp-link>Copy the check link</button></div>
         <p class="note">Electronic signatures count for a petition only where the recipient or the law accepts them. The check link lets the recipient check the count on the blockchain themselves.</p>
       </div>`;
@@ -221,7 +226,7 @@ export function wirePublicPetitions(ctx) {
   function printPacket(c, link) {
     const w = window.open('', '_blank');
     if (!w) return;
-    const rows = c.named.map((s) => `<tr><td>${s.n}</td><td>${esc(s.name)}</td><td>${esc(s.place)}</td><td>${esc(when(s.at))}</td></tr>`).join('');
+    const rows = c.named.map((s) => `<tr><td>${s.n}</td><td>${s.removed ? '<em>name taken down on request</em>' : esc(s.name)}</td><td>${esc(s.place)}</td><td>${esc(when(s.at))}</td></tr>`).join('');
     const sheets = c.sheets.map((s) => `<tr><td>${s.n}</td><td>${s.signatures}</td><td>${esc(s.circulator)}</td><td class="mono">${esc(s.photo)}</td><td>${s.custody.map((h) => `${esc(h.name)}${h.role ? ` (${esc(h.role)})` : ''}, ${esc(when(h.at))}`).join('<br>') || '—'}</td></tr>`).join('');
     w.document.write(`<!doctype html><meta charset="utf-8"><title>Petition ${c.petition.id}: ${esc(c.petition.title || '')}</title>
       <style>body{font:14px/1.45 system-ui,sans-serif;margin:2rem;color:#111}table{border-collapse:collapse;width:100%;margin:1rem 0}td,th{border:1px solid #bbb;padding:4px 6px;text-align:left;vertical-align:top}.mono{font-family:monospace;font-size:11px;word-break:break-all}.note{color:#444;font-size:12px}</style>

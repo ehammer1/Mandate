@@ -1,11 +1,15 @@
 /**
  * client/petitions.js - petitions delivered outside Promissa (PublicPetitions contract):
  * named signatures, photographed paper sheets with their circulator's statement, and each
- * sheet's chain of custody. The words each person signs are a notice-board text (JSON), fixed
- * by its hash; their proof shows a member of the voter list signed exactly those words.
+ * sheet's chain of custody. The petition's own text is a notice-board text. The statements people
+ * sign or file (with their names) are kept in the community's file storage, where they can be
+ * taken down on request like any file: the chain records only where each is and its SHA-256
+ * ("st:<content id>#<sha256>"), and each proof shows a member of the voter list signed exactly
+ * that reference, so exactly those words.
  *
- * checkPetition() re-reads everything from the chain and the notice board, so anyone (the
- * clerk receiving it included) can check a petition's count without trusting Promissa.
+ * checkPetition() re-reads everything from the chain, the notice board and the storage, so anyone
+ * (the clerk receiving it included) can check a petition's count without trusting Promissa. A
+ * statement taken down still counts on the chain, and the packet says it was removed.
  */
 'use strict';
 
@@ -17,7 +21,7 @@ const SHEET = 'promissa-petition-sheet/1';
 const CUSTODY = 'promissa-petition-custody/1';
 const PETITION = 'promissa-public-petition/1';
 
-const CONSENT = 'I sign this petition under my own name. I understand my name and place are published with it, permanently, and given to whoever it is delivered to.';
+const CONSENT = 'I sign this petition under my own name. I understand my name and place are shown with it and given to whoever it is delivered to, and that I can ask for them to be taken down.';
 
 const PETITIONS_ABI = [
   'function identity() view returns (address)',
@@ -93,12 +97,50 @@ const signProof = async (o) => prove({ ...o, feedback: o.petitions, scope: await
 const sheetProof = async (o) => prove({ ...o, feedback: o.petitions, scope: await o.petitions.sheetScope(o.petitionId, o.photo), message: await o.petitions.sheetMessage(o.photo, o.signatures, o.ref) });
 const custodyProof = async (o) => prove({ ...o, feedback: o.petitions, scope: await o.petitions.custodyScope(o.petitionId, o.sheet, (await o.petitions.custody(o.petitionId, o.sheet)).length), message: hashText(o.ref) });
 
+// ------------------------------------------------------------------ statements in storage
+
+const b64url = (hex) => ethers.encodeBase64(hex).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+const fromB64url = (s) => ethers.hexlify(ethers.decodeBase64(s.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - (s.length % 4)) % 4)));
+
+/** A statement's bytes as stored (one exact form, so its SHA-256 is fixed). */
+const statementBytes = (doc) => ethers.toUtf8Bytes(JSON.stringify(doc));
+
+/** The reference for a statement stored as a file: where it is and its SHA-256 ("st:<cid>#<sha256>"). */
+function statementRef({ cid, sha256 }) {
+  if (!/^[a-zA-Z0-9]{20,100}$/.test(String(cid || ''))) throw new Error('This community’s file storage gives no content address, so it can’t keep signatures yet.');
+  const ref = `st:${cid}#${b64url(`0x${String(sha256).replace(/^0x/, '')}`)}`;
+  if (ref.length > 128) throw new Error('That storage address is too long for a signature.');
+  return ref;
+}
+
 // ------------------------------------------------------------------ checking
 
-/** Read a notice-board text by its reference, and check it is the text the reference names. */
-async function readRef(board, ref) {
+/**
+ * Read a statement by its reference and check it is exactly the text the reference names:
+ * a notice-board text (nb:) or a stored statement (st:). A stored statement that was taken down
+ * comes back as { removed: true }. [src]: { board, fetchStatement(cid) → bytes or null }.
+ */
+async function readRef(src, ref) {
+  const { board, fetchStatement } = src && typeof src.read === 'function' ? { board: src } : src || {};
+  const st = /^st:([a-zA-Z0-9]{20,100})#([A-Za-z0-9_-]{43})$/.exec(ref);
+  if (st) {
+    if (!fetchStatement) return { problem: `${ref} can’t be read here` };
+    let bytes;
+    try {
+      bytes = await fetchStatement(st[1]);
+    } catch {
+      return { problem: `${ref} couldn’t be fetched right now` };
+    }
+    if (!bytes) return { removed: true };
+    if (ethers.sha256(bytes) !== fromB64url(st[2])) return { problem: `${ref} doesn’t match its fingerprint` };
+    try {
+      return { doc: JSON.parse(ethers.toUtf8String(bytes)) };
+    } catch {
+      return { problem: `${ref} isn’t a record` };
+    }
+  }
   const m = /^nb:(0x[0-9a-f]{64})$/.exec(ref);
-  if (!m) return { problem: `${ref} isn’t a notice-board reference` };
+  if (!m) return { problem: `${ref} isn’t a reference Promissa knows` };
   const text = await board.read(m[1]);
   if (!text) return { problem: `${ref} isn’t on the notice board` };
   if (ethers.keccak256(ethers.toUtf8Bytes(text)) !== m[1]) return { problem: `${ref} doesn’t match its text` };
@@ -116,13 +158,14 @@ async function readRef(board, ref) {
  * each proof (a distinct member of the voter list, signing exactly that text) when it was
  * recorded. Returns { ok, problems, petition, named, sheets, totals }.
  */
-async function checkPetition({ petitions, board, id, page = 200 }) {
+async function checkPetition({ petitions, board, fetchStatement, id, page = 200 }) {
   const problems = [];
+  const src = { board, fetchStatement };
   const p = await petitions.getPetition(id);
   if (!Number(p.createdAt)) return { ok: false, problems: ['there is no such petition'] };
   const me = await about(petitions, id);
   const same = (x) => x && x.chainId === me.chainId && x.contract === me.contract && x.id === me.id;
-  const head = await readRef(board, p.ref);
+  const head = await readRef(src, p.ref);
   if (head.problem) problems.push(`the petition’s text: ${head.problem}`);
   else if (head.doc.format !== PETITION) problems.push('the petition’s text isn’t a public petition');
 
@@ -130,8 +173,12 @@ async function checkPetition({ petitions, board, id, page = 200 }) {
   for (let from = 0; ; from += page) {
     const batch = await petitions.namedSignatures(id, from, page);
     for (const [k, s] of batch.entries()) {
-      const r = await readRef(board, s.ref);
+      const r = await readRef(src, s.ref);
       const n = from + k + 1;
+      if (r.removed) {
+        named.push({ n, removed: true, name: '', place: '', tier: Number(s.tier), at: Number(s[2]), ref: s.ref });
+        continue;
+      }
       if (r.problem) problems.push(`signature ${n}: ${r.problem}`);
       else if (r.doc.format !== SIGNATURE || !same(r.doc.petition)) problems.push(`signature ${n} isn’t a signature of this petition`);
       else if (r.doc.consent !== CONSENT || !clean(r.doc.name)) problems.push(`signature ${n} has no name or no consent`);
@@ -141,7 +188,7 @@ async function checkPetition({ petitions, board, id, page = 200 }) {
   }
   // The same name twice is allowed (two different verified people), but worth a look.
   const seen = new Map();
-  for (const s of named) seen.set(nameKey(s.name), (seen.get(nameKey(s.name)) || 0) + 1);
+  for (const s of named) if (!s.removed) seen.set(nameKey(s.name), (seen.get(nameKey(s.name)) || 0) + 1);
   const sameName = [...seen.entries()].filter(([, c]) => c > 1).length;
 
   const sheets = [];
@@ -149,8 +196,10 @@ async function checkPetition({ petitions, board, id, page = 200 }) {
     const batch = await petitions.sheets(id, from, page);
     for (const [k, sh] of batch.entries()) {
       const i = from + k;
-      const r = await readRef(board, sh.ref);
-      if (r.problem) problems.push(`sheet ${i + 1}: ${r.problem}`);
+      const r = await readRef(src, sh.ref);
+      if (r.removed) {
+        /* the circulator's statement was taken down: the sheet still counts, without the name */
+      } else if (r.problem) problems.push(`sheet ${i + 1}: ${r.problem}`);
       else if (r.doc.format !== SHEET || !same(r.doc.petition)) problems.push(`sheet ${i + 1} isn’t a sheet of this petition`);
       else {
         if (r.doc.photo !== sh.photo) problems.push(`sheet ${i + 1}: its record names another photo`);
@@ -159,8 +208,10 @@ async function checkPetition({ petitions, board, id, page = 200 }) {
       }
       const chain = [];
       for (const [j, h] of (await petitions.custody(id, i)).entries()) {
-        const c = await readRef(board, h.ref);
-        if (c.problem) problems.push(`sheet ${i + 1}, receipt ${j + 1}: ${c.problem}`);
+        const c = await readRef(src, h.ref);
+        if (c.removed) {
+          /* a receiver's statement taken down: the receipt still counts, without the name */
+        } else if (c.problem) problems.push(`sheet ${i + 1}, receipt ${j + 1}: ${c.problem}`);
         else if (c.doc.format !== CUSTODY || !same(c.doc.petition) || c.doc.sheet !== i || c.doc.photo !== sh.photo) problems.push(`sheet ${i + 1}, receipt ${j + 1} is for another sheet`);
         chain.push({ name: c.doc?.name ?? '', role: c.doc?.role ?? '', note: c.doc?.note ?? '', tier: Number(h.tier), at: Number(h[2]) }); // h[2]: at (.at is the array method)
       }
@@ -176,7 +227,7 @@ async function checkPetition({ petitions, board, id, page = 200 }) {
     petition: { id: Number(id), ...(head.doc || {}), tier: Number(p.tier), createdAt: Number(p.createdAt), ref: p.ref, ...me },
     named,
     sheets,
-    totals: { named: named.length, sheets: sheets.length, paperSignatures: Number(p.paperSignatures), sameName },
+    totals: { named: named.length, removed: named.filter((s) => s.removed).length, sheets: sheets.length, paperSignatures: Number(p.paperSignatures), sameName },
   };
 }
 
@@ -185,9 +236,9 @@ function packetCsv(c) {
   const q = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
   const date = (s) => new Date(s * 1000).toISOString();
   const rows = [['kind', 'number', 'name', 'place', 'signatures', 'photo_sha256', 'circulator', 'custody', 'recorded_utc', 'reference'].map(q).join(',')];
-  for (const s of c.named) rows.push(['named', s.n, s.name, s.place, 1, '', '', '', date(s.at), s.ref].map(q).join(','));
+  for (const s of c.named) rows.push([s.removed ? 'named (name removed on request)' : 'named', s.n, s.name, s.place, 1, '', '', '', date(s.at), s.ref].map(q).join(','));
   for (const s of c.sheets) rows.push(['paper sheet', s.n, '', '', s.signatures, s.photo, s.circulator, s.custody.map((h) => `${h.name}${h.role ? ` (${h.role})` : ''} ${date(h.at)}`).join('; '), date(s.at), ''].map(q).join(','));
   return rows.join('\n') + '\n';
 }
 
-module.exports = { PETITIONS_ABI, CONSENT, SIGNATURE, SHEET, CUSTODY, PETITION, petitionText, signatureText, sheetText, custodyText, circulatorStatement, signProof, sheetProof, custodyProof, checkPetition, readRef, packetCsv, hashText };
+module.exports = { statementRef, statementBytes, PETITIONS_ABI, CONSENT, SIGNATURE, SHEET, CUSTODY, PETITION, petitionText, signatureText, sheetText, custodyText, circulatorStatement, signProof, sheetProof, custodyProof, checkPetition, readRef, packetCsv, hashText };

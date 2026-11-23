@@ -21,6 +21,8 @@ const { ethers } = require('ethers');
 
 const MAX_BYTES = 25 * 1024 * 1024; // audio; photos and PDFs stay at 10 MB (DOC_MAX_BYTES)
 const DOC_MAX_BYTES = 10 * 1024 * 1024;
+const STATEMENT_MAX_BYTES = 4096;
+const STATEMENT_FORMATS = new Set(['promissa-petition-signature/1', 'promissa-petition-sheet/1', 'promissa-petition-custody/1']);
 const TYPES = {
   'image/jpeg': (b) => b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff,
   'image/png': (b) => b.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])),
@@ -32,6 +34,17 @@ const TYPES = {
   'audio/webm': (b) => b[0] === 0x1a && b[1] === 0x45 && b[2] === 0xdf && b[3] === 0xa3,
   'audio/ogg': (b) => b.subarray(0, 4).toString() === 'OggS',
   'audio/wav': (b) => b.subarray(0, 4).toString() === 'RIFF' && b.subarray(8, 12).toString() === 'WAVE',
+  // A petition statement with a person's name (client/petitions.js): kept as a file, so it can be
+  // taken down on request like any file, never on the permanent notice board. Only these, small.
+  'application/json': (b) => {
+    if (b.length > STATEMENT_MAX_BYTES) return false;
+    try {
+      const d = JSON.parse(b.toString('utf8'));
+      return d && typeof d === 'object' && STATEMENT_FORMATS.has(d.format);
+    } catch {
+      return false;
+    }
+  },
 };
 const SEMAPHORE_ABI = ['function verifyProof(uint256 groupId, tuple(uint256 merkleTreeDepth, uint256 merkleTreeRoot, uint256 nullifier, uint256 message, uint256 scope, uint256[8] points) proof) view returns (bool)'];
 const IDENTITY_ABI = ['function groupId(uint8) view returns (uint256)', 'function semaphore() view returns (address)'];
@@ -128,6 +141,7 @@ function createUploads(o) {
     if (!bytes.length || bytes.length > (audio ? MAX_BYTES : DOC_MAX_BYTES)) return [413, { error: audio ? 'Audio can be up to 25 MB (about 20 minutes of speech).' : 'Files can be up to 10 MB.' }];
     const needsPlus = audio && bytes.length > AUDIO_FREE;
     if (!TYPES[type] || !TYPES[type](bytes)) return [415, { error: 'Only photos (JPEG, PNG, WebP), PDF documents and audio (MP3, M4A, WebM, Ogg, WAV) can be added.' }];
+    const statement = type === 'application/json';
     const sha = crypto.createHash('sha256').update(bytes).digest('hex');
     const problem = await verify(headers['x-upload-proof'], sha, String(headers['x-promissa-plan'] || ''), needsPlus);
     if (problem) return [/Promissa Plus allows/.test(problem) ? 402 : 403, { error: problem, ...(/Promissa Plus allows/.test(problem) ? { plus: true } : {}) }];
@@ -143,7 +157,7 @@ function createUploads(o) {
     const cid = locations.find((l) => l.kind === 'ipfs')?.cid;
     log(`file stored: ${sha.slice(0, 12)}… in ${locations.map((l) => l.kind).join(' + ')} (${type}, ${bytes.length} bytes)`);
     const out = { ...(cid ? { cid } : {}), sha256: sha, type, size: bytes.length, name, locations };
-    if (query.get('read') === '1' && o.read && !audio) {
+    if (query.get('read') === '1' && o.read && !audio && !statement) {
       try {
         out.ai = { ...(await o.read(bytes, type)), label: 'Read by AI: check the original' };
       } catch (e) {

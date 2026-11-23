@@ -175,6 +175,26 @@ async function send(ctx, bytes, type, name, read) {
   throw new Error('Daily upload limit reached. Please try again tomorrow.');
 }
 
+/**
+ * Store a small statement with a person's name (a petition signature, a circulator's or
+ * receiver's statement) as a file in the community's storage, so it can be taken down on request.
+ * Always the community's storage, never someone's own account. Returns { cid, sha256 }.
+ */
+export async function storeStatement(state, bytes) {
+  return send({ state }, bytes, 'application/json', 'statement.json', false);
+}
+
+/** A stored statement's bytes by its content address, or null if it was taken down. */
+export async function fetchStatement(cfg, cid) {
+  const s = await uploadService(cfg);
+  if (s.blocked.has(cid)) return null;
+  const res = await fetch(fileUrl(cfg, cid));
+  if (res.status === 404 || res.status === 410) return null;
+  if (!res.ok) throw new Error(`storage answered ${res.status}`);
+  const bytes = new Uint8Array(await res.arrayBuffer());
+  return s.blocked.has(await sha256Hex(bytes)) ? null : bytes;
+}
+
 // Audio: what the upload service accepts (it checks the file's first bytes too).
 const AUDIO_MAX = 25 * 1024 * 1024;
 export function audioType(t) {
