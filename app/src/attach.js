@@ -463,7 +463,7 @@ export function wireAttachments(root, cfg) {
     })();
   }
   // A copy seen elsewhere (a site, a chat): compared by its look with the photo on the record.
-  for (const input of root.querySelectorAll('[data-compare]')) {
+  for (const input of root.querySelectorAll('input[type="file"][data-compare]')) {
     input.onchange = async () => {
       const out = input.parentElement.nextElementSibling;
       const f = input.files[0];
