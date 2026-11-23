@@ -1279,7 +1279,9 @@ test('a petition to deliver: signed by name, a paper sheet filed and handed over
   assert.match(await popup.textContent('body'), /To: City Clerk, Example City[\s\S]*Ana López[\s\S]*Carla Ruiz/);
   await popup.close();
   // The same check, from the chain alone, outside the app.
-  const ck = await P.checkPetition({ petitions: new ethers.Contract(await c.petitions.getAddress(), P.PETITIONS_ABI, provider), board: c.notices.connect(provider), id });
+  // Names are not on the blockchain: the statements are files in the community's storage.
+  const fetchStatement = async (cid) => (appIpfs[cid] ? new Uint8Array(appIpfs[cid].body) : null);
+  const ck = await P.checkPetition({ petitions: new ethers.Contract(await c.petitions.getAddress(), P.PETITIONS_ABI, provider), board: c.notices.connect(provider), fetchStatement, id });
   assert.equal(ck.ok, true, ck.problems.join('; '));
   assert.equal(ck.sheets[0].photo, '0x' + require('node:crypto').createHash('sha256').update(photo).digest('hex'));
   await shot('16b-petition-to-deliver');
