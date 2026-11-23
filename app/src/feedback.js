@@ -330,6 +330,8 @@ export function wireFeedback(ctx) {
   $('nav-petitions').onclick = async () => {
     ctx.show('screen-petitions');
     await renderPetitions().catch((e) => ($('petition-list').innerHTML = `<p class="error">Could not load petitions: ${esc(e.shortMessage || e.message)}</p>`));
+    // Petitions to deliver outside Promissa (public-petitions.js), below.
+    await ctx.publicPetitions?.()?.render().catch((e) => ($('ppetition-list').innerHTML = `<p class="error">Could not load: ${esc(e.shortMessage || e.message)}</p>`));
   };
   $('petition-kind').onchange = () => {
     const a = Number($('petition-kind').value);

@@ -76,7 +76,7 @@ before(async () => {
   ({ contracts: c } = await deployAll(admin, { seasoningDays: 30, rules: { MIN_POLL_MINUTES: 10, BINDING_QUORUM_PCT: 0, BINDING_CHECK_REQUIRED: 0, CHECK_MIN_VOTES: 1, RULE_CHANGE_MIN_MINUTES: 1440 } }));
   await (await c.identity.setIssuer(clerk.address, 1, true, 'Example City Clerk')).wait();
 
-  relay = createRelayer({ provider, signer: relayerSigner, voteAddress: await c.vote.getAddress(), budgetAddress: await c.budget.getAddress(), feedbackAddress: await c.feedback.getAddress(), noticeBoardAddress: await c.notices.getAddress(), talliesAddress: await c.tallies.getAddress(), agendaAddress: await c.agenda.getAddress(), log: () => {} });
+  relay = createRelayer({ provider, signer: relayerSigner, voteAddress: await c.vote.getAddress(), budgetAddress: await c.budget.getAddress(), feedbackAddress: await c.feedback.getAddress(), noticeBoardAddress: await c.notices.getAddress(), talliesAddress: await c.tallies.getAddress(), agendaAddress: await c.agenda.getAddress(), petitionsAddress: await c.petitions.getAddress(), log: () => {} });
   const relayPort = await listen(relay);
 
   const ipfs = { [QUESTION_CID]: JSON.stringify({ title: 'Publish the FY2027 line-item budget?', body: 'Every line item above $10,000, as CSV, within 30 days.', options: ['Yes', 'No'] }) };
@@ -94,6 +94,7 @@ before(async () => {
       feedbackAddress: await c.feedback.getAddress(),
       assembliesAddress: await c.assemblies.getAddress(),
       agendaAddress: await c.agenda.getAddress(),
+      petitionsAddress: await c.petitions.getAddress(),
       escrowFactoryAddress: await c.escrows.getAddress(),
       officialsAddress: await c.officials.getAddress(),
       bodiesAddress: await c.bodies.getAddress(),
@@ -1217,6 +1218,71 @@ test('residents speak between votes: comments, a petition that opens its own pol
   await page.click('#mandate-1 .rating-box button[data-score="4"]');
   await page.waitForSelector('#mandate-1 .rating-box >> text=4.0 of 5 from 1 resident', { timeout: 120_000 });
   await shot('16-feedback');
+});
+
+test('a petition to deliver: signed by name, a paper sheet filed and handed over, checked and printed for the clerk', async () => {
+  const P = require('../client/petitions');
+  await page.click('#nav-petitions');
+  await page.waitForSelector('#ppetition-section:not([hidden])', { timeout: 60_000 });
+  await page.click('#ppetition-section details summary');
+  await page.fill('#ppetition-title', 'Put a crosswalk at 5th and Main');
+  await page.fill('#ppetition-recipient', 'City Clerk, Example City');
+  await page.fill('#ppetition-body', 'Three crashes there this year.');
+  await page.check('#ppetition-paper');
+  await page.click('#btn-ppetition');
+  await page.waitForSelector('#ppetition-status >> text=started', { timeout: 60_000 });
+  const id = await c.petitions.petitionCount();
+  const card = `#ppetition-${id}`;
+  await page.waitForSelector(`${card} >> text=City Clerk, Example City`);
+
+  // Signed by name: the consent box first.
+  await page.click(`${card} details:has-text("Sign by name") summary`);
+  await page.fill(`#pp-name-${id}`, 'Ana López');
+  await page.fill(`#pp-place-${id}`, 'Example City');
+  await page.click(`${card} [data-pp-sign]`);
+  await page.waitForSelector(`${card} >> text=Tick the box to agree`);
+  await page.check(`#pp-consent-${id}`);
+  await page.click(`${card} [data-pp-sign]`);
+  await page.waitForSelector(`#ppetition-${id} >> text=Signed by name. Thank you.`, { timeout: 120_000 });
+  await page.waitForSelector(`#ppetition-${id} >> text=1 named signature`);
+
+  // A paper sheet: its photo's fingerprint, the count, the circulator's statement.
+  const photo = Buffer.from('a photo of signed sheet 1 (stand-in bytes)');
+  await page.click(`#ppetition-${id} details:has-text("Paper sheets") summary`);
+  await page.setInputFiles(`#pp-photo-${id}`, { name: 'sheet1.jpg', mimeType: 'image/jpeg', buffer: photo });
+  await page.fill(`#pp-count-${id}`, '18');
+  await page.fill(`#pp-circ-${id}`, 'Carla Ruiz');
+  await page.click(`#ppetition-${id} [data-pp-sheet]`);
+  await page.waitForSelector(`#ppetition-${id} >> text=Sheet filed: 18 signatures`, { timeout: 120_000 });
+  // Receiving it: a different photo is refused; the right one is recorded.
+  await page.click(`#ppetition-${id} details:has-text("Paper sheets") summary`);
+  await page.fill(`#pp-rsheet-${id}`, '1');
+  await page.setInputFiles(`#pp-rphoto-${id}`, { name: 'other.jpg', mimeType: 'image/jpeg', buffer: Buffer.from('another photo') });
+  await page.fill(`#pp-rname-${id}`, 'Eli Park');
+  await page.fill(`#pp-rrole-${id}`, 'city clerk');
+  await page.click(`#ppetition-${id} [data-pp-receive]`);
+  await page.waitForSelector(`#ppetition-${id} >> text=That photo isn’t the one filed for this sheet`);
+  await page.setInputFiles(`#pp-rphoto-${id}`, { name: 'sheet1.jpg', mimeType: 'image/jpeg', buffer: photo });
+  await page.click(`#ppetition-${id} [data-pp-receive]`);
+  await page.waitForSelector(`#ppetition-${id} >> text=Recorded: you received sheet 1.`, { timeout: 120_000 });
+
+  // Check and deliver: everything re-read from the chain.
+  await page.click(`#ppetition-${id} [data-pp-check]`);
+  await page.waitForSelector(`#ppetition-${id} >> text=Everything checks.`, { timeout: 60_000 });
+  assert.match(await page.textContent(`#ppetition-${id} .pp-report`), /1 named signature, each by a different person on the voter list; 1 paper sheet with 18 signatures/);
+  const [dl] = await Promise.all([page.waitForEvent('download'), page.click(`#ppetition-${id} [data-pp-csv]`)]);
+  const csv = fs.readFileSync(await dl.path(), 'utf8');
+  assert.match(csv, /"named","1","Ana López","Example City","1"/);
+  assert.match(csv, /"paper sheet","1","","","18","0x[0-9a-f]{64}","Carla Ruiz","Eli Park \(city clerk\)/);
+  const [popup] = await Promise.all([page.waitForEvent('popup'), page.click(`#ppetition-${id} [data-pp-print]`)]);
+  await popup.waitForLoadState();
+  assert.match(await popup.textContent('body'), /To: City Clerk, Example City[\s\S]*Ana López[\s\S]*Carla Ruiz/);
+  await popup.close();
+  // The same check, from the chain alone, outside the app.
+  const ck = await P.checkPetition({ petitions: new ethers.Contract(await c.petitions.getAddress(), P.PETITIONS_ABI, provider), board: c.notices.connect(provider), id });
+  assert.equal(ck.ok, true, ck.problems.join('; '));
+  assert.equal(ck.sheets[0].photo, '0x' + require('node:crypto').createHash('sha256').update(photo).digest('hex'));
+  await shot('16b-petition-to-deliver');
 });
 
 test("citizens' assembly: a drawn resident sees it on their phone and gets a seat code the organizer can check", async () => {

@@ -281,6 +281,26 @@
       <div class="row" role="group" aria-label="Order petitions"><span class="muted">Show:</span><button id="petition-sort-top" aria-pressed="true">Most signed</button><button id="petition-sort-new" aria-pressed="false">Newest</button></div>
       <label class="row">Topic <select id="petition-filter" style="width:auto"><option value="all">All topics</option><option value="general">General</option><option value="safety">Public safety</option><option value="roads">Roads and transport</option><option value="housing">Housing</option><option value="budget">Budget and taxes</option><option value="environment">Environment and parks</option><option value="health">Health</option><option value="education">Schools and education</option><option value="services">Water, power and services</option><option value="economy">Jobs and business</option><option value="rights">Rights and justice</option><option value="governance">How decisions are made</option></select></label>
       <div id="petition-list" class="stack"></div>
+      <section id="ppetition-section" class="stack" hidden>
+        <h2>Petitions to deliver</h2>
+        <p>For a petition to someone outside this community's votes: a city clerk, a legislature, a school board, a company. People sign under their own name, once each, and each signature is proven to come from a different person on the voter list. Where the law still wants signatures on paper, circulators file a photo fingerprint of each signed sheet, and everyone who handles a sheet records it. The recipient gets a packet they can check on the blockchain.</p>
+        <details class="card"><summary><strong>Start a petition to deliver</strong></summary>
+          <div class="stack">
+            <label for="ppetition-title">What it asks for, in one sentence</label>
+            <input type="text" id="ppetition-title" maxlength="200" placeholder="e.g. Put a crosswalk at 5th and Main" />
+            <label for="ppetition-recipient">Who it will be delivered to</label>
+            <input type="text" id="ppetition-recipient" maxlength="200" placeholder="e.g. City Clerk, Springfield" />
+            <label for="ppetition-body">Why</label>
+            <textarea id="ppetition-body" rows="3" maxlength="2500"></textarea>
+            <label for="ppetition-tier">Who can sign by name</label>
+            <select id="ppetition-tier"><option value="1">ID-checked residents</option><option value="2">Residents with full voting rights</option><option value="0">All members</option></select>
+            <label class="row"><input type="checkbox" id="ppetition-paper" /> Signatures are also collected on paper (where the law requires ink)</label>
+            <button class="primary" id="btn-ppetition">Start it</button>
+            <p class="status" id="ppetition-status" role="status"></p>
+          </div>
+        </details>
+        <div id="ppetition-list" class="stack"></div>
+      </section>
     </section>
 
     <!-- The People's Agenda -->
