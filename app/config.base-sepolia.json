@@ -37,5 +37,6 @@
   "communityPlan": true,
   "assembliesAddress": "0xce891598b8f889910084c5BA0F0Eb8bF929Ac83F",
   "agendaAddress": "0x364207b1f4B7a24645645Ce96ff34ac9121FeD9a",
-  "petitionsAddress": "0x4Efc605Cb8da01b82831620695157589E7194B3f"
+  "petitionsAddress": "0x4Efc605Cb8da01b82831620695157589E7194B3f",
+  "districtsAddress": "0x8fB7a7514fa04AC753E287C875fA104c90B09f1D"
 }

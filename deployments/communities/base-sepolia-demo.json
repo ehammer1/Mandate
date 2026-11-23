@@ -27,6 +27,7 @@
     "bodyRecords": "0xBF0795bf1c26b563baA8595487300c4bf3Da6c32",
     "escrows": "0xdcf928D33B25fA676422aC4b2f86Fc24b6743540",
     "council": "0xa7225A193432963542dB81AFb03A37A09047E25c",
-    "petitions": "0xfbf3893Ee2518d227c526F22af41E574E7E762c7"
+    "petitions": "0xfbf3893Ee2518d227c526F22af41E574E7E762c7",
+    "districts": "0x052322C5cA46E1b068b41Ef30c51fD08D0418ca5"
   }
 }

@@ -38,5 +38,6 @@
   "keepSignedIn": true,
   "fundingLinks": true,
   "communityPlan": true,
-  "petitionsAddress": "0xfbf3893Ee2518d227c526F22af41E574E7E762c7"
+  "petitionsAddress": "0xfbf3893Ee2518d227c526F22af41E574E7E762c7",
+  "districtsAddress": "0x052322C5cA46E1b068b41Ef30c51fD08D0418ca5"
 }

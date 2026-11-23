@@ -26,7 +26,8 @@
     "bodyRecords": "0x2910F2C1Af4d367679B9Fc331bfd5FcC54689808",
     "escrows": "0x667f0ba6Fa2E4e4a463A47c3f92138C70bd000fA",
     "council": "0xc3948f9e04d9db33d438305eE8D7cA38788c0C0D",
-    "petitions": "0x4Efc605Cb8da01b82831620695157589E7194B3f"
+    "petitions": "0x4Efc605Cb8da01b82831620695157589E7194B3f",
+    "districts": "0x8fB7a7514fa04AC753E287C875fA104c90B09f1D"
   },
   "previous": {
     "network": "base-sepolia",
