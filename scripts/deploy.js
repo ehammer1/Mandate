@@ -131,6 +131,8 @@ async function deployAll(signer, opts = {}) {
   // Residents' comments, ratings and petitions; a successful petition opens its poll itself.
   contracts.feedback = await deploy(signer, 'Feedback', {}, await identity.getAddress(), await vote.getAddress(), await charter.getAddress());
   await send(vote.grantRole(await vote.PROPOSER_ROLE(), await contracts.feedback.getAddress()));
+  // Petitions delivered outside Promissa: named signatures, paper sheets and their custody.
+  contracts.petitions = await deploy(signer, 'PublicPetitions', {}, await identity.getAddress());
   // Citizens' assemblies: residents drawn at random from a voter list, like a jury.
   contracts.assemblies = await deploy(signer, 'Assemblies', {}, me, await identity.getAddress());
   await send(contracts.assemblies.grantRole(await contracts.assemblies.ORGANIZER_ROLE(), opts.registrar || me));
@@ -223,6 +225,7 @@ if (require.main === module) {
       charterAddress: addresses.charter,
       budgetAddress: addresses.budget,
       feedbackAddress: addresses.feedback,
+      petitionsAddress: addresses.petitions,
       officialsAddress: addresses.officials,
       bodiesAddress: addresses.bodies,
       bodyRecordsAddress: addresses.bodyRecords,

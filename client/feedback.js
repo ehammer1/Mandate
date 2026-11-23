@@ -75,4 +75,4 @@ function bridgeScore(m) {
   };
 }
 
-module.exports = { commentProof, ratingProof, markProof, signatureProof, topicOf, myTier, hashText, bridgeScore };
+module.exports = { commentProof, ratingProof, markProof, signatureProof, topicOf, myTier, hashText, bridgeScore, prove };
