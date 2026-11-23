@@ -36,5 +36,6 @@
   "voterGroupsAddress": "0xD5D581eC5d5069ecA14DA455375C0e78bBA7E512",
   "communityPlan": true,
   "assembliesAddress": "0xce891598b8f889910084c5BA0F0Eb8bF929Ac83F",
-  "agendaAddress": "0x364207b1f4B7a24645645Ce96ff34ac9121FeD9a"
+  "agendaAddress": "0x364207b1f4B7a24645645Ce96ff34ac9121FeD9a",
+  "petitionsAddress": "0x4Efc605Cb8da01b82831620695157589E7194B3f"
 }
