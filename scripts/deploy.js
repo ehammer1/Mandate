@@ -56,6 +56,9 @@ async function deploy(signer, name, libs, ...args) {
   const a = art(name);
   const factory = new ethers.ContractFactory(a.abi, link(a.bytecode, a.linkReferences, libs), signer);
   const c = await factory.deploy(...args);
+  // The receipt, not the code: a deployment that failed has no code, and waiting for it never ends.
+  const rc = await c.deploymentTransaction()?.wait();
+  if (rc && rc.status !== 1) throw new Error(`${name} deployment failed (transaction ${rc.hash})`);
   await c.waitForDeployment();
   return c;
 }
