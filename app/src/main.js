@@ -36,6 +36,7 @@ import { CLOUDS, availableClouds, connectCloud, finishCloud } from './clouds.js'
 import { shareText } from './copy.js';
 import { wireVideos, videosHtml, videoFields, wireVideoFields, readVideos } from './videos.js';
 import { wireAids, listenTranslateHtml } from './aihelp.js';
+import { wireOnBase } from './onbase.js';
 import { renderExplainer } from './explain.js';
 import { informedHtml } from './informed.js';
 import { wireOfficials } from './officials.js';
@@ -1990,6 +1991,7 @@ async function boot() {
   wireSocial();
   wireOwnStorage();
   wireAids(() => state.config);
+  wireOnBase(() => state);
   wireCarry();
   window.addEventListener('online', () => sendOutbox().catch(() => {}));
   wireInstallTip();

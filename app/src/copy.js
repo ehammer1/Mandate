@@ -3,6 +3,7 @@
  * helper that scrolls to an item and highlights it.
  */
 import { appBase } from './community.js';
+import { onBaseButton } from './onbase.js';
 
 const escAttr = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
@@ -50,7 +51,7 @@ export function wireCopy(root = document) {
  */
 export function itemTools({ title, anchor, idText, ref, explorer, address }) {
   const url = `${appBase()}#${anchor}`;
-  return `<p class="row item-tools">${title ? `${shareMenu(title, url)} ` : ''}${copyBtn(url, '🔗 Copy link')} ${copyBtn(idText, 'Copy ID')}${ref ? ` ${copyBtn(ref, 'Copy text reference')}` : ''}${explorer && address ? ` <a href="${escAttr(`${explorer.replace(/\/+$/, '')}/address/${address}`)}" target="_blank" rel="noopener">View on the blockchain</a>` : ''}</p>`;
+  return `<p class="row item-tools">${title ? `${shareMenu(title, url)} ` : ''}${copyBtn(url, '🔗 Copy link')} ${copyBtn(idText, 'Copy ID')}${ref ? ` ${copyBtn(ref, 'Copy text reference')} ${onBaseButton(ref)}` : ''}${explorer && address ? ` <a href="${escAttr(`${explorer.replace(/\/+$/, '')}/address/${address}`)}" target="_blank" rel="noopener">View on the blockchain</a>` : ''}</p>`;
 }
 
 /**

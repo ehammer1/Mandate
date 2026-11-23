@@ -100,7 +100,7 @@ export function videosHtml(videos) {
         <p><a href="${esc(v.url)}" target="_blank" rel="noopener">Watch on ${esc(platformOf(v.url))}</a>${v.seal?.original && /^(https|ipfs):\/\//.test(v.seal.original) ? ` · <a href="${esc(v.seal.original.replace(/^ipfs:\/\//, 'https://ipfs.io/ipfs/'))}" target="_blank" rel="noopener">The sealed original</a>` : ''}</p>
         <p>${badge}</p></div>`;
     })
-    .join('')}<p class="note">A seal shows a recording is real and unedited, not that what it says is true.</p></div>`;
+    .join('')}<p class="note">Each video's link and seal are recorded on Base with this item (📜 On Base). A seal shows a recording is real and unedited, not that what it says is true.</p></div>`;
 }
 
 /** Tap to play: YouTube loads only now, from its no-cookie domain. */

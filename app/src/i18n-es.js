@@ -2408,4 +2408,13 @@ export default {
   "Unlimited \"Help me write this\"": "\"Ayúdame a redactarlo\" ilimitado",
   "More files a day, and longer audio": "Más archivos al día y audios más largos",
   "Voting, explanations, translation and taking part are always free. Plus is linked to the assistant's own key, never your voter key, so it can't be linked to a vote. The price is shown before you pay; cancel any time.": "Votar, las explicaciones, la traducción y participar son siempre gratis. Plus está vinculado a la clave propia del asistente, nunca a su clave de votante, así que no se puede vincular a un voto. El precio se muestra antes de pagar; cancele cuando quiera.",
+  "📜 On Base": "📜 En Base",
+  " Looking it up on Base…": " Buscándolo en Base…",
+  "Looking it up on Base…": "Buscándolo en Base…",
+  "Not found on the notice board.": "No se encontró en el tablón.",
+  "Could not reach Base right now.": "No se pudo conectar con Base ahora.",
+  "View the transaction": "Ver la transacción",
+  "View the block": "Ver el bloque",
+  ". This record holds its text and the fingerprints and addresses of its files and videos; it can never be edited.": ". Este registro contiene su texto y las huellas y direcciones de sus archivos y videos; nunca se puede editar.",
+  "Each video's link and seal are recorded on Base with this item (📜 On Base). A seal shows a recording is real and unedited, not that what it says is true.": "El enlace y el sello de cada video quedan registrados en Base con este elemento (📜 En Base). Un sello muestra que una grabación es real y sin editar, no que lo que dice sea cierto.",
 };
