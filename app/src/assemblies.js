@@ -20,6 +20,7 @@ const WHY = {
   NotOrganizer: "Only this assembly's organizer can do that.",
   SeatsFull: 'All seats are filled.',
   AlreadySeated: 'That seat is already confirmed.',
+  OutOfOrder: 'Alternates are seated strictly in draw order, after the first choices have had a week. Seat the next one in line, or record that they declined.',
   AccessControlUnauthorizedAccount: "This account can't organize assemblies. The council can allow it (Admin, Roles).",
 };
 
@@ -89,13 +90,18 @@ export function wireAssemblies(ctx) {
   async function statementHtml(id, a, report, panel) {
     if (!report) return '';
     const list = (xs) => (xs?.length ? `<ul>${xs.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` : '<p class="muted">None given.</p>');
-    const sides = report.for || report.against ? `<div class="row" style="align-items:flex-start"><div style="flex:1;min-width:140px"><p><strong>Strongest reasons for</strong></p>${list(report.for)}</div><div style="flex:1;min-width:140px"><p><strong>Strongest reasons against</strong></p>${list(report.against)}</div></div>` : '';
     let who = '';
     if (report.stage === 'draft') who = '<p class="warn">Draft: waiting for the panel members to endorse it.</p>';
     else if (report.stage === 'final') {
       const n = await verified(id, a, report).catch(() => 0);
-      who = `<p class="note">Endorsed by <strong>${n} of ${Number(a.filled)}</strong> seated members, each signature checked on this device.</p>`;
+      // Show exactly what the members endorsed: the draft, never text added afterwards.
+      const draft = await readDoc(state.config, state.provider, report.draft).catch(() => null);
+      const same = (x) => JSON.stringify([x?.title || '', x?.body || '', x?.for || [], x?.against || []]);
+      const changed = !draft || same(draft) !== same(report);
+      if (draft) report = { ...report, title: draft.title, body: draft.body, for: draft.for, against: draft.against };
+      who = `${changed ? '<p class="warn">▲ The published final text differs from what the members endorsed; the endorsed draft is shown.</p>' : ''}<p class="note">Endorsed by <strong>${n} of ${Number(a.filled)}</strong> seated members, each signature checked on this device.</p>`;
     }
+    const sides = report.for || report.against ? `<div class="row" style="align-items:flex-start"><div style="flex:1;min-width:140px"><p><strong>Strongest reasons for</strong></p>${list(report.for)}</div><div style="flex:1;min-width:140px"><p><strong>Strongest reasons against</strong></p>${list(report.against)}</div></div>` : '';
     return `<div class="card"><p><strong>${panel ? 'Citizens\' review panel' : 'Recommendation'}</strong></p><p>${esc(report.title)}</p>${report.body ? `<p>${esc(report.body)}</p>` : ''}${sides}${who}</div>`;
   }
 
@@ -114,7 +120,7 @@ export function wireAssemblies(ctx) {
     const mine = me && a.organizer.toLowerCase() === me.toLowerCase();
     const seconds = Number(state.config.blockSeconds || 2);
     let drawLine;
-    if (drawn) drawLine = `<strong>Drawn.</strong> ${Number(a.filled)} of ${Number(a.seats)} seats accepted.`;
+    if (drawn) drawLine = `<strong>Drawn.</strong> ${Number(a.filled)} of ${Number(a.seats)} seats accepted.${Number(a.reschedules) ? ` <span class="warn">The draw block was missed and set again ${Number(a.reschedules)} time${Number(a.reschedules) === 1 ? '' : 's'}.</span>` : ''}`;
     else if (block <= Number(a.drawBlock)) drawLine = `The draw happens in about ${Math.max(1, Math.round(((Number(a.drawBlock) - block + 1) * seconds) / 60))} minute(s), from a block hash nobody knows yet.`;
     else drawLine = 'Ready to draw: anyone with an account can run it.';
 
@@ -146,7 +152,8 @@ export function wireAssemblies(ctx) {
     const organizer = mine
       ? `<details class="card"><summary><strong>Organizer</strong></summary><div class="stack">
           ${!drawn && block > Number(a.drawBlock) ? '<button type="button" class="primary" data-draw>Run the draw</button> <button type="button" data-reschedule>Set a new draw block</button>' : ''}
-          ${drawn ? `<label>Seat code from a drawn resident <input type="text" data-code autocomplete="off" spellcheck="false" placeholder="PA1.…" /></label><button type="button" data-accept>Check and confirm the seat</button>` : ''}
+          ${drawn ? `<label>Seat code from a drawn resident <input type="text" data-code autocomplete="off" spellcheck="false" placeholder="PA1.…" /></label><button type="button" data-accept>Check and confirm the seat</button>
+            <p class="note">Open seats go to the alternates strictly in draw order (next: number ${Number(a.nextAlternate) + 1}), from one week after the draw.</p><button type="button" data-skip>The next alternate declined or can't be reached</button>` : ''}
           ${drawn ? `<p><strong>The statement</strong> (written with the panel; published as a draft first, so seated members can endorse it)</p>
             <label>${doc.reviewOf ? 'What the panel found, in a sentence or two' : 'The recommendation'} <textarea data-rep-title rows="2"></textarea></label>
             <label>Strongest reasons for (one per line) <textarea data-rep-for rows="3"></textarea></label>
@@ -187,6 +194,10 @@ export function wireAssemblies(ctx) {
         <p class="note">Seed ${esc(a.seed.slice(0, 18))}…, from block ${esc(String(a.drawBlock))}.</p>`;
     });
     el.querySelector('[data-draw]')?.addEventListener('click', async () => (await send(st(), 'Run the draw', (k) => k.draw(id))) && render());
+    el.querySelector('[data-skip]')?.addEventListener('click', async () => {
+      if (!window.confirm(`Record publicly that alternate number ${Number(a.nextAlternate) + 1} declined or couldn't be reached?`)) return;
+      if (await send(st(), 'Skip the alternate', (k) => k.skipAlternate(id))) render();
+    });
     el.querySelector('[data-reschedule]')?.addEventListener('click', async () => (await send(st(), 'Set a new draw block', (k) => k.reschedule(id))) && render());
     el.querySelector('[data-accept]')?.addEventListener('click', async () => {
       const net = await state.provider.getNetwork();

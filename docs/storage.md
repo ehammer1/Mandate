@@ -22,6 +22,11 @@ Videos stay on YouTube and other platforms; Promissa stores only the link.
 With "both", an upload succeeds if at least one copy is stored, so a file is never lost because
 one service is down.
 
+If the community's S3-compatible storage is served from its own web address (for example a
+Cloudflare R2 bucket on a custom domain), list that address's host name in the community's
+config as `"storageHosts": ["files.example.org"]`, so the app shows those files directly.
+Copies anywhere else are downloaded and checked against their fingerprint before they are shown.
+
 Content is never put on permanent storage (Arweave, Filecoin): a community must always be able
 to take down illegal content or someone's private details. Taking a file down removes every
 copy and leaves a note with its fingerprint as proof of what was there.

@@ -10,7 +10,9 @@ const { Identity } = require('@semaphore-protocol/identity');
 
 const ASSEMBLIES_ABI = [
   'function assemblyCount() view returns (uint256)',
-  'function getAssembly(uint256) view returns (tuple(uint8 tier, uint16 seats, uint16 filled, uint64 announcedAt, uint64 changeAt, uint256 size, uint256 drawBlock, bytes32 seed, address organizer, string ref, string reportRef))',
+  'function getAssembly(uint256) view returns (tuple(uint8 tier, uint16 seats, uint16 filled, uint64 announcedAt, uint64 changeAt, uint256 size, uint256 drawBlock, bytes32 seed, address organizer, string ref, string reportRef, uint64 drawnAt, uint16 reschedules, uint32 nextAlternate))',
+  'function skipAlternate(uint256 id)',
+  'function ACCEPT_PERIOD() view returns (uint64)',
   'function candidate(uint256, uint256) view returns (uint256)',
   'function seated(uint256, uint256) view returns (bool)',
   'function identity() view returns (address)',
@@ -22,7 +24,7 @@ const ASSEMBLIES_ABI = [
   'function acceptSeat(uint256 id, uint256 position)',
   'function report(uint256 id, string ref)',
   'event Announced(uint256 indexed id, uint8 tier, uint16 seats, uint256 size, uint256 drawBlock, string ref)',
-  'error BadParams()', 'error UnknownAssembly()', 'error TooEarly()', 'error Missed()', 'error AlreadyDrawn()', 'error NotDrawn()', 'error NotOrganizer()', 'error SeatsFull()', 'error AlreadySeated()',
+  'error BadParams()', 'error UnknownAssembly()', 'error TooEarly()', 'error Missed()', 'error AlreadyDrawn()', 'error NotDrawn()', 'error NotOrganizer()', 'error SeatsFull()', 'error AlreadySeated()', 'error OutOfOrder()',
 ];
 const LIST_ABI = ['function leaves(uint8, uint256, uint256) view returns (uint256[] commitments, uint64[] removedAt)'];
 

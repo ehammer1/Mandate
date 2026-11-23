@@ -245,6 +245,45 @@ sees votes or anything personal.
   (agenda themes, the weekly roundup, comments to review, evidence notes). On for the main and
   demo communities.
 
+### 4j. Pre-audit review fixes (November 2026)
+
+An internal review of everything above found these, now fixed:
+
+- **Anonymous posts and own storage:** files in someone's own Dropbox, OneDrive, Google Drive
+  or named bucket could reveal who posted an anonymous comment, petition or agenda issue. There,
+  own storage is used only if it is content-addressed (Pinata, or Filebase without a public
+  bucket address), and only IPFS addresses are recorded; otherwise the community's storage is
+  used.
+- **Draw re-rolling:** draws read block hashes from the chain's history contract (EIP-2935,
+  about 8191 blocks) when older than 256 blocks; every missed draw block and redraw is counted
+  publicly (`reschedules`); the relay runs due draws every two minutes (`broker/draws.js`).
+- **Checker panels:** never smaller than the checks needed (filled in order from a random start
+  if the draw falls short); `redrawPanel` after `PANEL_TIMEOUT` (7 days) without a decision;
+  no division by zero without verifiers.
+- **Assembly seats:** first choices any time; open seats go to alternates strictly in draw
+  order after `ACCEPT_PERIOD` (7 days); passing one over is public (`skipAlternate`).
+- **Panel statements:** the app shows the endorsed draft's text, and warns if the published
+  final differs.
+- **File links:** only the real addresses of each storage service (plus the community's own,
+  config `storageHosts`); copies outside the community's storage are downloaded and checked
+  against their fingerprint and the takedown list before they are shown.
+- **Services:** per-address limits use the address our own proxy added (`TRUST_PROXY`); the
+  Promissa Plus token is sent only after a free limit is reached (never with translations) and
+  checked only after a valid anonymous upload proof; moderation notes never repeat private
+  details; "keep me signed in" uses the last known community rule, else off, when the rule can't
+  be read; sign-out disconnects the device's storage and social accounts; post links must be
+  https.
+- **Checker switch:** a new checker must refuse two different forged proofs (changed one-time
+  code, changed message). It is a check against mistakes; the council and the public waiting
+  period are the protection against a malicious switch.
+
+**Known trust assumption (unchanged):** a ballot proof carries no time, so the contract can't
+tell whether a ballot an approved carrier delivers during a poll's delivery window was sealed
+before the close. Carriers are approved by the council, like clerks, and the app delivers late
+only ballots the device took in before the close. A stronger design (carriers committing a
+fingerprint of the ballots they hold before the close) needs a connection before the close and
+is left for after the pilots.
+
 ### 5. Receipt-free ballots (larger, may move to v7)
 
 - **Why:** today a voter can prove their choice to a buyer (they can also change it later where

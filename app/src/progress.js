@@ -64,7 +64,7 @@ export async function renderProgress(box, ctx, id, { mine = false, active = true
   wireAttachments(box, state.config);
   if (!mine || !active) return;
   const el = box.querySelector('.status');
-  const picker = box.querySelector('[data-attach]') ? attachPicker(box.querySelector('[data-attach]'), { state, esc }) : null;
+  const picker = box.querySelector('[data-attach]') ? attachPicker(box.querySelector('[data-attach]'), { state, esc, public: true }) : null;
   const send = async (label, fn) => {
     ctx.status(el, `${label}: confirm…`);
     try {

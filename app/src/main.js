@@ -141,10 +141,22 @@ async function loadConfig() {
   state.keepRule = !cfg.charterAddress
     ? Promise.resolve()
     : Promise.race([
-        new ethers.Contract(cfg.charterAddress, ['function rule(bytes32) view returns (uint256)'], state.provider).rule(ethers.id('KEEP_SIGNED_IN')).catch(() => null),
+        new ethers.Contract(cfg.charterAddress, ['function rule(bytes32) view returns (uint256)'], state.provider).rule(ethers.id('KEEP_SIGNED_IN')).catch((e) => (e?.code === 'CALL_EXCEPTION' ? 'none' : null)), // 'none': an older charter without this rule
         new Promise((r) => setTimeout(() => r(null), 4000)),
       ]).then((v) => {
+        // The community's vote decides; if it can't be read right now, use the last answer seen
+        // on this device, else treat it as off (never fall back to "on").
+        if (v === 'none') return; // older charters: the config's setting stays
+        const key = `mandate.keepRule.${cfg.communitySlug || 'main'}`;
+        let known = null;
+        try {
+          if (v !== null && v !== undefined) localStorage.setItem(key, v === 1n ? '1' : '0');
+          known = localStorage.getItem(key);
+        } catch {
+          /* private mode */
+        }
         if (v !== null && v !== undefined) cfg.keepSignedIn = v === 1n;
+        else cfg.keepSignedIn = known === '1';
       });
 }
 
@@ -372,7 +384,16 @@ function wireSignIn() {
     $('restore-code').scrollIntoView({ block: 'center' });
     $('restore-code').focus();
   };
-  $('btn-signout').onclick = () => signOut();
+  $('btn-signout').onclick = () => {
+    // Signing out also disconnects this device's storage and social accounts: no tokens left behind.
+    try {
+      for (const k of ['mandate.social', 'mandate.ownStorage']) localStorage.removeItem(k);
+      sessionStorage.removeItem('mandate.assistant.token');
+    } catch {
+      /* private mode: nothing kept anyway */
+    }
+    signOut();
+  };
   function signOut(reason) {
     Object.assign(state, { keys: null, identity: null, wallet: null, external: null, roles: null, publicMode: false, clerkSession: null, clerkCount: 0, keptUntil: 0 });
     forget(state.config?.communitySlug || ''); // signing out ends "keep me signed in"
@@ -1587,7 +1608,7 @@ async function refreshAdmin() {
   await state.tallies?.render();
   await state.voterGroups?.render();
   await renderAdminTodo().catch(() => {});
-  if (!state.pollPicker && $('poll-attach')) state.pollPicker = attachPicker($('poll-attach'), { state, esc });
+  if (!state.pollPicker && $('poll-attach')) state.pollPicker = attachPicker($('poll-attach'), { state, esc, public: true });
   if ($('poll-videos') && !$('poll-videos').dataset.ready) {
     $('poll-videos').innerHTML = videoFields('poll');
     wireVideoFields($('poll-videos'), 'poll');
@@ -1973,7 +1994,7 @@ function wireSocial() {
     try {
       status(out, 'Posting…');
       const link = where === 'bluesky' ? await social.postBluesky({ text, url: b.dataset.url, title: b.dataset.title, description: 'Have your say on Promissa' }) : await social.postMastodon({ text });
-      out.innerHTML = `<span class="ok">Posted.</span> <a href="${esc(link)}" target="_blank" rel="noopener">See your post</a>`;
+      out.innerHTML = `<span class="ok">Posted.</span>${/^https:\/\/[^\s"'<>]+$/.test(String(link || '')) ? ` <a href="${esc(link)}" target="_blank" rel="noopener">See your post</a>` : ''}`;
     } catch (err) {
       status(out, err.message, 'error');
     }

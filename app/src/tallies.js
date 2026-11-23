@@ -221,7 +221,7 @@ export function wireTallies(ctx) {
     const k = contract(state.config, state.provider);
     card.hidden = !(await isClerk());
     if (card.hidden) return;
-    if (!picker) picker = attachPicker($('tally-sheet'), { state, esc });
+    if (!picker) picker = attachPicker($('tally-sheet'), { state, esc, public: true });
     const n = Number(await k.contestCount());
     const opts = [];
     const queue = [];

@@ -729,9 +729,10 @@ function createIdentityService(o) {
     if (kind === 'translate' && !/^[a-z]{2,3}(-[A-Za-z]{2,4})?$/.test(lang)) return [400, { error: 'Choose a language.' }];
     if (kind === 'draft' && !['issue', 'petition', 'poll', 'candidate'].includes(body.kind)) return [400, { error: 'Unknown kind of text.' }];
     // Writing help: a few free each day for everyone; unlimited with Promissa Plus. Translation stays free.
-    if (kind === 'draft' && !(await isPlus(body.plan))) {
-      if (recentCount(draftHits, ip, 86_400_000).length >= (o.freeDraftsPerDay ?? 3)) return [402, { error: `You've used today's ${o.freeDraftsPerDay ?? 3} free writing helps. Promissa Plus gives unlimited help, or try again tomorrow.`, plus: true }];
-      draftHits.get(ip).push(Date.now());
+    if (kind === 'draft') {
+      const free = recentCount(draftHits, ip, 86_400_000).length < (o.freeDraftsPerDay ?? 3);
+      if (free) draftHits.get(ip).push(Date.now());
+      else if (!(await isPlus(body.plan))) return [402, { error: `You've used today's ${o.freeDraftsPerDay ?? 3} free writing helps. Promissa Plus gives unlimited help, or try again tomorrow.`, plus: true }];
     }
     const key = `${kind}:${body.kind || ''}:${lang}:${text}`;
     if (aiCache.has(key)) return [200, aiCache.get(key)];
@@ -850,7 +851,11 @@ function createIdentityService(o) {
   const server = http.createServer(async (req, res) => {
     try {
       const url = new URL(req.url, o.publicUrl);
-      const ip = req.headers['x-forwarded-for']?.split(',')[0].trim() || req.socket.remoteAddress || '';
+      // The client's address as our own proxy saw it: the entry it added, counted from the right
+      // (the leftmost entries are whatever the client sent, so they can't be trusted for limits).
+      const hops = String(req.headers['x-forwarded-for'] || '').split(',').map((s) => s.trim()).filter(Boolean);
+      const trust = o.trustProxy ?? 1;
+      const ip = (trust > 0 && hops.length >= trust ? hops[hops.length - trust] : '') || req.socket.remoteAddress || '';
       if (url.pathname === '/health') {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         return res.end('{"ok":true}');
@@ -1032,6 +1037,7 @@ if (require.main === module) {
       appConfig,
       askEnabled: !!clean(process.env.ANTHROPIC_API_KEY),
       assistantUrl: clean(process.env.ASSISTANT_URL), // Promissa Plus subscriptions (the assistant service)
+      trustProxy: Number(process.env.TRUST_PROXY ?? 1), // proxies in front (Render: 1)
       mdl,
       mailer: require('./mail').mailerFromEnv(),
       roll: () => (isDefault ? roll : null), // the voter roll belongs to the original community

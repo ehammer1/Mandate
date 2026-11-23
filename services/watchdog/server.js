@@ -537,7 +537,7 @@ async function writeOrganizerNotes(dir, cfg, provider, limit, fns) {
     }
     if (batch.length) {
       const r = await ai.moderate(batch.map((b) => b.text));
-      state.flags = [...r.flags.filter((f) => batch[f.index]).map((f) => ({ kind: batch[f.index].kind, id: batch[f.index].id, index: batch[f.index].index, reason: f.reason, note: f.note, at: new Date().toISOString() })), ...state.flags].slice(0, 200);
+      state.flags = [...r.flags.filter((f) => batch[f.index]).map((f) => ({ kind: batch[f.index].kind, id: batch[f.index].id, index: batch[f.index].index, reason: f.reason, note: f.reason === 'personal_info' ? 'Contains a private person\'s details (not repeated here)' : String(f.note).slice(0, 200), at: new Date().toISOString() })), ...state.flags].slice(0, 200);
       state.model = r.model;
       state.label = r.label;
       made++;

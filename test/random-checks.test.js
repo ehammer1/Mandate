@@ -97,3 +97,25 @@ test('panel size 0: every verifier may check, as before', async () => {
   await send(c.registry.connect(verifiers[6]).attest(id, true, ''));
   assert.equal(Number((await c.registry.getMandate(id)).status), 3);
 });
+
+test('a panel that never decides is drawn again after a week; the relay draws due panels itself', async () => {
+  const { runDueDraws } = require('../broker/draws');
+  await send(c.registry.setPanelSize(3));
+  const id = await newMandate(2);
+  await send(c.registry.connect(worker).submitEvidence(id, 'nb:0x' + 'd'.repeat(64)));
+  const round = (await c.registry.getMandate(id)).round;
+  await mine(6);
+  assert.equal(await runDueDraws({ signer: outsider, cfg: { registryAddress: await c.registry.getAddress() } }), 1);
+  const [, , first] = await c.registry.panelOf(id, round);
+  assert.equal(first.length, 3);
+  assert.equal(await errName(c.registry.redrawPanel.staticCall(id)), 'PanelNotReady'); // not yet a week
+  await provider.send('evm_increaseTime', [7 * DAY + 1]);
+  await mine(1);
+  await send(c.registry.connect(outsider).redrawPanel(id)); // anyone may ask
+  const [drawnAt, reschedules] = await c.registry.panelHistory(id, round);
+  assert.equal(Number(reschedules), 1); // counted publicly
+  assert.equal(Number(drawnAt) > 0, true);
+  await mine(6);
+  await send(c.registry.drawPanel(id));
+  assert.equal((await c.registry.panelOf(id, round))[2].length, 3);
+});

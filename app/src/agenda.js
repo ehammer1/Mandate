@@ -225,7 +225,7 @@ export function wireAgenda(ctx) {
     const ia = el.querySelector('[data-iss-attach]');
     if (ia) el.issPicker = attachPicker(ia, { state, esc });
     const ca = el.querySelector('[data-cand-attach]');
-    if (ca) el.candPicker = attachPicker(ca, { state, esc });
+    if (ca) el.candPicker = attachPicker(ca, { state, esc, public: true }); // a candidate's own, named statement
     wireVideoFields(el, 'iss');
     wireVideoFields(el, 'cand');
     const input = el.querySelector('[data-issue-title]');

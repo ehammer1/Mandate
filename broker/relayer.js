@@ -503,6 +503,9 @@ if (require.main === module) {
         log: (m) => console.log(`${new Date().toISOString()} [relayer] ${m}`),
       });
     const { createRouter, syncCommunities, indexUrlFrom } = require('../services/lib/communities');
+    // Random draws (assemblies, promise checkers) run as soon as they are due, for every community.
+    const drawConfigs = new Map();
+    const { runDueDraws } = require('./draws');
     const server = build(voteAddress, budgetAddress, feedbackAddress);
     // Other communities are served under /c/<slug>/, each with its own contracts.
     const router = createRouter(server.listeners('request')[0]);
@@ -511,12 +514,16 @@ if (require.main === module) {
     const indexUrl = indexUrlFrom(configUrl, clean('COMMUNITIES_URL'));
     if (indexUrl) {
       const sync = () =>
-        syncCommunities(router, indexUrl, (c) => build(ethers.getAddress(c.voteAddress), addr(c.budgetAddress) || '', addr(c.feedbackAddress) || '', addr(c.talliesAddress) || '', addr(c.noticeBoardAddress) || '', addr(c.agendaAddress) || '').listeners('request')[0], {
+        syncCommunities(router, indexUrl, (c) => (drawConfigs.set(c.voteAddress, c), build(ethers.getAddress(c.voteAddress), addr(c.budgetAddress) || '', addr(c.feedbackAddress) || '', addr(c.talliesAddress) || '', addr(c.noticeBoardAddress) || '', addr(c.agendaAddress) || '').listeners('request')[0]), {
           log: (m) => console.log(`[relayer] ${m}`),
         }).catch((e) => console.log(`[relayer] community list unavailable: ${e.message}`));
       await sync();
       setInterval(sync, 5 * 60 * 1000).unref();
     }
+    if (configUrl) loadConfig().then((cfg) => drawConfigs.set('main', cfg)).catch(() => {});
+    setInterval(async () => {
+      for (const cfg of drawConfigs.values()) await runDueDraws({ signer, cfg, log: (m) => console.log(`[relayer] ${m}`) }).catch(() => {});
+    }, Number(process.env.DRAW_EVERY_MS || 120_000)).unref();
     const port = Number(process.env.PORT || 8787);
     server.listen(port, () => console.log(`[relayer] listening on :${port} for ${voteAddress}`));
 

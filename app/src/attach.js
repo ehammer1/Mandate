@@ -33,14 +33,33 @@ const plan = () => {
  * content ID. A file is identified by its SHA-256, so any copy that hashes right is the file.
  */
 const CID = /^[a-zA-Z0-9]{20,100}$/;
+// Where each kind of copy may be: the real addresses of those services (plus the community's own
+// storage, config storageHosts), never any other server.
+const HOSTS = {
+  s3: /(^|\.)(r2\.dev|r2\.cloudflarestorage\.com|backblazeb2\.com|wasabisys\.com|amazonaws\.com|storjshare\.io|filebase\.io|filebase\.com)$/,
+  dropbox: /^(dl\.dropboxusercontent\.com|www\.dropbox\.com|dropbox\.com)$/,
+  onedrive: /^(api\.onedrive\.com|onedrive\.live\.com|1drv\.ms)$/,
+  gdrive: /^drive\.google\.com$/,
+};
+const hostOf = (u) => {
+  try {
+    const x = new URL(u);
+    return x.protocol === 'https:' ? x.hostname : '';
+  } catch {
+    return '';
+  }
+};
+/** A copy the community stores (IPFS, or its own storage hosts): shown directly. */
+const trusted = (cfg, u) => u.startsWith(`${gateway(cfg)}/ipfs/`) || (cfg.storageHosts || []).includes(hostOf(u));
 function fileUrls(cfg, a) {
   const urls = [];
   for (const l of Array.isArray(a.locations) ? a.locations : []) {
     if (l?.kind === 'ipfs' && CID.test(String(l.cid))) urls.push(fileUrl(cfg, l.cid));
-    else if (['s3', 'dropbox', 'onedrive', 'gdrive'].includes(l?.kind) && /^https:\/\/[^\s"'<>]+$/.test(String(l.url))) urls.push(l.url);
+    else if (HOSTS[l?.kind] && /^https:\/\/[^\s"'<>]+$/.test(String(l.url)) && (HOSTS[l.kind].test(hostOf(l.url)) || (cfg.storageHosts || []).includes(hostOf(l.url)))) urls.push(l.url);
   }
   if (CID.test(String(a.cid)) && !urls.includes(fileUrl(cfg, a.cid))) urls.push(fileUrl(cfg, a.cid));
-  return urls;
+  // Copies the community stores first: they show at once.
+  return [...urls.filter((u) => trusted(cfg, u)), ...urls.filter((u) => !trusted(cfg, u))];
 }
 
 let service = null;
@@ -130,10 +149,18 @@ async function send(ctx, bytes, type, name, read) {
   } catch {
     /* start at 0 */
   }
-  for (let tries = 0; tries < 10; tries++, slot++) {
+  // The Promissa Plus token is sent only once a free limit is reached, so a subscription is
+  // linked to as few uploads as possible.
+  let usePlan = false;
+  for (let tries = 0; tries < 12; tries++, slot++) {
     const proof = await uploadProof({ provider: state.provider, identityAddress: state.config.identityAddress, identity: state.identity, bytes, slot, day, artifactsBase: state.config.artifactsBase || undefined });
-    const res = await fetch(`${base}/upload${read ? '?read=1' : ''}`, { method: 'POST', headers: { 'Content-Type': type, 'X-Upload-Proof': proof, 'X-File-Name': name, ...(plan() ? { 'X-Promissa-Plan': plan() } : {}) }, body: bytes });
+    const res = await fetch(`${base}/upload${read ? '?read=1' : ''}`, { method: 'POST', headers: { 'Content-Type': type, 'X-Upload-Proof': proof, 'X-File-Name': name, ...(usePlan ? { 'X-Promissa-Plan': plan() } : {}) }, body: bytes });
     const out = await res.json().catch(() => ({}));
+    if (res.status === 402 && plan() && !usePlan) {
+      usePlan = true;
+      slot--; // the same slot again, now with the subscription
+      continue;
+    }
     if (res.ok) {
       try {
         localStorage.setItem(key, String(slot + 1));
@@ -185,7 +212,7 @@ export function attachPicker(box, ctx) {
       </div>
       ${pages.length ? `<p class="note">${pages.length} page${pages.length === 1 ? '' : 's'} scanned. <label class="button">Add a page<input type="file" accept="image/*" capture="environment" data-pick="scan" hidden /></label> <button type="button" data-done>Done: make the PDF</button></p>` : ''}
       ${service.ai ? '<label class="row"><input type="checkbox" data-ai checked /> AI reads it: the text, a short summary, a description for screen readers, and a check for private details</label>' : ''}
-      <p class="note">Files are public and permanent. Photos are shrunk and their hidden location data removed. Don't include anyone's private details.${ownStorage() ? ' Stored in your own storage account (Account screen).' : ''}</p>
+      <p class="note">Files are public and permanent. Photos are shrunk and their hidden location data removed. Don't include anyone's private details.${ownStorage() ? (ctx.public || anonymousOk(ownStorage()) ? ' Stored in your own storage account (Account screen).' : ' This post is anonymous, so files go to the community\'s storage, not your own account (its share pages could show your name).') : ''}</p>
       <ul class="list attach-list">${files.map((f, i) => `<li>${f.type.startsWith('image/') ? `<img src="${esc(f.preview)}" alt="" class="attach-thumb" />` : f.type.startsWith('audio/') ? '🎙' : '📄'} <strong>${esc(f.name)}</strong> · ${Math.round(f.size / 1024)} KB${f.ai?.personal_info ? `<p class="warn">▲ AI noticed private details: ${esc(f.ai.personal_info_note || 'please check')}. Remove the file if they should not be public.</p>` : ''}
           ${f.type.startsWith('audio/') ? `<label>What it says: a short summary or a transcript (for people who can't listen) <textarea data-transcript="${i}" rows="2" maxlength="8000">${esc(f.transcript || '')}</textarea></label>` : `<label>Description for screen readers <input type="text" data-alt="${i}" value="${esc(f.alt || '')}" maxlength="300" /></label>`}
           <details><summary>Testimonia seal (optional)</summary><label>Seal code <input type="text" data-seal="${i}" value="${esc(f.seal || '')}" spellcheck="false" /></label></details>
@@ -242,14 +269,20 @@ export function attachPicker(box, ctx) {
     recorder?.stop();
   }
 
+  // Anonymous posts (comments, petitions, agenda issues): a file in someone's own Dropbox,
+  // OneDrive, Google Drive or named bucket could reveal who posted it (their pages show the
+  // owner), so there only content-addressed own storage (IPFS) is used, else the community's.
+  const anonymousOk = (o) => o && (o.kind === 'pinata' || (o.kind === 's3' && o.provider === 'filebase' && !o.publicUrl));
   async function add(bytes, type, name, preview, look = null) {
-    const own = ownStorage();
+    const mine = ownStorage();
+    const own = ctx.public || anonymousOk(mine) ? mine : null;
     setStatus(own ? `Adding ${name} to your own storage…` : `Adding ${name}: proving you are on the voter list, privately…`);
     inflight++;
     let out;
     try {
       // Your own storage: straight from this browser to your account; Promissa records the fingerprint.
       out = own ? { ...(await (CLOUDS[own.kind] ? putCloud(bytes, name, type, state.config) : putOwn(bytes, name, type))), type, size: bytes.length, name, own: true } : await send(ctx, bytes, type, name, readOn());
+      if (own && !ctx.public) out.locations = out.locations.filter((l) => l.kind === 'ipfs'); // nothing that names its owner
       if (own) out.cid = out.locations.find((l) => l.kind === 'ipfs')?.cid;
     } finally {
       inflight--;
@@ -328,6 +361,11 @@ export function attachmentsHtml(cfg, doc, esc) {
       if (blocked.has(a.cid) || blocked.has(String(a.sha256 || '').toLowerCase())) return `<p class="muted">A file here was taken down. Its fingerprint stays on the record${a.sha256 ? ` (SHA-256 ${esc(String(a.sha256).slice(0, 12))}…)` : ''}.</p>`;
       const urls = fileUrls(cfg, a);
       const url = urls[0];
+      // Someone's own storage: downloaded and checked against its fingerprint (and the takedown
+      // list) before it is shown, so a taken-down file can't come back under another address.
+      if (!trusted(cfg, url)) {
+        return `<figure class="attachment" data-verify="${esc(JSON.stringify(urls))}" data-sha="${esc(a.sha256 || '')}" data-type="${esc(a.type || '')}" data-name="${esc(a.name || 'file')}" data-alt="${esc(a.alt || '')}"><p class="muted">Checking ${esc(a.name || 'a file')} against its fingerprint…</p></figure>`;
+      }
       const img = /^image\//.test(a.type);
       const audio = /^audio\//.test(a.type);
       const media = img
@@ -349,6 +387,41 @@ export function attachmentsHtml(cfg, doc, esc) {
 
 /** Fingerprint checks: download the file and compare it with the fingerprint on the record. */
 export function wireAttachments(root, cfg) {
+  for (const fig of root.querySelectorAll('[data-verify]')) {
+    if (fig.dataset.done) continue;
+    fig.dataset.done = '1';
+    (async () => {
+      const esc2 = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+      let urls = [];
+      try {
+        urls = JSON.parse(fig.dataset.verify);
+      } catch {
+        /* none */
+      }
+      for (const u of urls) {
+        let bytes;
+        try {
+          bytes = new Uint8Array(await (await fetch(u)).arrayBuffer());
+        } catch {
+          continue;
+        }
+        const sha = await sha256Hex(bytes);
+        if ((service?.blocked || new Set()).has(sha)) return void (fig.innerHTML = '<p class="muted">A file here was taken down.</p>');
+        if (sha !== fig.dataset.sha) return void (fig.innerHTML = '<p class="warn">▲ A file here does not match its fingerprint on the record, so it is not shown.</p>');
+        const type = fig.dataset.type;
+        const blob = URL.createObjectURL(new Blob([bytes], { type }));
+        const name = esc2(fig.dataset.name);
+        fig.innerHTML = /^image\//.test(type)
+          ? `<img src="${blob}" alt="${esc2(fig.dataset.alt || name)}" /><figcaption class="ok">✓ Matches its fingerprint on the record.</figcaption>`
+          : /^audio\//.test(type)
+            ? `<p>🎙 <strong>${name}</strong></p><audio controls src="${blob}" style="width:100%"></audio><figcaption class="ok">✓ Matches its fingerprint on the record.</figcaption>`
+            : `<a class="button" href="${blob}" download="${name}">📄 ${name}</a><figcaption class="ok">✓ Matches its fingerprint on the record.</figcaption>`;
+        return;
+      }
+      // Couldn't download it here (Google Drive doesn't allow it): a link, clearly unchecked.
+      fig.innerHTML = urls.length ? `<p><a href="${esc2(urls[0])}" target="_blank" rel="noopener">Open ${esc2(fig.dataset.name)}</a> <span class="muted">(stored in the poster's own account; it couldn't be checked against its fingerprint here)</span></p>` : '';
+    })();
+  }
   // A copy seen elsewhere (a site, a chat): compared by its look with the photo on the record.
   for (const input of root.querySelectorAll('[data-compare]')) {
     input.onchange = async () => {

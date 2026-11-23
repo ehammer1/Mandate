@@ -286,7 +286,9 @@ contract Agenda is AccessControl {
         ISemaphoreVerifier v = ISemaphoreVerifier(next);
         Proof memory tampered = test;
         tampered.nullifier ^= 1;
-        if (!_accepts(v, test) || _accepts(v, tampered)) revert VerifierFailedTest();
+        Proof memory tampered2 = test;
+        tampered2.message += 1; // and a different message: a checker must refuse both
+        if (!_accepts(v, test) || _accepts(v, tampered) || _accepts(v, tampered2)) revert VerifierFailedTest();
         emit VerifierSet(address(verifier), next);
         verifier = v;
     }

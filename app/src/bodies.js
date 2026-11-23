@@ -342,7 +342,7 @@ export function wireBodies(ctx) {
       for (const b of bar.querySelectorAll('[data-show]')) b.onclick = () => apply(b.dataset.show);
       apply(bodyFilter[section.id] || 'open');
     }
-    for (const el of box.querySelectorAll('[data-attach]')) el._picker = attachPicker(el, { state, esc });
+    for (const el of box.querySelectorAll('[data-attach]')) el._picker = attachPicker(el, { state, esc, public: true });
     wireAttachments(box, state.config);
     wire(box);
   }

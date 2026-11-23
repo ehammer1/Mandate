@@ -30,7 +30,9 @@ const REGISTRY_ABI = [
   'function attest(uint256, bool, string)',
   // Random checkers (newer registries).
   'function panelOf(uint256, uint32) view returns (uint16 size, uint64 seedBlock, address[] members)',
+  'function panelHistory(uint256, uint32) view returns (uint64 drawnAt, uint16 reschedules)',
   'function drawPanel(uint256)',
+  'function redrawPanel(uint256)',
 ];
 const FACTORY_ABI = ['function escrowOf(uint256) view returns (address)', 'function escrowFor(uint256) returns (address)', 'function decayBps() view returns (uint16)', 'function decayInterval() view returns (uint32)'];
 const ESCROW_ABI = [
@@ -103,6 +105,8 @@ export function wireMandates(ctx) {
       const drawn = random && panel.members.length > 0;
       const onPanel = drawn && panel.members.some((a) => a.toLowerCase() === me.toLowerCase());
       const canCheck = isVerifier && (!random || onPanel);
+      const hist = random ? await r.panelHistory(id, m.round).catch(() => null) : null;
+      const stalled = drawn && hist && Number(block.timestamp) >= Number(hist.drawnAt) + 7 * 86_400;
       const label = overdue ? 'Overdue' : STATUS[st];
       const daysLeft = Math.ceil((Number(m.deadline) - block.timestamp) / 86_400);
 
@@ -116,7 +120,7 @@ export function wireMandates(ctx) {
       const panelLine = !random
         ? ''
         : drawn
-          ? `<p class="muted"><strong>Checkers drawn at random:</strong> ${panel.members.map((a) => `<span class="code">${esc(short(a))}</span>${a.toLowerCase() === me.toLowerCase() ? ' (you)' : ''}`).join(', ')}. Only they can decide this round.</p>`
+          ? `<p class="muted"><strong>Checkers drawn at random:</strong> ${panel.members.map((a) => `<span class="code">${esc(short(a))}</span>${a.toLowerCase() === me.toLowerCase() ? ' (you)' : ''}`).join(', ')}. Only they can decide this round.${hist && Number(hist.reschedules) ? ` <span class="warn">Its draw was set again ${Number(hist.reschedules)} time${Number(hist.reschedules) === 1 ? '' : 's'}.</span>` : ''}</p>${stalled ? '<p>No decision after a week: anyone can draw new checkers.</p><button data-act="redraw" data-id="' + id + '">Draw new checkers</button>' : ''}`
           : Number(block.number) > Number(panel.seedBlock)
             ? `<p class="muted"><strong>Checkers are drawn at random</strong> from the verifiers, so nobody knows in advance who will check. Ready to draw.</p><button data-act="draw" data-id="${id}">Draw the checkers</button>`
             : `<p class="muted"><strong>Checkers are drawn at random</strong> from the verifiers in a few seconds, from a block nobody knows yet.</p>`;
@@ -141,7 +145,7 @@ export function wireMandates(ctx) {
     }
     list.innerHTML = cards.join('') || '<p class="muted">No mandates yet. A mandate is created when a binding poll passes.</p>';
     for (const b of list.querySelectorAll('button[data-act]')) b.onclick = () => act(b, Number(b.dataset.id), b.dataset.act);
-    for (const el of list.querySelectorAll('[data-attach]')) pickers[el.dataset.attach] = attachPicker(el, { state, esc });
+    for (const el of list.querySelectorAll('[data-attach]')) pickers[el.dataset.attach] = attachPicker(el, { state, esc, public: true });
     for (const box of list.querySelectorAll('.progress-box')) {
       renderProgress(box, { state, esc, status, activeSigner: ctx.activeSigner }, Number(box.dataset.id), { mine: box.dataset.mine === '1', active: box.dataset.active === '1' }).catch(() => {});
     }
@@ -184,6 +188,8 @@ export function wireMandates(ctx) {
           ref = await postDoc(state.config, signer, { title: `${kind === 'approve' ? 'Approval' : 'Rejection'} for mandate ${id}`, body: text });
         }
         ok = await ctx.sendTx(el, kind === 'approve' ? 'Approve' : 'Reject', () => r.attest(id, kind === 'approve', ref));
+      } else if (kind === 'redraw') {
+        ok = await ctx.sendTx(el, 'Draw new checkers', () => r.redrawPanel(id));
       } else if (kind === 'draw') {
         ok = await ctx.sendTx(el, 'Draw the checkers', () => r.drawPanel(id));
       } else if (kind === 'back') {

@@ -24,7 +24,10 @@ export function planToken() {
 
 async function call(cfg, path, body) {
   if (!cfg.identityService) throw new Error('AI help is not available here.');
-  const res = await fetch(`${cfg.identityService.replace(/\/+$/, '')}${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...body, plan: planToken() }) });
+  const go = (plan) => fetch(`${cfg.identityService.replace(/\/+$/, '')}${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...body, ...(plan ? { plan } : {}) }) });
+  // The Plus token goes only after a free limit is reached, and never with a translation.
+  let res = await go('');
+  if (res.status === 402 && planToken() && path !== '/ai/translate') res = await go(planToken());
   const out = await res.json().catch(() => ({}));
   if (!res.ok) throw Object.assign(new Error(out.error || `AI help answered ${res.status}.`), { plus: !!out.plus });
   return out;

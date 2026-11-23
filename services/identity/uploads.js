@@ -83,7 +83,13 @@ function createUploads(o) {
   const blocked = new Set(o.blocked || []);
   const log = o.log || (() => {});
 
-  async function verify(proofHeader, sha, slots = perDay) {
+  /**
+   * Check the anonymous upload proof. Promissa Plus is checked only after the proof is valid,
+   * and only when this upload needs it (a slot beyond the free ones, or audio above the free
+   * size), so a subscription is looked up as rarely as possible.
+   */
+  async function verify(proofHeader, sha, planToken, needsPlus = false) {
+    const slots = planToken ? perDayPlus : perDay;
     let p;
     try {
       p = JSON.parse(Buffer.from(String(proofHeader || ''), 'base64').toString('utf8'));
@@ -94,7 +100,9 @@ function createUploads(o) {
     if (!(tier >= minTier && tier <= 2)) return 'Files can be added by members on the voter list.';
     if (BigInt(p.message) !== fileMessage(sha)) return 'The proof is not for this file.';
     const days = [today(), today(Date.now() - 86_400_000)]; // a day's grace across time zones
-    const ok = days.some((d) => Array.from({ length: slots }, (_, s) => uploadScope(d, s)).some((sc) => sc === BigInt(p.scope)));
+    let slot = -1;
+    for (const d of days) for (let s = 0; s < slots && slot < 0; s++) if (uploadScope(d, s) === BigInt(p.scope)) slot = s;
+    const ok = slot >= 0;
     if (!ok) return slots < perDayPlus ? `Daily upload limit reached (${slots} files a day free). Promissa Plus allows ${perDayPlus}; or try again tomorrow.` : 'Daily upload limit reached. Please try again tomorrow.';
     const key = `${p.scope}:${p.nullifier}`;
     if (used.has(key)) return 'That upload slot was already used today.';
@@ -105,6 +113,9 @@ function createUploads(o) {
       .verifyProof(groupId, [p.merkleTreeDepth, p.merkleTreeRoot, p.nullifier, p.message, p.scope, p.points])
       .catch(() => false);
     if (!valid) return 'Could not confirm you are on the voter list.';
+    if ((slot >= perDay || needsPlus) && !(await isPlus(planToken))) {
+      return needsPlus ? `Audio can be up to ${Math.round(AUDIO_FREE / 1048576)} MB free (about 8 minutes); Promissa Plus allows 25 MB.` : `Daily upload limit reached (${perDay} files a day free). Promissa Plus allows ${perDayPlus}; or try again tomorrow.`;
+    }
     used.add(key);
     if (used.size > 200_000) used.clear();
     return null;
@@ -114,15 +125,12 @@ function createUploads(o) {
   async function upload(bytes, headers, query) {
     const type = String(headers['content-type'] || '').split(';')[0].trim();
     const audio = type.startsWith('audio/');
-    const plus = await isPlus(headers['x-promissa-plan']);
-    const audioMax = plus ? MAX_BYTES : AUDIO_FREE;
-    if (!bytes.length || bytes.length > (audio ? audioMax : DOC_MAX_BYTES)) {
-      return [413, { error: audio ? (plus ? 'Audio can be up to 25 MB (about 20 minutes of speech).' : `Audio can be up to ${Math.round(AUDIO_FREE / 1048576)} MB free (about 8 minutes); Promissa Plus allows 25 MB.`) : 'Files can be up to 10 MB.', ...(audio && !plus ? { plus: true } : {}) }];
-    }
+    if (!bytes.length || bytes.length > (audio ? MAX_BYTES : DOC_MAX_BYTES)) return [413, { error: audio ? 'Audio can be up to 25 MB (about 20 minutes of speech).' : 'Files can be up to 10 MB.' }];
+    const needsPlus = audio && bytes.length > AUDIO_FREE;
     if (!TYPES[type] || !TYPES[type](bytes)) return [415, { error: 'Only photos (JPEG, PNG, WebP), PDF documents and audio (MP3, M4A, WebM, Ogg, WAV) can be added.' }];
     const sha = crypto.createHash('sha256').update(bytes).digest('hex');
-    const problem = await verify(headers['x-upload-proof'], sha, plus ? perDayPlus : perDay);
-    if (problem) return [403, { error: problem }];
+    const problem = await verify(headers['x-upload-proof'], sha, String(headers['x-promissa-plan'] || ''), needsPlus);
+    if (problem) return [/Promissa Plus allows/.test(problem) ? 402 : 403, { error: problem, ...(/Promissa Plus allows/.test(problem) ? { plus: true } : {}) }];
     const name = String(headers['x-file-name'] || 'file').replace(/[^\w.\- ]+/g, '_').slice(0, 80) || 'file';
     let locations;
     try {
