@@ -15,7 +15,7 @@ import { getLang } from './i18n.js';
 import { copyBtn, wireCopy } from './copy.js';
 
 const ON = 'mandate.assistant.on';
-const SCREENS = { polls: 'nav-polls', petitions: 'nav-petitions', mandates: 'nav-mandates', budget: 'nav-budget', bodies: 'nav-bodies', rules: 'nav-rules', search: 'nav-search', help: 'nav-help', account: 'nav-account' };
+const SCREENS = { polls: 'nav-polls', petitions: 'nav-petitions', agenda: 'nav-agenda', assemblies: 'nav-assemblies', mandates: 'nav-mandates', budget: 'nav-budget', bodies: 'nav-bodies', rules: 'nav-rules', search: 'nav-search', help: 'nav-help', account: 'nav-account' };
 
 // ---- the assistant key: ECDSA P-256, made in this browser, can't be copied out of it.
 function db() {
@@ -86,8 +86,9 @@ export function wireAssistant({ state, $, esc, show, status, open }) {
     $('assistant-plan').innerHTML = !p
       ? ''
       : p.subscribed
-        ? `<span>Subscribed${p.renews ? `, renews ${esc(new Date(p.renews).toLocaleDateString())}` : p.paidUntil ? ` until ${esc(new Date(p.paidUntil).toLocaleDateString())}` : ''}.</span>${p.manage ? ' <button class="link" data-plan="portal">Manage subscription</button>' : ''}`
-        : `<span>${p.freeLeft} of ${p.freePerDay} free questions left today.</span> <button data-plan="checkout">Subscribe</button> <button class="link" data-plan="code">Have a code?</button>`;
+        ? `<span>✓ Promissa Plus${p.renews ? `, renews ${esc(new Date(p.renews).toLocaleDateString())}` : p.paidUntil ? ` until ${esc(new Date(p.paidUntil).toLocaleDateString())}` : ''}.</span>${p.manage ? ' <button class="link" data-plan="portal">Manage subscription</button>' : ''}`
+        : `<span>${p.freeLeft} of ${p.freePerDay} free questions left today.</span> <button data-plan="checkout">Get Promissa Plus</button> <button class="link" data-plan="code">Have a code?</button>
+          <details><summary>What Promissa Plus includes</summary><ul><li>The assistant, without the daily limit</li><li>Unlimited "Help me write this"</li><li>More files a day, and longer audio</li></ul><p class="note">Voting, explanations, translation and taking part are always free. Plus is linked to the assistant's own key, never your voter key, so it can't be linked to a vote. The price is shown before you pay; cancel any time.</p></details>`;
     for (const b of $('assistant-plan').querySelectorAll('[data-plan]')) b.onclick = () => planAction(b.dataset.plan).catch((e) => status($('assistant-status'), e.message, 'error'));
   }
   async function planAction(what) {
