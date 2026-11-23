@@ -148,13 +148,28 @@ async function finishHandover(runner, c, s, { log = () => {} } = {}) {
   log(`council ${council} (${s.council.threshold} of ${s.council.members.length}) now holds every admin power`);
 }
 
-/** A provider that waits and retries when a public network says "too many requests". */
+/**
+ * A provider that waits and retries when a public network says "too many requests". Requests go
+ * one at a time (no batches): a retried batch could resend a transaction that already went
+ * through, and the network then refuses it ("nonce has already been used").
+ */
 class PatientProvider extends ethers.JsonRpcProvider {
+  constructor(url, network, options = {}) {
+    super(url, network, { ...options, batchMaxCount: 1 });
+  }
+
   async _send(payload) {
     for (let i = 0; ; i++) {
       const out = await super._send(payload);
       const limited = out.some((r) => r.error && (r.error.code === -32007 || r.error.code === 429 || /limit|rate/i.test(r.error.message || '')));
       if (!limited || i >= 8) return out;
+      // A transaction the network may have taken anyway: if it did, don't send it twice.
+      const raw = [].concat(payload).find((q) => q.method === 'eth_sendRawTransaction');
+      if (raw) {
+        const hash = ethers.keccak256(raw.params[0]);
+        const known = await super._send({ method: 'eth_getTransactionByHash', params: [hash], id: raw.id, jsonrpc: '2.0' }).catch(() => null);
+        if (known?.[0]?.result) return [{ id: raw.id, result: hash }];
+      }
       await new Promise((r) => setTimeout(r, 500 * 2 ** Math.min(i, 4)));
     }
   }

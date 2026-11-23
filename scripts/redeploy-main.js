@@ -15,7 +15,7 @@ require('dotenv').config({ quiet: true });
 const fs = require('fs');
 const path = require('path');
 const { ethers } = require('ethers');
-const { createCommunity, communityConfig, PatientProvider } = require('./new-community');
+const { createCommunity, communityConfig, PatientProvider, finishHandover, attach, normalizeSpec } = require('./new-community');
 
 const ROOT = path.join(__dirname, '..');
 
@@ -34,9 +34,21 @@ async function main() {
   const spec = JSON.parse(fs.readFileSync(path.join(ROOT, 'communities', 'main.json'), 'utf8'));
   const cfgFile = path.join(ROOT, 'app', `config.${name}.json`);
   const depFile = path.join(ROOT, 'deployments', `${name}.json`);
-  const provider = new PatientProvider(preset.rpcUrl, preset.chainId);
+  const provider = new PatientProvider(preset.rpcUrl, preset.chainId, { staticNetwork: true });
   const signer = new ethers.Wallet(process.env.DEPLOYER_PRIVATE_KEY, provider);
-  const { addresses, startBlock } = await createCommunity(signer, spec, { signupIssuer: process.env.SIGNUP_ISSUER, log: (m) => console.log(`[main] ${m}`) });
+  const log = (m) => console.log(`[main] ${m}`);
+  // Progress is saved as it goes, so a dropped connection can be finished with --resume.
+  const partial = path.join(ROOT, 'deployments', `${name}-main.partial.json`);
+  let addresses, startBlock;
+  if (process.argv.includes('--resume')) {
+    if (!fs.existsSync(partial)) throw new Error(`nothing to resume (no ${path.relative(ROOT, partial)})`);
+    ({ addresses, startBlock } = JSON.parse(fs.readFileSync(partial, 'utf8')));
+    if (!addresses.council) throw new Error('the council was never deployed: start over (without --resume)');
+    const runner = new ethers.NonceManager(signer);
+    await finishHandover(runner, attach(runner, addresses), normalizeSpec(spec), { log });
+  } else {
+    ({ addresses, startBlock } = await createCommunity(signer, spec, { signupIssuer: process.env.SIGNUP_ISSUER, log, onProgress: (x) => fs.writeFileSync(partial, JSON.stringify(x, null, 2) + '\n') }));
+  }
   const old = JSON.parse(fs.readFileSync(cfgFile, 'utf8'));
   const fresh = communityConfig(spec, addresses, startBlock, old, {});
   fs.writeFileSync(cfgFile, JSON.stringify(mergeConfig(old, fresh), null, 2) + '\n');
@@ -44,6 +56,7 @@ async function main() {
   const { previous: older, ...prevRest } = prevDep;
   const record = { network: name, chainId: preset.chainId, startBlock, deployedAt: new Date().toISOString(), deployer: signer.address, addresses, previous: { ...prevRest, ...(older ? { previous: older } : {}) } };
   fs.writeFileSync(depFile, JSON.stringify(record, null, 2) + '\n');
+  fs.rmSync(partial, { force: true });
   console.log(`[main] done: ${cfgFile} and ${depFile} updated; publish by pushing`);
 }
 
