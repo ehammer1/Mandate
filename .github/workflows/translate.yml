@@ -1,0 +1,51 @@
+# Draft the app in another language with AI (marked "machine translation, under review" in the
+# app until a fluent speaker checks it). Run it from GitHub: Actions → "Draft a language" →
+# Run workflow, and type the language code. Needs the repository secret ANTHROPIC_API_KEY.
+name: Draft a language
+
+on:
+  workflow_dispatch:
+    inputs:
+      lang:
+        description: 'Language code, e.g. zh-Hans, zh-Hant, vi, ko, tl, ar, ru, ht, fr, pt (see app/src/i18n-names.js)'
+        required: true
+
+permissions:
+  contents: write
+  actions: write # to start the website publish (a workflow's own push doesn't start it)
+
+concurrency:
+  group: translate
+  cancel-in-progress: false
+
+jobs:
+  draft:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --ignore-scripts --force
+      - name: Draft the missing phrases
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          LANG_CODE: ${{ inputs.lang }}
+        run: node scripts/translate-app.js "$LANG_CODE"
+      - name: Check every phrase keeps its {0} placeholders
+        run: node --test test/i18n.test.mjs
+      - name: Publish the draft
+        env:
+          LANG_CODE: ${{ inputs.lang }}
+        run: |
+          git config user.name "promissa-translate"
+          git config user.email "translate@users.noreply.github.com"
+          git add app/i18n
+          git diff --cached --quiet && { echo "nothing new"; exit 0; }
+          git commit -m "Draft translation: $LANG_CODE (machine translation, under review)"
+          git push origin HEAD:main
+      - name: Rebuild the website so the app offers it
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run pages.yml --ref main

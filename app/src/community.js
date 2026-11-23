@@ -7,6 +7,8 @@
  * can also have its own web address (vote.lincolnhigh.org): communities/index.json lists each
  * community's `domain`, and a visit on that address opens that community with no ?org= at all.
  */
+import { setLanguages } from './i18n.js';
+
 export const ORG = (() => {
   try {
     const v = new URLSearchParams(location.search).get('org') || '';
@@ -54,6 +56,12 @@ async function communityForDomain(host) {
 
 /** This page's settings (bypassing caches, so a change shows at once). */
 export async function loadConfig() {
+  const cfg = await fetchConfig();
+  setLanguages(cfg.languages); // the language switch offers the community's own languages
+  return cfg;
+}
+
+async function fetchConfig() {
   const own = ORG ? '' : await communityForDomain(location.hostname);
   if (own) {
     const r = await fetch(`communities/${own}.json?t=${Date.now()}`, { cache: 'no-store' });

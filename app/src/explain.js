@@ -32,7 +32,7 @@ export async function renderExplainer(ctx, box, kind, id) {
   }
   const li = (xs) => (xs || []).map((x) => `<li>${esc(x)}</li>`).join('');
   // The Spanish version written with it, when the app is in Spanish (quotes stay as written).
-  if (e && LANG === 'es' && e.es) e = { ...e, ...e.es };
+  if (e && LANG !== 'en' && e[LANG]) e = { ...e, ...e[LANG] };
   const body = e
     ? `<p>${esc(e.summary)}</p>
       ${e.changes?.length ? `<p><strong>What changes</strong></p><ul>${e.changes.map((c) => `<li><span class="muted">Now:</span> ${esc(c.before)}<br><span class="muted">After:</span> ${esc(c.after)}</li>`).join('')}</ul>` : ''}

@@ -1,18 +1,29 @@
 /**
- * app/src/i18n.js - English / Español.
+ * app/src/i18n.js - the app in the reader's language.
  *
- * The app is written in English; in Spanish, every piece of text the app itself shows (screens,
- * buttons, messages, help, dialogs) is swapped for its translation as it appears on the page.
- * Text people write themselves (poll questions, petitions, comments, names) is never in the
+ * The app is written in English; in another language, every piece of text the app itself shows
+ * (screens, buttons, messages, help, dialogs) is swapped for its translation as it appears on the
+ * page. Text people write themselves (poll questions, petitions, comments, names) is never in the
  * dictionary, so it stays exactly as written: the original is the official record.
  *
  * A dictionary key is the English text with numbers, dates and addresses replaced by {0}, {1}...
- * ("Poll {0} · closes"), so one entry covers every poll. Dates and numbers are shown in Spanish
- * formats. Elements marked translate="no" (codes, addresses) are left alone.
+ * ("Poll {0} · closes"), so one entry covers every poll. A value may also be a set of plural
+ * forms ({ one, few, many, other }) chosen by the first number. Dates and numbers are shown in the
+ * language's own formats; Arabic, Persian, Urdu and Hebrew read right to left. Elements marked
+ * translate="no" (codes, addresses) are left alone.
+ *
+ * Spanish is built in. Other languages are files in app/i18n/<code>.json, loaded only when chosen;
+ * app/i18n/index.json lists them, with "draft" for machine translations not yet reviewed. Each
+ * community lists the languages its government uses (config "languages"); see docs/languages.md.
  */
 
 import ES from './i18n-es.js';
+import INDEX from '../i18n/index.json';
+import { LANG_NAMES, closestLang } from './i18n-names.js';
 
+export { LANG_NAMES };
+
+const RTL = new Set(['ar', 'fa', 'ur', 'he']);
 const KEY = 'mandate.lang';
 const hasDom = typeof document !== 'undefined';
 const store = () => {
@@ -23,43 +34,95 @@ const store = () => {
   }
 };
 
-/** 'es' or 'en': the reader's choice, else the phone's language. */
+const DICTS = { es: ES };
+const META = { es: { status: 'reviewed' } };
+/** Languages with a dictionary: English, Spanish, and those in app/i18n/index.json. */
+export const AVAILABLE = ['en', ...(Object.keys(ES).length ? ['es'] : []), ...Object.keys(INDEX || {}).filter((k) => k !== 'en' && k !== 'es')];
+let community = null; // this community's languages (config "languages"), once known
+
+/** The closest available language for a browser language tag (zh-TW → zh-Hant, es-MX → es). */
+export const matchLang = (tag, available = AVAILABLE) => closestLang(tag, available);
+
+/** The reader's choice, else the phone's language, else English. */
 export function getLang() {
   const saved = store()?.getItem(KEY);
-  if (saved === 'es' || saved === 'en') return saved;
+  if (saved && AVAILABLE.includes(saved)) return saved;
   const langs = hasDom ? navigator.languages || [navigator.language] : [];
-  return langs.some((l) => /^es\b/i.test(l || '')) ? 'es' : 'en';
+  for (const l of langs) {
+    const m = matchLang(l);
+    if (m) return m;
+  }
+  return 'en';
 }
 export let LANG = getLang();
 const collecting = hasDom && store()?.getItem('mandate.i18n-collect') === '1';
+const dict = () => DICTS[LANG];
 
-/** Switch language: in place (keeps the voter's key unlocked) or by reloading the page. */
-export function setLang(l, { live = false } = {}) {
-  store()?.setItem(KEY, l);
-  if (!live) return location.reload();
-  LANG = l;
+/** Load a language's dictionary (Spanish is built in). Resolves false if it can't be loaded. */
+export async function loadDict(l) {
+  if (l === 'en' || DICTS[l]) return true;
+  try {
+    const res = await fetch(new URL(`i18n/${encodeURIComponent(l)}.json`, location.href));
+    if (!res.ok) return false;
+    const d = await res.json();
+    DICTS[l] = d.entries || {};
+    META[l] = d.meta || {};
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function setDocLang(l) {
   document.documentElement.lang = l;
-  if (l === 'es') {
-    done = new WeakMap();
-    walk(document.body);
-  } else {
-    const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT);
-    for (let n = w.nextNode(); n; n = w.nextNode()) {
-      if (n.nodeType === 3) {
-        if (orig.has(n) && done.get(n) === n.data) n.data = orig.get(n);
-        done.set(n, n.data);
-      } else {
-        for (const a of ATTRS) {
-          const k = `orig${a.replace('-', '')}`;
-          if (n.dataset?.[k] !== undefined && n.getAttribute(a) === n.dataset[`tr${a.replace('-', '')}`]) n.setAttribute(a, n.dataset[k]);
-          if (n.dataset) n.dataset[`tr${a.replace('-', '')}`] = n.getAttribute(a) || '';
-        }
+  document.documentElement.dir = RTL.has(l) ? 'rtl' : 'ltr';
+}
+
+/** Put the page back in English (before showing it in another language). */
+function restoreEnglish() {
+  const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT);
+  for (let n = w.nextNode(); n; n = w.nextNode()) {
+    if (n.nodeType === 3) {
+      if (orig.has(n) && done.get(n) === n.data) n.data = orig.get(n);
+      done.set(n, n.data);
+    } else if (n.dataset) {
+      for (const a of ATTRS) {
+        const k = a.replace('-', '');
+        if (n.dataset[`orig${k}`] !== undefined && n.getAttribute(a) === n.dataset[`tr${k}`]) n.setAttribute(a, n.dataset[`orig${k}`]);
+        delete n.dataset[`tr${k}`]; // so the next language translates it again
       }
     }
   }
+}
+
+/** Show the whole page (again) in the current language. */
+function showInLang() {
+  if (LANG !== 'en') {
+    done = new WeakMap();
+    walk(document.body);
+  }
   document.title = t(originalTitle);
   for (const el of document.querySelectorAll('#lang-switch')) el.innerHTML = langSwitchHtml();
+}
+
+/** Switch language: in place (keeps the voter's key unlocked) or by reloading the page. */
+export async function setLang(l, { live = false } = {}) {
+  if (!AVAILABLE.includes(l)) return;
+  store()?.setItem(KEY, l);
+  if (!live) return location.reload();
+  if (!(await loadDict(l))) return;
+  restoreEnglish();
+  LANG = l;
+  setDocLang(l);
+  showInLang();
   document.dispatchEvent(new CustomEvent('langchange', { detail: l }));
+}
+
+/** This community's languages, from its config: the switch offers these (and the one in use). */
+export function setLanguages(list) {
+  if (!Array.isArray(list) || !list.length) return;
+  community = list.map((x) => matchLang(x, Object.keys(LANG_NAMES)) || String(x)).filter((x, i, a) => a.indexOf(x) === i);
+  if (hasDom) for (const el of document.querySelectorAll('#lang-switch')) el.innerHTML = langSwitchHtml();
 }
 
 // ---------------------------------------------------------------- keys
@@ -91,10 +154,15 @@ function keyOf(text) {
 
 /** Translate one piece of app text (keeps surrounding spaces); unknown text comes back as is. */
 export function t(text) {
-  if (LANG !== 'es' || !text) return text;
+  if (LANG === 'en' || !text || !dict()) return text;
   const k = keyOf(String(text));
   if (!k) return text;
-  const tr = ES[k.key];
+  let tr = dict()[k.key];
+  if (tr && typeof tr === 'object') {
+    // Plural forms, chosen by the first number in the text.
+    const n = Number(String(k.vals[0] ?? '').replace(/,/g, ''));
+    tr = tr[new Intl.PluralRules(LANG).select(Number.isFinite(n) ? n : 0)] ?? tr.other;
+  }
   if (tr === undefined) {
     // Status lines are built from pieces ("Closed · passed · Members"): translate piece by piece.
     const parts = String(text).split(' · ');
@@ -161,14 +229,14 @@ function walk(root) {
 /** Show the page in the reader's language: call once at start, before anything renders. */
 export function startI18n() {
   if (!hasDom) return;
-  document.documentElement.lang = LANG;
+  setDocLang(LANG);
   // Pop-up questions and messages too (confirm, alert, prompt).
   for (const fn of ['confirm', 'alert', 'prompt']) {
     const orig = window[fn]?.bind(window);
     if (orig) window[fn] = (m, ...rest) => orig(typeof m === 'string' ? t(m) : m, ...rest);
   }
-  // Dates and numbers in Spanish formats; each date shown is remembered as a value.
-  const loc = () => (LANG === 'es' ? 'es' : undefined);
+  // Dates and numbers in the language's formats; each date shown is remembered as a value.
+  const loc = () => (LANG === 'en' ? undefined : LANG);
   for (const f of ['toLocaleString', 'toLocaleDateString', 'toLocaleTimeString']) {
     const orig = Date.prototype[f];
     Date.prototype[f] = function (l, o) {
@@ -201,8 +269,11 @@ export function startI18n() {
       }
     }).observe(document.body, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ATTRS });
   };
+  // A language whose dictionary is a separate file: show the page in it once it has loaded.
+  const ready = () => (DICTS[LANG] || LANG === 'en' ? Promise.resolve() : loadDict(LANG).then((ok) => ok && document.body && showInLang()));
   if (document.body) go();
   else document.addEventListener('DOMContentLoaded', go, { once: true });
+  ready();
   if (collecting) window.__i18nSeen = seen;
 }
 
@@ -220,7 +291,7 @@ export function collectHtml(html) {
 
 /** Translate an HTML snippet's text before it is shown (help pages, whose rule values are filled in after). */
 export function translateHtml(html) {
-  if (LANG !== 'es' || !hasDom) return html;
+  if (LANG === 'en' || !hasDom) return html;
   const div = document.createElement('div');
   div.innerHTML = html;
   const w = document.createTreeWalker(div, NodeFilter.SHOW_TEXT);
@@ -228,23 +299,34 @@ export function translateHtml(html) {
   return div.innerHTML;
 }
 
-/** The English / Español switch. */
+/** The language switch: a button for two languages, a list for more. */
 export function langSwitchHtml() {
-  if (!Object.keys(ES).length) return ''; // no translation yet
-  return `<button type="button" class="lang-switch" data-lang="${LANG === 'es' ? 'en' : 'es'}" translate="no" lang="${LANG === 'es' ? 'en' : 'es'}">${LANG === 'es' ? 'English' : 'Español'}</button>`;
+  const offered = (community || AVAILABLE).filter((l) => AVAILABLE.includes(l));
+  if (!offered.includes(LANG)) offered.push(LANG);
+  if (offered.length < 2) return '';
+  const draft = META[LANG]?.status === 'draft' ? ' <span class="note">Machine translation, under review</span>' : '';
+  if (offered.length === 2) {
+    const other = offered.find((l) => l !== LANG);
+    return `<button type="button" class="lang-switch" data-lang="${other}" translate="no" lang="${other}">${LANG_NAMES[other] || other}</button>${draft}`;
+  }
+  return `<select class="lang-switch" data-lang-select aria-label="Language" translate="no">${offered.map((l) => `<option value="${l}" lang="${l}"${l === LANG ? ' selected' : ''}>${LANG_NAMES[l] || l}</option>`).join('')}</select>${draft}`;
 }
 export function wireLangSwitch(root = document, opts = {}) {
   root.addEventListener('click', (e) => {
     const b = e.target.closest('[data-lang]');
     if (b) setLang(b.dataset.lang, opts);
   });
+  root.addEventListener('change', (e) => {
+    const s = e.target.closest('[data-lang-select]');
+    if (s) setLang(s.value, opts);
+  });
 }
 
 /** Countdown words ("in", "ago", "just now") and their labels. */
 export const rel = {
-  now: () => (LANG === 'es' ? 'ahora mismo' : 'just now'),
-  future: (s) => (LANG === 'es' ? `en ${s}` : `in ${s}`),
-  past: (s) => (LANG === 'es' ? `hace ${s}` : `${s} ago`),
+  now: () => (LANG === 'es' ? 'ahora mismo' : LANG !== 'en' && dict()?.__now ? dict().__now : 'just now'),
+  future: (x) => (LANG === 'es' ? `en ${x}` : LANG !== 'en' && dict()?.__future ? dict().__future.replace('{s}', x) : `in ${x}`),
+  past: (x) => (LANG === 'es' ? `hace ${x}` : LANG !== 'en' && dict()?.__past ? dict().__past.replace('{s}', x) : `${x} ago`),
   prefix: (p) => {
     if (!p) return p;
     note(p);

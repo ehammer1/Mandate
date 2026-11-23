@@ -71,6 +71,11 @@ function normalizeSpec(spec) {
   s.seasoningDays = Number(s.seasoningDays ?? 30);
   if (!(s.seasoningDays >= 1 && s.seasoningDays <= 365)) throw new Error('seasoningDays: the new-member wait before full voting rights, 1 to 365 days');
   s.domain = normalizeDomain(s.domain);
+  // The languages the community's government uses for elections and official notices (docs/languages.md).
+  if (s.languages !== undefined) {
+    const known = new Set(['en', 'es', 'zh-Hans', 'zh-Hant', 'vi', 'ko', 'tl', 'ja', 'hi', 'bn', 'pa', 'gu', 'ur', 'ar', 'fa', 'he', 'ru', 'uk', 'pl', 'ht', 'fr', 'pt', 'de', 'it', 'so', 'am', 'km', 'lo', 'hmn', 'my', 'ne', 'sw', 'tr', 'nv']);
+    if (!Array.isArray(s.languages) || !s.languages.length || s.languages.some((l) => !known.has(l))) throw new Error(`languages: a list of language codes, e.g. ["en", "es", "zh-Hant", "vi"] (known: ${[...known].join(', ')})`);
+  }
   return s;
 }
 

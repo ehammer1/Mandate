@@ -115,3 +115,7 @@ existing website is untouched.
 Voter lists, votes, polls, petitions, mandates, councils, clerks, paper counts and watchdog
 alerts. A person in two communities joins each one's voter list; their votes in one say nothing
 about the other.
+
+## Languages
+
+List the languages the community's government uses for elections and notices in the spec (`"languages": ["en", "es", "vi"]`); see [languages.md](languages.md).
